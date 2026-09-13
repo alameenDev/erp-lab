@@ -1,0 +1,22 @@
+parameters:
+    level: 5
+    paths:
+        - app
+        - bootstrap
+        - config
+        - routes
+        - tests
+    excludePaths:
+        - vendor/*
+        - storage/*
+        - bootstrap/cache/*
+    ignoreErrors:
+        - '#Access to an undefined property#'
+        - '#Call to an undefined method#'
+        - '#Call to an undefined static method#'
+        - '#Parameter \#\d+ \$[a-zA-Z0-9_]+ of method [a-zA-Z0-9\\_]+::[a-zA-Z0-9_]+\(\) expects#'
+    tmpDir: storage/framework/cache/phpstan
+    parallel:
+        maximumNumberOfProcesses: 4
+    treatPhpDocTypesAsCertain: false
+    reportUnmatchedIgnoredErrors: false
