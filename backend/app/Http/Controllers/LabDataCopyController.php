@@ -41,7 +41,7 @@ class LabDataCopyController extends Controller
         if ($search) {
             $query->where(function ($q) use ($meta, $search) {
                 foreach ($meta['searchCols'] as $col) {
-                    $q->orWhere($col, 'ilike', "%{$search}%");
+                    $q->orWhereLike($col, "%{$search}%");
                 }
             });
         }

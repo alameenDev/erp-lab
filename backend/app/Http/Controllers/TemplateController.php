@@ -21,7 +21,7 @@ class TemplateController extends Controller
         }
 
         if ($request->has('name')) {
-            $templateQuery->where('name', 'ilike', '%' . $request->name . '%');
+            $templateQuery->whereLike('name', '%' . $request->name . '%');
         }
         if ($request->has('type')) {
             $templateQuery->where('type', $request->type);

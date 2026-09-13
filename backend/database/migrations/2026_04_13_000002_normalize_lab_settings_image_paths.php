@@ -9,17 +9,22 @@ return new class extends Migration
     {
         // Strip any "http(s)://.../storage/" prefix from stored values,
         // leaving only the relative path (e.g. "logos/abc.png").
-        DB::statement(<<<'SQL'
-            UPDATE lab_settings
-            SET logo = regexp_replace(logo, '^https?://[^/]+/storage/', '')
-            WHERE logo IS NOT NULL AND logo ~ '^https?://'
-        SQL);
-
-        DB::statement(<<<'SQL'
-            UPDATE lab_settings
-            SET report_background = regexp_replace(report_background, '^https?://[^/]+/storage/', '')
-            WHERE report_background IS NOT NULL AND report_background ~ '^https?://'
-        SQL);
+        DB::table('lab_settings')->orderBy('id')->chunkById(500, function ($settings) {
+            foreach ($settings as $setting) {
+                $changes = [];
+                foreach (['logo', 'report_background'] as $column) {
+                    if ($setting->$column !== null) {
+                        $path = preg_replace('#^https?://[^/]+/storage/#', '', $setting->$column);
+                        if ($path !== $setting->$column) {
+                            $changes[$column] = $path;
+                        }
+                    }
+                }
+                if ($changes) {
+                    DB::table('lab_settings')->where('id', $setting->id)->update($changes);
+                }
+            }
+        });
     }
 
     public function down(): void

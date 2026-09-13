@@ -69,7 +69,7 @@ class ReferalController extends Controller
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
-        $query = User::with(['role', 'referals'])->where('name', 'ilike', '%'.$request->name.'%')->whereIn('role_id', [2, 4, 5]);
+        $query = User::with(['role', 'referals'])->whereLike('name', '%'.$request->name.'%')->whereIn('role_id', [2, 4, 5]);
         if ($user->role_id != 1) {
             $users_ids = $this->getTenantUserIds();
             $query->where(function ($q) use ($users_ids) {

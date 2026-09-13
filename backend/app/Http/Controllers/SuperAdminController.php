@@ -104,7 +104,9 @@ class SuperAdminController extends Controller
             ->where('created_at', '>=', now()->subMonths($months)->startOfMonth())
             ->groupBy('month')
             ->select(
-                DB::raw("DATE_TRUNC('month', created_at) as month"),
+                DB::raw(in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)
+                    ? "DATE_FORMAT(created_at, '%Y-%m-01') as month"
+                    : "DATE_TRUNC('month', created_at) as month"),
                 DB::raw('COALESCE(SUM(total), 0) as revenue'),
                 DB::raw('COALESCE(SUM(paid), 0) as paid'),
                 DB::raw('COUNT(*) as invoice_count')
@@ -151,7 +153,9 @@ class SuperAdminController extends Controller
             ->where('created_at', '>=', now()->subMonths(6)->startOfMonth())
             ->groupBy('month')
             ->select(
-                DB::raw("DATE_TRUNC('month', created_at) as month"),
+                DB::raw(in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)
+                    ? "DATE_FORMAT(created_at, '%Y-%m-01') as month"
+                    : "DATE_TRUNC('month', created_at) as month"),
                 DB::raw('COALESCE(SUM(total), 0) as revenue'),
                 DB::raw('COALESCE(SUM(paid), 0) as paid')
             )
@@ -183,8 +187,8 @@ class SuperAdminController extends Controller
         if ($request->search) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
-                $q->where('name', 'ilike', "%{$search}%")
-                    ->orWhere('email', 'ilike', "%{$search}%");
+                $q->whereLike('name', "%{$search}%")
+                    ->orWhereLike('email', "%{$search}%");
             });
         }
 
@@ -261,7 +265,7 @@ class SuperAdminController extends Controller
         }
 
         if ($request->search) {
-            $query->where('description', 'ilike', "%{$request->search}%");
+            $query->whereLike('description', "%{$request->search}%");
         }
 
         $activities = $query->orderByDesc('created_at')->paginate(50);
@@ -314,11 +318,11 @@ class SuperAdminController extends Controller
         if ($request->search) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
-                $q->where('code', 'ilike', "%{$search}%")
-                    ->orWhere('barcode', 'ilike', "%{$search}%")
+                $q->whereLike('code', "%{$search}%")
+                    ->orWhereLike('barcode', "%{$search}%")
                     ->orWhereHas('user', function ($q2) use ($search) {
-                        $q2->where('name', 'ilike', "%{$search}%")
-                            ->orWhere('phone_number', 'ilike', "%{$search}%");
+                        $q2->whereLike('name', "%{$search}%")
+                            ->orWhereLike('phone_number', "%{$search}%");
                     });
             });
         }

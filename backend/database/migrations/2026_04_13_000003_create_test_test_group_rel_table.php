@@ -24,13 +24,19 @@ return new class extends Migration
         });
 
         // Backfill from legacy tests.test_group_id_fk
-        DB::statement(<<<'SQL'
-            INSERT INTO test_test_group_rel (test_id_fk, test_group_id_fk, "order", created_at, updated_at)
-            SELECT id, test_group_id_fk, COALESCE("order", 0), NOW(), NOW()
-            FROM tests
-            WHERE test_group_id_fk IS NOT NULL
-            ON CONFLICT DO NOTHING
-        SQL);
+        DB::table('tests')->whereNotNull('test_group_id_fk')->orderBy('id')
+            ->chunkById(500, function ($tests) {
+                $rows = $tests->map(fn ($test) => [
+                    'test_id_fk' => $test->id,
+                    'test_group_id_fk' => $test->test_group_id_fk,
+                    'order' => $test->order ?? 0,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ])->all();
+                DB::table('test_test_group_rel')->upsert(
+                    $rows, ['test_id_fk', 'test_group_id_fk'], ['order', 'updated_at']
+                );
+            });
     }
 
     public function down(): void

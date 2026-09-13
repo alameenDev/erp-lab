@@ -67,12 +67,12 @@ class InvoiceController extends Controller
             $term = $request->patient_name;
             $query->where(function ($q) use ($term) {
                 $q->whereHas('patient.user', function ($q2) use ($term) {
-                    $q2->where('name', 'ilike', '%'.$term.'%');
-                })->orWhere('barcode', 'ilike', '%'.$term.'%')
+                    $q2->whereLike('name', '%'.$term.'%');
+                })->orWhereLike('barcode', '%'.$term.'%')
                     ->orWhereHas('invoiceTestRels.test', function ($q2) use ($term) {
-                        $q2->where('name', 'ilike', '%'.$term.'%')
-                            ->orWhere('shortcut', 'ilike', '%'.$term.'%')
-                            ->orWhere('report_name', 'ilike', '%'.$term.'%');
+                        $q2->whereLike('name', '%'.$term.'%')
+                            ->orWhereLike('shortcut', '%'.$term.'%')
+                            ->orWhereLike('report_name', '%'.$term.'%');
                     });
             });
         }
@@ -80,14 +80,14 @@ class InvoiceController extends Controller
         // Filter: from_lab
         if ($request->filled('from_lab')) {
             $query->whereHas('fromLab', function ($q) use ($request) {
-                $q->where('name', 'ilike', '%'.$request->from_lab.'%');
+                $q->whereLike('name', '%'.$request->from_lab.'%');
             });
         }
 
         // Filter: created_by (lab name)
         if ($request->filled('created_by')) {
             $query->whereHas('lab', function ($q) use ($request) {
-                $q->where('name', 'ilike', '%'.$request->created_by.'%');
+                $q->whereLike('name', '%'.$request->created_by.'%');
             });
         }
 
@@ -98,13 +98,13 @@ class InvoiceController extends Controller
 
         // Filter: barcode
         if ($request->filled('barcode')) {
-            $query->where('barcode', 'ilike', '%'.$request->barcode.'%');
+            $query->whereLike('barcode', '%'.$request->barcode.'%');
         }
 
         // Filter: signed_by
         if ($request->filled('signed_by')) {
             $query->whereHas('signedBy', function ($q) use ($request) {
-                $q->where('name', 'ilike', '%'.$request->signed_by.'%');
+                $q->whereLike('name', '%'.$request->signed_by.'%');
             });
         }
 
@@ -1611,10 +1611,10 @@ class InvoiceController extends Controller
             ->where('role_id', 3)
             ->where(function ($q) use ($searchTerm) {
                 // Case-insensitive search on name, phone, and patient code
-                $q->where('name', 'ilike', '%'.$searchTerm.'%')
-                    ->orWhere('phone_number', 'ilike', '%'.$searchTerm.'%')
+                $q->whereLike('name', '%'.$searchTerm.'%')
+                    ->orWhereLike('phone_number', '%'.$searchTerm.'%')
                     ->orWhereHas('patient', function ($subQ) use ($searchTerm) {
-                        $subQ->where('code', 'ilike', '%'.$searchTerm.'%');
+                        $subQ->whereLike('code', '%'.$searchTerm.'%');
                     });
             });
 
@@ -1666,7 +1666,7 @@ class InvoiceController extends Controller
         $authUser = Auth::user();
 
         $query = User::with('patient')
-            ->where('phone_number', 'ilike', '%'.$request->phone_number.'%')
+            ->whereLike('phone_number', '%'.$request->phone_number.'%')
             ->where('role_id', 3);
 
         // Multi-tenant filtering: Non-admin users only see their own lab's patients
@@ -1717,7 +1717,7 @@ class InvoiceController extends Controller
         $authUser = Auth::user();
 
         $query = Patient::with('user')
-            ->where('code', 'ilike', '%'.$request->code.'%');
+            ->whereLike('code', '%'.$request->code.'%');
 
         // Multi-tenant filtering: Non-admin users only see their own lab's patients
         if ($authUser && $authUser->role_id != 1) {

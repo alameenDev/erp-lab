@@ -41,49 +41,49 @@ class TestController extends Controller
         if ($request->filled('search')) {
             $term = $request->search;
             $query->where(function ($q) use ($term) {
-                $q->where('name', 'ilike', '%'.$term.'%')
-                    ->orWhere('shortcut', 'ilike', '%'.$term.'%')
-                    ->orWhere('report_name', 'ilike', '%'.$term.'%');
+                $q->whereLike('name', '%'.$term.'%')
+                    ->orWhereLike('shortcut', '%'.$term.'%')
+                    ->orWhereLike('report_name', '%'.$term.'%');
             });
         }
 
         // Apply search filters if provided
         if ($request->has('name') && $request->name !== null && $request->name !== '') {
-            $query->where('name', 'ilike', '%'.$request->name.'%');
+            $query->whereLike('name', '%'.$request->name.'%');
         }
 
         if ($request->has('shortcut') && $request->shortcut !== null && $request->shortcut !== '') {
-            $query->where('shortcut', 'ilike', '%'.$request->shortcut.'%');
+            $query->whereLike('shortcut', '%'.$request->shortcut.'%');
         }
 
         if ($request->has('interface_code') && $request->interface_code !== null && $request->interface_code !== '') {
-            $query->where('interface_code', 'ilike', '%'.$request->interface_code.'%');
+            $query->whereLike('interface_code', '%'.$request->interface_code.'%');
         }
 
         if ($request->has('report_name') && $request->report_name !== null && $request->report_name !== '') {
-            $query->where('report_name', 'ilike', '%'.$request->report_name.'%');
+            $query->whereLike('report_name', '%'.$request->report_name.'%');
         }
 
         if ($request->has('category_name') && $request->category_name !== null && $request->category_name !== '') {
             $query->whereHas('category', function ($query) use ($request) {
-                $query->where('name', 'ilike', '%'.$request->category_name.'%');
+                $query->whereLike('name', '%'.$request->category_name.'%');
             });
         }
 
         if ($request->has('test_group_name') && $request->test_group_name !== null && $request->test_group_name !== '') {
             $query->whereHas('testGroup', function ($query) use ($request) {
-                $query->where('group_name', 'ilike', '%'.$request->test_group_name.'%');
+                $query->whereLike('group_name', '%'.$request->test_group_name.'%');
             });
         }
 
         if ($request->has('sample_name') && $request->sample_name !== null && $request->sample_name !== '') {
             $query->whereHas('sample', function ($query) use ($request) {
-                $query->where('sample_name', 'ilike', '%'.$request->sample_name.'%');
+                $query->whereLike('sample_name', '%'.$request->sample_name.'%');
             });
         }
 
         if ($request->has('price') && $request->price !== null && $request->price !== '') {
-            $query->where('price', 'ilike', '%'.$request->price.'%');
+            $query->whereLike('price', '%'.$request->price.'%');
         }
 
         $tests = $query->select('tests.*')
@@ -122,16 +122,16 @@ class TestController extends Controller
             if ($request->filled('search')) {
                 $term = $request->search;
                 $groupQuery->where(function ($q) use ($term) {
-                    $q->where('group_name', 'ilike', '%'.$term.'%')
-                        ->orWhere('shortcut', 'ilike', '%'.$term.'%')
+                    $q->whereLike('group_name', '%'.$term.'%')
+                        ->orWhereLike('shortcut', '%'.$term.'%')
                         ->orWhereHas('tests', function ($q2) use ($term) {
-                            $q2->where('name', 'ilike', '%'.$term.'%')
-                                ->orWhere('shortcut', 'ilike', '%'.$term.'%')
-                                ->orWhere('report_name', 'ilike', '%'.$term.'%');
+                            $q2->whereLike('name', '%'.$term.'%')
+                                ->orWhereLike('shortcut', '%'.$term.'%')
+                                ->orWhereLike('report_name', '%'.$term.'%');
                         });
                 });
             } elseif ($request->has('name') && $request->name !== null && $request->name !== '') {
-                $groupQuery->where('group_name', 'ilike', '%'.$request->name.'%');
+                $groupQuery->whereLike('group_name', '%'.$request->name.'%');
             }
 
             $groups = $groupQuery->select('test_groups.*')
@@ -205,11 +205,11 @@ class TestController extends Controller
 
         // Apply search filters if provided
         if ($request->has('name')) {
-            $query->where('name', 'ilike', '%'.$request->name.'%');
+            $query->whereLike('name', '%'.$request->name.'%');
         }
 
         if ($request->has('shortcut')) {
-            $query->where('shortcut', 'ilike', '%'.$request->shortcut.'%');
+            $query->whereLike('shortcut', '%'.$request->shortcut.'%');
         }
 
         if ($request->has('test_group_id')) {
@@ -229,7 +229,7 @@ class TestController extends Controller
         }
 
         if ($request->has('interface_code')) {
-            $query->where('interface_code', 'ilike', '%'.$request->interface_code.'%');
+            $query->whereLike('interface_code', '%'.$request->interface_code.'%');
         }
 
         // Include relationships

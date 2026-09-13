@@ -9,7 +9,9 @@ Medical laboratory management project imported from the supplied frontend and ba
 
 ## Local setup
 
-Backend requires PHP 8.4+, Composer and a configured database (the example uses PostgreSQL).
+Backend requires PHP 8.4+, Composer and MariaDB/MySQL (PDO MySQL).
+
+For Hostinger installation, use [backend/HOSTINGER_SETUP.md](backend/HOSTINGER_SETUP.md). The `erp:install` command provisions reference data and a private administrator account without demo records.
 
 ```sh
 cd backend
@@ -17,7 +19,7 @@ composer install
 cp .env.example .env
 # Configure your database credentials and APP_URL in .env.
 php artisan key:generate
-php artisan migrate
+php artisan erp:install
 php artisan storage:link
 php artisan serve
 ```
@@ -38,4 +40,4 @@ Existing seeders include demo users and passwords; review them before using seed
 
 ## Configuration
 
-Private `.env` files, credentials, dependencies and runtime files are excluded from version control. Supply deployment credentials separately. This import does not configure hosting or change the database provider.
+Private `.env` files, credentials, dependencies and runtime files are excluded from version control. Supply deployment credentials separately. MariaDB is the default for new installations. Existing .env settings must be updated explicitly; no live data is transferred automatically.

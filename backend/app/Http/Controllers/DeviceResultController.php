@@ -223,12 +223,12 @@ class DeviceResultController extends Controller
                     ->whereHas('test', function ($q) use ($testCode, $testName) {
                         $q->where(function ($inner) use ($testCode, $testName) {
                             if ($testCode) {
-                                $inner->where('shortcut', 'ilike', $testCode)
-                                      ->orWhere('name', 'ilike', $testCode);
+                                $inner->whereLike('shortcut', $testCode)
+                                      ->orWhereLike('name', $testCode);
                             }
                             if ($testName && $testName !== $testCode) {
-                                $inner->orWhere('shortcut', 'ilike', $testName)
-                                      ->orWhere('name', 'ilike', $testName);
+                                $inner->orWhereLike('shortcut', $testName)
+                                      ->orWhereLike('name', $testName);
                             }
                         });
                     })
