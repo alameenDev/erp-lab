@@ -60,7 +60,9 @@ class InstallErp extends Command
             return self::FAILURE;
         }
         DB::transaction(function () use ($name, $email, $password, $roles) {
-            (new ReferenceDataSeeder)->run();
+            if ($this->call('db:seed', ['--class' => ReferenceDataSeeder::class, '--force' => true]) !== 0) {
+                throw new \RuntimeException('Reference data initialization failed.');
+            }
             foreach ($roles as $offset => $roleName) {
                 $role = Role::where('name', $roleName)->where('guard_name', 'api')->firstOrFail();
                 if ((int) $role->id !== $offset + 1) {
