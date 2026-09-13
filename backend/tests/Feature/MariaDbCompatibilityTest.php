@@ -5,7 +5,7 @@ namespace Tests\Feature;
 use App\Http\Controllers\SuperAdminController;
 use App\Models\User;
 use Database\Seeders\ReferenceDataSeeder;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -13,7 +13,30 @@ use Tests\TestCase;
 
 class MariaDbCompatibilityTest extends TestCase
 {
-    use RefreshDatabase;
+    use DatabaseMigrations;
+
+    public function test_installer_creates_one_admin_without_demo_data_and_preserves_credentials_on_repeat(): void
+    {
+        $this->artisan('erp:install')
+            ->expectsConfirmation('Apply pending migrations and initialize this database?', 'yes')
+            ->expectsQuestion('Administrator name', 'Production Admin')
+            ->expectsQuestion('Administrator email', 'owner@example.test')
+            ->expectsQuestion('Password (at least 12 characters; input is hidden)', 'Unique-test-password-123')
+            ->expectsQuestion('Confirm password', 'Unique-test-password-123')
+            ->assertExitCode(0);
+        $admin = User::where('email', 'owner@example.test')->firstOrFail();
+        $this->assertTrue($admin->hasRole('Admin'));
+        $this->assertTrue(Hash::check('Unique-test-password-123', $admin->password));
+        $this->assertSame(1, (int) $admin->role_id);
+        $this->assertDatabaseCount('users', 1);
+        $this->assertDatabaseCount('patients', 0);
+        $this->assertDatabaseCount('invoices', 0);
+        $this->artisan('erp:install')
+            ->expectsConfirmation('Apply pending migrations and initialize this database?', 'yes')
+            ->assertExitCode(0);
+        $this->assertSame($admin->password, $admin->fresh()->password);
+        $this->assertDatabaseCount('users', 1);
+    }
 
     public function test_reference_data_has_no_demo_users_and_is_repeatable(): void
     {
