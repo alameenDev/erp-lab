@@ -253,6 +253,10 @@ class LabSettingController extends Controller
         $user = Auth::user();
         $labOwnerId = $this->resolveLabOwnerId($user);
 
+        if (! in_array((int) $user->role_id, [1, 2], true) && (int) $user->id !== $labOwnerId) {
+            return response()->json(['message' => 'Only the lab owner can update settings'], 403);
+        }
+
         $setting = LabSetting::where('lab_id_fk', $labOwnerId)->first();
         if (! $setting || ! $setting->logo) {
             return response()->json(['message' => 'No logo to remove'], 404);
@@ -272,6 +276,10 @@ class LabSettingController extends Controller
         $user = Auth::user();
         $labOwnerId = $this->resolveLabOwnerId($user);
 
+        if (! in_array((int) $user->role_id, [1, 2], true) && (int) $user->id !== $labOwnerId) {
+            return response()->json(['message' => 'Only the lab owner can update settings'], 403);
+        }
+
         $setting = LabSetting::where('lab_id_fk', $labOwnerId)->first();
         if (! $setting || ! $setting->getRawOriginal('report_background')) {
             return response()->json(['message' => 'No background to remove'], 404);
@@ -290,6 +298,7 @@ class LabSettingController extends Controller
     {
         $user = Auth::user();
         $labOwnerId = $this->resolveLabOwnerId($user);
+        $request->validate(['section' => 'required|in:branding,print,all']);
         $section = $request->input('section', 'all'); // branding, print, or all
 
         if ($user->role_id != 1 && $user->role_id != 2 && $user->id !== $labOwnerId) {
@@ -326,6 +335,9 @@ class LabSettingController extends Controller
                 'show_last_result' => false,
                 'print_black_white' => false,
                 'barcode_config' => null,
+                'patient_header_config' => null,
+                'print_table_config' => null,
+                'document_config' => null,
                 'report_background' => null,
             ]);
         } else {

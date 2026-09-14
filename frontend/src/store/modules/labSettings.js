@@ -2,6 +2,13 @@ import { defineStore } from "pinia";
 import { $http } from "@/plugins/axios";
 import { applyBranding } from "@/utils/branding";
 
+const normalizeSettings = (data = {}) => ({
+ ...data,
+ print_margins: {top:20,bottom:20,left:15,right:15,...data?.print_margins},
+ barcode_config: {label_width:3,label_height:1.5,name_size:9,info_size:7,number_size:6,barcode_height:40,sample_size:8,tests_size:7,...data?.barcode_config},
+ patient_header_config: {name_size:20,info_size:13,barcode_height:35,qr_size:90,line_height:1.7,...data?.patient_header_config},
+ print_table_config: {header_font_size:13,header_font_family:"inherit",header_color:"#0f172a",header_bg_color:"#f1f5f9",header_font_weight:"bold",body_font_size:13,body_font_family:"inherit",body_color:"#1e293b",body_bg_color:"#ffffff",border_color:"#e2e8f0",cell_padding:6,section_spacing:12,...data?.print_table_config},
+});
 export const useLabSettingsStore = defineStore("labSettings", {
      state: () => ({
           settings: {
@@ -22,12 +29,7 @@ export const useLabSettingsStore = defineStore("labSettings", {
                     // Normalize null jsonb configs to defaults so templates that
                     // bind `settings.X.field` directly (no ?. guard) don't crash
                     // on labs that haven't saved that section yet.
-                    this.settings = {
-                         ...data,
-                         print_margins: data?.print_margins || { top: 20, bottom: 20, left: 15, right: 15 },
-                         barcode_config: data?.barcode_config || { label_width: 3, label_height: 1.5, name_size: 9, info_size: 7, number_size: 6, barcode_height: 40, sample_size: 8, tests_size: 7 },
-                         patient_header_config: data?.patient_header_config || { name_size: 20, info_size: 13, barcode_height: 35, qr_size: 90, line_height: 1.7 },
-                    };
+                    this.settings = normalizeSettings(data);
                } catch (error) {
                     console.error("Error fetching lab settings:", error);
                } finally {
@@ -39,7 +41,7 @@ export const useLabSettingsStore = defineStore("labSettings", {
                     const { data } = await $http.post("/lab-settings", formData, {
                          headers: { "Content-Type": "multipart/form-data" },
                     });
-                    this.settings = data.setting;
+                    this.settings = normalizeSettings(data.setting);
                     applyBranding(this.settings);
                     return data;
                } catch (error) {
@@ -50,7 +52,7 @@ export const useLabSettingsStore = defineStore("labSettings", {
           async ResetSettings(section = "all") {
                try {
                     const { data } = await $http.post("/lab-settings/reset", { section });
-                    this.settings = data.setting;
+                    this.settings = normalizeSettings(data.setting);
 
                     // Clear branding cache
                     const darkStyle = document.getElementById("lab-branding-dark");

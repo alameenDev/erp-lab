@@ -1443,7 +1443,7 @@ class InvoiceController extends Controller
             DB::commit();
 
             return response()->json($invoiceJson);
-        } catch (\\Illuminate\\Validation\\ValidationException $e) {
+        } catch (\Illuminate\Validation\ValidationException $e) {
             DB::rollBack();
             throw $e;
         } catch (Exception $e) {
@@ -2252,7 +2252,7 @@ class InvoiceController extends Controller
             $invoice->save();
 
             // Upsert bypasses Eloquent observers, so reconcile all completed relations here.
-            $inventory = app(\\App\\Services\\InventoryService::class);
+            $inventory = app(\App\Services\InventoryService::class);
             InvoiceTestRel::where('invoice_id_fk', $invoice->id)->get()->each(
                 fn (InvoiceTestRel $relation) => $inventory->consumeInitial($relation)
             );
