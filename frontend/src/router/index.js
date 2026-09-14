@@ -80,7 +80,7 @@ const router = createRouter({
                     {
                          path: "/priceList",
                          name: "priceList",
-                         component: () => import("@/views/priceList/index.vue"),
+                         component: () => import("@/views/pricelist/index.vue"),
                     },
                     {
                          path: "/paymentMethods",
