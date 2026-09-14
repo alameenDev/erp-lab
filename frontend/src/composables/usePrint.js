@@ -45,12 +45,19 @@ export function usePrint() {
         `);
         frameDoc.close();
 
-        printFrame.contentWindow.focus();
-        printFrame.contentWindow.print();
-        printFrame.contentWindow.onafterprint = () => {
-          document.body.removeChild(printFrame);
-          resolve();
+        const runPrint = async () => {
+          await Promise.all(Array.from(frameDoc.images).map(image => image.complete
+            ? Promise.resolve()
+            : new Promise(done => { image.onload = done; image.onerror = done; })));
+          if (frameDoc.fonts?.ready) await frameDoc.fonts.ready;
+          printFrame.contentWindow.onafterprint = () => {
+            printFrame.remove();
+            resolve();
+          };
+          printFrame.contentWindow.focus();
+          printFrame.contentWindow.print();
         };
+        runPrint().catch(() => { printFrame.remove(); resolve(); });
       }, delay);
     });
   };
@@ -78,12 +85,19 @@ export function usePrint() {
         `);
         frameDoc.close();
 
-        printFrame.contentWindow.focus();
-        printFrame.contentWindow.print();
-        printFrame.contentWindow.onafterprint = () => {
-          document.body.removeChild(printFrame);
-          resolve();
+        const runPrint = async () => {
+          await Promise.all(Array.from(frameDoc.images).map(image => image.complete
+            ? Promise.resolve()
+            : new Promise(done => { image.onload = done; image.onerror = done; })));
+          if (frameDoc.fonts?.ready) await frameDoc.fonts.ready;
+          printFrame.contentWindow.onafterprint = () => {
+            printFrame.remove();
+            resolve();
+          };
+          printFrame.contentWindow.focus();
+          printFrame.contentWindow.print();
         };
+        runPrint().catch(() => { printFrame.remove(); resolve(); });
       }, delay);
     });
   };
