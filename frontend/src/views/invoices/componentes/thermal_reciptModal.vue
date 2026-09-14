@@ -1,5 +1,9 @@
 <script setup>
 import { ref, computed, watch } from "vue";
+import { useLabSettingsStore } from "@/store/modules/labSettings";
+import { documentConfig } from "@/utils/labDocuments";
+const labSettingsStore = useLabSettingsStore();
+const receiptConfig = computed(() => documentConfig(labSettingsStore.settings,"thermal"));
 import { storeToRefs } from "pinia";
 import JsBarcode from "jsbarcode";
 import QRCode from "qrcode";
@@ -63,6 +67,7 @@ const hasIndividualTests = computed(() => printRecord.value?.tests?.length > 0 |
 
       <!-- ===== Header ===== -->
       <div class="header">
+        <div v-if="labSettingsStore.settings.lab_display_name" class="title">{{ labSettingsStore.settings.lab_display_name }}</div>
         <div class="title">INVOICE</div>
       </div>
 
@@ -251,7 +256,7 @@ const hasIndividualTests = computed(() => printRecord.value?.tests?.length > 0 |
 
       <!-- ===== Footer ===== -->
       <div class="footer">
-        <p>Thank you for choosing our lab</p>
+        <p style="white-space: pre-line">{{ receiptConfig.footer }}</p>
         <p>We wish you good health</p>
       </div>
 

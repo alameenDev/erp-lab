@@ -1,5 +1,9 @@
 <script setup>
 import { ref, computed, onMounted } from "vue";
+import { useLabSettingsStore } from "@/store/modules/labSettings";
+import { documentConfig, documentCss } from "@/utils/labDocuments";
+const labSettingsStore = useLabSettingsStore();
+const invoiceConfig = computed(() => documentConfig(labSettingsStore.settings,"invoice"));
 import { storeToRefs } from "pinia";
 import { useRoute } from "vue-router";
 import JsBarcode from "jsbarcode";
@@ -147,7 +151,7 @@ const openprintINvoiceTemplate = (data) => {
       <html>
         <head>
           <title>Print Invoice</title>
-          <style>${css}</style>
+          <style>${css + documentCss(labSettingsStore.settings,"invoice")}</style>
         </head>
         <body>${jobContent}</body>
       </html>
@@ -171,6 +175,7 @@ const openprintINvoiceTemplate = (data) => {
     <div class="inv">
 
       <!-- ===== TITLE ===== -->
+      <div v-if="labSettingsStore.settings.lab_display_name" class="inv-title">{{ labSettingsStore.settings.lab_display_name }}</div>
       <div class="inv-title">Invoice</div>
 
       <!-- ===== BARCODES + QR ===== -->
@@ -373,7 +378,7 @@ const openprintINvoiceTemplate = (data) => {
       </div>
 
       <!-- ===== FOOTER ===== -->
-      <div class="footer">
+      <div class="footer"><p style="white-space:pre-line">{{ invoiceConfig.footer }}</p>
         <p>Thank you for choosing our lab &mdash; We wish you good health</p>
       </div>
 

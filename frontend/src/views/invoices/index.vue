@@ -10,6 +10,7 @@ import { useAuthStore } from "@/store/modules/auth";
 import { t, showAlertWithConfirm } from "@/utils/helper";
 import { useToast } from "@/composables/useToast";
 import { usePrint } from "@/composables/usePrint";
+import { documentCss, messageTemplate } from "@/utils/labDocuments";
 import { useLabSettingsStore } from "@/store/modules/labSettings";
 import { format } from "date-fns";
 import * as XLSX from "xlsx";
@@ -258,7 +259,7 @@ const openthermalRecord = async (data) => {
   openMenuId.value = null;
   await printWithIframe(
     "thermalRecord",
-    printStyles.thermalReceipt,
+    printStyles.thermalReceipt + documentCss(labSettingsStore.settings, 'thermal'),
     "Thermal Receipt",
     100,
     () => invoicesStore.GetinvoicesById(data.id)
@@ -269,7 +270,7 @@ const openprintINvoiceTemplate = async (data) => {
   openMenuId.value = null;
   await printWithIframe(
     "printInvoice",
-    printStyles.invoice,
+    printStyles.invoice + documentCss(labSettingsStore.settings, 'invoice'),
     "Print Invoice",
     100,
     () => invoicesStore.GetinvoicesById(data.id)
@@ -282,12 +283,12 @@ const printParcode = (data) => {
 
 const sendWhatsUp = (data) => {
   printRecord.value = data;
-  const labName = User.value?.name;
+  const labName = labSettingsStore.settings.lab_display_name || User.value?.name;
   const patientName = data?.patient?.name;
   const appBaseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
   const url = `${appBaseUrl}/invoice/${data.id}`;
   const message = `اهلا بكم في مختبر ${labName} عزيزي ${patientName} يمكنك الحصول على الفاتورة من خلال الضغط على الرابط ادناه \n\n${url}`;
-  const encodedMessage = encodeURIComponent(message);
+  const encodedMessage = encodeURIComponent(messageTemplate(labSettingsStore.settings.whatsapp_invoice_message, {lab_name:labName,patient_name:patientName,invoice_number:data.id,link:url}, message));
   let phoneNumber = data?.patient?.phone;
   if (phoneNumber?.startsWith("0")) {
     phoneNumber = phoneNumber.substring(1);

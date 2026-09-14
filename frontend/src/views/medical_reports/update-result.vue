@@ -1568,6 +1568,7 @@
 </template>
 
 <script setup>
+import { messageTemplate } from '@/utils/labDocuments';
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { storeToRefs } from "pinia";
@@ -2622,7 +2623,7 @@ const openWhatsAppAction = async (withBg = false) => {
 };
 
 const sendWhatsApp = (rec, withBg = false) => {
-  const labName = User.value?.name || "المختبر";
+  const labName = labSettingsStore.settings.lab_display_name || User.value?.name || "المختبر";
   const patientName = rec?.patient?.name || "المريض";
   const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
   const resultLink = `${appUrl}/result/${rec.id}${withBg ? "?form=1" : ""}`;
@@ -2632,7 +2633,7 @@ const sendWhatsApp = (rec, withBg = false) => {
   if (phone?.startsWith("00")) phone = phone.substring(2);
   if (phone?.startsWith("0")) phone = "964" + phone.substring(1);
   if (!phone?.startsWith("964")) phone = "964" + phone;
-  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank");
+  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(messageTemplate(labSettingsStore.settings.whatsapp_result_message,{lab_name:labName,patient_name:patientName,invoice_number:rec.id,link:resultLink},message))}`, "_blank");
 };
 
 const downloadAsPdf = async (withBg) => {

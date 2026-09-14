@@ -10,6 +10,9 @@ class LabSetting extends Model
 
     protected $fillable = [
         'lab_id_fk',
+        'document_config',
+        'whatsapp_invoice_message',
+        'whatsapp_result_message',
         'logo',
         'primary_color',
         'secondary_color',
@@ -33,6 +36,7 @@ class LabSetting extends Model
     {
         return [
             'print_margins' => 'json',
+            'document_config' => 'array',
             'show_categories' => 'boolean',
             'show_tests_on_barcode' => 'boolean',
             'show_test_names' => 'boolean',

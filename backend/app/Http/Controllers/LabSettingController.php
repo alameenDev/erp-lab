@@ -61,6 +61,26 @@ class LabSettingController extends Controller
         }
 
         $validated = $request->validate([
+            'whatsapp_invoice_message' => 'nullable|string|max:3000',
+            'whatsapp_result_message' => 'nullable|string|max:3000',
+            'document_config' => 'nullable|array:invoice,thermal',
+            'document_config.invoice' => 'sometimes|array:paper,orientation,margin,font_size,color,accent,show_barcode,show_qr,footer',
+            'document_config.thermal' => 'sometimes|array:width,margin,font_size,show_barcode,show_qr,footer',
+            'document_config.invoice.paper' => 'sometimes|in:A4,A5',
+            'document_config.invoice.orientation' => 'sometimes|in:portrait,landscape',
+            'document_config.thermal.width' => 'sometimes|integer|in:58,80',
+            'document_config.invoice.margin' => 'sometimes|numeric|min:0|max:30',
+            'document_config.invoice.font_size' => 'sometimes|integer|min:8|max:24',
+            'document_config.invoice.show_barcode' => 'sometimes|boolean',
+            'document_config.invoice.show_qr' => 'sometimes|boolean',
+            'document_config.invoice.footer' => 'sometimes|nullable|string|max:500',
+            'document_config.thermal.margin' => 'sometimes|numeric|min:0|max:10',
+            'document_config.thermal.font_size' => 'sometimes|integer|min:8|max:24',
+            'document_config.thermal.show_barcode' => 'sometimes|boolean',
+            'document_config.thermal.show_qr' => 'sometimes|boolean',
+            'document_config.thermal.footer' => 'sometimes|nullable|string|max:500',
+            'document_config.invoice.color' => 'sometimes|regex:/^#[0-9a-fA-F]{6}$/',
+            'document_config.invoice.accent' => 'sometimes|regex:/^#[0-9a-fA-F]{6}$/',
             'primary_color' => 'nullable|string|max:20|regex:/^#[0-9a-fA-F]{3,8}$/',
             'secondary_color' => 'nullable|string|max:20|regex:/^#[0-9a-fA-F]{3,8}$/',
             'font_family' => 'nullable|string|in:Tajawal,Cairo,Amiri,Inter',
@@ -179,6 +199,12 @@ class LabSettingController extends Controller
             $setting->print_table_config = $validated['print_table_config'];
         }
 
+        foreach (['whatsapp_invoice_message', 'whatsapp_result_message'] as $field) {
+            if (array_key_exists($field, $validated)) $setting->$field = $validated[$field];
+        }
+        if (isset($validated['document_config'])) {
+            $setting->document_config = array_replace_recursive($setting->document_config ?? [], $validated['document_config']);
+        }
         $setting->save();
 
         Log::info('Lab settings updated', ['lab_id' => $labOwnerId, 'user_id' => $user->id]);

@@ -6,6 +6,9 @@ import { t, showAlertWithConfirm } from "@/utils/helper";
 import { useToast } from "@/composables/useToast";
 import { applyBranding } from "@/utils/branding";
 
+import { documentDefaults, documentConfig } from "@/utils/labDocuments";
+const documents = ref(JSON.parse(JSON.stringify(documentDefaults)));
+const communication = ref({invoice:"",result:""});
 const toast = useToast();
 const store = useLabSettingsStore();
 const { settings, isLoading } = storeToRefs(store);
@@ -51,6 +54,8 @@ const fonts = [
 onMounted(async () => {
      await store.GetSettings();
      const s = settings.value;
+     documents.value = {invoice:documentConfig(s,'invoice'),thermal:documentConfig(s,'thermal')};
+     communication.value = {invoice:s.whatsapp_invoice_message || '',result:s.whatsapp_result_message || ''};
      if (s.logo) logoPreview.value = s.logo.startsWith("http") ? s.logo : imageUrl + "/" + s.logo;
      if (s.report_background) bgPreview.value = s.report_background.startsWith("http") ? s.report_background : imageUrl + "/" + s.report_background;
      if (!s.print_margins) settings.value.print_margins = { top: 20, bottom: 20, left: 15, right: 15 };
@@ -118,6 +123,13 @@ const save = async () => {
      saving.value = true;
      try {
           const formData = new FormData();
+          for (const [kind, config] of Object.entries(documents.value)) {
+               for (const [key, value] of Object.entries(config)) {
+                    formData.append(`document_config[${kind}][${key}]`, typeof value === "boolean" ? (value ? "1" : "0") : value);
+               }
+          }
+          formData.append("whatsapp_invoice_message", communication.value.invoice);
+          formData.append("whatsapp_result_message", communication.value.result);
           if (logoFile.value) formData.append("logo", logoFile.value);
           if (bgFile.value) formData.append("report_background", bgFile.value);
           formData.append("primary_color", settings.value.primary_color || "#0d9488");
@@ -553,6 +565,37 @@ const resetBranding = async () => {
                          </div>
                     </template>
 
+
+                    <section class="rounded-2xl border border-slate-200 bg-white p-6 space-y-5">
+                         <h3 class="font-bold text-slate-800">{{ lang === 'en' ? 'Invoice & thermal printing' : 'الفاتورة والطباعة الحرارية' }}</h3>
+                         <div v-for="kind in ['invoice','thermal']" :key="kind" class="rounded-xl border border-slate-200 p-4 space-y-4">
+                              <h4 class="font-semibold">{{ kind === 'invoice' ? (lang === 'en' ? 'Standard invoice' : 'الفاتورة العادية') : (lang === 'en' ? 'Thermal receipt' : 'الفاتورة الحرارية') }}</h4>
+                              <div class="grid gap-4 sm:grid-cols-2">
+                                   <label v-if="kind === 'invoice'" class="text-sm">Paper / الورق
+                                        <select v-model="documents[kind].paper" class="block w-full border rounded-lg p-2"><option>A4</option><option>A5</option></select>
+                                   </label>
+                                   <label v-if="kind === 'invoice'" class="text-sm">Orientation / الاتجاه
+                                        <select v-model="documents[kind].orientation" class="block w-full border rounded-lg p-2"><option value="portrait">عمودي / Portrait</option><option value="landscape">أفقي / Landscape</option></select>
+                                   </label>
+                                   <label v-if="kind === 'thermal'" class="text-sm">Width / العرض (mm)
+                                        <select v-model.number="documents[kind].width" class="block w-full border rounded-lg p-2"><option :value="58">58 mm</option><option :value="80">80 mm</option></select>
+                                   </label>
+                                   <label class="text-sm">Margin / الهامش (mm)<input v-model.number="documents[kind].margin" type="number" min="0" :max="kind === 'thermal' ? 10 : 30" class="block w-full border rounded-lg p-2"></label>
+                                   <label class="text-sm">Font size / حجم الخط (px)<input v-model.number="documents[kind].font_size" type="number" min="8" max="24" class="block w-full border rounded-lg p-2"></label>
+                                   <label v-if="kind === 'invoice'" class="text-sm">Text color / لون النص<input v-model="documents[kind].color" type="color" class="block"></label>
+                                   <label v-if="kind === 'invoice'" class="text-sm">Title color / لون العنوان<input v-model="documents[kind].accent" type="color" class="block"></label>
+                              </div>
+                              <div class="flex flex-wrap gap-4 text-sm"><label><input v-model="documents[kind].show_barcode" type="checkbox"> Barcode / باركود</label><label><input v-model="documents[kind].show_qr" type="checkbox"> QR / رابط النتائج</label></div>
+                              <label class="block text-sm">Footer / النص أسفل الفاتورة<textarea v-model="documents[kind].footer" maxlength="500" rows="2" class="block w-full border rounded-lg p-2"></textarea></label>
+                         </div>
+                    </section>
+                    <section class="rounded-2xl border border-slate-200 bg-white p-6 space-y-4">
+                         <h3 class="font-bold text-slate-800">{{ lang === 'en' ? 'WhatsApp messages' : 'رسائل واتساب' }}</h3>
+                         <p class="text-xs text-slate-500">{{ lang === 'en' ? 'Leave blank to keep the existing message. Supported variables:' : 'اترك الحقل فارغاً لاستخدام الرسالة الأصلية. المتغيرات المتاحة:' }}</p>
+                         <code v-pre class="block text-xs" dir="ltr">{lab_name} · {patient_name} · {invoice_number} · {link}</code>
+                         <label class="block text-sm">Invoice message / رسالة الفاتورة<textarea v-model="communication.invoice" rows="4" maxlength="3000" class="block w-full border rounded-lg p-3"></textarea></label>
+                         <label class="block text-sm">Result message / رسالة النتائج<textarea v-model="communication.result" rows="4" maxlength="3000" class="block w-full border rounded-lg p-3"></textarea></label>
+                    </section>
                     <!-- Save Button -->
                     <button @click="save" :disabled="saving" class="w-full px-6 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors font-medium flex items-center justify-center gap-2 disabled:opacity-50">
                          <svg v-if="saving" class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" /><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
