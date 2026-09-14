@@ -57,5 +57,6 @@ onMounted(load);
 </div>
 </template>
 <style scoped>
+@reference "tailwindcss";
 .card{@apply rounded-2xl border border-slate-200 bg-white p-5 shadow-sm}.card h2{@apply mb-4 text-lg font-black text-slate-800}.card p{@apply mb-4 text-sm text-slate-500}input,select{@apply min-h-11 rounded-xl border border-slate-200 bg-white px-3 outline-none focus:border-teal-500}button{@apply rounded-xl bg-teal-600 px-5 py-2.5 font-bold text-white hover:bg-teal-700}.secondary,.mini{@apply bg-slate-100 text-slate-700 hover:bg-slate-200}.mini{@apply px-3 py-1.5 text-xs}table{@apply w-full min-w-[800px] text-sm}th{@apply bg-slate-50 p-3 text-right font-bold text-slate-500}td{@apply border-t border-slate-100 p-3}label{@apply grid gap-1 text-xs font-bold text-slate-500}
 </style>

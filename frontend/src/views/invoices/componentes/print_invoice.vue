@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, nextTick } from "vue";
 import { useLabSettingsStore } from "@/store/modules/labSettings";
 import { documentConfig, documentCss } from "@/utils/labDocuments";
 const labSettingsStore = useLabSettingsStore();
@@ -11,6 +11,8 @@ import QrcodeVue from "qrcode.vue";
 import html2pdf from "html2pdf.js";
 import { useinvoicesStore } from "@/store/modules/invoices";
 import { dateTimeFormat, t } from "@/utils/helper";
+import { usePrint } from "@/composables/usePrint";
+const { printStyles } = usePrint();
 
 const route = useRoute();
 const invoicesStore = useinvoicesStore();
@@ -50,15 +52,26 @@ const generatePDF = async () => {
   const printEl = document.getElementById("printInvoice");
   if (printEl) printEl.style.display = "block";
 
+  await nextTick();
   const element = contentToConvert.value;
+  if (!element) return;
+  const pdfStyle = document.createElement("style");
+  const rawCss = printStyles.invoice + documentCss(labSettingsStore.settings, "invoice");
+  // Scope printable rules to this capture; do not restyle the application body.
+  pdfStyle.textContent = rawCss.replace(/([^{}]+)\{/g, (match, selectors) => {
+    if (selectors.includes("@") || selectors.trim() === "") return match;
+    return selectors.split(",").map(selector => "#printInvoice " + selector.trim()).join(",") + "{";
+  });
+  element.prepend(pdfStyle);
   const opt = {
-    margin: 0.5,
-    filename: "medical-report.pdf",
+    margin: Math.max(0, Math.min(30, Number(invoiceConfig.value.margin) || 0)),
+    filename: "invoice.pdf",
     image: { type: "jpeg", quality: 0.98 },
     html2canvas: { scale: 4 },
-    jsPDF: { unit: "in", format: "a4", orientation: "portrait" },
+    jsPDF: { unit: "mm", format: invoiceConfig.value.paper === "A5" ? "a5" : "a4", orientation: invoiceConfig.value.orientation === "landscape" ? "landscape" : "portrait" },
   };
 
+  try {
   await html2pdf()
     .set(opt)
     .from(element)
@@ -67,7 +80,10 @@ const generatePDF = async () => {
       pdfUrl.value = pdfDataUri;
     });
 
-  if (printEl) printEl.style.display = "none";
+  } finally {
+    pdfStyle.remove();
+    if (printEl) printEl.style.display = "none";
+  }
 };
 
 const generateBarcodeImage = (value) => {
