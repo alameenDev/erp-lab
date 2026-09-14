@@ -2006,7 +2006,7 @@ class InvoiceController extends Controller
         }
         // Validation
         $request->validate([
-            // 'id' => 'required|integer',
+            'id' => 'required|integer|exists:invoices,id',
             'notes' => 'nullable|string',
             'attachments' => 'nullable|array',
             'attachments.*.name' => 'required|string',
@@ -2031,10 +2031,10 @@ class InvoiceController extends Controller
             $packages = is_string($request->packages) ? json_decode($request->packages, true) : $request->input('packages');
             $test_groups = is_string($request->test_groups) ? json_decode($request->test_groups, true) : $request->input('test_groups');
 
-            $invoice = Invoice::find($id);
-            if (! $invoice) {
-                return response()->json(['message' => 'Invoice not found'], 404);
-            }
+            $invoice = Invoice::whereKey($id)->lockForUpdate()->firstOrFail();
+            $inventoryOwner = app(\App\Services\InventoryService::class);
+            $invoiceOwner = User::findOrFail($invoice->lab_id_fk);
+            abort_unless((int) $user->role_id === 1 || $inventoryOwner->labId($user) === $inventoryOwner->labId($invoiceOwner), 403);
 
             // Handle attachments
             $attachmentsArray = [];
@@ -2265,6 +2265,9 @@ class InvoiceController extends Controller
             return response()->json($invoiceJson);
         } catch (Exception $e) {
             DB::rollBack();
+            if ($e instanceof \Illuminate\Validation\ValidationException || $e instanceof \Symfony\Component\HttpKernel\Exception\HttpExceptionInterface) {
+                throw $e;
+            }
             Log::error('updateResult failed', [
                 'message' => $e->getMessage(),
                 'file' => $e->getFile(),
