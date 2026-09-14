@@ -1443,6 +1443,9 @@ class InvoiceController extends Controller
             DB::commit();
 
             return response()->json($invoiceJson);
+        } catch (\\Illuminate\\Validation\\ValidationException $e) {
+            DB::rollBack();
+            throw $e;
         } catch (Exception $e) {
             DB::rollBack();
             ActivityLogController::errorActivity('خطأ في إنشاء فاتورة'.$e->getMessage());
@@ -2247,6 +2250,13 @@ class InvoiceController extends Controller
             $invoice->packages_comment = isset($request->package_comment) ? (($request->input('package_comment') === 'null' ? null : $request->input('package_comment'))) : null;
             $invoice->notes = $request->input('notes') === 'null' ? null : $request->input('notes');
             $invoice->save();
+
+            // Upsert bypasses Eloquent observers, so reconcile all completed relations here.
+            $inventory = app(\\App\\Services\\InventoryService::class);
+            InvoiceTestRel::where('invoice_id_fk', $invoice->id)->get()->each(
+                fn (InvoiceTestRel $relation) => $inventory->consumeInitial($relation)
+            );
+
             $invoice->load($this->invoiceRelations());
             $invoiceJson = $this->transformInvoice($invoice);
 
