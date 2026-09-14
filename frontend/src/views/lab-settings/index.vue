@@ -12,6 +12,25 @@ const { settings, isLoading } = storeToRefs(store);
 
 const lang = computed(() => localStorage.getItem("locale") || "ar");
 const activeTab = ref("branding");
+const printSection = ref("layout");
+const sections = computed(() => lang.value === "en"
+ ? [{id:"layout",label:"Paper & visibility"},{id:"barcode",label:"Barcode labels"},{id:"header",label:"Patient header"},{id:"table",label:"Result tables"},{id:"background",label:"Report background"}]
+ : [{id:"layout",label:"الورق وإظهار الحقول"},{id:"barcode",label:"ملصقات الباركود"},{id:"header",label:"رأس التقرير"},{id:"table",label:"جداول النتائج"},{id:"background",label:"خلفية التقرير"}]);
+const previewCell = computed(() => ({
+ fontSize: (settings.value.print_table_config?.body_font_size ?? 13) + "px",
+ color: settings.value.print_table_config?.body_color || "#1e293b",
+ backgroundColor: settings.value.print_table_config?.body_bg_color || "#ffffff",
+ padding: (settings.value.print_table_config?.cell_padding ?? 6) + "px",
+ border: "1px solid " + (settings.value.print_table_config?.border_color || "#e2e8f0"),
+}));
+const previewHeading = computed(() => ({
+ ...previewCell.value,
+ fontSize: (settings.value.print_table_config?.header_font_size ?? 13) + "px",
+ color: settings.value.print_table_config?.header_color || "#0f172a",
+ backgroundColor: settings.value.print_table_config?.header_bg_color || "#f1f5f9",
+ fontWeight: settings.value.print_table_config?.header_font_weight || "bold",
+}));
+
 const logoInput = ref(null);
 const bgInput = ref(null);
 const logoPreview = ref(null);
@@ -188,9 +207,9 @@ const resetBranding = async () => {
 </script>
 
 <template>
-     <div class="max-w-5xl mx-auto space-y-6">
+     <div class="max-w-7xl mx-auto space-y-6">
           <!-- Header -->
-          <div class="flex items-center justify-between">
+          <div class="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                <div>
                     <h1 class="text-2xl font-bold text-slate-800">{{ t("lab_settings") }}</h1>
                     <p class="text-sm text-slate-500 mt-1">{{ t("lab_settings_desc") }}</p>
@@ -279,8 +298,11 @@ const resetBranding = async () => {
 
                     <!-- ==================== PRINT TAB ==================== -->
                     <template v-if="activeTab === 'print'">
+<nav aria-label="Print settings sections" class="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-3">
+<button v-for="section in sections" :key="section.id" @click="printSection = section.id" :aria-pressed="printSection === section.id" :class="['rounded-xl px-3 py-2 text-sm transition-colors', printSection === section.id ? 'bg-primary-600 text-white' : 'text-slate-600 hover:bg-slate-100']">{{ section.label }}</button>
+</nav>
                          <!-- Margins -->
-                         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                         <div v-show="printSection === 'layout'" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
                               <h3 class="text-base font-semibold text-slate-800 mb-4">{{ t("print_margins") || "هوامش الطباعة" }}</h3>
                               <div class="grid grid-cols-2 gap-4">
                                    <div>
@@ -303,7 +325,7 @@ const resetBranding = async () => {
                          </div>
 
                          <!-- Print Options -->
-                         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                         <div v-show="printSection === 'layout'" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
                               <h3 class="text-base font-semibold text-slate-800 mb-4">{{ t("print_options") || "خيارات الطباعة" }}</h3>
                               <div class="space-y-3">
                                    <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
@@ -334,7 +356,7 @@ const resetBranding = async () => {
                          </div>
 
                          <!-- Barcode Label Config -->
-                         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                         <div v-show="printSection === 'barcode'" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
                               <h3 class="text-base font-semibold text-slate-800 mb-1">{{ t("barcode_config") || "إعدادات ملصق الباركود (الستيكر الفيزيائي)" }}</h3>
                               <p class="text-xs text-slate-500 mb-4">{{ t("barcode_config_hint") || "أحجام الستيكر اللاصق الذي يطبع على طابعة الباركود (3×1.5 إنش). مختلف عن رأس صفحة النتيجة." }}</p>
                               <div class="space-y-4">
@@ -386,7 +408,7 @@ const resetBranding = async () => {
                          </div>
 
                          <!-- Result-page header (Print / PDF / WhatsApp) — DIFFERENT from the barcode-sticker card above -->
-                         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                         <div v-show="printSection === 'header'" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
                               <h3 class="text-base font-semibold text-slate-800 mb-1">{{ t("patient_header_config") || "إعدادات رأس صفحة النتيجة" }}</h3>
                               <p class="text-xs text-slate-500 mb-4">{{ t("patient_header_hint") || "يطبق على رأس صفحة النتيجة (الطباعة، PDF، واتساب). مختلف عن ملصق الباركود الفيزيائي أعلاه." }}</p>
                               <div class="space-y-4">
@@ -419,7 +441,7 @@ const resetBranding = async () => {
                          </div>
 
                          <!-- Print Table (Test|Result|Unit|Reference Range) -->
-                         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                         <div v-show="printSection === 'table'" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
                               <h3 class="text-base font-semibold text-slate-800 mb-1">{{ t("print_table_config") || "إعدادات جدول التحاليل في الطباعة / PDF / WhatsApp" }}</h3>
                               <p class="text-xs text-slate-500 mb-4">{{ t("print_table_hint") || "تخصيص خط ولون وحدود وتباعد جدول النتائج (Test | Result | Unit | Reference Range)" }}</p>
                               <div class="space-y-5">
@@ -514,7 +536,7 @@ const resetBranding = async () => {
                          </div>
 
                          <!-- Report Background -->
-                         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                         <div v-show="printSection === 'background'" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
                               <h3 class="text-base font-semibold text-slate-800 mb-4">{{ t("report_background") || "خلفية التقرير" }}</h3>
                               <div v-if="bgPreview" class="relative group mb-3">
                                    <img :src="bgPreview" alt="Background" class="w-full h-40 object-contain border border-slate-200 rounded-lg bg-slate-50" />
@@ -547,7 +569,7 @@ const resetBranding = async () => {
                                    <h3 class="text-sm font-semibold text-slate-600">{{ t("preview") }}</h3>
                               </div>
                               <div class="p-5">
-                                   <div class="border border-slate-200 rounded-xl overflow-hidden" :style="{ fontFamily: (settings.font_family || 'Tajawal') + ', sans-serif' }">
+                                   <div v-if="activeTab === 'branding'" class="border border-slate-200 rounded-xl overflow-hidden" :style="{ fontFamily: (settings.font_family || 'Tajawal') + ', sans-serif' }">
                                         <div class="p-4 text-white text-center" :style="{ background: `linear-gradient(135deg, ${settings.primary_color || '#0d9488'}, ${settings.secondary_color || '#14b8a6'})` }">
                                              <div v-if="logoPreview" class="w-16 h-16 mx-auto mb-2 bg-white/20 rounded-xl flex items-center justify-center overflow-hidden">
                                                   <img :src="logoPreview" alt="Logo" class="w-14 h-14 object-contain" />
@@ -567,7 +589,18 @@ const resetBranding = async () => {
                                              </div>
                                         </div>
                                    </div>
-                                   <p class="text-xs text-slate-400 mt-3 text-center">{{ t("preview_desc") }}</p>
+                                   
+<section v-if="activeTab === 'print'" class="overflow-auto rounded-xl border border-slate-200 bg-slate-100 p-4">
+<p class="mb-3 text-xs text-slate-500">{{ lang === 'en' ? 'Illustrative preview · sample data, not a clinical report' : 'معاينة توضيحية ببيانات تجريبية — ليست تقريراً طبياً' }}</p>
+<div class="min-w-[300px] bg-white p-4 shadow-sm" :style="{fontFamily: settings.font_family || 'Tajawal', filter: settings.print_black_white ? 'grayscale(1)' : 'none'}">
+<h4 class="mb-3 text-center font-bold" :style="{color: settings.primary_color}">{{ settings.lab_display_name || 'Digital Lab' }}</h4>
+<p :style="{fontSize:(settings.patient_header_config?.name_size ?? 20)+'px',lineHeight:settings.patient_header_config?.line_height ?? 1.7}">{{ lang === 'en' ? 'Sample patient' : 'مريض تجريبي' }}</p>
+<p class="mb-4 text-slate-500" :style="{fontSize:(settings.patient_header_config?.info_size ?? 13)+'px'}">LAB-0001</p>
+<table class="w-full border-collapse" dir="ltr">
+<thead><tr><th v-if="settings.show_test_names" :style="previewHeading">Test</th><th :style="previewHeading">Result</th><th :style="previewHeading">Unit</th><th v-if="settings.show_status" :style="previewHeading">Flag</th></tr></thead>
+<tbody><tr><td v-if="settings.show_test_names" :style="previewCell">Example test</td><td :style="previewCell">—</td><td :style="previewCell">—</td><td v-if="settings.show_status" :style="previewCell">—</td></tr></tbody>
+</table></div></section>
+<p class="text-xs text-slate-400 mt-3 text-center">{{ t("preview_desc") }}</p>
                               </div>
                          </div>
                     </div>
