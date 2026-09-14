@@ -2,8 +2,11 @@
 import { ref, computed, onMounted, nextTick } from "vue";
 import { useLabSettingsStore } from "@/store/modules/labSettings";
 import { documentConfig, documentCss } from "@/utils/labDocuments";
+import { $http } from "@/plugins/axios";
 const labSettingsStore = useLabSettingsStore();
-const invoiceConfig = computed(() => documentConfig(labSettingsStore.settings,"invoice"));
+const publicSettings = ref(null);
+const effectiveSettings = computed(() => publicSettings.value || labSettingsStore.settings);
+const invoiceConfig = computed(() => documentConfig(effectiveSettings.value,"invoice"));
 import { storeToRefs } from "pinia";
 import { useRoute } from "vue-router";
 import JsBarcode from "jsbarcode";
@@ -36,10 +39,15 @@ onMounted(() => {
   }
 });
 
-const getData = () => {
-  GetinvoicesById(invoiceId.value).then(() => {
-    generatePDF();
-  });
+const getData = async () => {
+  await GetinvoicesById(invoiceId.value);
+  const labId = printRecord.value?.lab_id_fk;
+  if (labId) {
+    const { data } = await $http.get(`/lab-settings/${labId}`);
+    publicSettings.value = data;
+  }
+  await nextTick();
+  await generatePDF();
 };
 
 const appBaseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
@@ -56,7 +64,7 @@ const generatePDF = async () => {
   const element = contentToConvert.value;
   if (!element) return;
   const pdfStyle = document.createElement("style");
-  const rawCss = printStyles.invoice + documentCss(labSettingsStore.settings, "invoice");
+  const rawCss = printStyles.invoice + documentCss(effectiveSettings.value, "invoice");
   // Scope printable rules to this capture; do not restyle the application body.
   pdfStyle.textContent = rawCss.replace(/([^{}]+)\{/g, (match, selectors) => {
     if (selectors.includes("@") || selectors.trim() === "") return match;
@@ -167,7 +175,7 @@ const openprintINvoiceTemplate = (data) => {
       <html>
         <head>
           <title>Print Invoice</title>
-          <style>${css + documentCss(labSettingsStore.settings,"invoice")}</style>
+          <style>${css + documentCss(effectiveSettings.value,"invoice")}</style>
         </head>
         <body>${jobContent}</body>
       </html>
@@ -191,7 +199,7 @@ const openprintINvoiceTemplate = (data) => {
     <div class="inv">
 
       <!-- ===== TITLE ===== -->
-      <div v-if="labSettingsStore.settings.lab_display_name" class="inv-title">{{ labSettingsStore.settings.lab_display_name }}</div>
+      <div v-if="effectiveSettings.lab_display_name" class="inv-title">{{ effectiveSettings.lab_display_name }}</div>
       <div class="inv-title">Invoice</div>
 
       <!-- ===== BARCODES + QR ===== -->
