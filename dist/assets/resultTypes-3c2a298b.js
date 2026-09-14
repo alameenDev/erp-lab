@@ -1,0 +1,1 @@
+import{x as s,$ as a}from"./index-29cb79eb.js";const l=s("resultTypes",{state:()=>({resultTypes:[]}),actions:{async GetresultTypes(){const{data:t}=await a.get("/result-types");this.resultTypes=t.map(e=>({label:e.result_type_name,value:e.id}))}}});export{l as u};
