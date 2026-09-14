@@ -17,12 +17,17 @@ export const ActivityStore = defineStore("activity", {
            *
            */
           async GetRecords() {
-               const { data } = await $http.get(`/activity/show`);
-               this.records = data.map((item, index) => ({
-                    ...item,
-                    index: index + 1, // Adding 1 to start indexing from 1 instead of 0
-               }));
-               this.totalCount = this.records.length;
+               try {
+                    const { data } = await $http.get(`/activity/show`);
+                    const activities = Array.isArray(data) ? data : [];
+                    this.records = activities.map((item, index) => ({
+                         ...item,
+                         index: index + 1,
+                    }));
+                    this.totalCount = this.records.length;
+               } catch (error) {
+                    this.records = [];
+               }
           },
      },
 });

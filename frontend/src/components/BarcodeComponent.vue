@@ -1,7 +1,6 @@
 <template>
-     <div>
+     <div v-if="value">
           <svg ref="barcode"></svg>
-          <!-- Placeholder for the barcode -->
      </div>
 </template>
 
@@ -11,42 +10,51 @@
      export default {
           props: {
                width: {
-                    default: 1, // Default barcode format
+                    default: 1,
                },
                height: {
-                    default: 20, // Default barcode format
+                    default: 20,
                },
                value: {
                     type: String,
-                    required: true, // The barcode value to generate
+                    default: "",
                },
                format: {
                     type: String,
-                    default: "CODE128", // Default barcode format
+                    default: "CODE128",
                },
                displayValue: {
                     type: Boolean,
-                    default: false, // Default barcode format
+                    default: false,
                },
           },
           mounted() {
-               this.generateBarcode();
+               if (this.value) {
+                    this.generateBarcode();
+               }
+          },
+          watch: {
+               value(newVal) {
+                    if (newVal) {
+                         this.$nextTick(() => {
+                              this.generateBarcode();
+                         });
+                    }
+               },
           },
           methods: {
                generateBarcode() {
-                    JsBarcode(this.$refs.barcode, this.value, {
-                         format: this.format,
-                         displayValue: this.displayValue,
-                         lineColor: "#000",
-                         width: this.width,
-                         height: this.height,
-                    });
+                    if (this.$refs.barcode && this.value) {
+                         JsBarcode(this.$refs.barcode, this.value, {
+                              format: this.format,
+                              displayValue: this.displayValue,
+                              lineColor: "#000",
+                              width: this.width,
+                              height: this.height,
+                         });
+                    }
                },
           },
      };
 </script>
-<style>
-     svg {
-          padding: 0;
-     }
-</style>
+<!-- Styles moved to Tailwind - svg uses p-0 class if needed -->

@@ -20,26 +20,56 @@ export const usetestsQuestionsStore = defineStore("tests-questions", {
      },
      actions: {
           async GetTestsQuestions() {
-               const { data } = await $http.get("/tests-questions");
+               try {
+                    const { data } = await $http.get("/tests-questions");
 
-               this.testsQuestions = data.map((item, index) => ({
-                    ...item,
-                    index: index + 1, // Adding 1 to start indexing from 1 instead of 0
-               }));
-               this.totalCount = this.testsQuestions.length;
+                    this.testsQuestions = data.map((item, index) => ({
+                         ...item,
+                         index: index + 1, // Adding 1 to start indexing from 1 instead of 0
+                    }));
+                    this.totalCount = this.testsQuestions.length;
+               } catch (error) {
+                    this.testsQuestions = [];
+               }
           },
           async AddTestsQuestions() {
-               await $http.post(`/tests-questions/create`, checkObjectParams(this.record));
-               this.GetTestsQuestions();
+               try {
+                    await $http.post(`/tests-questions/create`, checkObjectParams(this.record));
+                    this.GetTestsQuestions();
+               } catch (error) {
+                    throw error;
+               }
           },
           async UpdateTestsQuestions() {
-               await $http.put(`/tests-questions/update`, checkObjectParams(this.record));
+               try {
+                    await $http.put(`/tests-questions/update`, checkObjectParams(this.record));
 
-               this.GetTestsQuestions();
+                    this.GetTestsQuestions();
+               } catch (error) {
+                    throw error;
+               }
           },
           async RemoveTestsQuestions() {
-               await $http.delete(`/tests-questions/delete`, { data: { id: this.record.id } });
-               this.GetTestsQuestions();
+               try {
+                    await $http.delete(`/tests-questions/delete`, { data: { id: this.record.id } });
+                    this.GetTestsQuestions();
+               } catch (error) {
+                    throw error;
+               }
+          },
+          async ImportTestsQuestions(file) {
+               try {
+                    const locale = localStorage.getItem("locale") || "ar";
+                    const formData = new FormData();
+                    formData.append("file", file);
+                    const { data } = await $http.post(`/tests-questions/import?locale=${locale}`, formData, {
+                         headers: { "Content-Type": "multipart/form-data" },
+                    });
+                    this.GetTestsQuestions();
+                    return data;
+               } catch (error) {
+                    throw error;
+               }
           },
      },
 });

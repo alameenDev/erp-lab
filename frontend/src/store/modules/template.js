@@ -7,15 +7,6 @@ export const useTemplatesStore = defineStore("template", {
           dialog: false,
           loading: false,
           totalCount: "",
-          pagination: {
-               total: null,
-               pageNumber: 1,
-               per_page: 25,
-               current_page: 1,
-               last_page: null,
-               from: null,
-               to: null,
-          },
           record: {
                id: "",
                name: "",
@@ -28,7 +19,7 @@ export const useTemplatesStore = defineStore("template", {
           TemplatesLists: (state) => () =>
                state.templates.map((record) => ({
                     label: record.name,
-                    value: { id: record.id, price: record.price },
+                    value: { id: record.id },
                })),
           testGroupTemplates: (state) => () =>
                state.templates.map((record) => ({
@@ -39,24 +30,19 @@ export const useTemplatesStore = defineStore("template", {
      actions: {
           async GetTemplates() {
                this.loading = true;
-               const { data } = await $http.get("/templates", {
-                    params: {
-                         page: this.pagination.current_page,
-                    },
-               })
-               console.log(data);
-               this.pagination.total = data.pagination.total;
-               this.pagination.per_page = data.pagination.per_page;
-               this.pagination.current_page = data.pagination.current_page;
-               this.pagination.last_page = data.pagination.last_page;
-               this.pagination.from = data.pagination.from;
-               this.pagination.to = data.pagination.to;
-               this.templates = data.data.map((item, index) => ({
-                    ...item,
-                    index: this.pagination.from + index,
-               }));
-               this.loading = false;
-          //     console.log(this.templates);
+               try {
+                    const { data } = await $http.get("/templates");
+                    const items = Array.isArray(data) ? data : [];
+                    this.templates = items.map((item, index) => ({
+                         ...item,
+                         index: index + 1,
+                    }));
+                    this.totalCount = this.templates.length;
+               } catch (error) {
+                    this.templates = [];
+               } finally {
+                    this.loading = false;
+               }
           },
 
           

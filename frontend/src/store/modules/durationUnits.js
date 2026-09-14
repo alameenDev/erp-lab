@@ -3,13 +3,17 @@ import { $http } from "@/plugins/axios";
 
 export const useDurationUnitsStore = defineStore("durationUnits", {
      state: () => ({
-          durationUnits: [],
+          durationUnitsList: [],
      }),
      actions: {
           async GetdurationUnits() {
-               const { data } = await $http.get("/duration-units");
+               try {
+                    const { data } = await $http.get("/duration-units");
 
-               this.durationUnitsList = data.map((record) => ({ label: record.unit, value: record.id }));
+                    this.durationUnitsList = data.map((record) => ({ label: record.unit, value: record.id }));
+               } catch (error) {
+                    this.durationUnitsList = [];
+               }
           },
      },
 });

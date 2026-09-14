@@ -1,224 +1,225 @@
+<script setup>
+import { ref, computed, watch, onMounted } from "vue";
+import { storeToRefs } from "pinia";
+import { useReferralsStore } from "@/store/modules/referrals";
+import { priceListStore } from "@/store/modules/priceList";
+import { LoaderStore } from "@/store/modules/loader";
+import { ReverralUserRole } from "@/enums";
+import { t, alertSuccess, clearObjectValues } from "@/utils/helper";
+
+const referralsStore = useReferralsStore();
+const priceStore = priceListStore();
+const loaderStore = LoaderStore();
+
+const { record, dialog, searchRecords } = storeToRefs(referralsStore);
+const { AddReferral, UpdateReferral, search } = referralsStore;
+const { price_list } = priceStore;
+const { GetpriceList } = priceStore;
+const { hideLoading } = storeToRefs(loaderStore);
+
+const lang = computed(() => localStorage.getItem("locale") || "ar");
+const UserRoles = ReverralUserRole;
+
+const isShow = ref(false);
+const selectedRecord = ref("");
+const showPassword = ref(false);
+
+onMounted(() => {
+  GetpriceList();
+});
+
+const handleSubmit = () => {
+  record.value.commission = record.value.commission || 0;
+  if (record.value.id) {
+    UpdateReferral().then(() => {
+      alertSuccess(t("alertSuccess"));
+      clearObjectValues(record.value);
+      dialog.value = false;
+    });
+  } else {
+    AddReferral().then(() => {
+      alertSuccess(t("alertSuccess"));
+      dialog.value = false;
+    });
+  }
+};
+
+const close = () => {
+  dialog.value = false;
+  clearObjectValues(record.value);
+};
+
+const searchitem = (v) => {
+  if (v) {
+    search(v);
+    isShow.value = true;
+  } else {
+    isShow.value = false;
+    clearObjectValues(record.value);
+  }
+};
+
+const selectRecord = (rec) => {
+  isShow.value = false;
+  Object.assign(record.value, rec);
+  record.value.id = null;
+  record.value.role_id = UserRoles?.asList().find((x) => x.label.toLowerCase() === rec.role?.toLowerCase())?.value ?? "";
+};
+
+watch(selectedRecord, (v) => {
+  if (v) {
+    selectRecord(v);
+  }
+});
+</script>
+
 <template>
-     <Dialog
-          v-model:visible="dialog"
-          modal
-          :header="record?.id ? t('update') : t('add')"
-          style="width: 50rem"
-          :style="lang == 'en' ? 'direction:ltr ' : 'direction: rtl'">
-          <form
-               @submit.prevent="record.id ? update() : create()"
-               class="border-top-1 border-bluegray-100"
-               @click="isShow = false">
-               <div class="grid mt-1">
-                    <div class="col-6 pb-0 input-name">
-                         <label class="block text-md mb-2">{{ t("name") }}</label>
-                         <div style="position: relative">
-                              <InputText
-                                   filter
-                                   class="w-full"
-                                   required
-                                   type="text"
-                                   v-model="record.name"
-                                   @input="searchitem(record.name)" />
-                              <i
-                                   class="pi pi-spin pi-spinner"
-                                   v-show="hideLoading"
-                                   :class="lang == 'ar' ? 'rtl' : 'ltr'"></i>
-                         </div>
+  <Teleport to="body">
+    <Transition name="modal">
+      <div v-if="dialog" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="fixed inset-0 bg-black/50" @click="close"></div>
+        <div
+          class="relative bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden"
+          :dir="lang === 'ar' ? 'rtl' : 'ltr'"
+        >
+          <!-- Header -->
+          <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+            <h2 class="text-xl font-semibold text-gray-800">
+              {{ record?.id ? t("update") : t("add") }}
+            </h2>
+            <button @click="close" class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
 
-                         <div class="ul" v-show="isShow">
-                              <!-- <p class="hint">{{ t("aleadyThere") }}</p> -->
+          <!-- Body -->
+          <div class="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+            <form @submit.prevent="handleSubmit" @click="isShow = false">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Name with Search -->
+                <div class="relative">
+                  <label class="block text-sm font-medium text-gray-700 mb-1">{{ t("name") }} <span class="text-red-500">*</span></label>
+                  <div class="relative">
+                    <input
+                      v-model="record.name"
+                      type="text"
+                      required
+                      @input="searchitem(record.name)"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <svg v-show="hideLoading" class="absolute top-2.5 w-5 h-5 text-teal-600 animate-spin" :class="lang === 'ar' ? 'left-2' : 'right-2'" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  </div>
+                  <!-- Search Results -->
+                  <div v-show="isShow && searchRecords?.length > 0" class="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    <div
+                      v-for="rec in searchRecords"
+                      :key="rec.id"
+                      @click="selectRecord(rec)"
+                      class="px-4 py-2 cursor-pointer hover:bg-gray-50 border-b border-gray-100 last:border-0"
+                    >
+                      {{ rec.name }}
+                    </div>
+                  </div>
+                </div>
 
-                              <Listbox
-                                   listStyle="max-height:250px"
-                                   v-model="selectedRecord"
-                                   :options="searchRecords"
-                                   optionLabel="name"
-                                   class="w-full md:w-56 list" />
-                         </div>
-                    </div>
-                    <div class="col-6 pb-0">
-                         <label class="block text-md mb-2">{{ t("email") }}</label>
-                         <InputText class="w-full" required type="email" v-model="record.email" />
-                    </div>
+                <!-- Email -->
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">{{ t("email") }}</label>
+                  <input
+                    v-model="record.email"
+                    type="email"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
 
-                    <div class="col-6 pb-0">
-                         <label class="block text-md mb-2">{{ t("password") }}</label>
-                         <Password
-                              :required="!record.id"
-                              class="w-full"
-                              v-model="record.password"
-                              :toggleMask="true"
-                              inputClass="w-full"></Password>
-                    </div>
-                    <div class="col-6 pb-0">
-                         <label class="block text-md mb-2">{{ t("phone_number") }}</label>
-                         <InputText
-                              class="w-full"
-                              required
-                              type="number"
-                              v-model="record.phone_number"
-                              maxlength="11"
-                              minlength="11" />
-                    </div>
-                    <div class="col-6 pb-0">
-                         <label class="block text-md mb-2">{{ t("commission") }}</label>
-                         <InputNumber class="w-full" v-model="record.commission" inputId="integeronly" fluid />
-                    </div>
-                    <div class="col-6 pb-0">
-                         <label class="block text-md mb-2">{{ t("address") }}</label>
-                         <InputText class="w-full" type="text" v-model="record.address" />
-                    </div>
+                <!-- Phone Number -->
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">{{ t("phone_number") }}</label>
+                  <input
+                    v-model="record.phone_number"
+                    type="tel"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
 
-                    <div class="col-6 pb-0">
-                         <label class="block text-md mb-2">{{ t("userRole") }}</label>
+                <!-- Commission -->
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">{{ t("commission") }}</label>
+                  <input
+                    v-model.number="record.commission"
+                    type="number"
+                    min="0"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
 
-                         <Dropdown
-                              required
-                              class="w-full"
-                              v-model="record.role_id"
-                              :options="UserRoles.asList()"
-                              optionLabel="label"
-                              optionValue="value" />
-                    </div>
-                    <div class="col-6 pb-0" v-if="record.role_id == 2">
-                         <label class="block text-md mb-2">{{ t("priceList") }}</label>
-                         <Dropdown
-                              required
-                              class="w-full"
-                              v-model="record.price_list_id_fk"
-                              :options="price_list()"
-                              optionLabel="label"
-                              optionValue="value" />
-                    </div>
-               </div>
-               <!-- <div class="updat grid mt-1" v-show="record.id">
-                    <div class="col-6 pb-0">
-                         <label class="block text-md mb-2">{{ t("commission") }}</label>
-                         <InputNumber class="w-full" v-model="record.commission" inputId="integeronly" fluid />
-                    </div>
-               </div> -->
-               <div class="flex justify-content-end gap-2 border-top-1 border-bluegray-100 mt-3 pt-3">
-                    <Button size="small" :label="t('close')" severity="danger" @click="close()"></Button>
-                    <Button
-                         size="small"
-                         type="submit"
-                         :label="record.id ? t('save') : t('add')"
-                         severity="success"></Button>
-               </div>
-          </form>
-     </Dialog>
+                <!-- Address -->
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">{{ t("address") }}</label>
+                  <input
+                    v-model="record.address"
+                    type="text"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+
+                <!-- User Role -->
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">{{ t("userRole") }} <span class="text-red-500">*</span></label>
+                  <select
+                    v-model="record.role_id"
+                    required
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="" disabled>{{ t("select") }}</option>
+                    <option v-for="role in UserRoles.asList()" :key="role.value" :value="role.value">
+                      {{ role.label }}
+                    </option>
+                  </select>
+                </div>
+
+                <!-- Price List (for Lab role) -->
+                <div v-if="record.role_id === 2">
+                  <label class="block text-sm font-medium text-gray-700 mb-1">{{ t("priceList") }} <span class="text-red-500">*</span></label>
+                  <select
+                    v-model="record.price_list_id_fk"
+                    required
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="" disabled>{{ t("select") }}</option>
+                    <option v-for="pl in price_list()" :key="pl.value" :value="pl.value">
+                      {{ pl.label }}
+                    </option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Footer -->
+              <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  @click="close"
+                  class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  {{ t("close") }}
+                </button>
+                <button
+                  type="submit"
+                  class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors"
+                >
+                  {{ record.id ? t("save") : t("add") }}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
-<script>
-     import { mapActions, mapWritableState, mapGetters } from "pinia";
-     import { useReferralsStore } from "@/store/modules/referrals";
-     import { ReverralUserRole } from "@/enums";
-     import { LoaderStore } from "@/store/modules/loader";
-     import { priceListStore } from "@/store/modules/priceList";
-
-     export default {
-          data() {
-               return { isShow: false, selectedRecord: "" };
-          },
-
-          computed: {
-               UserRoles() {
-                    return ReverralUserRole;
-               },
-               ...mapWritableState(LoaderStore, ["hideLoading"]),
-               ...mapGetters(priceListStore, ["price_list"]),
-               ...mapWritableState(useReferralsStore, [
-                    "record",
-                    "dialog",
-                    "searchRecords",
-                    "searchTotalCount",
-                    "filter",
-               ]),
-          },
-          mounted() {
-               this.GetpriceList();
-          },
-          methods: {
-               ...mapActions(useReferralsStore, ["AddUser", "UpdateReferral", "AddReferral", "search"]),
-               ...mapActions(priceListStore, ["GetpriceList"]),
-               create() {
-                    this.record.commission = this.record.commission ? this.record.commission : 0;
-                    this.AddReferral().then(() => {
-                         this.alertSuccess(this.t("alertSuccess"));
-
-                         this.dialog = false;
-                    });
-               },
-               update() {
-                    this.UpdateReferral().then(() => {
-                         this.dialog = false;
-                         this.alertSuccess(this.t("alertSuccess"));
-                         this.clearObjectValues(this.record);
-                    });
-               },
-               close() {
-                    this.dialog = false;
-                    this.clearObjectValues(this.record);
-               },
-               searchitem(v) {
-                    if (v) {
-                         this.search(v);
-                         this.isShow = true;
-                    } else {
-                         this.isShow = false;
-                         this.clearObjectValues(this.record);
-                    }
-               },
-          },
-          watch: {
-               selectedRecord: function (v) {
-                    if (v) {
-                         this.isShow = false;
-                         Object.assign(this.record, v);
-                         this.record.id = null;
-                         this.record.role_id =
-                              this.UserRoles?.asList().find((x) => x.label.toLowerCase() == v.role.toLowerCase())
-                                   ?.value ?? "";
-                    }
-               },
-          },
-     };
-</script>
-<style>
-     .error {
-          color: #d71d1d;
-     }
-     .border-error {
-          border: 1px solid red;
-     }
-     .input-name {
-          position: relative;
-     }
-     .ul {
-          position: absolute;
-          z-index: 2;
-          left: 17px;
-          right: 17px;
-
-          background: white;
-     }
-     .rtl {
-          left: 8px;
-     }
-     .ltr {
-          right: 8px;
-     }
-     .pi-spin {
-          font-size: 1.5rem;
-          position: absolute;
-          top: 10px;
-          color: #004e54bd;
-     }
-     .hint {
-          margin: 0;
-          color: rgb(170 54 54 / 97%);
-          font-size: medium;
-          font-weight: 500;
-     }
-</style>

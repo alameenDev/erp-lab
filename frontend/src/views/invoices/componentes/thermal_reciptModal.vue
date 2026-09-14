@@ -1,166 +1,260 @@
-<template>
-     <div class="container" id="thermalRecord">
-          <br />
-          <br />
-          <br />
-          <br />
-          <br />
-          <br />
-          <div class="elements">
-               <section class="patient-details">
-                    <div class="parcod">
-                         <div style="display: flex; align-items: center">
-                              <span><strong>Barcode:</strong></span>
-                              <span style="display: flex; flex-direction: column; align-items: center">
-                                   <img :src="generateBarcodeImage(printRecord?.barcode)" alt="Barcode" />
-                                   <span>{{ printRecord?.barcode }}</span>
-                              </span>
-                         </div>
-                    </div>
-                    <p>
-                         <strong>Patient ID:</strong>
-                         <span style="display: flex; flex-direction: column; align-items: center">
-                              <img :src="generateBarcodeImage(printRecord?.patient?.code)" alt="Barcode" />
+<script setup>
+import { ref, computed, watch } from "vue";
+import { storeToRefs } from "pinia";
+import JsBarcode from "jsbarcode";
+import QRCode from "qrcode";
+import { useinvoicesStore } from "@/store/modules/invoices";
+import { dateTimeFormat } from "@/utils/helper";
 
-                              <span>{{ printRecord?.patient?.code }}</span>
-                         </span>
-                    </p>
-                    <p>
-                         <strong>patient name :</strong>
-                         <strong>{{ printRecord?.patient?.name }}</strong>
-                    </p>
-                    <p>
-                         <strong>age / Sex :</strong>
-                         <strong>
-                              {{ printRecord?.patient?.age + printRecord?.patient?.age_unit }} /
-                              {{ printRecord?.patient?.gender }}
-                         </strong>
-                    </p>
-                    <p>
-                         <strong>Request Date :</strong>
-                         <strong>{{ dateTimeFormat(printRecord?.registration_date) }}</strong>
-                    </p>
-                    <p>
-                         <strong>Result date:</strong>
-                         <strong>{{ dateTimeFormat(printRecord?.result_date) }}</strong>
-                    </p>
-               </section>
-               <hr />
-               <section class="test-details">
-                    <table class="test-table">
-                         <thead>
-                              <tr>
-                                   <th>Test</th>
-                                   <th>Price</th>
-                                   <th>test type</th>
-                              </tr>
-                         </thead>
-                         <tbody>
-                              <tr v-for="(item, index) in printRecord?.tests" :key="index">
-                                   <td>{{ item.report_name }}</td>
-                                   <td>{{ item.price }}</td>
-                                   <td>tests</td>
-                              </tr>
-                              <tr v-for="(item, index) in printRecord?.cultures" :key="index">
-                                   <td>{{ item.name }}</td>
-                                   <td>{{ item.price }}</td>
-                                   <td>cultures</td>
-                              </tr>
-                              <tr v-for="(item, index) in printRecord?.packages" :key="index">
-                                   <td>{{ item.name }}</td>
-                                   <td>{{ item.price }}</td>
-                                   <td>packages</td>
-                              </tr>
-                         </tbody>
-                    </table>
-               </section>
+const invoicesStore = useinvoicesStore();
+const { printRecord } = storeToRefs(invoicesStore);
 
-               <section
-                    class="summary"
-                    style="margin-top: 5px; display: flex; justify-content: space-between; flex-direction: column">
-                    <div class="summaryItm">
-                         <strong>Total:</strong>
-                         {{ printRecord?.total }}
-                    </div>
+const qrDataUrl = ref("");
 
-                    <div class="summaryItm">
-                         <strong>paid:</strong>
-                         {{ printRecord?.paid }}
-                    </div>
+const appBaseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
 
-                    <div class="summaryItm">
-                         <strong>Due:</strong>
-                         {{ printRecord?.total - printRecord?.paid }}
-                    </div>
-               </section>
+const getResultLink = (invoiceId) => {
+  return `${appBaseUrl}/result/${invoiceId}`;
+};
 
-               <section class="footer">
-                    <p><strong>امسح الباركود و احصل على النتائج مباشرة</strong></p>
+// Generate QR code as data URL whenever printRecord changes
+watch(
+  () => printRecord.value?.id,
+  async (id) => {
+    if (id) {
+      try {
+        qrDataUrl.value = await QRCode.toDataURL(getResultLink(id), {
+          width: 90,
+          margin: 1,
+          errorCorrectionLevel: "H",
+        });
+      } catch (err) {
+        console.error("QR generation failed:", err);
+        qrDataUrl.value = "";
+      }
+    }
+  },
+  { immediate: true },
+);
 
-                    <QrcodeVue
-                         :value="getPatientReportLink(printRecord?.patient?.id)"
-                         :size="90"
-                         level="H"
-                         render-as="svg"
-                         class="qr-code" />
-               </section>
-               <br />
-               <br />
-               <div>مختبر التعاون الطبي التخصصي يتمنى لكم الصحة و العافية</div>
-          </div>
-          <br />
-          <br />
-          <br />
-          <br />
-     </div>
-</template>
-<script>
-     import { mapActions, mapWritableState } from "pinia";
-     import JsBarcode from "jsbarcode";
-     import QrcodeVue from "qrcode.vue";
+const generateBarcodeImage = (value) => {
+  if (!value) return "";
+  const canvas = document.createElement("canvas");
+  JsBarcode(canvas, value, {
+    format: "CODE128",
+    displayValue: false,
+    width: 1.5,
+    height: 25,
+    margin: 0,
+  });
+  return canvas.toDataURL("image/png");
+};
 
-     import { useinvoicesStore } from "@/store/modules/invoices";
+const due = computed(() => (printRecord.value?.total || 0) - (printRecord.value?.paid || 0));
 
-     export default {
-          components: {
-               QrcodeVue,
-          },
-          computed: {
-               ...mapWritableState(useinvoicesStore, ["printRecord"]),
-          },
-
-          methods: {
-               getPatientReportLink(patientId) {
-                    // Construct the full URL to the medical reports page
-                    // This could be a relative or absolute URL depending on your routing
-                    return `${window.location.origin}/medical-reports/${patientId}`;
-                    // Or if using vue-router
-                    // return this.$router.resolve({
-                    //   name: 'medical-reports',
-                    //   params: { patientId: patientId }
-                    // }).href
-               },
-               generateBarcodeImage(value) {
-                    if (!value) return "";
-
-                    const canvas = document.createElement("canvas");
-                    document.body.appendChild(canvas); // Append canvas to the DOM
-                    JsBarcode(canvas, value, {
-                         format: "CODE128",
-                         displayValue: false,
-                         width: 1,
-                         height: 10,
-                    });
-                    const barcodeImage = canvas.toDataURL("image/png");
-                    document.body.removeChild(canvas); // Remove canvas from the DOM
-                    return barcodeImage;
-               },
-          },
-     };
+const hasTestGroups = computed(() => printRecord.value?.test_groups?.length > 0);
+const hasPackages = computed(() => printRecord.value?.packages?.length > 0);
+const hasIndividualTests = computed(() => printRecord.value?.tests?.length > 0 || printRecord.value?.cultures?.length > 0);
 </script>
 
-<style scoped>
-     #thermalRecord {
-          display: none;
-     }
-</style>
+<template>
+  <div class="hidden" id="thermalRecord">
+    <div class="thermal-receipt">
+
+      <!-- ===== Header ===== -->
+      <div class="header">
+        <div class="title">INVOICE</div>
+      </div>
+
+      <!-- ===== Barcode Row ===== -->
+      <div class="bc-row">
+        <div class="bc-col">
+          <img :src="generateBarcodeImage(printRecord?.barcode)" alt="" class="bc-img" />
+          <span class="bc-txt">{{ printRecord?.barcode }}</span>
+        </div>
+        <div class="bc-col">
+          <img :src="generateBarcodeImage(printRecord?.patient?.code)" alt="" class="bc-img" />
+          <span class="bc-txt">{{ printRecord?.patient?.code }}</span>
+        </div>
+      </div>
+
+      <div class="sep"></div>
+
+      <!-- ===== Patient Info ===== -->
+      <div class="info">
+        <div class="row">
+          <span>Patient</span>
+          <strong>{{ printRecord?.patient?.name }}</strong>
+        </div>
+        <div class="row">
+          <span>Age / Sex</span>
+          <strong>{{ printRecord?.patient?.age }}{{ printRecord?.patient?.age_unit }} / {{ printRecord?.patient?.gender }}</strong>
+        </div>
+        <div v-if="printRecord?.patient?.phone" class="row">
+          <span>Phone</span>
+          <strong>{{ printRecord?.patient?.phone }}</strong>
+        </div>
+        <div v-if="printRecord?.referral?.name" class="row">
+          <span>Referral</span>
+          <strong>{{ printRecord?.referral?.name }}</strong>
+        </div>
+        <div v-if="printRecord?.contract?.name" class="row">
+          <span>Contract</span>
+          <strong>{{ printRecord?.contract?.name }}</strong>
+        </div>
+        <div v-if="printRecord?.sample_collector?.name" class="row">
+          <span>Collector</span>
+          <strong>{{ printRecord?.sample_collector?.name }}</strong>
+        </div>
+        <div class="row">
+          <span>Reg. Date</span>
+          <strong>{{ dateTimeFormat(printRecord?.registration_date) }}</strong>
+        </div>
+        <div class="row">
+          <span>Result Date</span>
+          <strong>{{ dateTimeFormat(printRecord?.result_date) }}</strong>
+        </div>
+      </div>
+
+      <div class="sep"></div>
+
+      <!-- ===== Test Groups ===== -->
+      <template v-if="hasTestGroups">
+        <div v-for="(group, gi) in printRecord.test_groups" :key="'g-' + gi">
+          <div class="grp-title">{{ group.group_name }}</div>
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th class="num-col">#</th>
+                <th class="name-col">Test</th>
+                <th class="sample-col">Sample</th>
+                <th class="price-col">Price</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(item, idx) in group.tests" :key="'gt-' + gi + '-' + idx">
+                <td class="num-col">{{ idx + 1 }}</td>
+                <td class="name-col">{{ item.report_name || item.name }}</td>
+                <td class="sample-col">{{ item.sample_name || '-' }}</td>
+                <td class="price-col">{{ item.price }}</td>
+              </tr>
+              <tr v-for="(item, idx) in group.cultures" :key="'gc-' + gi + '-' + idx">
+                <td class="num-col">{{ (group.tests?.length || 0) + idx + 1 }}</td>
+                <td class="name-col">{{ item.name }}</td>
+                <td class="sample-col">{{ item.sample_name || '-' }}</td>
+                <td class="price-col">{{ item.price }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="sep"></div>
+      </template>
+
+      <!-- ===== Packages ===== -->
+      <template v-if="hasPackages">
+        <div v-for="(pkg, pi) in printRecord.packages" :key="'pkg-' + pi">
+          <div class="grp-title">{{ pkg.name }} (Pkg)</div>
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th class="num-col">#</th>
+                <th class="name-col">Test</th>
+                <th class="sample-col">Sample</th>
+                <th class="price-col">Price</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(item, idx) in pkg.tests" :key="'pt-' + pi + '-' + idx">
+                <td class="num-col">{{ idx + 1 }}</td>
+                <td class="name-col">{{ item.report_name || item.name }}</td>
+                <td class="sample-col">{{ item.sample_name || '-' }}</td>
+                <td class="price-col">{{ idx === 0 ? pkg.price : '' }}</td>
+              </tr>
+              <tr v-for="(item, idx) in pkg.cultures" :key="'pc-' + pi + '-' + idx">
+                <td class="num-col">{{ (pkg.tests?.length || 0) + idx + 1 }}</td>
+                <td class="name-col">{{ item.name }}</td>
+                <td class="sample-col">{{ item.sample_name || '-' }}</td>
+                <td class="price-col">{{ !pkg.tests?.length && idx === 0 ? pkg.price : '' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="sep"></div>
+      </template>
+
+      <!-- ===== Individual Tests & Cultures ===== -->
+      <template v-if="hasIndividualTests">
+        <div class="grp-title">Individual Tests</div>
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th class="num-col">#</th>
+              <th class="name-col">Test</th>
+              <th class="sample-col">Sample</th>
+              <th class="price-col">Price</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(item, index) in printRecord?.tests" :key="'t-' + index">
+              <td class="num-col">{{ index + 1 }}</td>
+              <td class="name-col">{{ item.report_name || item.name }}</td>
+              <td class="sample-col">{{ item.sample_name || '-' }}</td>
+              <td class="price-col">{{ item.price }}</td>
+            </tr>
+            <tr v-for="(item, index) in printRecord?.cultures" :key="'c-' + index">
+              <td class="num-col">{{ (printRecord?.tests?.length || 0) + index + 1 }}</td>
+              <td class="name-col">{{ item.name }}</td>
+              <td class="sample-col">{{ item.sample_name || '-' }}</td>
+              <td class="price-col">{{ item.price }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="sep"></div>
+      </template>
+
+      <!-- ===== Notes ===== -->
+      <div v-if="printRecord?.notes" class="notes-section">
+        <strong>Notes:</strong> {{ printRecord.notes }}
+      </div>
+
+      <!-- ===== Financial Summary ===== -->
+      <div class="summary">
+        <div class="sum-row">
+          <span>Subtotal</span>
+          <span>{{ printRecord?.sub_total }}</span>
+        </div>
+        <div v-if="printRecord?.discount" class="sum-row">
+          <span>Discount</span>
+          <span>- {{ printRecord?.discount }}</span>
+        </div>
+        <div class="sum-row total">
+          <span>Total</span>
+          <span>{{ printRecord?.total }}</span>
+        </div>
+        <div class="sum-row">
+          <span>Paid</span>
+          <span>{{ printRecord?.paid }}</span>
+        </div>
+        <div class="sum-row due">
+          <span>Due</span>
+          <span>{{ due }}</span>
+        </div>
+      </div>
+
+      <div class="sep"></div>
+
+      <!-- ===== QR Code ===== -->
+      <div class="qr">
+        <img v-if="qrDataUrl" :src="qrDataUrl" class="qr-img" alt="QR Code" />
+        <p class="qr-hint">Scan to view results</p>
+      </div>
+
+      <!-- ===== Footer ===== -->
+      <div class="footer">
+        <p>Thank you for choosing our lab</p>
+        <p>We wish you good health</p>
+      </div>
+
+    </div>
+  </div>
+</template>

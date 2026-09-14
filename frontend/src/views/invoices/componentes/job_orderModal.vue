@@ -1,444 +1,222 @@
-<template>
-     <div class="report-container" id="job">
-          <template v-if="NotprintAlone?.length > 0">
-               <hr />
-               <div class="printPage">
-                    <div class="head">
-                         <div class="header">
-                              <br />
-                              <br />
-                              <br />
-                              <br />
-                              <br />
-                              <br />
-                              <div class="header-item">
-                                   <div style="display: flex; align-items: center">
-                                        <span>Barcode:</span>
+<script setup>
+import { computed } from "vue";
+import { storeToRefs } from "pinia";
+import { useinvoicesStore } from "@/store/modules/invoices";
+import { dateTimeFormat, t } from "@/utils/helper";
+import BarcodeComponent from "@/components/BarcodeComponent.vue";
 
-                                        <div style="text-align: center">
-                                             <BarcodeComponent :value="printRecord?.barcode" />
-                                             <span>{{ printRecord?.barcode }}</span>
-                                        </div>
-                                   </div>
-                              </div>
-                              <div class="header-item">
-                                   Age:
-                                   <strong>
-                                        {{ printRecord?.patient?.age + printRecord?.patient?.age_unit }}
-                                   </strong>
-                              </div>
-                              <div class="header-item">
-                                   Referred By:
-                                   <strong>{{ printRecord?.referral?.name }}</strong>
-                              </div>
-                              <div class="header-item">
-                                   Total:
-                                   <strong>{{ printRecord?.total }}</strong>
-                              </div>
-                         </div>
+const invoicesStore = useinvoicesStore();
+const { printRecord } = storeToRefs(invoicesStore);
 
-                         <div class="header">
-                              <div class="header-item">
-                                   <div style="display: flex; align-items: center">
-                                        <span>Patient code:</span>
+const printAlone = computed(() => {
+  return printRecord.value?.test_groups_all?.map((group) => ({
+    name: group?.name,
+    category: group?.category,
+    testlength: group?.tests_print_alone?.length,
+    tests_print_alone: group?.tests_print_alone,
+  }));
+});
 
-                                        <div style="text-align: center">
-                                             <BarcodeComponent :value="printRecord?.patient?.code" />
-                                             <span>{{ printRecord?.patient?.code }}</span>
-                                        </div>
-                                   </div>
-                              </div>
-                              <div class="header-item">
-                                   Sex:
-                                   <strong>{{ printRecord?.patient?.gender }}</strong>
-                              </div>
-                              <div class="header-item">
-                                   Registration date:
-                                   <strong>{{ dateTimeFormat(printRecord?.registration_date) }}</strong>
-                              </div>
-                              <div class="header-item">
-                                   Paid:
-                                   <strong>{{ printRecord?.paid }}</strong>
-                              </div>
-                         </div>
-                         <div class="header">
-                              <div class="header-item">
-                                   Patient name:
+const NotprintAlone = computed(() => {
+  return printRecord.value?.test_groups_all?.map((group) => ({
+    name: group?.name,
+    category: group?.category,
+    testlength: group?.tests_not_print_alone?.length,
+    tests_not_print_alone: group?.tests_not_print_alone,
+  }));
+});
 
-                                   <strong>
-                                        {{ printRecord?.patient?.name }}
-                                   </strong>
-                              </div>
-                              <div class="header-item">
-                                   Phone:
-
-                                   <strong>{{ printRecord?.patient?.phone }}</strong>
-                              </div>
-                              <div class="header-item">
-                                   Result date:
-                                   <strong>{{ dateTimeFormat(printRecord?.result_date) }}</strong>
-                              </div>
-                              <div class="header-item">
-                                   Due:
-                                   <strong>{{ printRecord?.total - printRecord?.paid }}</strong>
-                              </div>
-                         </div>
-                    </div>
-                    <section class="test-details" v-for="(test_group, index) in NotprintAlone" :key="index">
-                         <!-- Tests Table Section -->
-                         <div class="tests-section">
-                              <div v-if="test_group.name" class="caption">
-                                   {{ test_group.name }}
-                              </div>
-                              <br />
-                              <div v-if="test_group.category" class="caption">
-                                   {{ test_group.category }}
-                              </div>
-                              <table class="tests-table">
-                                   <thead>
-                                        <tr>
-                                             <th>Test name</th>
-                                             <th>Unit</th>
-                                             <th>Sample type</th>
-                                             <th>Result</th>
-                                             <th>Signature</th>
-                                        </tr>
-                                   </thead>
-                                   <tbody>
-                                        <tr v-for="(item, index) in test_group?.tests_not_print_alone" :key="index">
-                                             <td>{{ item?.report_name }}</td>
-                                             <td>{{ item?.unit }}</td>
-                                             <td>{{ item?.sample_name }}</td>
-                                             <td>{{ item?.result }}</td>
-                                             <td></td>
-                                        </tr>
-                                        <tr v-for="(item, index) in printRecord?.cultures" :key="index">
-                                             <td>{{ item?.name }}</td>
-                                             <td>{{ item?.unit }}</td>
-                                             <td>{{ item?.sample_name }}</td>
-                                             <td>{{ item?.result }}</td>
-                                             <td></td>
-                                        </tr>
-                                        <tr v-for="(item, index) in printRecord?.packages" :key="index">
-                                             <td>{{ item?.name }}</td>
-                                             <td>{{ item?.unit }}</td>
-                                             <td>{{ item?.sample_name }}</td>
-                                             <td>{{ item?.result }}</td>
-                                             <td></td>
-                                        </tr>
-                                   </tbody>
-                              </table>
-                         </div>
-
-                         <!-- Footer Section -->
-                    </section>
-                    <div class="footer">
-                         <div>Receptionist</div>
-                         <div>Sample receiver</div>
-                         <div>Sample responsible</div>
-                    </div>
-                    <br />
-                    <br />
-                    <br />
-                    <br />
-               </div>
-          </template>
-
-          <template v-if="printAlone?.length > 0">
-               <div v-for="(test_group, index) in printAlone" :key="index">
-                    <div
-                         v-for="(item, index) in test_group?.tests_print_alone"
-                         :key="'separate-' + index"
-                         class="print-page page-break">
-                         <div class="printPage">
-                              <div class="head">
-                                   <div class="header">
-                                        <br />
-                                        <br />
-                                        <br />
-                                        <br />
-                                        <br />
-                                        <br />
-                                        <div class="header-item">
-                                             <div style="display: flex; align-items: center">
-                                                  <span>Barcode:</span>
-                                                  <div style="text-align: center">
-                                                       <BarcodeComponent :value="printRecord?.barcode" />
-                                                       <span>{{ printRecord?.barcode }}</span>
-                                                  </div>
-                                             </div>
-                                        </div>
-                                        <div class="header-item">
-                                             Age:
-                                             <strong>
-                                                  {{ printRecord?.patient?.age + printRecord?.patient?.age_unit }}
-                                             </strong>
-                                        </div>
-                                        <div class="header-item">
-                                             Referred By:
-                                             <strong>{{ printRecord?.referral?.name }}</strong>
-                                        </div>
-                                        <div class="header-item">
-                                             Total:
-                                             <strong>{{ printRecord?.total }}</strong>
-                                        </div>
-                                   </div>
-
-                                   <div class="header">
-                                        <div class="header-item">
-                                             <div style="display: flex; align-items: center">
-                                                  <span>Patient code:</span>
-                                                  <div style="text-align: center">
-                                                       <BarcodeComponent :value="printRecord?.patient?.code" />
-                                                       <span>{{ printRecord?.patient?.code }}</span>
-                                                  </div>
-                                             </div>
-                                        </div>
-                                        <div class="header-item">
-                                             Sex:
-                                             <strong>{{ printRecord?.patient?.gender }}</strong>
-                                        </div>
-                                        <div class="header-item">
-                                             Registration date:
-                                             <strong>{{ dateTimeFormat(printRecord?.registration_date) }}</strong>
-                                        </div>
-                                        <div class="header-item">
-                                             Paid:
-                                             <strong>{{ printRecord?.paid }}</strong>
-                                        </div>
-                                   </div>
-                                   <div class="header">
-                                        <div class="header-item">
-                                             Patient name:
-
-                                             <strong>
-                                                  {{ printRecord?.patient?.name }}
-                                             </strong>
-                                        </div>
-                                        <div class="header-item">
-                                             Phone:
-
-                                             <strong>{{ printRecord?.patient?.phone }}</strong>
-                                        </div>
-                                        <div class="header-item">
-                                             Result date:
-                                             <strong>{{ dateTimeFormat(printRecord?.result_date) }}</strong>
-                                        </div>
-                                        <div class="header-item">
-                                             Due:
-                                             <strong>{{ printRecord?.total - printRecord?.paid }}</strong>
-                                        </div>
-                                   </div>
-                              </div>
-                              <!-- Tests Table Section -->
-                              <div class="tests-section">
-                                   <div v-if="test_group.name" class="caption">
-                                        {{ test_group.name }}
-                                   </div>
-                                   <br />
-                                   <div v-if="test_group.category" class="caption">
-                                        {{ test_group.category }}
-                                   </div>
-                                   <table class="tests-table">
-                                        <thead>
-                                             <tr>
-                                                  <th>Test name</th>
-                                                  <th>Unit</th>
-                                                  <th>Sample type</th>
-                                                  <th>Result</th>
-                                                  <th>Signature</th>
-                                             </tr>
-                                        </thead>
-                                        <tbody>
-                                             <tr>
-                                                  <td>{{ item?.report_name }}</td>
-                                                  <td>{{ item?.unit }}</td>
-                                                  <td>{{ item?.sample_name }}</td>
-                                                  <td>{{ item?.result }}</td>
-                                                  <td></td>
-                                             </tr>
-                                             <tr v-for="(item, index) in printRecord?.cultures" :key="index">
-                                                  <td>{{ item?.name }}</td>
-                                                  <td>{{ item?.unit }}</td>
-                                                  <td>{{ item?.sample_name }}</td>
-                                                  <td>{{ item?.result }}</td>
-                                                  <td></td>
-                                             </tr>
-                                             <tr v-for="(item, index) in printRecord?.packages" :key="index">
-                                                  <td>{{ item?.name }}</td>
-                                                  <td>{{ item?.unit }}</td>
-                                                  <td>{{ item?.sample_name }}</td>
-                                                  <td>{{ item?.result }}</td>
-                                                  <td></td>
-                                             </tr>
-                                        </tbody>
-                                   </table>
-                              </div>
-
-                              <!-- Footer Section -->
-                              <div class="footer">
-                                   <div>Receptionist</div>
-                                   <div>Sample receiver</div>
-                                   <div>Sample responsible</div>
-                              </div>
-                              <br />
-                              <br />
-                              <br />
-                              <br />
-                              <hr />
-                         </div>
-                    </div>
-               </div>
-          </template>
-          <!-- seperated cultures -->
-          <div v-for="(item, index) in printRecord?.cultures" :key="'separate-' + index" class="print-page page-break">
-               <div class="head">
-                    <div class="header">
-                         <div class="header-item">
-                              <div style="display: flex; align-items: center">
-                                   <span>Barcode:</span>
-                                   <span style="display: flex; flex-direction: column; align-items: center">
-                                        <div style="text-align: center">
-                                             <BarcodeComponent :value="printRecord?.barcode" />
-                                             <span>{{ printRecord?.barcode }}</span>
-                                        </div>
-                                   </span>
-                              </div>
-                         </div>
-                         <div class="header-item">
-                              Age:
-                              <strong>{{ printRecord?.patient?.age + printRecord?.patient?.age_unit }}</strong>
-                         </div>
-                         <div class="header-item">
-                              Referred By:
-                              <strong>{{ printRecord?.referral?.name }}</strong>
-                         </div>
-                         <div class="header-item">
-                              Total:
-                              <strong>{{ printRecord?.total }}</strong>
-                         </div>
-                    </div>
-
-                    <div class="header">
-                         <div class="header-item">
-                              <div style="display: flex; align-items: center">
-                                   <span>Patient code:</span>
-                                   <span style="display: flex; flex-direction: column; align-items: center">
-                                        <div style="text-align: center">
-                                             <BarcodeComponent :value="printRecord?.patient?.code" />
-                                             <span>{{ printRecord?.patient?.code }}</span>
-                                        </div>
-                                   </span>
-                              </div>
-                         </div>
-                         <div class="header-item">
-                              Sex:
-                              <strong>{{ printRecord?.patient?.gender }}</strong>
-                         </div>
-                         <div class="header-item">
-                              Registration date:
-                              <strong>{{ dateTimeFormat(printRecord?.registration_date) }}</strong>
-                         </div>
-                         <div class="header-item">
-                              Paid:
-                              <strong>{{ printRecord?.paid }}</strong>
-                         </div>
-                    </div>
-                    <div class="header">
-                         <div class="header-item">
-                              Patient name:
-
-                              <strong>{{ printRecord?.patient?.name }}</strong>
-                         </div>
-                         <div class="header-item">
-                              Phone:
-
-                              <strong>{{ printRecord?.patient?.phone }}</strong>
-                         </div>
-                         <div class="header-item">
-                              Result date:
-                              <strong>{{ dateTimeFormat(printRecord?.result_date) }}</strong>
-                         </div>
-                         <div class="header-item">
-                              Due:
-                              <strong>{{ printRecord?.total - printRecord?.paid }}</strong>
-                         </div>
-                    </div>
-               </div>
-               <section class="test-details">
-                    <table class="test-table">
-                         <thead>
-                              <tr>
-                                   <th>Test name</th>
-                                   <th>Unit</th>
-                                   <th>Sample type</th>
-                                   <th>Result</th>
-                                   <th>Signature</th>
-                              </tr>
-                         </thead>
-                         <tbody>
-                              <tr>
-                                   <td>{{ item?.report_name }}</td>
-                                   <td>{{ item?.unit }}</td>
-                                   <td>{{ item?.sample_name }}</td>
-                                   <td>{{ item?.result }}</td>
-                                   <td></td>
-                              </tr>
-                         </tbody>
-                    </table>
-               </section>
-
-               <div class="footer">
-                    <div class="role">Receptionist</div>
-                    <div class="role">Sample receiver</div>
-                    <div class="role">Sample responsible</div>
-               </div>
-          </div>
-     </div>
-</template>
-<script>
-     import { mapActions, mapWritableState } from "pinia";
-     import BarcodeComponent from "../../../components/BarcodeComponent.vue";
-
-     import { useinvoicesStore } from "@/store/modules/invoices";
-     export default {
-          components: { BarcodeComponent },
-          computed: {
-               ...mapWritableState(useinvoicesStore, ["printRecord"]),
-
-               printAlone() {
-                    return this.printRecord?.test_groups_all?.map((group) => ({
-                         name: group?.name,
-                         category: group?.category,
-                         testlength: group?.tests_print_alone?.length,
-                         tests_print_alone: group?.tests_print_alone,
-
-                         // Keeping other group properties like 'cultures' if necessary
-                    }));
-               },
-               NotprintAlone() {
-                    return this.printRecord?.test_groups_all?.map((group) => ({
-                         name: group?.name,
-                         category: group?.category,
-                         testlength: group?.tests_not_print_alone?.length,
-                         tests_not_print_alone: group?.tests_not_print_alone,
-                    }));
-               },
-               cultures() {
-                    return this.printRecord?.test_groups_all?.map((group) => ({
-                         name: group?.name,
-                         category: group?.category,
-                         culturesLength: group?.cultures?.length,
-                         cultures: group?.cultures, // Keeping other group properties like 'cultures' if necessary
-                    }));
-               },
-          },
-
-          methods: {},
-     };
+const allTests = computed(() => {
+  const tests = [];
+  // Add regular tests
+  if (printRecord.value?.tests) {
+    tests.push(...printRecord.value.tests.map(t => ({ ...t, type: 'test' })));
+  }
+  // Add cultures
+  if (printRecord.value?.cultures) {
+    tests.push(...printRecord.value.cultures.map(c => ({ ...c, type: 'culture' })));
+  }
+  // Add packages
+  if (printRecord.value?.packages) {
+    tests.push(...printRecord.value.packages.map(p => ({ ...p, type: 'package' })));
+  }
+  return tests;
+});
 </script>
+
+<template>
+  <div class="hidden" id="job">
+    <!-- Job Order Print Template -->
+    <div class="job-order-container">
+      <!-- Header Section -->
+      <div class="job-header">
+        <table class="header-table">
+          <tbody>
+            <tr>
+              <td class="header-cell">
+                <div class="barcode-section">
+                  <span class="label">{{ t('Barcode') || 'Barcode' }}:</span>
+                  <div class="barcode-wrapper">
+                    <BarcodeComponent :value="printRecord?.barcode" />
+                    <span class="barcode-text">{{ printRecord?.barcode }}</span>
+                  </div>
+                </div>
+              </td>
+              <td class="header-cell">
+                <div class="info-row">
+                  <span class="label">{{ t('age') || 'Age' }}:</span>
+                  <strong>{{ printRecord?.patient?.age }} {{ printRecord?.patient?.age_unit }}</strong>
+                </div>
+              </td>
+              <td class="header-cell">
+                <div class="info-row">
+                  <span class="label">{{ t('referral') || 'Referred By' }}:</span>
+                  <strong>{{ printRecord?.referral?.name || '-' }}</strong>
+                </div>
+              </td>
+              <td class="header-cell">
+                <div class="info-row">
+                  <span class="label">{{ t('total') || 'Total' }}:</span>
+                  <strong>{{ printRecord?.total }}</strong>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td class="header-cell">
+                <div class="barcode-section">
+                  <span class="label">{{ t('patient_code') || 'Patient Code' }}:</span>
+                  <div class="barcode-wrapper">
+                    <BarcodeComponent :value="printRecord?.patient?.code" />
+                    <span class="barcode-text">{{ printRecord?.patient?.code }}</span>
+                  </div>
+                </div>
+              </td>
+              <td class="header-cell">
+                <div class="info-row">
+                  <span class="label">{{ t('sex') || 'Sex' }}:</span>
+                  <strong>{{ printRecord?.patient?.gender }}</strong>
+                </div>
+              </td>
+              <td class="header-cell">
+                <div class="info-row">
+                  <span class="label">{{ t('registration_date') || 'Reg. Date' }}:</span>
+                  <strong>{{ dateTimeFormat(printRecord?.registration_date) }}</strong>
+                </div>
+              </td>
+              <td class="header-cell">
+                <div class="info-row">
+                  <span class="label">{{ t('paid') || 'Paid' }}:</span>
+                  <strong>{{ printRecord?.paid }}</strong>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td class="header-cell" colspan="2">
+                <div class="info-row">
+                  <span class="label">{{ t('Pationt_name') || 'Patient Name' }}:</span>
+                  <strong class="patient-name">{{ printRecord?.patient?.name }}</strong>
+                </div>
+              </td>
+              <td class="header-cell">
+                <div class="info-row">
+                  <span class="label">{{ t('result_date') || 'Result Date' }}:</span>
+                  <strong>{{ dateTimeFormat(printRecord?.result_date) }}</strong>
+                </div>
+              </td>
+              <td class="header-cell">
+                <div class="info-row">
+                  <span class="label">{{ t('Due') || 'Due' }}:</span>
+                  <strong class="due-amount">{{ (printRecord?.total || 0) - (printRecord?.paid || 0) }}</strong>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Tests Table -->
+      <div class="tests-section">
+        <table class="tests-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>{{ t('test_name') || 'Test Name' }}</th>
+              <th>{{ t('unit') || 'Unit' }}</th>
+              <th>{{ t('sample') || 'Sample Type' }}</th>
+              <th>{{ t('result') || 'Result' }}</th>
+              <th>{{ t('signature') || 'Signature' }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Tests from test_groups_all -->
+            <template v-for="(test_group, gIndex) in NotprintAlone" :key="'g-' + gIndex">
+              <tr v-if="test_group.name || test_group.category" class="group-header">
+                <td colspan="6">
+                  <strong>{{ test_group.name || test_group.category }}</strong>
+                </td>
+              </tr>
+              <tr v-for="(item, idx) in test_group?.tests_not_print_alone" :key="'t-' + gIndex + '-' + idx">
+                <td>{{ idx + 1 }}</td>
+                <td>{{ item?.report_name || item?.name }}</td>
+                <td>{{ item?.unit || '-' }}</td>
+                <td>{{ item?.sample_name || '-' }}</td>
+                <td class="result-cell"></td>
+                <td class="signature-cell"></td>
+              </tr>
+            </template>
+
+            <!-- Direct tests -->
+            <tr v-for="(item, idx) in printRecord?.tests" :key="'test-' + idx">
+              <td>{{ idx + 1 }}</td>
+              <td>{{ item?.report_name || item?.name }}</td>
+              <td>{{ item?.unit || '-' }}</td>
+              <td>{{ item?.sample_name || '-' }}</td>
+              <td class="result-cell"></td>
+              <td class="signature-cell"></td>
+            </tr>
+
+            <!-- Cultures -->
+            <tr v-for="(item, idx) in printRecord?.cultures" :key="'culture-' + idx">
+              <td>{{ (printRecord?.tests?.length || 0) + idx + 1 }}</td>
+              <td>{{ item?.name }}</td>
+              <td>{{ item?.unit || '-' }}</td>
+              <td>{{ item?.sample_name || '-' }}</td>
+              <td class="result-cell"></td>
+              <td class="signature-cell"></td>
+            </tr>
+
+            <!-- Packages -->
+            <tr v-for="(item, idx) in printRecord?.packages" :key="'package-' + idx">
+              <td>{{ (printRecord?.tests?.length || 0) + (printRecord?.cultures?.length || 0) + idx + 1 }}</td>
+              <td>{{ item?.name }}</td>
+              <td>{{ item?.unit || '-' }}</td>
+              <td>{{ item?.sample_name || '-' }}</td>
+              <td class="result-cell"></td>
+              <td class="signature-cell"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Footer Signatures -->
+      <div class="signatures-section">
+        <div class="signature-box">
+          <div class="signature-line"></div>
+          <span>{{ t('receptionist') || 'Receptionist' }}</span>
+        </div>
+        <div class="signature-box">
+          <div class="signature-line"></div>
+          <span>{{ t('sample_receiver') || 'Sample Receiver' }}</span>
+        </div>
+        <div class="signature-box">
+          <div class="signature-line"></div>
+          <span>{{ t('sample_responsible') || 'Sample Responsible' }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
 <style scoped>
-     #job {
-          display: none;
-     }
+/* Print styles are handled inline in the print function */
 </style>

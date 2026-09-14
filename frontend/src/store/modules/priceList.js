@@ -28,38 +28,59 @@ export const priceListStore = defineStore("priceList", {
      },
      actions: {
           async GetpriceList() {
-               const { data } = await $http.get("/price_list");
-               // let pageNumber = Math.floor(this.filter.pageNumber / this.filter.pageSize) + 1;
-               this.priceList = data.map((item, index) => ({
-                    ...item,
-                    index: index + 1, // Adding 1 to start indexing from 1 instead of 0
-               }));
+               try {
+                    const { data } = await $http.get("/price_list");
+                    // let pageNumber = Math.floor(this.filter.pageNumber / this.filter.pageSize) + 1;
+                    this.priceList = data.map((item, index) => ({
+                         ...item,
+                         index: index + 1, // Adding 1 to start indexing from 1 instead of 0
+                    }));
 
-               this.totalCount = this.priceList.length;
+                    this.totalCount = this.priceList.length;
+               } catch (error) {
+                    this.priceList = [];
+               }
           },
           async GetpriceListById(id) {
-               const { data } = await $http.get("/price_list/show/" + id);
-               // let pageNumber = Math.floor(this.filter.pageNumber / this.filter.pageSize) + 1;
-               this.UpdateList = data;
+               try {
+                    const { data } = await $http.get("/price_list/show/" + id);
+                    // let pageNumber = Math.floor(this.filter.pageNumber / this.filter.pageSize) + 1;
+                    this.UpdateList = data;
+               } catch (error) {
+                    this.UpdateList = [];
+               }
           },
           async AddpriceList() {
-               this.record.cultures = this.record.cultures ? this.record.cultures : [];
-               this.record.tests = this.record.tests ? this.record.tests : [];
-               this.record.packages = this.record.packages ? this.record.packages : [];
-               await $http.post(`/price_list/create`, this.record);
-               this.GetpriceList();
+               try {
+                    this.record.cultures = this.record.cultures ? this.record.cultures : [];
+                    this.record.tests = this.record.tests ? this.record.tests : [];
+                    this.record.groups = this.record.groups ? this.record.groups : [];
+                    this.record.packages = this.record.packages ? this.record.packages : [];
+                    await $http.post(`/price_list/create`, this.record);
+                    this.GetpriceList();
+               } catch (error) {
+                    throw error;
+               }
           },
           async UpdatepriceList() {
-               this.record.cultures = this.record.cultures ? this.record.cultures : [];
-               this.record.tests = this.record.tests ? this.record.tests : [];
-               this.record.packages = this.record.packages ? this.record.packages : [];
-               await $http.put(`/price_list/update`, this.record);
-
-               this.GetpriceList();
+               try {
+                    this.record.cultures = this.record.cultures ? this.record.cultures : [];
+                    this.record.tests = this.record.tests ? this.record.tests : [];
+                    this.record.groups = this.record.groups ? this.record.groups : [];
+                    this.record.packages = this.record.packages ? this.record.packages : [];
+                    await $http.put(`/price_list/update`, this.record);
+                    this.GetpriceList();
+               } catch (error) {
+                    throw error;
+               }
           },
           async RemovepriceList() {
-               await $http.delete(`/price_list/delete`, { data: { id: this.record.id } });
-               this.GetpriceList();
+               try {
+                    await $http.delete(`/price_list/delete`, { data: { id: this.record.id } });
+                    this.GetpriceList();
+               } catch (error) {
+                    throw error;
+               }
           },
      },
 });

@@ -16,21 +16,13 @@ export const usePatientsStore = defineStore("patient", {
           responseData: [],
           searchNameTotalCount: "",
           dialog: false,
-          pagination: {
-               pageNumber: 1,
-               total: null,
-               per_page: 25,
-               current_page: 1,
-               last_page: null,
-               from: null,
-               to: null,
-          },
           record: {
                id: "",
                code: "",
                title_id_fk: "",
                name: "",
                email: "",
+               phone: "",
                phone_number: "",
                contract_id_fk: "",
                national_id_no: "",
@@ -39,6 +31,7 @@ export const usePatientsStore = defineStore("patient", {
                nationality_id_fk: "",
                dob: "",
                gender_id_fk: "",
+               gender_type_id_fk: "",
                age: "",
                age_unit_id_fk: "",
           },
@@ -54,7 +47,7 @@ export const usePatientsStore = defineStore("patient", {
           },
           async searchByname(name) {
                if (name) {
-                    const { data } = await $http.post(`/invoices/search-name`, { name: name });
+                    const { data } = await $http.post(`/patients/search-name`, { name: name });
 
                     this.searchRecords = data;
 
@@ -63,34 +56,34 @@ export const usePatientsStore = defineStore("patient", {
                     this.searchRecords = [];
                }
           },
-          async GetRecords(filters) {
-               const { data } = await $http.get("/patients", {
-                    params: {
-                         page: this.pagination.current_page,
-                         ...filters,
-                    },
-               });
-               // let pageNumber = Math.floor(this.filter.pageNumber / this.filter.pageSize) + 1;
-               this.records = data.data.map((item, index) => ({
-                    ...item,
-                    index: this.pagination.from + index,
-               }));
-               this.pagination.total = data.pagination.total;
-               this.pagination.per_page = data.pagination.per_page;
-               this.pagination.current_page = data.pagination.current_page;
-               this.pagination.last_page = data.pagination.last_page;
-               this.pagination.from = data.pagination.from;
-               this.pagination.to = data.pagination.to;
+          async GetRecords() {
+               try {
+                    const { data } = await $http.get("/patients");
+                    const items = Array.isArray(data) ? data : [];
+                    this.records = items.map((item, index) => ({
+                         ...item,
+                         index: index + 1,
+                    }));
+                    this.totalCount = this.records.length;
+               } catch (error) {
+                    this.records = [];
+               }
           },
           async GetGenders() {
-               const { data } = await $http.get("/genders");
-               // let pageNumber = Math.floor(this.filter.pageNumber / this.filter.pageSize) + 1;
-               this.genders = data.map((record) => ({ label: record.gender_type, value: record.id }));
+               try {
+                    const { data } = await $http.get("/genders");
+                    this.genders = (data || []).map((record) => ({ label: record.gender_type, value: record.id }));
+               } catch (error) {
+                    this.genders = [];
+               }
           },
           async GetAgeUnits() {
-               const { data } = await $http.get("/age-units");
-               // let pageNumber = Math.floor(this.filter.pageNumber / this.filter.pageSize) + 1;
-               this.AgeUnits = data.map((record) => ({ label: record.unit_name, value: record.id }));
+               try {
+                    const { data } = await $http.get("/age-units");
+                    this.AgeUnits = (data || []).map((record) => ({ label: record.unit_name, value: record.id }));
+               } catch (error) {
+                    this.AgeUnits = [];
+               }
           },
           /**
            * Asynchronously adds a new patient record.
@@ -104,9 +97,13 @@ export const usePatientsStore = defineStore("patient", {
            */
           async AddPatient() {
                const formData = new FormData();
-               formData.append("image", this.selectedFile);
+               if (this.selectedFile && this.selectedFile instanceof File) {
+                    formData.append("image", this.selectedFile);
+               }
                for (let key in this.record) {
-                    formData.append(key, this.record[key]);
+                    if (this.record[key] !== null && this.record[key] !== undefined) {
+                         formData.append(key, this.record[key]);
+                    }
                }
                const data = await $http.post(`/patients/create`, formData);
                this.responseData = data.data;
@@ -114,9 +111,13 @@ export const usePatientsStore = defineStore("patient", {
           },
           async UpdatePatient() {
                const formData = new FormData();
-               formData.append("image", this.selectedFile);
+               if (this.selectedFile && this.selectedFile instanceof File) {
+                    formData.append("image", this.selectedFile);
+               }
                for (let key in this.record) {
-                    formData.append(key, this.record[key]);
+                    if (this.record[key] !== null && this.record[key] !== undefined) {
+                         formData.append(key, this.record[key]);
+                    }
                }
                const data = await $http.post(`/patients/update`, formData);
                this.responseData = data.data.patient;

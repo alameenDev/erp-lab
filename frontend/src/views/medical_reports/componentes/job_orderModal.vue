@@ -1,6 +1,48 @@
+<script setup>
+import { computed } from "vue";
+import { storeToRefs } from "pinia";
+import { useinvoicesStore } from "@/store/modules/invoices";
+import { dateTimeFormat } from "@/utils/helper";
+import BarcodeComponent from "@/components/BarcodeComponent.vue";
+
+const invoicesStore = useinvoicesStore();
+const { printRecord } = storeToRefs(invoicesStore);
+
+const printAlone = computed(() => {
+  return Array.isArray(printRecord.value?.test_groups_all)
+    ? printRecord.value.test_groups_all.map((group) => ({
+        name: group?.name,
+        category: group?.category,
+        testlength: group?.tests_print_alone?.length,
+        tests_print_alone: group?.tests_print_alone,
+      }))
+    : [];
+});
+
+const NotprintAlone = computed(() => {
+  return Array.isArray(printRecord.value?.test_groups_all)
+    ? printRecord.value.test_groups_all.map((group) => ({
+        name: group?.name,
+        category: group?.category,
+        testlength: group?.tests_not_print_alone?.length || 0,
+        tests_not_print_alone: group?.tests_not_print_alone || [],
+      }))
+    : [];
+});
+
+const cultures = computed(() => {
+  return printRecord.value?.test_groups_all?.map((group) => ({
+    name: group?.name,
+    category: group?.category,
+    culturesLength: group?.cultures?.length,
+    cultures: group?.cultures,
+  }));
+});
+</script>
+
 <template>
-  <div class="report-container" id="job">
-    <br/>
+  <div class="hidden" id="job">
+    <br />
     <template v-if="NotprintAlone?.length > 0">
       <div class="printPage">
         <div class="head">
@@ -43,7 +85,7 @@
                 <strong>Result Date:</strong> {{ dateTimeFormat(printRecord?.result_date) }}
               </div>
               <div>
-                <strong>Referred By:</strong> {{ printRecord?.referral?.name }}
+                <strong>Referred By:</strong> {{ printRecord?.referral?.name || printRecord?.from_lab || printRecord?.fromLab?.name || "-" }}
               </div>
             </div>
 
@@ -112,51 +154,3 @@
     </template>
   </div>
 </template>
-<script>
-     import { mapActions, mapWritableState } from "pinia";
-     import BarcodeComponent from "../../../components/BarcodeComponent.vue";
-
-     import { useinvoicesStore } from "@/store/modules/invoices";
-     export default {
-          components: { BarcodeComponent },
-          computed: {
-               ...mapWritableState(useinvoicesStore, ["printRecord"]),
-
-               printAlone() {
-                    return  Array.isArray(this.printRecord?.test_groups_all)
-                    ? this.printRecord.test_groups_all.map((group) => ({
-                         name: group?.name,
-                         category: group?.category,
-                         testlength: group?.tests_print_alone?.length,
-                         tests_print_alone: group?.tests_print_alone,
-                    }))
-                    : [];
-               },
-               NotprintAlone() {
-               return Array.isArray(this.printRecord?.test_groups_all)
-               ? this.printRecord.test_groups_all.map(group => ({
-                    name: group?.name,
-                    category: group?.category,
-                    testlength: group?.tests_not_print_alone?.length || 0,
-                    tests_not_print_alone: group?.tests_not_print_alone || [],
-                    }))
-               : [];
-               },
-               cultures() {
-                    return this.printRecord?.test_groups_all?.map((group) => ({
-                         name: group?.name,
-                         category: group?.category,
-                         culturesLength: group?.cultures?.length,
-                         cultures: group?.cultures, // Keeping other group properties like 'cultures' if necessary
-                    }));
-               },
-          },
-
-          methods: {},
-     };
-</script>
-<style scoped>
-     #job {
-          display: none;
-     }
-</style>

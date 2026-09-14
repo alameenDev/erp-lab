@@ -1,62 +1,75 @@
-import { toRefs, reactive, computed } from "vue";
+import { reactive, computed, ref } from "vue";
 
 const layoutConfig = reactive({
-     ripple: false,
-     darkTheme: false,
-     inputStyle: "outlined",
-     menuMode: "overlay",
-     theme: "lara-light-indigo",
-     scale: 14,
-     activeMenuItem: null,
+  menuMode: "overlay",
+  sidebarCollapsed: false,
+  activeMenuItem: null,
 });
 
 const layoutState = reactive({
-     staticMenuDesktopInactive: false,
-     overlayMenuActive: false,
-     profileSidebarVisible: false,
-     configSidebarVisible: false,
-     staticMenuMobileActive: false,
-     menuHoverActive: false,
+  sidebarOpen: false,
+  profileMenuOpen: false,
 });
 
+// Separate ref for sidebar collapsed state (persisted)
+const sidebarCollapsed = ref(localStorage.getItem("sidebarCollapsed") === "true");
+
+// Dark mode state (persisted)
+const darkMode = ref(localStorage.getItem("darkMode") === "true");
+
+// Apply dark mode class on init
+if (darkMode.value) {
+  document.documentElement.classList.add("dark-mode");
+}
+
 export function useLayout() {
-     const changeThemeSettings = (theme, darkTheme) => {
-          layoutConfig.darkTheme = darkTheme;
-          layoutConfig.theme = theme;
-     };
+  const toggleSidebar = () => {
+    layoutState.sidebarOpen = !layoutState.sidebarOpen;
+  };
 
-     const setScale = (scale) => {
-          layoutConfig.scale = scale;
-     };
+  const closeSidebar = () => {
+    layoutState.sidebarOpen = false;
+  };
 
-     const setActiveMenuItem = (item) => {
-          layoutConfig.activeMenuItem = item.value || item;
-     };
+  const toggleSidebarCollapse = () => {
+    sidebarCollapsed.value = !sidebarCollapsed.value;
+    localStorage.setItem("sidebarCollapsed", sidebarCollapsed.value);
+  };
 
-     const onMenuToggle = () => {
-          if (layoutConfig.menuMode === "overlay") {
-               layoutState.overlayMenuActive = !layoutState.overlayMenuActive;
-          }
+  const toggleDarkMode = () => {
+    darkMode.value = !darkMode.value;
+    localStorage.setItem("darkMode", darkMode.value);
+    document.documentElement.classList.toggle("dark-mode", darkMode.value);
+  };
 
-          if (window.innerWidth > 991) {
-               layoutState.staticMenuDesktopInactive = !layoutState.staticMenuDesktopInactive;
-          } else {
-               layoutState.staticMenuMobileActive = !layoutState.staticMenuMobileActive;
-          }
-     };
+  const toggleProfileMenu = () => {
+    layoutState.profileMenuOpen = !layoutState.profileMenuOpen;
+  };
 
-     const isSidebarActive = computed(() => layoutState.overlayMenuActive || layoutState.staticMenuMobileActive);
+  const closeProfileMenu = () => {
+    layoutState.profileMenuOpen = false;
+  };
 
-     const isDarkTheme = computed(() => layoutConfig.darkTheme);
+  const setActiveMenuItem = (key) => {
+    layoutConfig.activeMenuItem = key;
+  };
 
-     return {
-          layoutConfig: toRefs(layoutConfig),
-          layoutState: toRefs(layoutState),
-          changeThemeSettings,
-          setScale,
-          onMenuToggle,
-          isSidebarActive,
-          isDarkTheme,
-          setActiveMenuItem,
-     };
+  const isSidebarActive = computed(() => layoutState.sidebarOpen);
+  const isSidebarCollapsed = computed(() => sidebarCollapsed.value);
+  const isDarkMode = computed(() => darkMode.value);
+
+  return {
+    layoutConfig,
+    layoutState,
+    toggleSidebar,
+    closeSidebar,
+    toggleSidebarCollapse,
+    toggleDarkMode,
+    toggleProfileMenu,
+    closeProfileMenu,
+    setActiveMenuItem,
+    isSidebarActive,
+    isSidebarCollapsed,
+    isDarkMode,
+  };
 }

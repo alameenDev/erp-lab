@@ -32,11 +32,15 @@ export const uselabsStore = defineStore("labs", {
                this.totalCount = this.labs.length;
           },
           async collectors() {
-               const { data } = await $http.get("/collectors");
-               this.collectorsList = data.map((item, index) => ({
-                    ...item,
-                    index: index + 1, // Adding 1 to start indexing from 1 instead of 0
-               }));
+               try {
+                    const { data } = await $http.get("/collectors");
+                    this.collectorsList = (data || []).map((item, index) => ({
+                         ...item,
+                         index: index + 1,
+                    }));
+               } catch (error) {
+                    this.collectorsList = [];
+               }
           },
           async Addlabs() {
                await $http.post(`/labs/create`, checkObjectParams(this.record));

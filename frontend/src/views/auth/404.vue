@@ -1,8 +1,8 @@
 <template>
      <div
-          class="surface-ground flex align-items-center justify-content-center min-h-screen min-w-screen overflow-hidden">
-          <div class="flex flex-column align-items-center justify-content-center">
-               <img src="/favicon.ico" alt="oil-coupons" class="mb-5 w-6rem flex-shrink-0" />
+          class="bg-slate-100 flex items-center justify-center min-h-screen min-w-screen overflow-hidden">
+          <div class="flex flex-col items-center justify-center">
+               <img src="/favicon.ico" alt="oil-coupons" class="mb-5 w-24 flex-shrink-0" />
                <div
                     style="
                          border-radius: 56px;
@@ -10,11 +10,11 @@
                          background: linear-gradient(180deg, #ffd900 10%, rgba(237, 23, 94, 0) 30%);
                     ">
                     <div
-                         class="w-full surface-card py-8 px-5 sm:px-8 flex flex-column align-items-center"
+                         class="w-full bg-white py-8 px-5 sm:px-8 flex flex-col items-center"
                          style="border-radius: 53px">
                          <span class="text-blue-500 font-bold text-3xl">404</span>
-                         <h1 class="text-900 font-bold text-3xl lg:text-5xl mb-2">Not Found</h1>
-                         <div class="text-600 mb-5">Requested resource is not available.</div>
+                         <h1 class="text-slate-900 font-bold text-3xl lg:text-5xl mb-2">Not Found</h1>
+                         <div class="text-slate-600 mb-5">Requested resource is not available.</div>
                     </div>
                </div>
           </div>

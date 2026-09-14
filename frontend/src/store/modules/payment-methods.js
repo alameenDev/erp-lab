@@ -18,28 +18,44 @@ export const usepaymentMethodstore = defineStore("paymentMethods", {
      },
      actions: {
           async GetpaymentMethods() {
-               const { data } = await $http.get("/payment-methods");
-               this.paymentMethods = data.map((item, index) => ({
-                    ...item,
-                    index: index + 1, // Adding 1 to start indexing from 1 instead of 0
-               }));
+               try {
+                    const { data } = await $http.get("/payment-methods");
+                    this.paymentMethods = data.map((item, index) => ({
+                         ...item,
+                         index: index + 1, // Adding 1 to start indexing from 1 instead of 0
+                    }));
 
-               this.totalCount = this.paymentMethods.length;
+                    this.totalCount = this.paymentMethods.length;
+               } catch (error) {
+                    this.paymentMethods = [];
+               }
           },
 
           async AddpaymentMethod() {
-               await $http.post(`/payment-methods/create`, this.record);
-               this.GetpaymentMethods();
+               try {
+                    await $http.post(`/payment-methods/create`, this.record);
+                    this.GetpaymentMethods();
+               } catch (error) {
+                    throw error;
+               }
           },
           async UpdatepaymentMethod() {
-               await $http.put(`/payment-methods/update`, checkObjectParams(this.record));
+               try {
+                    await $http.put(`/payment-methods/update`, checkObjectParams(this.record));
 
-               this.GetpaymentMethods();
+                    this.GetpaymentMethods();
+               } catch (error) {
+                    throw error;
+               }
           },
 
           async RemovepaymentMethod() {
-               await $http.delete(`/payment-methods/delete`, { data: { id: this.record.id } });
-               this.GetpaymentMethods();
+               try {
+                    await $http.delete(`/payment-methods/delete`, { data: { id: this.record.id } });
+                    this.GetpaymentMethods();
+               } catch (error) {
+                    throw error;
+               }
           },
      },
 });

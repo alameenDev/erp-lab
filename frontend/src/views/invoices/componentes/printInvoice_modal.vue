@@ -1,744 +1,501 @@
-<template>
-     <Dialog v-model:visible="printInvoiceDialog" modal style="width: 70rem">
-          <div>
-               <section class="parcode">
-                    <span @click="printParcode(printRecord)" style="margin: auto; cursor: pointer">
-                         <!-- <span class="ml-2">{{ t("print_parcode") }}</span> -->
-                         <div style="display: flex; flex-direction: column; align-items: center">
-                              <BarcodeComponent :value="printRecord?.barcode" />
-                              {{ printRecord?.barcode }}
-                         </div>
-                    </span>
-                    <span>
-                         <Button
-                              :label="t('thermal_recipt')"
-                              icon="pi pi-receipt"
-                              class="p-button-rounded mx-1"
-                              @click="openthermalRecord(printRecord)"></Button>
-                    </span>
-               </section>
-               <br />
-               <hr />
-               <div id="print">
-                    <div v-if="printRecord?.test_groups.length > 0">
-                         <section
-                              class="test-details"
-                              v-for="(test_group, index) in printRecord?.test_groups"
-                              :key="index">
-                              <div class="caption">
-                                   {{ test_group.group_name }}
-                              </div>
-                              <table class="test-table table">
-                                   <thead>
-                                        <tr>
-                                             <th>{{ t("Original_Price") }}</th>
-                                             <th>{{ t("the_tests") }}</th>
-                                        </tr>
-                                   </thead>
-                                   <tbody>
-                                        <tr v-for="(item, index) in test_group?.tests" :key="index">
-                                             <td>{{ item.price }}</td>
-                                             <td>{{ item.report_name }}</td>
-                                        </tr>
-                                        <tr v-for="(item, index) in test_group?.cultures" :key="index">
-                                             <td>{{ item.price }}</td>
-                                             <td>{{ item.name }}</td>
-                                        </tr>
-                                   </tbody>
-                              </table>
-                         </section>
-                    </div>
-                    <br />
-                    <div v-if="printRecord?.packages.length > 0">
-                         <section class="test-details" v-for="(pkg, index) in printRecord?.packages" :key="index">
-                              <div class="caption">
-                                   {{ pkg.name }}
-                              </div>
-                              <table class="test-table table">
-                                   <thead>
-                                        <tr>
-                                             <th>{{ t("Original_Price") }}</th>
-                                             <th>{{ t("the_tests") }}</th>
-                                        </tr>
-                                   </thead>
-                                   <tbody>
-                                        <tr v-for="(item, index) in pkg?.tests" :key="index">
-                                             <td>{{ item.price }}</td>
-                                             <td>{{ item.report_name }}</td>
-                                        </tr>
-                                        <tr v-for="(item, index) in pkg?.cultures" :key="index">
-                                             <td>{{ item.price }}</td>
-                                             <td>{{ item.name }}</td>
-                                        </tr>
-                                   </tbody>
-                              </table>
-                         </section>
-                    </div>
-                    <br />
-                    <div class="test-details" v-if="printRecord?.tests.length > 0 || printRecord?.cultures.length > 0">
-                         <table class="test-table table">
-                              <thead>
-                                   <tr>
-                                        <th>{{ t("Original_Price") }}</th>
-                                        <th>{{ t("the_tests") }}</th>
-                                   </tr>
-                              </thead>
-                              <tbody>
-                                   <tr v-for="(item, index) in printRecord?.tests" :key="index">
-                                        <td>{{ item.price }}</td>
-                                        <td>{{ item.report_name }}</td>
-                                   </tr>
-                                   <tr v-for="(item, index) in printRecord?.cultures" :key="index">
-                                        <td>{{ item.price }}</td>
-                                        <td>{{ item.name }}</td>
-                                   </tr>
-                                   <tr v-for="(item, index) in printRecord?.packages" :key="index">
-                                        <td>{{ item.price }}</td>
-                                        <td>{{ item.name }}</td>
-                                   </tr>
-                              </tbody>
-                         </table>
-                    </div>
-                    <br />
-                    <div class="summary" style="margin-top: 5px">
-                         <div class="receipt">
-                              <div class="row">
-                                   <span class="label">Subtotal</span>
-                                   <span class="value">IQD {{ printRecord?.sub_total }}</span>
-                              </div>
-                              <div class="row">
-                                   <span class="label">discount percentage</span>
-                                   <span class="value">IQD {{ printRecord?.discount }}</span>
-                              </div>
-                              <div class="row">
-                                   <span class="label">Total</span>
-                                   <span class="value">IQD {{ printRecord?.total }}</span>
-                              </div>
-                              <div class="row">
-                                   <span class="label">paid</span>
-                                   <span class="value">IQD {{ printRecord?.paid }}</span>
-                              </div>
-                              <!-- <div class="row payment-info">
-                                   <span class="value">IQD {{ printRecord?.paid }}</span>
-                                   <span class="label">عن طريق كاش On 2024-11-17 19:00</span>
-                              </div> -->
-                              <div class="row">
-                                   <span class="label">Due</span>
-                                   <span class="value">IQD {{ printRecord?.total - printRecord?.paid }}</span>
-                              </div>
-                         </div>
-                    </div>
-               </div>
-          </div>
-          <div class="flex justify-content-center gap-2 border-top-1 border-bluegray-100 mt-3 pt-3">
-               <Button size="small" :label="t('close')" severity="danger" @click="close()"></Button>
-               <Button
-                    icon="pi pi-print"
-                    size="small"
-                    severity="success"
-                    @click="openprintINvoiceTemplate(printRecord)"></Button>
-          </div>
-     </Dialog>
-     <parcodModal></parcodModal>
-</template>
-<script>
-     import { mapWritableState, mapActions } from "pinia";
-     import { useinvoicesStore } from "@/store/modules/invoices";
-     import parcodModal from "./parcodeModal.vue";
-     import BarcodeComponent from "../../../components/BarcodeComponent.vue";
-     export default {
-          computed: {
-               ...mapWritableState(useinvoicesStore, ["printRecord", "printInvoiceDialog"]),
-          },
-          components: { parcodModal, BarcodeComponent },
-          methods: {
-               ...mapActions(useinvoicesStore, ["getsamples"]),
-
-               printParcode(data) {
-                    this.printRecord = data;
-                    this.getsamples(data.id).then((res) => {
-                         setTimeout(function () {
-                              //                               const printContent = document.getElementById("parcode").innerHTML;
-                              //                               const originalContent = document.body.innerHTML;
-
-                              //                               // Add custom styles dynamically
-                              //                               const style = document.createElement("style");
-                              //                               style.type = "text/css";
-                              //                               var css = `
-                              //                             @page { size: 25mm 8mm;  margin: 0 !important;}
-                              //                            @media print {
-                              //                                body,  .page {   margin: 0px !important;   box-shadow: 0;  text-transform: capitalize;
-                              //                               //    -webkit-print-color-adjust: exact;       color: #000;    } } ;
-                              //                               //         @page {  size: 25mm 8mm;   margin: 0;      }
-                              //                               //             body {margin: 0; padding: 0; font-family: Arial, sans-serif;  color: #000;      }
-                              //                               //             .page-break {     display: block;     page-break-before: always; }
-                              //                               //    .label-container { width:25mm;  height:8mm;
-                              //                               //    text-align: center;
-                              //                               //     border: 1px solid #000;
-
-                              //                               //      }
-                              //                             @page {
-                              //   size: 25mm 8mm;
-                              //   margin: 0;
-                              // }
-
-                              // @media print {
-                              //   body {
-                              //     margin: 0;
-                              //     padding: 0;
-                              //     box-sizing: border-box;
-                              //   }
-
-                              //   .container {
-                              //     width: 25mm;
-                              //     height: 8mm;
-                              //     display: flex;
-                              //     flex-direction: column;
-                              //     align-items: center;
-                              //     justify-content: center;
-                              //     line-height: 0;
-
-                              //     overflow: hidden; /* Ensure no content overflows */
-                              //     page-break-inside: avoid; /* Avoid breaking the container */
-                              //   }
-
-                              //   .label-container {
-                              //     width: 100%;
-                              //     height: 100%;
-                              //     font-size: 1px;
-                              //     display: flex;
-                              //     flex-direction: column;
-                              //     align-items: center;
-                              //     justify-content: center;
-                              //     line-height: 0;
-
-                              //     overflow: hidden; /* Ensure no content overflows */
-                              //   }
-
-                              //   .details,
-                              //   .barcode,
-                              //   .text-center,
-                              //   .test-list {
-                              //     text-align: center;
-                              //     margin: 0;
-                              //     padding:0;
-                              //     line-height: 0;
-
-                              //   }
-                              // svg{
-                              // height:5px !important;
-                              // }
-                              //   .page-break {
-                              //     page-break-before: always;
-                              //   }
-                              // }
-
-                              //                                       `;
-                              //                               style.innerHTML = css;
-                              //                               document.head.appendChild(style);
-
-                              //                               // Temporarily replace body content with the print section
-                              //                               document.body.innerHTML = printContent;
-
-                              //                               // Trigger the print and then restore the original content
-                              //                               window.print();
-
-                              // Get HTML to print from element
-                              const jobContent = document.getElementById("parcode").innerHTML;
-                              // Get all stylesheets HTML
-
-                              var css = `
-                                                          @page { size: 25mm 8mm;  margin: 0 !important;}
-                                                         @media print {
-                                                             body,  .page {   margin: 0px !important;   box-shadow: 0;  text-transform: capitalize;
-                                                            //    -webkit-print-color-adjust: exact;       color: #000;    } } ;
-                                                            //         @page {  size: 25mm 8mm;   margin: 0;      }
-                                                            //             body {margin: 0; padding: 0; font-family: Arial, sans-serif;  color: #000;      }
-                                                            //             .page-break {     display: block;     page-break-before: always; }
-                                                            //    .label-container { width:25mm;  height:8mm;
-                                                            //    text-align: center;
-                                                            //     border: 1px solid #000;
-
-                                                            //      }
-                                                          @page {
-                                size: 25mm 8mm;
-                                margin: 0;
-                              }
-
-                              @media print {
-                                body {
-                                  margin: 0;
-                                  padding: 0;
-                                  box-sizing: border-box;
-                                }
-
-                                .container {
-                                 
-                                  width: 20mm;
-                                  height: 8mm;
-                                  display: flex;
-                                  flex-direction: column;
-                                  align-items: center;
-                                  justify-content: center;
-                                  line-height: 0.1; 
-                                   margin: 0;
-                                  padding:0;
-                                  overflow: hidden; /* Ensure no content overflows */
-                                  page-break-inside: avoid; /* Avoid breaking the container */
-                                }
-
-                                .label-container {
-                                  width: 100%;
-                                  height: 100%;
-                                  display: flex;
-                                  flex-direction: column;
-                                  align-items: center;
-                                  justify-content: center;
-                                   //   line-height: 0;
-                                  overflow: hidden; /* Ensure no content overflows */
-                                }
-
-                                .details,
-                                .barcode,
-                                .text-center,
-                                .test-list {
-                                  text-align: center;
-                                  margin: 0;
-                                  padding:0;
-                           
-
-                                }
-svg{
-height:5px !important;
-}
-                                .page-break {
-                                  page-break-before: always;
-                                }
-                              }
-
-                                                                    `;
-                              // Create an iframe for printing
-
-                              const printFrame = document.createElement("iframe");
-                              printFrame.style.position = "absolute";
-                              // Add iframe to the document
-                              document.body.appendChild(printFrame);
-
-                              // Write the content to the iframe
-                              const frameDoc = printFrame.contentWindow.document;
-                              frameDoc.open();
-                              frameDoc.write(`
-                                      <html>
-                                          <head>
-                                              <title>Print Job</title>
-                                              <style>${css}</style>
-                                          </head>
-                                          <body>${jobContent}</body>
-                                      </html>
-                                  `);
-                              document.innerHTML = jobContent;
-                              frameDoc.close();
-
-                              // Trigger print dialog from the iframe
-                              printFrame.contentWindow.focus();
-                              printFrame.contentWindow.print();
-
-                              // Remove the iframe after printing or canceling
-                              printFrame.contentWindow.onafterprint = () => {
-                                   document.body.removeChild(printFrame);
-                              };
-                         }, 50);
-                    });
-               },
-               openprintINvoiceTemplate(data) {
-                    this.printRecord = data;
-                    setTimeout(function () {
-                         // Get HTML to print from element
-                         const jobContent = document.getElementById("printInvoice").innerHTML;
-
-                         var css = `@page { size: portrait;  margin: 0 !important;}  @media print {    body,  .page {   margin: 0px !important;   box-shadow: 0;    -webkit-print-color-adjust: exact;       color: #000;    } }
-
-
-                                    body {font-family: "Tajawal", sans-serif;;font-size: 14px;margin: 0;padding: 0; color: #000;}
-                                       @page { size: A4;  margin: 20mm;}
-                                     /* Basic reset */
-     * {
-         margin: 0;
-         padding: 0;
-         box-sizing: border-box;
-         font-family: "Tajawal", sans-serif;;
-     }
-
-     /* Container styling */
-     .container {
-         width: 100%;
-         max-width: 800px;
-         margin: 0 auto;
-         padding: 20px;
-         background-color: white;
-         border: 1px solid #ddd;
-     }
-
-     /* Header section */
-     .header {
-         display: flex;
-         justify-content: space-between;
-         align-items: center;
-         border-bottom: 1px solid #ccc;
-         padding-bottom: 10px;
-     }
-      .test-table {
-                                  width: 100%;
-                                  border-collapse: collapse;
-                                  margin: 20px 0;
-                             }
-
-                             .test-table th,
-                             .test-table td {
-                                    border: 1px solid #e5e7eb;
-                                  padding: 10px;
-                                  text-align: center;
-                             }
-
-                             .test-table th {
-                                  background-color: #f0f0f0;
-                             }
-      .summary   {    padding: 16px; }
-       .summary td{ text-align:right;} .summary th{ text-align:left;}
-     .logo img {
-         max-width: 150px;
-     }
-
-     .lab-details {
-         text-align: right;
-     }
-
-     .lab-details h2 {
-         font-size: 18px;
-         margin-bottom: 5px;
-     }
-
-     .lab-details p {
-         font-size: 14px;
-         margin-bottom: 2px;
-     }
-         .section  {display: flex;
-         flex-direction: column;
-         justify-content: space-between;}
-         .sectionItem{ display: flex;}
-     .border{border: 1px solid black;      min-height: 25px;  margin: 0px 7px; padding: 5px;width: 150px;text-align: center;}
-     /* Patient information section */
-     .patient-info {
-         display: flex;
-         justify-content: space-between;
-         padding: 15px 0;
-         border-bottom: 1px solid #ccc;
-     }
-
-     .barcode-section {
-         text-align: center;    display: flex;
-     }
-
-     .barcode-section img {
-         max-width: 100px;
-         margin: 10px 0;
-     }
-
-     .patient-details {
-         display: flex;
-         flex-direction: column;
-         justify-content: space-between;
-         font-size: 14px;
-     }
-
-     /* Test details section */
-     .test-details {
-         padding: 15px 0;
-         border-bottom: 1px solid #ccc;
-         font-size: 16px;
-         text-align: center;
-     }
-
-     /* Pricing information section */
-     .pricing-info table {
-         width: 100%;
-         margin-top: 20px;
-         border-collapse: collapse;
-         font-size: 14px;
-     }
-
-     .pricing-info th, .pricing-info td {
-         border: 1px solid #ddd;
-         padding: 8px;
-         text-align: center;
-     }
-
-     .pricing-info th {
-         background-color: #f9f9f9;
-         font-weight: bold;
-     }
-
-     /* For printing */
-     @media print {
-         body {
-             margin: 0;
-             padding: 0;
-         }
-
-         .container {
-             width: 100%;
-             max-width: 100%;
-             border: none;
-             box-shadow: none;
-         }
-
-         .header, .patient-info, .test-details, .pricing-info {
-             page-break-inside: avoid;
-         }
-     } `; // Create an iframe for printing
-                         const printFrame = document.createElement("iframe");
-                         printFrame.style.position = "absolute";
-                         printFrame.style.width = "0px";
-                         printFrame.style.height = "0px";
-                         printFrame.style.border = "none";
-
-                         // Add iframe to the document
-                         document.body.appendChild(printFrame);
-
-                         // Write the content to the iframe
-                         const frameDoc = printFrame.contentWindow.document;
-                         frameDoc.open();
-                         frameDoc.write(`
-             <html>
-                 <head>
-                     <title>printInvoice</title>
-                     <style>${css}</style>
-                 </head>
-                 <body>${jobContent}</body>
-             </html>
-         `);
-                         frameDoc.close();
-                         // Trigger print dialog from the iframe
-                         printFrame.contentWindow.focus();
-                         printFrame.contentWindow.print();
-
-                         // Remove the iframe after printing or canceling
-                         printFrame.contentWindow.onafterprint = () => {
-                              document.body.removeChild(printFrame);
-                         };
-                    }, 50);
-
-                    // Wait for the content to load, then trigger the print dialog
-               },
-               openthermalRecord(data) {
-                    this.printRecord = data;
-                    setTimeout(function () {
-                         // Get HTML to print from element
-                         const jobContent = document.getElementById("thermalRecord").innerHTML;
-
-                         const css = ` @media print {   body,  .page {   width:Statement; margin: auto; !important;   box-shadow: 0; text-align:center;   -webkit-print-color-adjust: exact;       color: #000;    } } ;
-     .elements{width:50%;    font-size: xx-small;}
-
-                  body {
-                         font-family: "Tajawal", sans-serif;;
-                               font-size: xx-small;
-                         margin: 0;
-                         padding: 0;
-                         background-color: #f8f8f8;
-                         display: flex;
-                         justify-content: center;
-                    }
-                    header {
-                         text-align: center;
-
-                    }
-                    .logo {
-                         max-width: 40px;
-                         margin-bottom: 1px;
-                    }
-
-                    .divider {
-                         border: 1px solid #000;
-                         margin:3px 0;
-                    }
-                    .patient-details p { margin: 5px 0;      margin-bottom: 10px;  display: flex; align-items: center; justify-content: space-between;
-                    }
-                .patient-details .parcod {
-                         margin: 5px 0;
-                          display: flex;
-                             justify-content: space-between;
-                    }
-
-                    .barcode {
-
-                         font-weight: bold;
-                         text-align: center;
-                         margin-bottom: 10px;
-                    }
-
-                    .test-table {
-                         width: 100%;
-                         border-collapse: collapse;
-
-                    }
-
-                    .test-table th,
-                    .test-table td {
-                         border: 1px solid #e5e7eb;
-                         padding: 3px;
-                         text-align: center;        font-size: xx-small;
-                    }
-
-                   .summaryItm{display: flex; justify-content: space-between;     border-bottom: 1px solid;}
-                    .footer {
-                         text-align: center;
-                         margin-top: 2px;
-                    }
-
-                    .qrcode {
-
-                    }
-     .test-details{page-break-inside: avoid; text-align:center;}
-                    /* Responsiveness */
-                    @media screen and (max-width: 768px) {
-                         .container {
-                              width: 100%;
-                              padding: 10px;
-                         }
-
-                         .logo {
-                              max-width: 100px;
-                         }
-
-                         .barcode {
-                              font-size: 16px;
-                         }
-
-                         .test-table th,
-                         .test-table td {
-                              padding: 5px;
-                         }
-
-                         .qrcode {
-                              max-width: 80px;
-                         }
-                    }
-
-                     `;
-                         // Create an iframe for printing
-                         const printFrame = document.createElement("iframe");
-                         printFrame.style.position = "absolute";
-                         printFrame.style.width = "0px";
-                         printFrame.style.height = "0px";
-                         printFrame.style.border = "none";
-
-                         // Add iframe to the document
-                         document.body.appendChild(printFrame);
-
-                         // Write the content to the iframe
-                         const frameDoc = printFrame.contentWindow.document;
-                         frameDoc.open();
-                         frameDoc.write(`
-             <html>
-                 <head>
-                     <title>Print thermal</title>
-                     <style>${css}</style>
-                 </head>
-                 <body>${jobContent}</body>
-             </html>
-         `);
-                         frameDoc.close();
-                         // Trigger print dialog from the iframe
-                         printFrame.contentWindow.focus();
-                         printFrame.contentWindow.print();
-
-                         // Remove the iframe after printing or canceling
-                         printFrame.contentWindow.onafterprint = () => {
-                              document.body.removeChild(printFrame);
-                         };
-                    }, 50);
-
-                    // Wait for the content to load, then trigger the print dialog
-               },
-               close() {
-                    this.printInvoiceDialog = false;
-               },
-          },
-     };
+<script setup>
+import { computed } from "vue";
+import { storeToRefs } from "pinia";
+import { useinvoicesStore } from "@/store/modules/invoices";
+import { useLabSettingsStore } from "@/store/modules/labSettings";
+import { usePrint } from "@/composables/usePrint";
+import { t, dateTimeFormat } from "@/utils/helper";
+import parcodModal from "./parcodeModal.vue";
+import thermalReciptModal from "./thermal_reciptModal.vue";
+import BarcodeComponent from "@/components/BarcodeComponent.vue";
+
+const invoicesStore = useinvoicesStore();
+const labSettingsStore = useLabSettingsStore();
+const { printRecord, printInvoiceDialog } = storeToRefs(invoicesStore);
+const { printStyles } = usePrint();
+
+const close = () => {
+  printInvoiceDialog.value = false;
+};
+
+const due = computed(() => (printRecord.value?.total || 0) - (printRecord.value?.paid || 0));
+
+const printParcode = (data) => {
+  printRecord.value = data;
+  setTimeout(() => {
+    const jobContent = document.getElementById("parcode")?.innerHTML;
+      const css = printStyles.getBarcodeCss(labSettingsStore.settings.barcode_config);
+
+      const printFrame = document.createElement("iframe");
+      printFrame.style.position = "absolute";
+      document.body.appendChild(printFrame);
+
+      const frameDoc = printFrame.contentWindow.document;
+      frameDoc.open();
+      frameDoc.write(`<html><head><title>Print Job</title><style>${css}</style></head><body>${jobContent}</body></html>`);
+      frameDoc.close();
+
+      printFrame.contentWindow.focus();
+      printFrame.contentWindow.print();
+      printFrame.contentWindow.onafterprint = () => {
+        document.body.removeChild(printFrame);
+      };
+    }, 50);
+};
+
+const openprintINvoiceTemplate = (data) => {
+  printRecord.value = data;
+  setTimeout(() => {
+    const jobContent = document.getElementById("printInvoice")?.innerHTML;
+    if (!jobContent) return;
+
+    const css = printStyles.invoice;
+
+    const printFrame = document.createElement("iframe");
+    printFrame.style.cssText = "position: absolute; width: 0px; height: 0px; border: none;";
+    document.body.appendChild(printFrame);
+
+    const frameDoc = printFrame.contentWindow.document;
+    frameDoc.open();
+    frameDoc.write(`<html><head><title>Print Invoice</title><style>${css}</style></head><body>${jobContent}</body></html>`);
+    frameDoc.close();
+
+    printFrame.contentWindow.focus();
+    printFrame.contentWindow.print();
+    printFrame.contentWindow.onafterprint = () => {
+      document.body.removeChild(printFrame);
+    };
+  }, 50);
+};
+
+const openthermalRecord = (data) => {
+  printRecord.value = data;
+  setTimeout(() => {
+    const jobContent = document.getElementById("thermalRecord")?.innerHTML;
+    if (!jobContent) return;
+
+    const css = printStyles.thermalReceipt;
+
+    const printFrame = document.createElement("iframe");
+    printFrame.style.cssText = "position: absolute; width: 0px; height: 0px; border: none;";
+    document.body.appendChild(printFrame);
+
+    const frameDoc = printFrame.contentWindow.document;
+    frameDoc.open();
+    frameDoc.write(`<html><head><title>Print Thermal Receipt</title><style>${css}</style></head><body>${jobContent}</body></html>`);
+    frameDoc.close();
+
+    printFrame.contentWindow.focus();
+    printFrame.contentWindow.print();
+    printFrame.contentWindow.onafterprint = () => {
+      document.body.removeChild(printFrame);
+    };
+  }, 200);
+};
 </script>
-<style scoped>
-     body {
-          font-family: Arial, sans-serif;
-          direction: rtl;
-          background-color: #f9f9f9;
-          padding: 20px;
-     }
 
-     .receipt {
-          background: #fff;
-          padding: 20px;
-          border: 1px solid #ccc;
-          max-width: 400px;
-          margin: auto;
-          font-size: 16px;
-     }
+<template>
+  <Teleport to="body">
+    <Transition name="modal">
+      <div v-if="printInvoiceDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="fixed inset-0 bg-black/50" @click="close"></div>
+        <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden">
+          <!-- Header -->
+          <div class="flex items-center justify-between p-4 border-b border-gray-200">
+            <h2 class="text-xl font-semibold text-gray-800">{{ t("print_invoice") }}</h2>
+            <button @click="close" class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
 
-     .row {
-          display: flex;
-          justify-content: space-between;
-          padding: 10px 0;
-          border-bottom: 1px solid #000;
-     }
+          <!-- Content -->
+          <div class="p-6 overflow-y-auto max-h-[calc(90vh-150px)]">
+            <!-- Top Actions: Barcode + Thermal Receipt -->
+            <section class="flex justify-between items-center border border-gray-300 p-4 rounded-lg mb-4">
+              <span @click="printParcode(printRecord)" class="cursor-pointer">
+                <div class="flex flex-col items-center">
+                  <BarcodeComponent :value="printRecord?.barcode" />
+                  <span class="text-sm font-bold mt-1">{{ printRecord?.barcode }}</span>
+                </div>
+              </span>
+              <button
+                @click="openthermalRecord(printRecord)"
+                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              >
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                {{ t('thermal_recipt') }}
+              </button>
+            </section>
 
-     .row:last-child {
-          border-bottom: none;
-     }
+            <!-- Invoice Preview -->
+            <div class="border border-gray-200 rounded-lg p-6 bg-gray-50">
+              <!-- Patient Info -->
+              <div class="grid grid-cols-2 gap-x-6 gap-y-2 mb-4 text-sm">
+                <div class="flex gap-2"><span class="font-semibold text-gray-500 w-28 shrink-0">Patient:</span><strong>{{ printRecord?.patient?.name }}</strong></div>
+                <div class="flex gap-2"><span class="font-semibold text-gray-500 w-28 shrink-0">Code:</span><span>{{ printRecord?.patient?.code }}</span></div>
+                <div class="flex gap-2"><span class="font-semibold text-gray-500 w-28 shrink-0">Age / Sex:</span><span>{{ printRecord?.patient?.age }}{{ printRecord?.patient?.age_unit }} / {{ printRecord?.patient?.gender }}</span></div>
+                <div class="flex gap-2"><span class="font-semibold text-gray-500 w-28 shrink-0">Phone:</span><span>{{ printRecord?.patient?.phone || '-' }}</span></div>
+                <div class="flex gap-2"><span class="font-semibold text-gray-500 w-28 shrink-0">Reg. Date:</span><span>{{ dateTimeFormat(printRecord?.registration_date) }}</span></div>
+                <div class="flex gap-2"><span class="font-semibold text-gray-500 w-28 shrink-0">Result Date:</span><span>{{ dateTimeFormat(printRecord?.result_date) }}</span></div>
+                <div v-if="printRecord?.referral?.name" class="flex gap-2"><span class="font-semibold text-gray-500 w-28 shrink-0">Referral:</span><span>{{ printRecord?.referral?.name }}</span></div>
+                <div v-if="printRecord?.contract?.name" class="flex gap-2"><span class="font-semibold text-gray-500 w-28 shrink-0">Contract:</span><span>{{ printRecord?.contract?.name }}</span></div>
+                <div v-if="printRecord?.sample_collector?.name" class="flex gap-2"><span class="font-semibold text-gray-500 w-28 shrink-0">Collector:</span><span>{{ printRecord?.sample_collector?.name }}</span></div>
+                <div v-if="printRecord?.from_lab" class="flex gap-2"><span class="font-semibold text-gray-500 w-28 shrink-0">From Lab:</span><span>{{ printRecord?.from_lab }}</span></div>
+              </div>
 
-     .label {
-          font-weight: bold;
-     }
+              <hr class="my-3">
 
-     .value {
-          font-weight: normal;
-     }
+              <!-- Test Groups -->
+              <div v-if="printRecord?.test_groups?.length > 0">
+                <div v-for="(group, gi) in printRecord.test_groups" :key="'g-' + gi" class="mb-3">
+                  <div class="bg-teal-700 text-white font-bold px-3 py-1.5 text-sm rounded-t">{{ group.group_name }}</div>
+                  <table class="w-full text-sm border-collapse">
+                    <thead class="bg-teal-500 text-white">
+                      <tr>
+                        <th class="border border-teal-400 px-2 py-1.5 w-10 text-center">#</th>
+                        <th class="border border-teal-400 px-2 py-1.5 text-start">Test</th>
+                        <th class="border border-teal-400 px-2 py-1.5 w-24 text-center">Sample</th>
+                        <th class="border border-teal-400 px-2 py-1.5 w-20 text-center">Price</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="(item, idx) in group.tests" :key="'gt-' + idx" class="even:bg-gray-100">
+                        <td class="border border-gray-200 px-2 py-1 text-center">{{ idx + 1 }}</td>
+                        <td class="border border-gray-200 px-2 py-1">{{ item.report_name || item.name }}</td>
+                        <td class="border border-gray-200 px-2 py-1 text-center text-xs">{{ item.sample_name || '-' }}</td>
+                        <td class="border border-gray-200 px-2 py-1 text-center font-semibold">{{ item.price }}</td>
+                      </tr>
+                      <tr v-for="(item, idx) in group.cultures" :key="'gc-' + idx" class="even:bg-gray-100">
+                        <td class="border border-gray-200 px-2 py-1 text-center">{{ (group.tests?.length || 0) + idx + 1 }}</td>
+                        <td class="border border-gray-200 px-2 py-1">{{ item.name }}</td>
+                        <td class="border border-gray-200 px-2 py-1 text-center text-xs">{{ item.sample_name || '-' }}</td>
+                        <td class="border border-gray-200 px-2 py-1 text-center font-semibold">{{ item.price }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
 
-     .payment-info {
-          flex-direction: column;
-          align-items: flex-end;
-          text-align: right;
-     }
-     tr {
-          height: 55px;
-     }
-     td {
-          border: 1px solid #0000002b;
-     }
-     thead {
-          background: #374151;
-          color: white;
-          height: 35px;
-     }
-     .table {
-          width: 100%;
-          text-align: center;
-          background: #f9fafb;
-          display: table;
-     }
-     .parcode {
-          display: flex;
-          justify-content: flex-end;
-          font-size: larger;
-          font-weight: bold;
-          border: 1px solid #00000047;
-          padding: 24px;
-     }
-     .caption {
-          width: 100%;
-          font-weight: bold;
-          border: 1px solid black;
-          padding: 5px;
-          text-align: center;
-          color: black;
-          background: #dddddce0;
-     }
-</style>
+              <!-- Packages -->
+              <div v-if="printRecord?.packages?.length > 0">
+                <div v-for="(pkg, pi) in printRecord.packages" :key="'pkg-' + pi" class="mb-3">
+                  <div class="bg-teal-700 text-white font-bold px-3 py-1.5 text-sm rounded-t">{{ pkg.name }} (Package)</div>
+                  <table class="w-full text-sm border-collapse">
+                    <thead class="bg-teal-500 text-white">
+                      <tr>
+                        <th class="border border-teal-400 px-2 py-1.5 w-10 text-center">#</th>
+                        <th class="border border-teal-400 px-2 py-1.5 text-start">Test</th>
+                        <th class="border border-teal-400 px-2 py-1.5 w-24 text-center">Sample</th>
+                        <th class="border border-teal-400 px-2 py-1.5 w-20 text-center">Price</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="(item, idx) in pkg.tests" :key="'pt-' + idx" class="even:bg-gray-100">
+                        <td class="border border-gray-200 px-2 py-1 text-center">{{ idx + 1 }}</td>
+                        <td class="border border-gray-200 px-2 py-1">{{ item.report_name || item.name }}</td>
+                        <td class="border border-gray-200 px-2 py-1 text-center text-xs">{{ item.sample_name || '-' }}</td>
+                        <td class="border border-gray-200 px-2 py-1 text-center font-semibold">{{ idx === 0 ? pkg.price : '' }}</td>
+                      </tr>
+                      <tr v-for="(item, idx) in pkg.cultures" :key="'pc-' + idx" class="even:bg-gray-100">
+                        <td class="border border-gray-200 px-2 py-1 text-center">{{ (pkg.tests?.length || 0) + idx + 1 }}</td>
+                        <td class="border border-gray-200 px-2 py-1">{{ item.name }}</td>
+                        <td class="border border-gray-200 px-2 py-1 text-center text-xs">{{ item.sample_name || '-' }}</td>
+                        <td class="border border-gray-200 px-2 py-1 text-center font-semibold">{{ !pkg.tests?.length && idx === 0 ? pkg.price : '' }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Individual Tests & Cultures -->
+              <div v-if="printRecord?.tests?.length > 0 || printRecord?.cultures?.length > 0" class="mb-3">
+                <div class="bg-teal-700 text-white font-bold px-3 py-1.5 text-sm rounded-t">Individual Tests</div>
+                <table class="w-full text-sm border-collapse">
+                  <thead class="bg-teal-500 text-white">
+                    <tr>
+                      <th class="border border-teal-400 px-2 py-1.5 w-10 text-center">#</th>
+                      <th class="border border-teal-400 px-2 py-1.5 text-start">Test</th>
+                      <th class="border border-teal-400 px-2 py-1.5 w-24 text-center">Sample</th>
+                      <th class="border border-teal-400 px-2 py-1.5 w-20 text-center">Price</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(item, index) in printRecord?.tests" :key="'t-' + index" class="even:bg-gray-100">
+                      <td class="border border-gray-200 px-2 py-1 text-center">{{ index + 1 }}</td>
+                      <td class="border border-gray-200 px-2 py-1">{{ item.report_name || item.name }}</td>
+                      <td class="border border-gray-200 px-2 py-1 text-center text-xs">{{ item.sample_name || '-' }}</td>
+                      <td class="border border-gray-200 px-2 py-1 text-center font-semibold">{{ item.price }}</td>
+                    </tr>
+                    <tr v-for="(item, index) in printRecord?.cultures" :key="'c-' + index" class="even:bg-gray-100">
+                      <td class="border border-gray-200 px-2 py-1 text-center">{{ (printRecord?.tests?.length || 0) + index + 1 }}</td>
+                      <td class="border border-gray-200 px-2 py-1">{{ item.name }}</td>
+                      <td class="border border-gray-200 px-2 py-1 text-center text-xs">{{ item.sample_name || '-' }}</td>
+                      <td class="border border-gray-200 px-2 py-1 text-center font-semibold">{{ item.price }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Notes -->
+              <div v-if="printRecord?.notes" class="bg-amber-50 border border-amber-300 rounded p-3 text-sm mb-3">
+                <strong class="text-amber-800">Notes:</strong> {{ printRecord.notes }}
+              </div>
+
+              <!-- Financial Summary -->
+              <div class="flex justify-end mt-4">
+                <div class="w-72 border border-gray-300 rounded overflow-hidden">
+                  <div class="flex justify-between px-4 py-2 bg-gray-50 border-b border-gray-200">
+                    <span class="font-semibold text-gray-600">Subtotal</span>
+                    <span>IQD {{ printRecord?.sub_total }}</span>
+                  </div>
+                  <div v-if="printRecord?.discount" class="flex justify-between px-4 py-2 bg-gray-50 border-b border-gray-200">
+                    <span class="font-semibold text-gray-600">Discount</span>
+                    <span>IQD {{ printRecord?.discount }}</span>
+                  </div>
+                  <div class="flex justify-between px-4 py-2 bg-teal-500 text-white font-bold border-b border-teal-400">
+                    <span>Total</span>
+                    <span>IQD {{ printRecord?.total }}</span>
+                  </div>
+                  <div class="flex justify-between px-4 py-2 bg-green-50 text-green-700 font-semibold border-b border-gray-200">
+                    <span>Paid</span>
+                    <span>IQD {{ printRecord?.paid }}</span>
+                  </div>
+                  <div class="flex justify-between px-4 py-2 bg-red-50 text-red-600 font-bold">
+                    <span>Due</span>
+                    <span>IQD {{ due }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Payment Details -->
+              <div v-if="printRecord?.paidDetails?.length > 1" class="flex justify-end mt-2">
+                <table class="w-72 text-xs border-collapse">
+                  <thead>
+                    <tr class="bg-gray-100">
+                      <th class="border border-gray-200 px-2 py-1">#</th>
+                      <th class="border border-gray-200 px-2 py-1">Method</th>
+                      <th class="border border-gray-200 px-2 py-1">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(pd, idx) in printRecord.paidDetails" :key="'pd-' + idx">
+                      <td class="border border-gray-200 px-2 py-1 text-center">{{ idx + 1 }}</td>
+                      <td class="border border-gray-200 px-2 py-1 text-center">{{ pd.payment_method || '-' }}</td>
+                      <td class="border border-gray-200 px-2 py-1 text-center">IQD {{ pd.amount }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div class="flex justify-center gap-2 p-4 border-t border-gray-200">
+            <button
+              @click="close"
+              class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+            >
+              {{ t('close') }}
+            </button>
+            <button
+              @click="openprintINvoiceTemplate(printRecord)"
+              class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center gap-2"
+            >
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+              </svg>
+              {{ t("printInvoice") }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
+  <parcodModal></parcodModal>
+  <thermalReciptModal></thermalReciptModal>
+
+  <!-- Hidden printable invoice -->
+  <div class="hidden" id="printInvoice">
+    <div class="inv">
+      <div class="inv-title">INVOICE</div>
+
+      <!-- Patient Info -->
+      <div class="info-grid">
+        <div class="info-row">
+          <div class="info-cell info-lbl">Patient</div>
+          <div class="info-cell info-val">{{ printRecord?.patient?.name }}</div>
+          <div class="info-cell info-lbl">Code</div>
+          <div class="info-cell info-val">{{ printRecord?.patient?.code }}</div>
+        </div>
+        <div class="info-row">
+          <div class="info-cell info-lbl">Age / Sex</div>
+          <div class="info-cell info-val">{{ printRecord?.patient?.age }}{{ printRecord?.patient?.age_unit }} / {{ printRecord?.patient?.gender }}</div>
+          <div class="info-cell info-lbl">Phone</div>
+          <div class="info-cell info-val">{{ printRecord?.patient?.phone || "-" }}</div>
+        </div>
+        <div class="info-row">
+          <div class="info-cell info-lbl">Reg. Date</div>
+          <div class="info-cell info-val">{{ dateTimeFormat(printRecord?.registration_date) }}</div>
+          <div class="info-cell info-lbl">Result Date</div>
+          <div class="info-cell info-val">{{ dateTimeFormat(printRecord?.result_date) }}</div>
+        </div>
+        <div v-if="printRecord?.referral?.name" class="info-row">
+          <div class="info-cell info-lbl">Referral</div>
+          <div class="info-cell info-val">{{ printRecord?.referral?.name }}</div>
+          <div class="info-cell info-lbl">Contract</div>
+          <div class="info-cell info-val">{{ printRecord?.contract?.name || "-" }}</div>
+        </div>
+      </div>
+
+      <!-- Test Groups -->
+      <template v-if="printRecord?.test_groups?.length > 0">
+        <div v-for="(group, gi) in printRecord.test_groups" :key="'pg-' + gi">
+          <div class="section-title">{{ group.group_name }}</div>
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th class="num">#</th>
+                <th class="txt-start">Test</th>
+                <th class="sample">Sample</th>
+                <th class="price">Price</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(item, idx) in group.tests" :key="'pgt-' + idx">
+                <td class="num">{{ idx + 1 }}</td>
+                <td class="txt-start">{{ item.report_name || item.name }}</td>
+                <td>{{ item.sample_name || "-" }}</td>
+                <td class="price">{{ item.price }}</td>
+              </tr>
+              <tr v-for="(item, idx) in group.cultures" :key="'pgc-' + idx">
+                <td class="num">{{ (group.tests?.length || 0) + idx + 1 }}</td>
+                <td class="txt-start">{{ item.name }}</td>
+                <td>{{ item.sample_name || "-" }}</td>
+                <td class="price">{{ item.price }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </template>
+
+      <!-- Packages -->
+      <template v-if="printRecord?.packages?.length > 0">
+        <div v-for="(pkg, pi) in printRecord.packages" :key="'ppkg-' + pi">
+          <div class="section-title">{{ pkg.name }} (Package)</div>
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th class="num">#</th>
+                <th class="txt-start">Test</th>
+                <th class="sample">Sample</th>
+                <th class="price">Price</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(item, idx) in pkg.tests" :key="'ppt-' + idx">
+                <td class="num">{{ idx + 1 }}</td>
+                <td class="txt-start">{{ item.report_name || item.name }}</td>
+                <td>{{ item.sample_name || "-" }}</td>
+                <td class="price">{{ idx === 0 ? pkg.price : "" }}</td>
+              </tr>
+              <tr v-for="(item, idx) in pkg.cultures" :key="'ppc-' + idx">
+                <td class="num">{{ (pkg.tests?.length || 0) + idx + 1 }}</td>
+                <td class="txt-start">{{ item.name }}</td>
+                <td>{{ item.sample_name || "-" }}</td>
+                <td class="price">{{ !pkg.tests?.length && idx === 0 ? pkg.price : "" }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </template>
+
+      <!-- Individual Tests & Cultures -->
+      <template v-if="printRecord?.tests?.length > 0 || printRecord?.cultures?.length > 0">
+        <div class="section-title">Individual Tests</div>
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th class="num">#</th>
+              <th class="txt-start">Test</th>
+              <th class="sample">Sample</th>
+              <th class="price">Price</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(item, index) in printRecord?.tests" :key="'pit-' + index">
+              <td class="num">{{ index + 1 }}</td>
+              <td class="txt-start">{{ item.report_name || item.name }}</td>
+              <td>{{ item.sample_name || "-" }}</td>
+              <td class="price">{{ item.price }}</td>
+            </tr>
+            <tr v-for="(item, index) in printRecord?.cultures" :key="'pic-' + index">
+              <td class="num">{{ (printRecord?.tests?.length || 0) + index + 1 }}</td>
+              <td class="txt-start">{{ item.name }}</td>
+              <td>{{ item.sample_name || "-" }}</td>
+              <td class="price">{{ item.price }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </template>
+
+      <!-- Notes -->
+      <div v-if="printRecord?.notes" class="notes">
+        <strong>Notes:</strong> {{ printRecord.notes }}
+      </div>
+
+      <!-- Financial Summary -->
+      <div class="summ">
+        <table class="summ-tbl">
+          <tr>
+            <td class="lbl">Subtotal</td>
+            <td>IQD {{ printRecord?.sub_total }}</td>
+          </tr>
+          <tr v-if="printRecord?.discount">
+            <td class="lbl">Discount</td>
+            <td>IQD {{ printRecord?.discount }}</td>
+          </tr>
+          <tr class="total">
+            <td>Total</td>
+            <td>IQD {{ printRecord?.total }}</td>
+          </tr>
+          <tr class="paid-row">
+            <td>Paid</td>
+            <td>IQD {{ printRecord?.paid }}</td>
+          </tr>
+          <tr class="due">
+            <td>Due</td>
+            <td>IQD {{ due }}</td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Payment Details -->
+      <div v-if="printRecord?.paidDetails?.length > 1" class="pay-details">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Method</th>
+              <th>Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(pd, idx) in printRecord.paidDetails" :key="'ppd-' + idx">
+              <td>{{ idx + 1 }}</td>
+              <td>{{ pd.payment_method || "-" }}</td>
+              <td>IQD {{ pd.amount }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="footer">
+        <p>Thank you for choosing our lab</p>
+      </div>
+    </div>
+  </div>
+</template>

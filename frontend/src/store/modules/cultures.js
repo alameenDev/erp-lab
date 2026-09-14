@@ -44,40 +44,71 @@ export const useculturesStore = defineStore("cultures", {
                state.cultures.map((record) => ({
                     label: record.name,
                     value: record.id,
+                    price: record.for_customer_price || record.price || 0,
                })),
      },
      actions: {
           async Getcultures() {
-               const { data } = await $http.get("/cultures");
+               try {
+                    const { data } = await $http.get("/cultures");
 
-               this.cultures = data.map((item, index) => ({
-                    ...item,
-                    index: index + 1, // Adding 1 to start indexing from 1 instead of 0
-               }));
-               this.totalCount = this.cultures.length;
+                    this.cultures = data.map((item, index) => ({
+                         ...item,
+                         index: index + 1, // Adding 1 to start indexing from 1 instead of 0
+                    }));
+                    this.totalCount = this.cultures.length;
+               } catch (error) {
+                    this.cultures = [];
+               }
           },
           async Addcultures() {
-               this.record.result_comments = this.record.result_comments
-                    ? this.record.result_comments
-                    : this.result_comments;
+               try {
+                    this.record.result_comments = this.record.result_comments
+                         ? this.record.result_comments
+                         : this.result_comments;
 
-               this.record.attributes = this.attributes;
-               await $http.post(`/cultures/create`, checkObjectParams(this.record));
-               this.Getcultures();
+                    this.record.attributes = this.attributes;
+                    await $http.post(`/cultures/create`, checkObjectParams(this.record));
+                    this.Getcultures();
+               } catch (error) {
+                    throw error;
+               }
           },
           async Updatecultures() {
-               this.record.result_comments = this.record.result_comments
-                    ? this.record.result_comments
-                    : this.result_comments;
+               try {
+                    this.record.result_comments = this.record.result_comments
+                         ? this.record.result_comments
+                         : this.result_comments;
 
-               this.record.attributes = this.attributes;
-               await $http.put(`/cultures/update`, checkObjectParams(this.record));
+                    this.record.attributes = this.attributes;
+                    await $http.put(`/cultures/update`, checkObjectParams(this.record));
 
-               this.Getcultures();
+                    this.Getcultures();
+               } catch (error) {
+                    throw error;
+               }
           },
           async Removecultures() {
-               await $http.delete(`/cultures/delete`, { data: { id: this.record.id } });
-               this.Getcultures();
+               try {
+                    await $http.delete(`/cultures/delete`, { data: { id: this.record.id } });
+                    this.Getcultures();
+               } catch (error) {
+                    throw error;
+               }
+          },
+          async ImportCultures(file) {
+               try {
+                    const locale = localStorage.getItem("locale") || "ar";
+                    const formData = new FormData();
+                    formData.append("file", file);
+                    const { data } = await $http.post(`/cultures/import?locale=${locale}`, formData, {
+                         headers: { "Content-Type": "multipart/form-data" },
+                    });
+                    this.Getcultures();
+                    return data;
+               } catch (error) {
+                    throw error;
+               }
           },
      },
 });

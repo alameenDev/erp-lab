@@ -1,372 +1,476 @@
-<template>
-     <Dialog
-          v-model:visible="updatedialog"
-          modal
-          :header="t('update')"
-          style="width: 70rem"
-          :style="lang == 'en' ? 'direction:ltr ' : 'direction: rtl'">
-          <form @submit.prevent="update" class="border-top-1 border-bluegray-100">
-               <!-- Name and Discount Input -->
-               <div class="grid mt-1">
-                    <div class="col-6 pb-0">
-                         <label class="block text-md mb-2">{{ t("name") }}</label>
-                         <InputText required class="w-full" type="text" v-model="record.name" maxlength="255" />
-                    </div>
-                    <div class="col-6 pb-0" v-if="!isDiscount">
-                         <label class="block text-md mb-2">{{ t("discount") }}</label>
-                         <InputText class="w-full" type="number" v-model="record.discount" />
-                    </div>
-                    <div class="col-6 pb-0" style="align-self: center">
-                         <div class="mt-3">
-                              <Checkbox v-model="isDiscount" inputId="ingredient2" binary />
-                              <label for="ingredient2" class="ml-2 mr-2">{{ t("is_constatnt_price") }}</label>
-                         </div>
-                    </div>
-               </div>
-               <br />
-               <TabView v-if="isDiscount">
-                    <TabPanel :header="t('tests')">
-                         <!-- Search Input -->
-                         <div class="mt-4">
-                              <InputText class="w-full" v-model="testsSearchQuery" :placeholder="t('search')" />
-                         </div>
-                         <!-- Table for Tests -->
-                         <div v-if="filteredTests.length > 0" class="mt-4">
-                              <table class="table">
-                                   <thead>
-                                        <tr>
-                                             <th>{{ t("name") }}</th>
-                                             <th>{{ t("Original_Price") }}</th>
-                                        </tr>
-                                   </thead>
-                                   <tbody>
-                                        <tr v-for="(test, index) in filteredTests" :key="index">
-                                             <td>{{ test.name }}</td>
-                                             <td>
-                                                  <InputNumber
-                                                       class="w-full m-2"
-                                                       type="number"
-                                                       v-model="test.price_for_customer"
-                                                       :placeholder="t('Original_Price')" />
-                                             </td>
-                                        </tr>
-                                   </tbody>
-                              </table>
-                              <Paginator
-                                   dir="rtl"
-                                   :rows="pagination.per_page"
-                                   :totalRecords="pagination.total"
-                                   v-model:first="pagination.pageNumber"></Paginator>
-                         </div>
-                         <div v-else class="noData text-center p-5 text-danger">
-                              <div>{{ t("noData") }}</div>
-                         </div>
-                    </TabPanel>
-                    <TabPanel :header="t('cultures')">
-                         <!-- Search Input -->
-                         <div class="mt-4">
-                              <InputText class="w-full" v-model="cultureSearchQuery" :placeholder="t('search')" />
-                         </div>
-                         <!-- Table for Cultures -->
-                         <div v-if="filteredCultures.length > 0" class="mt-4">
-                              <table class="table">
-                                   <thead>
-                                        <tr>
-                                             <th>{{ t("name") }}</th>
-                                             <th>{{ t("Original_Price") }}</th>
-                                        </tr>
-                                   </thead>
-                                   <tbody>
-                                        <tr v-for="(culture, index) in filteredCultures" :key="index">
-                                             <td>{{ culture.name }}</td>
-                                             <td>
-                                                  <InputNumber
-                                                       class="w-full m-2"
-                                                       type="number"
-                                                       v-model="culture.price_for_customer"
-                                                       :placeholder="t('Original_Price')" />
-                                             </td>
-                                        </tr>
-                                   </tbody>
-                              </table>
-                              <!-- Pagination Controls -->
-                              <div class="pagination-controls">
-                                   <Button
-                                        icon="pi pi-angle-double-right  "
-                                        class="p-button mx-1"
-                                        @click="cultures_prevPage"
-                                        :disabled="cultures_currentPage === 1"></Button>
-                                   <!--{{ cultures_totalPages }}  -->
-                                   <span>{{ cultures_currentPage }}</span>
-                                   <Button
-                                        icon="pi pi-angle-double-left "
-                                        class="p-button mx-1"
-                                        @click="cultures_nextPage"
-                                        :disabled="cultures_currentPage === cultures_totalPages"></Button>
-                              </div>
-                         </div>
-                         <div v-else class="noData text-center p-5 text-danger">
-                              <div>{{ t("noData") }}</div>
-                         </div>
-                    </TabPanel>
-                    <TabPanel :header="t('packages')">
-                         <!-- Search Input -->
-                         <div class="mt-4">
-                              <InputText class="w-full" v-model="packageSearchQuery" :placeholder="t('search')" />
-                         </div>
-                         <!-- Table for Packages  -->
-                         <div v-if="filteredPackages.length > 0" class="mt-4">
-                              <table class="table">
-                                   <thead>
-                                        <tr>
-                                             <th>{{ t("name") }}</th>
-                                             <th>{{ t("Original_Price") }}</th>
-                                        </tr>
-                                   </thead>
-                                   <tbody>
-                                        <tr v-for="(packageItem, index) in filteredPackages" :key="index">
-                                             <td>{{ packageItem.name }}</td>
-                                             <td>
-                                                  <InputNumber
-                                                       class="w-full m-2"
-                                                       type="number"
-                                                       v-model="packageItem.price_for_customer"
-                                                       :placeholder="t('Original_Price')" />
-                                             </td>
-                                        </tr>
-                                   </tbody>
-                              </table>
-                              <!-- Pagination Controls -->
-                              <div class="pagination-controls">
-                                   <Button
-                                        icon="pi pi-angle-double-right  "
-                                        class="p-button mx-1"
-                                        @click="packages_prevPage"
-                                        :disabled="packages_currentPage === 1"></Button>
+<script setup>
+import { ref, computed, watch } from "vue";
+import { storeToRefs } from "pinia";
+import { priceListStore } from "@/store/modules/priceList";
+import { usePackagesStore } from "@/store/modules/packages";
+import { useculturesStore } from "@/store/modules/cultures";
+import { usetestsStore } from "@/store/modules/tests";
+import { usetestGroupsStore } from "@/store/modules/testGroups";
+import { t, alertSuccess, clearObjectValues } from "@/utils/helper";
 
-                                   <span>{{ packages_currentPage }}</span>
-                                   <Button
-                                        icon="pi pi-angle-double-left "
-                                        class="p-button mx-1"
-                                        @click="packages_nextPage"
-                                        :disabled="packages_currentPage === packages_totalPages"></Button>
-                              </div>
-                         </div>
-                         <div v-else class="noData text-center p-5 text-danger">
-                              <div>{{ t("noData") }}</div>
-                         </div>
-                    </TabPanel>
-               </TabView>
+const priceStore = priceListStore();
+const packagesStore = usePackagesStore();
+const culturesStore = useculturesStore();
+const testsStore = usetestsStore();
+const testGroupsStore = usetestGroupsStore();
 
-               <!-- Submit Button -->
-               <div class="flex justify-content-end gap-2 mt-3 pt-3">
-                    <Button size="small" :label="t('save')" severity="success" type="submit" />
-                    <Button size="small" :label="t('close')" severity="danger" @click="close" />
-               </div>
-          </form>
-     </Dialog>
-</template>
+const { record, updatedialog, UpdateList, isDiscount } = storeToRefs(priceStore);
+const { UpdatepriceList } = priceStore;
+const { Getpackages } = packagesStore;
+const { Getcultures } = culturesStore;
+const { GetTests } = testsStore;
+const { GettestGroups } = testGroupsStore;
 
-<script>
-     import { mapActions, mapWritableState } from "pinia";
-     import { priceListStore } from "@/store/modules/priceList";
-     import { usetestsStore } from "@/store/modules/tests";
-     export default {
-          data() {
-               return {
-                    testsSearchQuery: "",
-                    cultureSearchQuery: "",
-                    packageSearchQuery: "",
-                    test_currentPage: 1,
-                    packages_currentPage: 1,
-                    cultures_currentPage: 1,
-                    rowsPerPage: 10,
-               };
-          },
-          computed: {
-               ...mapWritableState(usetestsStore, ["pagination"]),
-               ...mapWritableState(priceListStore, ["dropdowns", "record", "updatedialog", "UpdateList", "isDiscount"]),
-               tests() {
-                    return this.UpdateList?.price_list_items?.tests;
-               },
-               packagesList() {
-                    return this.UpdateList?.price_list_items?.packages;
-               },
-               tests_totalPages() {
-                    return Math.ceil(this.tests.length / this.rowsPerPage);
-               },
-               cultures() {
-                    return this.UpdateList?.price_list_items?.cultures;
-               },
-               packages_totalPages() {
-                    return Math.ceil(this.packagesList.length / this.rowsPerPage);
-               },
-               cultures_totalPages() {
-                    return Math.ceil(this.cultures.length / this.rowsPerPage);
-               },
-               // Paginated list of tests based on current page and rows per page
-               paginatedTests() {
-                    const start = (this.test_currentPage - 1) * this.rowsPerPage;
-                    const end = start + this.rowsPerPage;
-                    return this.tests.slice(start, end);
-               },
-               paginatedPackages() {
-                    const start = (this.packages_currentPage - 1) * this.rowsPerPage;
-                    const end = start + this.rowsPerPage;
-                    return this.packagesList.slice(start, end);
-               },
-               filteredCultures() {
-                    return this.paginatedCultures.filter((culture) =>
-                         culture.name.toLowerCase().includes(this.cultureSearchQuery.toLowerCase())
-                    );
-               },
-               filteredTests() {
-                    return this.tests.filter((culture) =>
-                         culture.name.toLowerCase().includes(this.testsSearchQuery.toLowerCase())
-                    );
-               },
-               filteredPackages() {
-                    return this.paginatedPackages.filter((culture) =>
-                         culture.name.toLowerCase().includes(this.packageSearchQuery.toLowerCase())
-                    );
-               },
-               paginatedCultures() {
-                    const start = (this.cultures_currentPage - 1) * this.rowsPerPage;
-                    const end = start + this.rowsPerPage;
-                    return this.cultures.slice(start, end);
-               },
-          },
-          mounted() {},
-          methods: {
-               ...mapActions(priceListStore, ["AddpriceList", "UpdatepriceList"]),
-               handleDropdownChange(dropdown, index) {
-                    // Reset price when changing selection
-                    dropdown.price = null;
-               },
-               test_prevPage() {
-                    if (this.test_currentPage > 1) {
-                         this.test_currentPage--;
-                    }
-               },
-               packages_prevPage() {
-                    if (this.packages_currentPage > 1) {
-                         this.packages_currentPage--;
-                    }
-               },
+const lang = computed(() => localStorage.getItem("locale") || "ar");
 
-               cultures_prevPage() {
-                    if (this.cultures_currentPage > 1) {
-                         this.cultures_currentPage--;
-                    }
-               }, // Navigate to the next page
-               test_nextPage() {
-                    if (this.test_currentPage < this.tests_totalPages) {
-                         this.test_currentPage++;
-                    }
-               },
-               // Navigate to the next page
-               cultures_nextPage() {
-                    if (this.cultures_currentPage < this.cultures_totalPages) {
-                         this.cultures_currentPage++;
-                    }
-               },
+const testsSearchQuery = ref("");
+const cultureSearchQuery = ref("");
+const packageSearchQuery = ref("");
+const activeTab = ref("tests");
 
-               packages_nextPage() {
-                    if (this.packages_currentPage < this.packages_totalPages) {
-                         this.packages_currentPage++;
-                    }
-               },
-               update() {
-                    this.record.tests = this.tests.map((test) => ({
-                         price_list_rel_id: test.price_list_rel_id,
-                         id: test.test_id,
-                         price: test.price_for_customer ?? null,
-                    }));
-                    this.record.cultures = this.cultures.map((culture) => ({
-                         price_list_rel_id: culture.price_list_rel_id,
-                         id: culture.culture_id,
-                         price: culture.price_for_customer ?? null,
-                    }));
-                    this.record.packages = this.packagesList.map((packageItem) => ({
-                         price_list_rel_id: packageItem.price_list_rel_id,
-                         id: packageItem.package_id,
-                         price: packageItem.price_for_customer ?? null,
-                    }));
+const test_currentPage = ref(1);
+const packages_currentPage = ref(1);
+const cultures_currentPage = ref(1);
+const rowsPerPage = 10;
 
-                    this.UpdatepriceList().then(() => {
-                         this.alertSuccess(this.t("alertSuccess"));
-                         this.clearObjectValues(this.record);
-                         this.updatedialog = false;
-                    });
-               },
-               close() {
-                    this.clearObjectValues(this.record);
+// Stable ref arrays — built once when dialog opens, not re-created by computed
+const testItems = ref([]);
+const cultureItems = ref([]);
+const packageItems = ref([]);
 
-                    this.updatedialog = false;
-               },
-          },
-          watch: {
-               pagination: {
-                    handler() {
-                         this.GetTests();
-                    },
-                    deep: true,
-               },
-          },
-     };
+// Load all system items + merge saved prices when dialog opens
+watch(updatedialog, async (val) => {
+  if (val) {
+    await Promise.all([GetTests(), GettestGroups(), Getcultures(), Getpackages()]);
+
+    // Build lookup maps from saved price list items
+    const savedTestMap = {};
+    for (const item of UpdateList.value?.price_list_items?.tests || []) {
+      savedTestMap[item.test_id] = item;
+    }
+    const savedGroupMap = {};
+    for (const item of UpdateList.value?.price_list_items?.test_groups || []) {
+      savedGroupMap[item.test_group_id] = item;
+    }
+    const savedCultureMap = {};
+    for (const item of UpdateList.value?.price_list_items?.cultures || []) {
+      savedCultureMap[item.culture_id] = item;
+    }
+    const savedPackageMap = {};
+    for (const item of UpdateList.value?.price_list_items?.packages || []) {
+      savedPackageMap[item.package_id] = item;
+    }
+
+    // Merge all system items with saved prices
+    // "Current price" = the lab's customer-facing price (with B2B/original
+    // as fallback). Same precedence as everywhere else in the app.
+    testItems.value = [
+      ...(testsStore.tests || []).map((t) => {
+        const saved = savedTestMap[t.id];
+        return {
+          id: t.id,
+          name: t.name,
+          shortcut: t.shortcut,
+          current_price: t.for_customer_price ?? t.price,
+          price_for_customer: saved ? saved.price_for_customer : null,
+          price_list_rel_id: saved ? saved.price_list_rel_id : null,
+          is_group: false,
+        };
+      }),
+      ...(testGroupsStore.testGroups || []).map((g) => {
+        const saved = savedGroupMap[g.id];
+        return {
+          id: g.id,
+          name: g.group_name,
+          shortcut: g.shortcut,
+          current_price: g.for_customer_price ?? g.original_price,
+          price_for_customer: saved ? saved.price_for_customer : null,
+          price_list_rel_id: saved ? saved.price_list_rel_id : null,
+          is_group: true,
+        };
+      }),
+    ];
+
+    cultureItems.value = (culturesStore.cultures || []).map((c) => {
+      const saved = savedCultureMap[c.id];
+      return {
+        id: c.id,
+        name: c.name,
+        shortcut: c.shortcut,
+        current_price: c.price_for_customer ?? c.for_customer_price ?? c.price,
+        price_for_customer: saved ? saved.price_for_customer : null,
+        price_list_rel_id: saved ? saved.price_list_rel_id : null,
+      };
+    });
+
+    packageItems.value = (packagesStore.packagesList || []).map((p) => {
+      const saved = savedPackageMap[p.id];
+      return {
+        id: p.id,
+        name: p.name,
+        shortcut: p.shortcut,
+        current_price: p.for_customer_price ?? p.price,
+        price_for_customer: saved ? saved.price_for_customer : null,
+        price_list_rel_id: saved ? saved.price_list_rel_id : null,
+      };
+    });
+  }
+});
+
+// Filter — name OR shortcut, case/whitespace insensitive
+const matchItem = (item, q) => {
+  const needle = (q || "").toLowerCase().trim();
+  if (!needle) return true;
+  return (
+    (item.name || "").toLowerCase().includes(needle) ||
+    (item.shortcut || "").toLowerCase().includes(needle)
+  );
+};
+const filteredTests = computed(() => testItems.value.filter((t) => matchItem(t, testsSearchQuery.value)));
+const filteredCultures = computed(() => cultureItems.value.filter((c) => matchItem(c, cultureSearchQuery.value)));
+const filteredPackages = computed(() => packageItems.value.filter((p) => matchItem(p, packageSearchQuery.value)));
+
+const tests_totalPages = computed(() => Math.ceil(filteredTests.value.length / rowsPerPage));
+const cultures_totalPages = computed(() => Math.ceil(filteredCultures.value.length / rowsPerPage));
+const packages_totalPages = computed(() => Math.ceil(filteredPackages.value.length / rowsPerPage));
+
+const paginatedTests = computed(() => {
+  const start = (test_currentPage.value - 1) * rowsPerPage;
+  return filteredTests.value.slice(start, start + rowsPerPage);
+});
+
+const paginatedCultures = computed(() => {
+  const start = (cultures_currentPage.value - 1) * rowsPerPage;
+  return filteredCultures.value.slice(start, start + rowsPerPage);
+});
+
+const paginatedPackages = computed(() => {
+  const start = (packages_currentPage.value - 1) * rowsPerPage;
+  return filteredPackages.value.slice(start, start + rowsPerPage);
+});
+
+// Reset page to 1 on search
+watch(testsSearchQuery, () => { test_currentPage.value = 1; });
+watch(cultureSearchQuery, () => { cultures_currentPage.value = 1; });
+watch(packageSearchQuery, () => { packages_currentPage.value = 1; });
+
+const test_prevPage = () => {
+  if (test_currentPage.value > 1) test_currentPage.value--;
+};
+
+const test_nextPage = () => {
+  if (test_currentPage.value < tests_totalPages.value) test_currentPage.value++;
+};
+
+const packages_prevPage = () => {
+  if (packages_currentPage.value > 1) packages_currentPage.value--;
+};
+
+const packages_nextPage = () => {
+  if (packages_currentPage.value < packages_totalPages.value) packages_currentPage.value++;
+};
+
+const cultures_prevPage = () => {
+  if (cultures_currentPage.value > 1) cultures_currentPage.value--;
+};
+
+const cultures_nextPage = () => {
+  if (cultures_currentPage.value < cultures_totalPages.value) cultures_currentPage.value++;
+};
+
+const hasPrice = (val) => val != null && val !== "" && !isNaN(val);
+
+const update = () => {
+  record.value.tests = testItems.value.filter((t) => !t.is_group && hasPrice(t.price_for_customer)).map((test) => ({
+    price_list_rel_id: test.price_list_rel_id,
+    id: test.id,
+    price: test.price_for_customer,
+  }));
+  record.value.groups = testItems.value.filter((t) => t.is_group && hasPrice(t.price_for_customer)).map((group) => ({
+    price_list_rel_id: group.price_list_rel_id,
+    id: group.id,
+    price: group.price_for_customer,
+  }));
+  record.value.cultures = cultureItems.value.filter((c) => hasPrice(c.price_for_customer)).map((culture) => ({
+    price_list_rel_id: culture.price_list_rel_id,
+    id: culture.id,
+    price: culture.price_for_customer,
+  }));
+  record.value.packages = packageItems.value.filter((p) => hasPrice(p.price_for_customer)).map((pkg) => ({
+    price_list_rel_id: pkg.price_list_rel_id,
+    id: pkg.id,
+    price: pkg.price_for_customer,
+  }));
+
+  UpdatepriceList().then(() => {
+    alertSuccess(t("alertSuccess"));
+    clearObjectValues(record.value);
+    updatedialog.value = false;
+  });
+};
+
+const close = () => {
+  clearObjectValues(record.value);
+  updatedialog.value = false;
+};
 </script>
-<style scoped>
-     /* Table Styling */
-     tr {
-          height: 55px;
-     }
-     td {
-          border: 1px solid #0000002b;
-     }
-     thead {
-          background: #374151;
-          color: white;
-          height: 35px;
-     }
-     .table {
-          width: 100%;
-          /* border: 1px solid; */
-          text-align: center;
-          background: #f9fafb;
-     }
-     /* Pagination Controls */
-     .pagination-controls {
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          margin-top: 15px;
-     }
 
-     .pagination-controls span {
-          margin: 0 10px;
-          font-weight: bold;
-     }
+<template>
+  <Teleport to="body">
+    <Transition name="modal">
+      <div v-if="updatedialog" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="fixed inset-0 bg-black/50" @click="close"></div>
+        <div
+          class="relative bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col"
+          :dir="lang === 'ar' ? 'rtl' : 'ltr'"
+        >
+          <div class="flex items-center justify-between p-4 border-b border-gray-200">
+            <h2 class="text-xl font-semibold text-gray-800">{{ t("update") }}</h2>
+            <button @click="close" class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
 
-     .btn-pagination {
-          padding: 8px 12px;
-          background-color: #009879;
-          color: white;
-          border: none;
-          border-radius: 4px;
-          cursor: pointer;
-          font-size: 14px;
-     }
+          <form @submit.prevent="update" class="flex-1 overflow-y-auto p-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t("name") }} <span class="text-red-500">*</span></label>
+                <input
+                  v-model="record.name"
+                  type="text"
+                  required
+                  maxlength="255"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div v-if="!isDiscount">
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t("discount") }}</label>
+                <input
+                  v-model="record.discount"
+                  type="number"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div class="flex items-center">
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    v-model="isDiscount"
+                    class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <span class="text-sm font-medium text-gray-700">{{ t("is_constatnt_price") }}</span>
+                </label>
+              </div>
+            </div>
 
-     .btn-pagination[disabled] {
-          background-color: #cccccc;
-          cursor: not-allowed;
-     }
-     .pagination-controls .p-button {
-          background: none;
-          color: #363785;
-          border: none;
-     }
-     .text-danger {
-          color: rgba(255, 0, 0, 0.688);
-     }
-</style>
+            <div v-if="isDiscount" class="mt-6">
+              <div class="border-b border-gray-200">
+                <nav class="flex gap-4">
+                  <button
+                    type="button"
+                    @click="activeTab = 'tests'"
+                    :class="[
+                      'px-4 py-2 text-sm font-medium border-b-2 -mb-px',
+                      activeTab === 'tests'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                    ]"
+                  >
+                    {{ t("tests") }}
+                  </button>
+                  <button
+                    type="button"
+                    @click="activeTab = 'cultures'"
+                    :class="[
+                      'px-4 py-2 text-sm font-medium border-b-2 -mb-px',
+                      activeTab === 'cultures'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                    ]"
+                  >
+                    {{ t("cultures") }}
+                  </button>
+                  <button
+                    type="button"
+                    @click="activeTab = 'packages'"
+                    :class="[
+                      'px-4 py-2 text-sm font-medium border-b-2 -mb-px',
+                      activeTab === 'packages'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                    ]"
+                  >
+                    {{ t("packages") }}
+                  </button>
+                </nav>
+              </div>
+
+              <!-- Tests Tab -->
+              <div v-if="activeTab === 'tests'" class="mt-4">
+                <input
+                  v-model="testsSearchQuery"
+                  type="text"
+                  :placeholder="t('search')"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <div v-if="filteredTests.length > 0" class="mt-4 overflow-x-auto">
+                  <table class="w-full text-sm">
+                    <thead class="bg-gray-700 text-white">
+                      <tr>
+                        <th class="px-4 py-3 text-start">{{ t("name") }}</th>
+                        <th class="px-4 py-3 text-start">{{ t("current_price") }}</th>
+                        <th class="px-4 py-3 text-start">{{ t("new_price") }}</th>
+                      </tr>
+                    </thead>
+                    <tbody class="bg-gray-50 divide-y divide-gray-200">
+                      <tr v-for="test in paginatedTests" :key="test.id + (test.is_group ? '_g' : '_t')" class="hover:bg-gray-100">
+                        <td class="px-4 py-3 text-gray-800">
+                          <span v-if="test.is_group" class="inline-block px-1.5 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded me-1.5">{{ t("group") }}</span>
+                          {{ test.name }}
+                          <span v-if="test.shortcut" class="ms-1.5 text-xs text-gray-400 font-mono">({{ test.shortcut }})</span>
+                        </td>
+                        <td class="px-4 py-3 text-gray-600">{{ test.current_price ?? '-' }}</td>
+                        <td class="px-4 py-3">
+                          <input
+                            v-model.number="test.price_for_customer"
+                            type="number"
+                            :placeholder="t('new_price')"
+                            class="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                          />
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <div class="flex justify-center items-center gap-2 mt-4">
+                    <button type="button" @click="test_prevPage" :disabled="test_currentPage === 1" class="px-3 py-1 text-sm border border-gray-300 rounded-lg disabled:opacity-50 hover:bg-gray-100">
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                    </button>
+                    <span class="text-sm text-gray-600">{{ test_currentPage }}</span>
+                    <button type="button" @click="test_nextPage" :disabled="test_currentPage >= tests_totalPages" class="px-3 py-1 text-sm border border-gray-300 rounded-lg disabled:opacity-50 hover:bg-gray-100">
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    </button>
+                  </div>
+                </div>
+                <div v-else class="text-center py-8 text-red-500">{{ t("noData") }}</div>
+              </div>
+
+              <!-- Cultures Tab -->
+              <div v-if="activeTab === 'cultures'" class="mt-4">
+                <input
+                  v-model="cultureSearchQuery"
+                  type="text"
+                  :placeholder="t('search')"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <div v-if="filteredCultures.length > 0" class="mt-4 overflow-x-auto">
+                  <table class="w-full text-sm">
+                    <thead class="bg-gray-700 text-white">
+                      <tr>
+                        <th class="px-4 py-3 text-start">{{ t("name") }}</th>
+                        <th class="px-4 py-3 text-start">{{ t("current_price") }}</th>
+                        <th class="px-4 py-3 text-start">{{ t("new_price") }}</th>
+                      </tr>
+                    </thead>
+                    <tbody class="bg-gray-50 divide-y divide-gray-200">
+                      <tr v-for="culture in paginatedCultures" :key="culture.id" class="hover:bg-gray-100">
+                        <td class="px-4 py-3 text-gray-800">
+                          {{ culture.name }}
+                          <span v-if="culture.shortcut" class="ms-1.5 text-xs text-gray-400 font-mono">({{ culture.shortcut }})</span>
+                        </td>
+                        <td class="px-4 py-3 text-gray-600">{{ culture.current_price ?? '-' }}</td>
+                        <td class="px-4 py-3">
+                          <input
+                            v-model.number="culture.price_for_customer"
+                            type="number"
+                            :placeholder="t('new_price')"
+                            class="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                          />
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <div class="flex justify-center items-center gap-2 mt-4">
+                    <button type="button" @click="cultures_prevPage" :disabled="cultures_currentPage === 1" class="px-3 py-1 text-sm border border-gray-300 rounded-lg disabled:opacity-50 hover:bg-gray-100">
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                    </button>
+                    <span class="text-sm text-gray-600">{{ cultures_currentPage }}</span>
+                    <button type="button" @click="cultures_nextPage" :disabled="cultures_currentPage >= cultures_totalPages" class="px-3 py-1 text-sm border border-gray-300 rounded-lg disabled:opacity-50 hover:bg-gray-100">
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    </button>
+                  </div>
+                </div>
+                <div v-else class="text-center py-8 text-red-500">{{ t("noData") }}</div>
+              </div>
+
+              <!-- Packages Tab -->
+              <div v-if="activeTab === 'packages'" class="mt-4">
+                <input
+                  v-model="packageSearchQuery"
+                  type="text"
+                  :placeholder="t('search')"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <div v-if="filteredPackages.length > 0" class="mt-4 overflow-x-auto">
+                  <table class="w-full text-sm">
+                    <thead class="bg-gray-700 text-white">
+                      <tr>
+                        <th class="px-4 py-3 text-start">{{ t("name") }}</th>
+                        <th class="px-4 py-3 text-start">{{ t("current_price") }}</th>
+                        <th class="px-4 py-3 text-start">{{ t("new_price") }}</th>
+                      </tr>
+                    </thead>
+                    <tbody class="bg-gray-50 divide-y divide-gray-200">
+                      <tr v-for="pkg in paginatedPackages" :key="pkg.id" class="hover:bg-gray-100">
+                        <td class="px-4 py-3 text-gray-800">
+                          {{ pkg.name }}
+                          <span v-if="pkg.shortcut" class="ms-1.5 text-xs text-gray-400 font-mono">({{ pkg.shortcut }})</span>
+                        </td>
+                        <td class="px-4 py-3 text-gray-600">{{ pkg.current_price ?? '-' }}</td>
+                        <td class="px-4 py-3">
+                          <input
+                            v-model.number="pkg.price_for_customer"
+                            type="number"
+                            :placeholder="t('new_price')"
+                            class="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                          />
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <div class="flex justify-center items-center gap-2 mt-4">
+                    <button type="button" @click="packages_prevPage" :disabled="packages_currentPage === 1" class="px-3 py-1 text-sm border border-gray-300 rounded-lg disabled:opacity-50 hover:bg-gray-100">
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                    </button>
+                    <span class="text-sm text-gray-600">{{ packages_currentPage }}</span>
+                    <button type="button" @click="packages_nextPage" :disabled="packages_currentPage >= packages_totalPages" class="px-3 py-1 text-sm border border-gray-300 rounded-lg disabled:opacity-50 hover:bg-gray-100">
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    </button>
+                  </div>
+                </div>
+                <div v-else class="text-center py-8 text-red-500">{{ t("noData") }}</div>
+              </div>
+            </div>
+
+            <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
+              <button
+                type="button"
+                @click="close"
+                class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+              >
+                {{ t("close") }}
+              </button>
+              <button
+                type="submit"
+                class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700"
+              >
+                {{ t("save") }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
+</template>

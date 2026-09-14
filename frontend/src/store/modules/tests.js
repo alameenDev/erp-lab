@@ -7,15 +7,6 @@ export const usetestsStore = defineStore("tests", {
           dialog: false,
           totalCount: "",
           loading: false,
-          pagination: {
-               total: null,
-               pageNumber: 1,
-               per_page: 25,
-               current_page: 1,
-               last_page: null,
-               from: null,
-               to: null,
-          },
           record: {
                id: "",
                name: "",
@@ -67,47 +58,60 @@ export const usetestsStore = defineStore("tests", {
                state.tests.map((record) => ({
                     label: record.name,
                     value: { id: record.id, price: record.price },
+                    shortcut: record.shortcut || "",
+                    is_special: !!(record.sub_tests?.length && record.content?.html),
                })),
           testGroupTestes: (state) => () =>
                state.tests.map((record) => ({
                     label: record.name,
                     value: record.id,
+                    price: record.for_customer_price || record.price || 0,
+                    shortcut: record.shortcut || "",
+                    is_special: !!(record.sub_tests?.length && record.content?.html),
                })),
      },
      actions: {
-          async GetTests(filters) {
-               this.loading= true
-               const { data } = await $http.get("/tests", {
-                    params: {
-                         page: this.pagination.current_page,
-                        ...filters
-                    },
-               });
-               if(data) {
-                    this.pagination.total = data?.pagination?.total;
-                    this.pagination.per_page = data?.pagination?.per_page;
-                    this.pagination.current_page = data?.pagination?.current_page;
-                    this.pagination.last_page = data?.pagination?.last_page;
-                    this.pagination.from = data?.pagination?.from;
-                    this.pagination.to = data?.pagination?.to;
-                    this.tests = data?.data?.map((item, index) => ({
+          async GetTests() {
+               this.loading = true;
+               try {
+                    const { data } = await $http.get("/tests");
+                    const items = Array.isArray(data) ? data : [];
+                    this.tests = items.map((item, index) => ({
                          ...item,
-                         index: this.pagination.from + index,
+                         index: index + 1,
                     }));
-               }              this.loading= false
+                    this.totalCount = this.tests.length;
+               } catch (error) {
+                    this.tests = [];
+               } finally {
+                    this.loading = false;
+               }
           },
           async Addtests() {
-               await $http.post(`/tests/create`, checkObjectParams(this.record));
+               const payload = JSON.parse(JSON.stringify(this.record));
+               const params = checkObjectParams(payload);
+               await $http.post(`/tests/create`, params);
                this.GetTests();
           },
           async Updatetests() {
-               await $http.put(`/tests/update`, checkObjectParams(this.record));
-
+               const payload = JSON.parse(JSON.stringify(this.record));
+               const params = checkObjectParams(payload);
+               await $http.put(`/tests/update`, params);
                this.GetTests();
           },
           async Removetests() {
                await $http.delete(`/tests/delete`, { data: { id: this.record.id } });
                this.GetTests();
+          },
+          async ImportTests(file) {
+               const locale = localStorage.getItem("locale") || "ar";
+               const formData = new FormData();
+               formData.append("file", file);
+               const { data } = await $http.post(`/tests/import?locale=${locale}`, formData, {
+                    headers: { "Content-Type": "multipart/form-data" },
+               });
+               this.GetTests();
+               return data;
           },
      },
 });

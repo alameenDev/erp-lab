@@ -1,89 +1,130 @@
 <script setup>
-     import { computed, watch, ref } from "vue";
-     import AppTopbar from "./AppTopbar.vue";
-     import AppSidebar from "./AppSidebar.vue";
-     import AppFooter from "./AppFooter.vue";
-     import { useLayout } from "@/layout/composables/layout";
+import { computed, onMounted, onUnmounted } from "vue";
+import AppTopbar from "./AppTopbar.vue";
+import AppSidebar from "./AppSidebar.vue";
+import AppFooter from "./AppFooter.vue";
+import { useLayout } from "@/layout/composables/layout";
 
-     const { layoutConfig, layoutState, isSidebarActive } = useLayout();
+const { isSidebarActive, closeSidebar, isSidebarCollapsed } = useLayout();
 
-     const outsideClickListener = ref(null);
+const lang = computed(() => localStorage.getItem("locale") || "ar");
+const isRTL = computed(() => lang.value === "ar");
 
-     watch(isSidebarActive, (newVal) => {
-          if (newVal) {
-               bindOutsideClickListener();
-          } else {
-               unbindOutsideClickListener();
-          }
-     });
-     const lang = localStorage.getItem("locale") ? localStorage.getItem("locale") : "ar";
-     const containerClass = computed(() => {
-          return {
-               "layout-theme-light": layoutConfig.darkTheme.value === "light",
-               "layout-theme-dark": layoutConfig.darkTheme.value === "dark",
-               "layout-overlay": layoutConfig.menuMode.value === "overlay",
-               "layout-static": layoutConfig.menuMode.value === "static",
-               "layout-static-inactive":
-                    layoutState.staticMenuDesktopInactive.value && layoutConfig.menuMode.value === "static",
-               "layout-overlay-active": layoutState.overlayMenuActive.value,
-               "layout-mobile-active": layoutState.staticMenuMobileActive.value,
-               "p-input-filled": layoutConfig.inputStyle.value === "filled",
-               "p-ripple-disabled": !layoutConfig.ripple.value,
-          };
-     });
-     const bindOutsideClickListener = () => {
-          if (!outsideClickListener.value) {
-               outsideClickListener.value = (event) => {
-                    if (isOutsideClicked(event)) {
-                         layoutState.overlayMenuActive.value = false;
-                         layoutState.staticMenuMobileActive.value = false;
-                         layoutState.menuHoverActive.value = false;
-                    }
-               };
-               document.addEventListener("click", outsideClickListener.value);
-          }
-     };
-     const unbindOutsideClickListener = () => {
-          if (outsideClickListener.value) {
-               document.removeEventListener("click", outsideClickListener);
-               outsideClickListener.value = null;
-          }
-     };
-     const isOutsideClicked = (event) => {
-          const sidebarEl = document.querySelector(".layout-sidebar");
-          const topbarEl = document.querySelector(".layout-menu-button");
+// Close sidebar when clicking outside on mobile
+const handleOutsideClick = (event) => {
+  const sidebar = document.querySelector("aside");
+  const menuButton = document.querySelector(".menu-toggle");
 
-          return !(
-               sidebarEl.isSameNode(event.target) ||
-               sidebarEl.contains(event.target) ||
-               topbarEl.isSameNode(event.target) ||
-               topbarEl.contains(event.target)
-          );
-     };
+  if (
+    sidebar &&
+    !sidebar.contains(event.target) &&
+    menuButton &&
+    !menuButton.contains(event.target) &&
+    isSidebarActive.value
+  ) {
+    closeSidebar();
+  }
+};
+
+onMounted(() => {
+  document.addEventListener("click", handleOutsideClick);
+});
+
+onUnmounted(() => {
+  document.removeEventListener("click", handleOutsideClick);
+});
+
+// Dynamic content margin based on sidebar state
+const contentMargin = computed(() => isSidebarCollapsed?.value ? "5rem" : "16rem");
 </script>
 
 <template>
-     <div class="layout-wrapper" :class="containerClass">
-          <app-topbar></app-topbar>
-          <div :class="lang == 'ar' ? 'rtlSideBar' : 'ltrSideBar'">
-               <div class="layout-sidebar">
-                    <app-sidebar></app-sidebar>
-               </div>
-          </div>
+  <div
+    class="min-h-screen bg-gradient-to-br from-slate-50 via-slate-50 to-slate-100 dark-mode:from-slate-950 dark-mode:via-slate-950 dark-mode:to-slate-900 flex flex-col transition-colors duration-300"
+    :dir="lang === 'ar' ? 'rtl' : 'ltr'"
+  >
+    <!-- Background Pattern -->
+    <div class="fixed inset-0 pointer-events-none overflow-hidden">
+      <!-- Subtle grid pattern -->
+      <div class="absolute inset-0 bg-[linear-gradient(to_right,#f1f5f910_1px,transparent_1px),linear-gradient(to_bottom,#f1f5f910_1px,transparent_1px)] bg-[size:4rem_4rem]"></div>
+      <!-- Gradient orbs -->
+      <div class="absolute -top-40 -end-40 w-80 h-80 bg-primary-200/20 rounded-full blur-3xl"></div>
+      <div class="absolute top-1/2 -start-20 w-60 h-60 bg-primary-300/10 rounded-full blur-3xl"></div>
+    </div>
 
-          <div :class="lang == 'ar' ? 'rtl' : 'ltr'">
-               <div class="layout-main-container">
-                    <div class="layout-main">
-                         <router-view></router-view>
-                         <!-- <app-footer></app-footer> -->
-                    </div>
-               </div>
-          </div>
+    <!-- Sidebar -->
+    <AppSidebar />
 
-          <div class="layout-mask"></div>
-     </div>
+    <!-- Sidebar Overlay (mobile) -->
+    <Transition name="fade">
+      <div
+        v-if="isSidebarActive"
+        class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-30 lg:hidden"
+        @click="closeSidebar"
+      ></div>
+    </Transition>
+
+    <!-- Topbar -->
+    <AppTopbar />
+
+    <!-- Main Content -->
+    <main
+      class="flex-1 pt-16 transition-all duration-300 relative z-10"
+      :style="{
+        [isRTL ? 'marginRight' : 'marginLeft']: contentMargin,
+        width: `calc(100% - ${contentMargin})`
+      }"
+      :class="['lg:block']"
+    >
+      <div class="p-4 lg:p-6 min-h-[calc(100vh-8rem)]">
+        <!-- Page content with smooth transitions -->
+        <router-view v-slot="{ Component }">
+          <Transition name="page" mode="out-in">
+            <component :is="Component" />
+          </Transition>
+        </router-view>
+      </div>
+
+      <!-- Footer -->
+      <AppFooter />
+    </main>
+  </div>
 </template>
 
-<style lang="scss" scoped>
-     /* Sidebar now always works in overlay mode - no margin adjustments needed */
+<style>
+/* Fade transition for overlay */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* Page transition */
+.page-enter-active,
+.page-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.page-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+/* Mobile responsiveness */
+@media (max-width: 1023px) {
+  main {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    width: 100% !important;
+  }
+}
 </style>

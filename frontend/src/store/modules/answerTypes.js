@@ -15,9 +15,13 @@ export const useAnswerTypesStore = defineStore("answerTypes", {
            *
            */
           async GetanswerTypes() {
-               const { data } = await $http.get("/answer-types");
+               try {
+                    const { data } = await $http.get("/answer-types");
 
-               this.answerTypes = data.map((record) => ({ label: record.answer, value: record.id }));
+                    this.answerTypes = data.map((record) => ({ label: record.answer, value: record.id }));
+               } catch (error) {
+                    this.answerTypes = [];
+               }
           },
      },
 });

@@ -8,17 +8,17 @@ export const useNationalitiesStore = defineStore("nationality", {
           dialog: false,
           record: {
                id: "",
-               name: "",
-               email: "",
-               password: "",
-               role_id: "",
+               country_name: "",
           },
      }),
      actions: {
           async GetNationalities() {
-               const { data } = await $http.get("/nationalities");
-               // let pageNumber = Math.floor(this.filter.pageNumber / this.filter.pageSize) + 1;
-               this.nationalities = data.map((record) => ({ label: record.country_name, value: record.id }));
+               try {
+                    const { data } = await $http.get("/nationalities");
+                    this.nationalities = (data || []).map((record) => ({ label: record.country_name, value: record.id }));
+               } catch (error) {
+                    this.nationalities = [];
+               }
           },
 
           async AddNationality() {
@@ -26,13 +26,7 @@ export const useNationalitiesStore = defineStore("nationality", {
                this.GetNationalities();
           },
           async UpdateNationality() {
-               const { password, ...rest } = this.record;
-               let submitData = rest;
-               if (password) {
-                    submitData = { ...submitData, password };
-               }
-               const { data } = await $http.post(`/nationalities/${this.record.id}`, checkObjectParams(submitData));
-
+               await $http.put(`/nationalities/${this.record.id}`, checkObjectParams(this.record));
                this.GetNationalities();
           },
           async RemoveNationality() {

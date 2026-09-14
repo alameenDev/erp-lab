@@ -1,260 +1,574 @@
-<template>
-     <div class="card filterTable pb-0">
-          <div class="flex justify-content-between mb-2">
-               <h5>{{ t("priceList") }}</h5>
-               <Button
-                    v-if="havePermission('price list create')"
-                    size="small"
-                    class="p-button-success"
-                    :label="t('add')"
-                    @click="addRecord"></Button>
-          </div>
+<script setup>
+import { ref, computed, onMounted } from "vue";
+import { storeToRefs } from "pinia";
+import { priceListStore } from "@/store/modules/priceList";
+import { useAuthStore } from "@/store/modules/auth";
+import { t, showAlertWithConfirm } from "@/utils/helper";
+import * as XLSX from "xlsx";
+import priceListModal from "./components/priceList_modal.vue";
+import updateModal from "./components/updateModal.vue";
 
-          <div class="card flex justify-content-center mb-5" v-if="totalCount?.toLocaleString() == 0">
-               <InlineMessage severity="info">{{ t("noData") }}</InlineMessage>
-          </div>
+const priceStore = priceListStore();
+const authStore = useAuthStore();
+const { havePermission } = authStore;
+const { priceList, totalCount, record, dialog, updatedialog, isDiscount } = storeToRefs(priceStore);
+const { GetpriceList, RemovepriceList, GetpriceListById } = priceStore;
 
-          <div v-else>
-               <div class="globalSearch">
-                    <input
-                         v-model="globalFilter"
-                         :placeholder="t('search') + '...'"
-                         class="search p-inputtext p-component mb-2" />
-                    <div class="btns">
-                         <Button
-                              :label="t('Clear Filters')"
-                              icon="pi pi-filter-slash"
-                              @click="clearfilters"
-                              class="p-button-secondary mb-2" />
-                         <Button
-                              :label="t('Export to Excel')"
-                              icon="pi pi-file-excel"
-                              @click="exportToExcel"
-                              class="p-button-success mb-2" />
-                    </div>
-               </div>
+// Loading state
+const isLoading = ref(true);
 
-               <DataTable
-                    size="small"
-                    :value="filteredpriceList"
-                    scrollable
-                    scrollHeight="450px"
-                    responsiveLayout="scroll"
-                    paginator
-                    :rows="25">
-                    <template #empty>
-                         <div class="noData p-d-flex p-ai-center p-jc-center" style="height: 100px">
-                              {{ t("noData") }}
-                         </div>
-                    </template>
+// Filters
+const globalFilter = ref("");
+const filters = ref({ price_list_title: "", discount: "", lab: "", price_list_type: "" });
+const showFilters = ref(false);
+const currentPage = ref(1);
+const perPage = ref(25);
 
-                    <Column class="text-center" header="#" field="index" style="min-width: 10px" />
-                    <Column class="text-center" field="lab" style="min-width: 100px">
-                         <template #header>
-                              <p>{{ t("lab/bruanch") }}</p>
-                              <input
-                                   v-model="filters.lab"
-                                   :placeholder="t('search') + '...'"
-                                   class="p-inputtext p-component" />
-                         </template>
-                    </Column>
-                    <Column class="text-center" field="price_list_title" style="min-width: 100px">
-                         <template #header>
-                              <p>{{ t("name") }}</p>
-                              <input
-                                   v-model="filters.price_list_title"
-                                   :placeholder="t('search') + '...'"
-                                   class="p-inputtext p-component" />
-                         </template>
-                    </Column>
-                    <Column class="text-center" field="discount" style="min-width: 100px">
-                         <template #header>
-                              <p>{{ t("discount") }}</p>
-                              <input
-                                   v-model="filters.discount"
-                                   :placeholder="t('search') + '...'"
-                                   class="p-inputtext p-component" />
-                         </template>
-                         <template #body="slotProps">
-                              {{ slotProps.data.discount ? slotProps.data.discount : "---" }}
-                         </template>
-                    </Column>
-                    <Column class="text-center" field="price_list_type" style="min-width: 100px">
-                         <template #header>
-                              <p>{{ t("price_list_type") }}</p>
-                              <select v-model="filters.price_list_type" class="p-inputtext p-component">
-                                   <option :value="t('is_constatnt_price')">
-                                        {{ t("is_constatnt_price") }}
-                                   </option>
-                                   <option :value="t('it_discount')">
-                                        {{ t("it_discount") }}
-                                   </option>
-                              </select>
-                         </template>
-                         <template #body="slotProps">
-                              {{ getPriceListType(slotProps.data) }}
-                         </template>
-                    </Column>
-                    <Column class="text-center" field="actions" style="min-width: 140px" >
-                         <template #header>
-                              <p>{{ t("actions") }}</p>
-                         </template>
-                         <template #body="slotProps">
-                              <Button
-                                   v-if="havePermission('price list edit')"
-                                   icon="pi pi-pencil"
-                                   class="p-button-rounded mx-1"
-                                   @click="editRecord(slotProps.data)"></Button>
-                              <Button
-                                   v-if="havePermission('price list delete')"
-                                   icon="pi pi-trash"
-                                   class="p-button-rounded mx-1 p-button-danger"
-                                   @click="deleteRecord(slotProps.data)"></Button>
-                         </template>
-                    </Column>
-               </DataTable>
-          </div>
+// Stats
+const stats = computed(() => {
+  const list = priceList.value || [];
+  const total = list.length;
+  const withDiscount = list.filter(p => p.discount != null).length;
+  const constantPrice = list.filter(p => p.discount == null).length;
+  return { total, withDiscount, constantPrice };
+});
 
-          <priceListModal></priceListModal>
-          <updateModal></updateModal>
-     </div>
-</template>
+// Active filters count
+const activeFiltersCount = computed(() => {
+  let count = 0;
+  if (filters.value.price_list_title) count++;
+  if (filters.value.discount) count++;
+  if (filters.value.lab) count++;
+  if (filters.value.price_list_type) count++;
+  return count;
+});
 
-<script>
-     import { mapActions, mapWritableState } from "pinia";
-     import updateModal from "./components/updateModal.vue";
-     import priceListModal from "./components/priceList_modal.vue";
-     import { showAlertWithConfirm } from "@/utils/helper";
-     import { priceListStore } from "@/store/modules/priceList";
-       import { useAuthStore } from '@/store/modules/auth'
-     import * as XLSX from "xlsx";
-     export default {
-          data() {
-               return {
-                    globalFilter: "",
-                    filters: {
-                         price_list_title: "",
-                         discount: "",
-                         lab: "",
-                    },
-               };
-          },
-          mounted() {
-               this.GetpriceList();
-          },
-          components: {
-               priceListModal,
-               updateModal,
-          },
-          computed: {
-               ...mapWritableState(useAuthStore, ["havePermission"]),
-               ...mapWritableState(priceListStore, [
-                    "UpdateRecord",
-                    "isDiscount",
-                    "priceList",
-                    "dropdowns",
-                    "record",
-                    "UpdateList",
-                    "dialog",
-                    "updatedialog",
-                    "totalCount",
-               ]),
-               filteredpriceList() {
-                    return this.priceList.filter((price) => {
-                         // Global filter logic
-                         const matchesGlobalFilter = this.globalFilter
-                              ? price.price_list_title?.toLowerCase().includes(this.globalFilter.toLowerCase()) ||
-                                price.lab?.toLowerCase().includes(this.globalFilter.toLowerCase()) ||
-                                price.discount?.toString().includes(this.globalFilter.toString()) ||
-                                this.getPriceListType(price).toLowerCase().includes(this.globalFilter.toLowerCase())
-                              : true;
+onMounted(async () => {
+  isLoading.value = true;
+  try {
+    await GetpriceList();
+  } finally {
+    isLoading.value = false;
+  }
+});
 
-                         // Column-specific filter logic
-                         const matchesPriceListTitle =
-                              !this.filters.price_list_title ||
-                              price.price_list_title
-                                   ?.toLowerCase()
-                                   .includes(this.filters.price_list_title?.toLowerCase());
+const getPriceListType = (price) => {
+  return price.discount == null ? t("is_constatnt_price") : t("it_discount");
+};
 
-                         const matchesDiscount =
-                              !this.filters.discount ||
-                              price.discount?.toString().includes(this.filters.discount?.toString()) ||
-                              (this.filters.discount === "0" && price.discount === null);
-                         const matchesLab =
-                              !this.filters.lab || price.lab?.toLowerCase().includes(this.filters.lab?.toLowerCase());
+const filteredPriceList = computed(() => {
+  if (!priceList.value) return [];
+  return priceList.value.filter((price) => {
+    const matchesGlobalFilter = globalFilter.value
+      ? price.price_list_title?.toLowerCase().includes(globalFilter.value.toLowerCase()) ||
+        price.lab?.toLowerCase().includes(globalFilter.value.toLowerCase()) ||
+        price.discount?.toString().includes(globalFilter.value.toString()) ||
+        getPriceListType(price).toLowerCase().includes(globalFilter.value.toLowerCase())
+      : true;
 
-                         const matchesPriceListType =
-                              !this.filters.price_list_type ||
-                              this.getPriceListType(price).toLowerCase() ===
-                                   this.filters.price_list_type?.toLowerCase();
+    const matchesPriceListTitle =
+      !filters.value.price_list_title || price.price_list_title?.toLowerCase().includes(filters.value.price_list_title.toLowerCase());
+    const matchesDiscount = !filters.value.discount || price.discount?.toString().includes(filters.value.discount.toString());
+    const matchesLab = !filters.value.lab || price.lab?.toLowerCase().includes(filters.value.lab.toLowerCase());
+    const matchesPriceListType = !filters.value.price_list_type || getPriceListType(price).toLowerCase() === filters.value.price_list_type.toLowerCase();
 
-                         return (
-                              matchesGlobalFilter &&
-                              matchesPriceListTitle &&
-                              matchesDiscount &&
-                              matchesPriceListType &&
-                              matchesLab
-                         );
-                    });
-               },
-          },
-          methods: {
-               ...mapActions(priceListStore, ["RemovepriceList", "GetpriceList", "GetpriceListById"]),
-               async editRecord(record) {
-                    await this.GetpriceListById(record.id);
-                    this.record.id = record.id;
-                    this.record.name = record?.price_list_title;
-                    this.record.discount = record?.discount;
-                    this.isDiscount = record?.discount ? false : true;
+    return matchesGlobalFilter && matchesPriceListTitle && matchesDiscount && matchesLab && matchesPriceListType;
+  });
+});
 
-                    this.updatedialog = true;
-               },
-               getPriceListType(price) {
-                    return price.discount == null ? this.t("is_constatnt_price") : this.t("it_discount");
-               },
-               addRecord() {
-                    this.clearObjectValues(this.record);
-                    this.dialog = true;
-               },
+const paginatedRecords = computed(() => {
+  const start = (currentPage.value - 1) * perPage.value;
+  return filteredPriceList.value.slice(start, start + perPage.value);
+});
 
-               deleteRecord(record) {
-                    showAlertWithConfirm(this.t("AlertWithConfirm")).then((res) => {
-                         if (res.value) {
-                              this.record.id = record.id;
-                              this.RemovepriceList();
-                         }
-                    });
-               },
-               clearfilters() {
-                    this.globalFilter = "";
-                    this.filters = {
-                         price_list_title: "",
-                         discount: "",
-                         lab: "",
-                    };
-               },
+const totalPages = computed(() => Math.ceil(filteredPriceList.value.length / perPage.value));
 
-               exportToExcel() {
-                    // Create a worksheet from the filtered records
-                    const ws = XLSX.utils.json_to_sheet(this.filteredpriceList, {
-                         header: ["index", "price_list_title", "discount", "lab"],
-                    });
+const toggleFilters = () => {
+  showFilters.value = !showFilters.value;
+};
 
-                    // Create a new workbook and append the worksheet
-                    const wb = XLSX.utils.book_new();
-                    XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+const clearFilters = () => {
+  filters.value = { price_list_title: "", discount: "", lab: "", price_list_type: "" };
+  globalFilter.value = "";
+  currentPage.value = 1;
+};
 
-                    // Write the workbook to a file
-                    XLSX.writeFile(wb, "export.xlsx");
-               },
-          },
-     };
+const exportToExcel = () => {
+  const exportData = filteredPriceList.value.map((rec, i) => ({
+    "#": i + 1,
+    [t("name")]: rec.price_list_title,
+    [t("discount")]: rec.discount || "---",
+    [t("lab/bruanch")]: rec.lab,
+    [t("price_list_type")]: getPriceListType(rec),
+  }));
+  const ws = XLSX.utils.json_to_sheet(exportData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "PriceList");
+  XLSX.writeFile(wb, "price_list_export.xlsx");
+};
+
+const addRecord = () => {
+  Object.keys(record.value).forEach((key) => { record.value[key] = null; });
+  record.value.id = null;
+  dialog.value = true;
+};
+
+const editRecord = async (rec) => {
+  await GetpriceListById(rec.id);
+  record.value.id = rec.id;
+  record.value.name = rec.price_list_title;
+  record.value.discount = rec.discount;
+  isDiscount.value = rec.discount ? false : true;
+  updatedialog.value = true;
+};
+
+const deleteRecord = (rec) => {
+  showAlertWithConfirm(t("AlertWithConfirm")).then((res) => {
+    if (res.value) {
+      record.value.id = rec.id;
+      RemovepriceList();
+    }
+  });
+};
+
+const onPageChange = (page) => {
+  currentPage.value = page;
+};
 </script>
 
-<style scoped>
-     .p-eye-button {
-          background: no-repeat;
-          color: #469168e0;
-          border: none;
-     }
-</style>
+<template>
+  <div class="space-y-6">
+    <!-- ==================== HEADER SECTION ==================== -->
+    <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 shadow-2xl">
+      <!-- Background Elements -->
+      <div class="absolute inset-0">
+        <div class="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'0.03\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')]"></div>
+        <div class="absolute -top-24 -end-24 w-96 h-96 bg-primary-500/20 rounded-full blur-3xl"></div>
+        <div class="absolute -bottom-12 -start-12 w-64 h-64 bg-primary-600/15 rounded-full blur-2xl"></div>
+      </div>
+
+      <div class="relative p-6 lg:p-8">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+          <!-- Title Section -->
+          <div class="flex-1">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center shadow-xl shadow-primary-500/30">
+                <svg class="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                </svg>
+              </div>
+              <div>
+                <span class="px-3 py-1 bg-primary-500/20 text-primary-300 text-xs font-semibold rounded-full">
+                  {{ stats.total }} {{ t("priceList") }}
+                </span>
+              </div>
+            </div>
+            <h1 class="text-2xl lg:text-3xl font-bold text-white mb-2">{{ t("priceList") }}</h1>
+            <p class="text-slate-400 text-sm lg:text-base">{{ t("manage_price_lists") || "Manage price lists and discounts" }}</p>
+          </div>
+
+          <!-- Quick Stats -->
+          <div class="flex gap-3 flex-wrap">
+            <div class="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/10 min-w-[120px]">
+              <div class="flex items-center gap-2 mb-2">
+                <div class="w-8 h-8 rounded-lg bg-green-500/30 flex items-center justify-center">
+                  <svg class="w-4 h-4 text-green-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2zM10 8.5a.5.5 0 11-1 0 .5.5 0 011 0zm5 5a.5.5 0 11-1 0 .5.5 0 011 0z" />
+                  </svg>
+                </div>
+                <span class="text-xs text-slate-400">{{ t("it_discount") }}</span>
+              </div>
+              <p class="text-2xl font-bold text-white">{{ stats.withDiscount }}</p>
+            </div>
+            <div class="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/10 min-w-[120px]">
+              <div class="flex items-center gap-2 mb-2">
+                <div class="w-8 h-8 rounded-lg bg-blue-500/30 flex items-center justify-center">
+                  <svg class="w-4 h-4 text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <span class="text-xs text-slate-400">{{ t("is_constatnt_price") }}</span>
+              </div>
+              <p class="text-2xl font-bold text-white">{{ stats.constantPrice }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== STATS CARDS ==================== -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <!-- Total Price Lists -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 hover:shadow-md transition-shadow">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-slate-500 mb-1">{{ t("total") }} {{ t("priceList") }}</p>
+            <p class="text-2xl font-bold text-slate-800">{{ stats.total }}</p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-primary-50 flex items-center justify-center">
+            <svg class="w-6 h-6 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- With Discount -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 hover:shadow-md transition-shadow">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-slate-500 mb-1">{{ t("it_discount") }}</p>
+            <p class="text-2xl font-bold text-green-600">{{ stats.withDiscount }}</p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-green-50 flex items-center justify-center">
+            <svg class="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2zM10 8.5a.5.5 0 11-1 0 .5.5 0 011 0zm5 5a.5.5 0 11-1 0 .5.5 0 011 0z" />
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Constant Price -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 hover:shadow-md transition-shadow">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-slate-500 mb-1">{{ t("is_constatnt_price") }}</p>
+            <p class="text-2xl font-bold text-blue-600">{{ stats.constantPrice }}</p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center">
+            <svg class="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filtered Results -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 hover:shadow-md transition-shadow">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-slate-500 mb-1">{{ t("filtered_results") || "Filtered Results" }}</p>
+            <p class="text-2xl font-bold text-slate-800">{{ filteredPriceList.length }}</p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center">
+            <svg class="w-6 h-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== FILTERS & ACTIONS ==================== -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+      <!-- Main Search Bar -->
+      <div class="p-5">
+        <div class="flex flex-wrap items-end gap-4">
+          <!-- Search Input -->
+          <div class="flex-1 min-w-[200px]">
+            <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("search") }}</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 start-0 flex items-center ps-4 text-slate-400">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </span>
+              <input
+                v-model="globalFilter"
+                type="text"
+                :placeholder="t('search') + '...'"
+                class="w-full ps-12 pe-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white outline-none transition-all"
+              />
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="flex items-center gap-3">
+            <!-- Toggle Filters Button -->
+            <button
+              @click="toggleFilters"
+              class="px-4 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium rounded-xl transition-all flex items-center gap-2 relative"
+              :class="{ 'bg-primary-50 border-primary-200 text-primary-700': showFilters || activeFiltersCount > 0 }"
+            >
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              <span class="hidden sm:inline">{{ t("filters") || "Filters" }}</span>
+              <span
+                v-if="activeFiltersCount > 0"
+                class="absolute -top-2 -end-2 w-5 h-5 bg-primary-600 text-white text-xs font-bold rounded-full flex items-center justify-center"
+              >
+                {{ activeFiltersCount }}
+              </span>
+            </button>
+            <button
+              v-if="activeFiltersCount > 0"
+              @click="clearFilters"
+              class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl transition-all flex items-center gap-2"
+            >
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              <span class="hidden sm:inline">{{ t("Clear Filters") }}</span>
+            </button>
+            <button
+              @click="exportToExcel"
+              class="px-4 py-2.5 bg-green-50 hover:bg-green-100 text-green-700 font-medium rounded-xl transition-all flex items-center gap-2"
+            >
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span class="hidden sm:inline">{{ t("Export to Excel") }}</span>
+            </button>
+            <button
+              v-if="havePermission('price list create')"
+              @click="addRecord"
+              class="px-5 py-2.5 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white font-medium rounded-xl transition-all flex items-center gap-2 shadow-lg shadow-primary-500/25"
+            >
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              {{ t("add") }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Collapsible Filters Panel -->
+      <Transition
+        enter-active-class="transition-all duration-300 ease-out"
+        enter-from-class="max-h-0 opacity-0"
+        enter-to-class="max-h-96 opacity-100"
+        leave-active-class="transition-all duration-200 ease-in"
+        leave-from-class="max-h-96 opacity-100"
+        leave-to-class="max-h-0 opacity-0"
+      >
+        <div v-if="showFilters" class="overflow-hidden">
+          <div class="px-5 pb-5 pt-2 border-t border-slate-100 bg-slate-50/50">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <!-- Name Filter -->
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("name") }}</label>
+                <input
+                  v-model="filters.price_list_title"
+                  type="text"
+                  :placeholder="t('name') + '...'"
+                  class="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all"
+                />
+              </div>
+              <!-- Lab Filter -->
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("lab/bruanch") }}</label>
+                <input
+                  v-model="filters.lab"
+                  type="text"
+                  :placeholder="t('lab/bruanch') + '...'"
+                  class="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all"
+                />
+              </div>
+              <!-- Discount Filter -->
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("discount") }}</label>
+                <input
+                  v-model="filters.discount"
+                  type="text"
+                  :placeholder="t('discount') + '...'"
+                  class="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all"
+                />
+              </div>
+              <!-- Type Filter -->
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("price_list_type") }}</label>
+                <select
+                  v-model="filters.price_list_type"
+                  class="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all"
+                >
+                  <option value="">{{ t("all") }}</option>
+                  <option :value="t('is_constatnt_price')">{{ t("is_constatnt_price") }}</option>
+                  <option :value="t('it_discount')">{{ t("it_discount") }}</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </div>
+
+    <!-- ==================== DATA TABLE ==================== -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+      <!-- Loading State -->
+      <div v-if="isLoading" class="p-12 text-center">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary-50 mb-4">
+          <svg class="w-8 h-8 text-primary-600 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        </div>
+        <p class="text-slate-500">{{ t("loading") }}...</p>
+      </div>
+
+      <!-- Empty State -->
+      <div v-else-if="filteredPriceList.length === 0" class="p-12 text-center">
+        <div class="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg class="w-10 h-10 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+          </svg>
+        </div>
+        <h3 class="text-lg font-semibold text-slate-900 mb-2">{{ t("noData") }}</h3>
+        <p class="text-slate-500 mb-6 max-w-md mx-auto">{{ t("no_price_lists_message") || "No price lists found. Create your first price list to get started." }}</p>
+        <button
+          v-if="havePermission('price list create')"
+          @click="addRecord"
+          class="px-5 py-2.5 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white font-medium rounded-xl transition-all inline-flex items-center gap-2 shadow-lg shadow-primary-500/25"
+        >
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          {{ t("add") }}
+        </button>
+      </div>
+
+      <!-- Table -->
+      <div v-else>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead>
+              <tr class="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
+                <th class="px-5 py-4 text-start text-xs font-semibold text-slate-600 uppercase tracking-wider">#</th>
+                <th class="px-5 py-4 text-start text-xs font-semibold text-slate-600 uppercase tracking-wider">{{ t("lab/bruanch") }}</th>
+                <th class="px-5 py-4 text-start text-xs font-semibold text-slate-600 uppercase tracking-wider">{{ t("name") }}</th>
+                <th class="px-5 py-4 text-start text-xs font-semibold text-slate-600 uppercase tracking-wider">{{ t("discount") }}</th>
+                <th class="px-5 py-4 text-start text-xs font-semibold text-slate-600 uppercase tracking-wider">{{ t("price_list_type") }}</th>
+                <th class="px-5 py-4 text-start text-xs font-semibold text-slate-600 uppercase tracking-wider">{{ t("actions") }}</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              <tr
+                v-for="(price, index) in paginatedRecords"
+                :key="price.id"
+                class="hover:bg-slate-50/80 transition-colors group"
+              >
+                <td class="px-5 py-4">
+                  <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 text-slate-600 text-sm font-medium group-hover:bg-primary-50 group-hover:text-primary-600 transition-colors">
+                    {{ (currentPage - 1) * perPage + index + 1 }}
+                  </span>
+                </td>
+                <td class="px-5 py-4">
+                  <span class="text-sm font-medium text-slate-700">{{ price.lab || "----" }}</span>
+                </td>
+                <td class="px-5 py-4">
+                  <span class="text-sm font-medium text-slate-800">{{ price.price_list_title }}</span>
+                </td>
+                <td class="px-5 py-4">
+                  <span v-if="price.discount" class="inline-flex items-center px-2.5 py-1 bg-green-50 text-green-700 text-xs font-medium rounded-lg">
+                    {{ price.discount }}%
+                  </span>
+                  <span v-else class="text-slate-400">-</span>
+                </td>
+                <td class="px-5 py-4">
+                  <span
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold"
+                    :class="price.discount == null
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'bg-green-100 text-green-700'"
+                  >
+                    <span
+                      class="w-2 h-2 rounded-full"
+                      :class="price.discount == null ? 'bg-blue-500' : 'bg-green-500'"
+                    ></span>
+                    {{ getPriceListType(price) }}
+                  </span>
+                </td>
+                <td class="px-5 py-4">
+                  <div class="flex items-center gap-1">
+                    <!-- Edit -->
+                    <button
+                      v-if="havePermission('price list edit')"
+                      @click="editRecord(price)"
+                      class="p-2 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-all"
+                      :title="t('update')"
+                    >
+                      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                    <!-- Delete -->
+                    <button
+                      v-if="havePermission('price list delete')"
+                      @click="deleteRecord(price)"
+                      class="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all"
+                      :title="t('delete')"
+                    >
+                      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="px-5 py-4 border-t border-slate-200 bg-gradient-to-r from-slate-50 to-white">
+          <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p class="text-sm text-slate-600">
+              {{ t("showing") || "Showing" }}
+              <span class="font-semibold text-slate-800">{{ (currentPage - 1) * perPage + 1 }}</span>
+              -
+              <span class="font-semibold text-slate-800">{{ Math.min(currentPage * perPage, filteredPriceList.length) }}</span>
+              {{ t("of") || "of" }}
+              <span class="font-semibold text-slate-800">{{ filteredPriceList.length }}</span>
+              {{ t("priceList") }}
+            </p>
+            <div class="flex items-center gap-2">
+              <button
+                @click="onPageChange(currentPage - 1)"
+                :disabled="currentPage === 1"
+                class="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+              >
+                <svg class="w-4 h-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+                {{ t("previous") || "Previous" }}
+              </button>
+              <div class="flex items-center gap-1">
+                <template v-for="page in totalPages" :key="page">
+                  <button
+                    v-if="page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)"
+                    @click="onPageChange(page)"
+                    class="w-10 h-10 rounded-xl text-sm font-medium transition-all"
+                    :class="page === currentPage
+                      ? 'bg-primary-600 text-white shadow-lg shadow-primary-500/25'
+                      : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'"
+                  >
+                    {{ page }}
+                  </button>
+                  <span
+                    v-else-if="page === currentPage - 2 || page === currentPage + 2"
+                    class="px-2 text-slate-400"
+                  >...</span>
+                </template>
+              </div>
+              <button
+                @click="onPageChange(currentPage + 1)"
+                :disabled="currentPage >= totalPages"
+                class="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+              >
+                {{ t("next") || "Next" }}
+                <svg class="w-4 h-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modals -->
+    <priceListModal />
+    <updateModal />
+  </div>
+</template>

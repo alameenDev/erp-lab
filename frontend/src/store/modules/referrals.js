@@ -32,40 +32,60 @@ export const useReferralsStore = defineStore("referral", {
      },
      actions: {
           async GetRecords() {
-               const { data } = await $http.get("/referrals");
-               // let pageNumber = Math.floor(this.filter.pageNumber / this.filter.pageSize) + 1;
+               try {
+                    const { data } = await $http.get("/referrals");
+                    // let pageNumber = Math.floor(this.filter.pageNumber / this.filter.pageSize) + 1;
 
-               this.records = data.map((item, index) => ({
-                    ...item,
-                    index: index + 1, // Adding 1 to start indexing from 1 instead of 0
-               }));
+                    this.records = data.map((item, index) => ({
+                         ...item,
+                         index: index + 1, // Adding 1 to start indexing from 1 instead of 0
+                    }));
 
-               this.totalCount = this.records.length;
+                    this.totalCount = this.records.length;
+               } catch (error) {
+                    this.records = [];
+               }
           },
           async search(name) {
                if (name) {
-                    const { data } = await $http.get("/referrals/search", { params: { name: name } });
+                    try {
+                         const { data } = await $http.get("/referrals/search", { params: { name: name } });
 
-                    this.searchRecords = data;
+                         this.searchRecords = data;
 
-                    this.searchTotalCount = this.searchRecords.length;
+                         this.searchTotalCount = this.searchRecords.length;
+                    } catch (error) {
+                         this.searchRecords = [];
+                    }
                } else {
                     this.searchRecords = [];
                }
           },
           async AddReferral() {
-               await $http.post(`/referrals/create`, this.record);
-               this.GetRecords();
+               try {
+                    await $http.post(`/referrals/create`, this.record);
+                    this.GetRecords();
+               } catch (error) {
+                    throw error;
+               }
           },
           async UpdateReferral() {
-               await $http.put(`/referrals/update`, this.record);
-               this.GetRecords();
+               try {
+                    await $http.put(`/referrals/update`, this.record);
+                    this.GetRecords();
+               } catch (error) {
+                    throw error;
+               }
           },
           async RemoveReferral() {
-               await $http.delete(`/referrals/delete`, {
-                    data: { id: this.record.id },
-               });
-               this.GetRecords();
+               try {
+                    await $http.delete(`/referrals/delete`, {
+                         data: { id: this.record.id },
+                    });
+                    this.GetRecords();
+               } catch (error) {
+                    throw error;
+               }
           },
      },
 });

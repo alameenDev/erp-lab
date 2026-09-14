@@ -1,66 +1,74 @@
-<template>
-     <Dialog
-          v-model:visible="WhatsUpDialog"
-          modal
-          :header="t('sendMessage')"
-          style="width: 70rem"
-          :style="lang == 'en' ? 'direction:ltr ' : 'direction: rtl'">
-          <div>
-               <printInvoice></printInvoice>
-          </div>
-          <div class="flex justify-content-end gap-2 border-top-1 border-bluegray-100 mt-3 pt-3">
-               <Button size="small" :label="t('close')" severity="danger" @click="close()"></Button>
-               <Button size="small" :label="t('sendMessage')" severity="success" @click="sendMsg()"></Button>
-          </div>
-     </Dialog>
-</template>
-<script>
-     import { mapWritableState, mapActions } from "pinia";
-     import { useinvoicesStore } from "@/store/modules/invoices";
-     import { usePatientsStore } from "@/store/modules/patients";
-     import printInvoice from "./print_invoice.vue";
+<script setup>
+import { computed } from "vue";
+import { storeToRefs } from "pinia";
+import { useinvoicesStore } from "@/store/modules/invoices";
+import { usePatientsStore } from "@/store/modules/patients";
+import { t, alertSuccess } from "@/utils/helper";
+import printInvoice from "./print_invoice.vue";
 
-     export default {
-          computed: {
-               ...mapWritableState(useinvoicesStore, ["printRecord", "WhatsUpDialog", "Pdfurl"]),
-          },
-          components: {
-               printInvoice,
-          },
-          methods: {
-               ...mapActions(useinvoicesStore, ["pdf"]),
-               ...mapActions(usePatientsStore, ["whatsapp"]),
+const invoicesStore = useinvoicesStore();
+const patientsStore = usePatientsStore();
+const { printRecord, WhatsUpDialog, Pdfurl } = storeToRefs(invoicesStore);
+const { pdf } = invoicesStore;
+const { whatsapp } = patientsStore;
 
-               async sendMsg() {
-                    const invoiceContent = document.getElementById("printInvoice").outerHTML;
-                    await this.pdf(invoiceContent, this.printRecord?.id);
-                    this.whatsapp(this.printRecord?.patient?.phone, this.Pdfurl.path).then((res) => {
-                         this.alertSuccess(this.t("alertSuccess"));
-                         this.close();
-                    });
-               },
-               close() {
-                    this.WhatsUpDialog = false;
-               },
-          },
-          watch: {},
-     };
+const lang = computed(() => localStorage.getItem("locale") || "ar");
+
+const close = () => {
+  WhatsUpDialog.value = false;
+};
+
+const sendMsg = async () => {
+  const invoiceContent = document.getElementById("printInvoice")?.outerHTML;
+  await pdf(invoiceContent, printRecord.value?.id);
+  whatsapp(printRecord.value?.patient?.phone, Pdfurl.value.path).then(() => {
+    alertSuccess(t("alertSuccess"));
+    close();
+  });
+};
 </script>
-<style scoped>
-     table,
-     th,
-     td {
-          border: 1px solid #d1d5db;
-          padding: 5px;
-     }
-     .table {
-          width: 100%;
-          text-align: center;
-          padding: 20px;
-          border: 1px solid;
-          border-radius: 13px;
-     }
-     #printInvoice {
-          display: block;
-     }
-</style>
+
+<template>
+  <Teleport to="body">
+    <Transition name="modal">
+      <div v-if="WhatsUpDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="fixed inset-0 bg-black/50" @click="close"></div>
+        <div
+          class="relative bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden"
+          :dir="lang === 'ar' ? 'rtl' : 'ltr'"
+        >
+          <!-- Header -->
+          <div class="flex items-center justify-between p-4 border-b border-gray-200">
+            <h2 class="text-xl font-semibold text-gray-800">{{ t("sendMessage") }}</h2>
+            <button @click="close" class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Content -->
+          <div class="p-6 overflow-y-auto max-h-[calc(90vh-150px)]">
+            <printInvoice></printInvoice>
+          </div>
+
+          <!-- Footer -->
+          <div class="flex justify-end gap-2 p-4 border-t border-gray-200">
+            <button
+              @click="close"
+              class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+            >
+              {{ t('close') }}
+            </button>
+            <button
+              @click="sendMsg"
+              class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+            >
+              {{ t('sendMessage') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
+</template>

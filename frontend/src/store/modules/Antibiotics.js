@@ -24,26 +24,55 @@ export const useAntibioticsStore = defineStore("Antibiotics", {
      },
      actions: {
           async GetAntibiotics() {
-               const { data } = await $http.get("/antibiotics");
+               try {
+                    const { data } = await $http.get("/antibiotics");
 
-               this.Antibiotics = data.map((item, index) => ({
-                    ...item,
-                    index: index + 1, // Adding 1 to start indexing from 1 instead of 0
-               }));
-               this.totalCount = this.Antibiotics.length;
+                    this.Antibiotics = data.map((item, index) => ({
+                         ...item,
+                         index: index + 1, // Adding 1 to start indexing from 1 instead of 0
+                    }));
+                    this.totalCount = this.Antibiotics.length;
+               } catch (error) {
+                    this.Antibiotics = [];
+               }
           },
           async AddAntibiotics() {
-               await $http.post(`/antibiotics/create`, checkObjectParams(this.record));
-               this.GetAntibiotics();
+               try {
+                    await $http.post(`/antibiotics/create`, checkObjectParams(this.record));
+                    this.GetAntibiotics();
+               } catch (error) {
+                    throw error;
+               }
           },
           async UpdateAntibiotics() {
-               await $http.put(`/antibiotics/update`, checkObjectParams(this.record));
-
-               this.GetAntibiotics();
+               try {
+                    await $http.put(`/antibiotics/update`, checkObjectParams(this.record));
+                    this.GetAntibiotics();
+               } catch (error) {
+                    throw error;
+               }
           },
           async RemoveAntibiotics() {
-               await $http.delete(`/antibiotics/delete`, { data: { id: this.record.id } });
-               this.GetAntibiotics();
+               try {
+                    await $http.delete(`/antibiotics/delete`, { data: { id: this.record.id } });
+                    this.GetAntibiotics();
+               } catch (error) {
+                    throw error;
+               }
+          },
+          async ImportAntibiotics(file) {
+               try {
+                    const locale = localStorage.getItem("locale") || "ar";
+                    const formData = new FormData();
+                    formData.append("file", file);
+                    const { data } = await $http.post(`/antibiotics/import?locale=${locale}`, formData, {
+                         headers: { "Content-Type": "multipart/form-data" },
+                    });
+                    this.GetAntibiotics();
+                    return data;
+               } catch (error) {
+                    throw error;
+               }
           },
      },
 });

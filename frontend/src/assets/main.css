@@ -1,0 +1,1759 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/forms";
+@plugin "@tailwindcss/typography";
+
+@custom-variant dark-mode (&:is(.dark-mode *));
+
+/* ============================================
+   BASE RESETS - Override conflicting styles
+   ============================================ */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* Lab branding — page header gradient override */
+.from-slate-900.via-slate-800.to-slate-900 {
+  --tw-gradient-from: var(--header-from, #0f172a) !important;
+  --tw-gradient-via: var(--header-via, #1e293b) !important;
+  --tw-gradient-to: var(--header-to, #0f172a) !important;
+}
+
+html, body, #app {
+  width: 100%;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  font-family: 'Tajawal', sans-serif;
+}
+
+/* Ensure grid and flex containers take full width */
+.grid, [class*="grid-cols"] {
+  width: 100%;
+}
+
+/* ============================================
+   DIGITAL LAB - DESIGN SYSTEM
+   Tailwind CSS v4 Theme Configuration
+   ============================================ */
+
+@theme {
+  /* ----------------------------------------
+     COLOR PALETTE
+     ---------------------------------------- */
+
+  /* Primary - Medical Teal */
+  --color-primary-50: #f0fdfa;
+  --color-primary-100: #ccfbf1;
+  --color-primary-200: #99f6e4;
+  --color-primary-300: #5eead4;
+  --color-primary-400: #2dd4bf;
+  --color-primary-500: #14b8a6;
+  --color-primary-600: #0d9488;
+  --color-primary-700: #0f766e;
+  --color-primary-800: #115e59;
+  --color-primary-900: #134e4a;
+  --color-primary-950: #042f2e;
+
+  /* Success - Green */
+  --color-success-50: #f0fdf4;
+  --color-success-100: #dcfce7;
+  --color-success-200: #bbf7d0;
+  --color-success-300: #86efac;
+  --color-success-400: #4ade80;
+  --color-success-500: #22c55e;
+  --color-success-600: #16a34a;
+  --color-success-700: #15803d;
+  --color-success-800: #166534;
+  --color-success-900: #14532d;
+
+  /* Warning - Amber */
+  --color-warning-50: #fffbeb;
+  --color-warning-100: #fef3c7;
+  --color-warning-200: #fde68a;
+  --color-warning-300: #fcd34d;
+  --color-warning-400: #fbbf24;
+  --color-warning-500: #f59e0b;
+  --color-warning-600: #d97706;
+  --color-warning-700: #b45309;
+  --color-warning-800: #92400e;
+  --color-warning-900: #78350f;
+
+  /* Danger - Red */
+  --color-danger-50: #fef2f2;
+  --color-danger-100: #fee2e2;
+  --color-danger-200: #fecaca;
+  --color-danger-300: #fca5a5;
+  --color-danger-400: #f87171;
+  --color-danger-500: #ef4444;
+  --color-danger-600: #dc2626;
+  --color-danger-700: #b91c1c;
+  --color-danger-800: #991b1b;
+  --color-danger-900: #7f1d1d;
+
+  /* Info - Blue */
+  --color-info-50: #eff6ff;
+  --color-info-100: #dbeafe;
+  --color-info-200: #bfdbfe;
+  --color-info-300: #93c5fd;
+  --color-info-400: #60a5fa;
+  --color-info-500: #3b82f6;
+  --color-info-600: #2563eb;
+  --color-info-700: #1d4ed8;
+  --color-info-800: #1e40af;
+  --color-info-900: #1e3a8a;
+
+  /* ----------------------------------------
+     TYPOGRAPHY
+     ---------------------------------------- */
+  --font-sans: "Tajawal", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+
+  /* Font Sizes - Consistent Scale */
+  --text-xs: 0.75rem;      /* 12px */
+  --text-sm: 0.875rem;     /* 14px */
+  --text-base: 1rem;       /* 16px */
+  --text-lg: 1.125rem;     /* 18px */
+  --text-xl: 1.25rem;      /* 20px */
+  --text-2xl: 1.5rem;      /* 24px */
+  --text-3xl: 1.875rem;    /* 30px */
+  --text-4xl: 2.25rem;     /* 36px */
+
+  /* Line Heights */
+  --leading-none: 1;
+  --leading-tight: 1.25;
+  --leading-snug: 1.375;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+
+  /* ----------------------------------------
+     SPACING SCALE (4px base)
+     ---------------------------------------- */
+  --spacing-0: 0;
+  --spacing-0_5: 0.125rem;  /* 2px */
+  --spacing-1: 0.25rem;     /* 4px */
+  --spacing-1_5: 0.375rem;  /* 6px */
+  --spacing-2: 0.5rem;      /* 8px */
+  --spacing-2_5: 0.625rem;  /* 10px */
+  --spacing-3: 0.75rem;     /* 12px */
+  --spacing-3_5: 0.875rem;  /* 14px */
+  --spacing-4: 1rem;        /* 16px */
+  --spacing-5: 1.25rem;     /* 20px */
+  --spacing-6: 1.5rem;      /* 24px */
+  --spacing-7: 1.75rem;     /* 28px */
+  --spacing-8: 2rem;        /* 32px */
+  --spacing-9: 2.25rem;     /* 36px */
+  --spacing-10: 2.5rem;     /* 40px */
+  --spacing-11: 2.75rem;    /* 44px */
+  --spacing-12: 3rem;       /* 48px */
+  --spacing-14: 3.5rem;     /* 56px */
+  --spacing-16: 4rem;       /* 64px */
+  --spacing-20: 5rem;       /* 80px */
+  --spacing-24: 6rem;       /* 96px */
+
+  /* ----------------------------------------
+     BORDER RADIUS
+     ---------------------------------------- */
+  --radius-none: 0;
+  --radius-sm: 0.25rem;     /* 4px - small elements */
+  --radius-md: 0.375rem;    /* 6px - default */
+  --radius-lg: 0.5rem;      /* 8px - buttons, inputs */
+  --radius-xl: 0.75rem;     /* 12px - cards, modals */
+  --radius-2xl: 1rem;       /* 16px - large cards */
+  --radius-3xl: 1.5rem;     /* 24px - hero sections */
+  --radius-full: 9999px;    /* pills, avatars */
+
+  /* ----------------------------------------
+     SHADOWS
+     ---------------------------------------- */
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+  --shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.05);
+
+  /* ----------------------------------------
+     Z-INDEX SCALE
+     ---------------------------------------- */
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-tooltip: 1070;
+  --z-toast: 1080;
+
+  /* ----------------------------------------
+     TRANSITIONS
+     ---------------------------------------- */
+  --transition-fast: 150ms;
+  --transition-base: 200ms;
+  --transition-slow: 300ms;
+  --transition-slower: 500ms;
+
+  /* ----------------------------------------
+     COMPONENT SIZES
+     ---------------------------------------- */
+
+  /* Input Heights */
+  --input-height-sm: 2rem;      /* 32px */
+  --input-height-md: 2.5rem;    /* 40px */
+  --input-height-lg: 3rem;      /* 48px */
+
+  /* Button Heights */
+  --btn-height-sm: 2rem;        /* 32px */
+  --btn-height-md: 2.5rem;      /* 40px */
+  --btn-height-lg: 3rem;        /* 48px */
+
+  /* Icon Sizes */
+  --icon-xs: 0.875rem;          /* 14px */
+  --icon-sm: 1rem;              /* 16px */
+  --icon-md: 1.25rem;           /* 20px */
+  --icon-lg: 1.5rem;            /* 24px */
+  --icon-xl: 2rem;              /* 32px */
+
+  /* Container Widths */
+  --container-sm: 24rem;        /* 384px */
+  --container-md: 28rem;        /* 448px */
+  --container-lg: 32rem;        /* 512px */
+  --container-xl: 36rem;        /* 576px */
+
+  /* Sidebar */
+  --sidebar-width: 16rem;       /* 256px */
+  --sidebar-width-collapsed: 4.5rem; /* 72px */
+
+  /* Header */
+  --header-height: 4rem;        /* 64px */
+
+  /* ----------------------------------------
+     ANIMATIONS
+     ---------------------------------------- */
+  --animate-spin-slow: spin-slow 2s linear infinite;
+  --animate-dash: dash 1.5s ease-in-out infinite;
+  --animate-loading-progress: loading-progress 1.5s ease-in-out infinite;
+  --animate-pulse-subtle: pulse-subtle 2s ease-in-out infinite;
+
+  @keyframes spin-slow {
+    100% { transform: rotate(360deg); }
+  }
+
+  @keyframes dash {
+    0% { stroke-dasharray: 1, 150; stroke-dashoffset: 0; }
+    50% { stroke-dasharray: 90, 150; stroke-dashoffset: -35; }
+    100% { stroke-dasharray: 90, 150; stroke-dashoffset: -124; }
+  }
+
+  @keyframes loading-progress {
+    0% { transform: translateX(-100%); }
+    50% { transform: translateX(150%); }
+    100% { transform: translateX(400%); }
+  }
+
+  @keyframes pulse-subtle {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+}
+
+/* ============================================
+   BASE STYLES
+   ============================================ */
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 font-sans;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+/* Focus visible for accessibility */
+:focus-visible {
+  @apply outline-none ring-2 ring-primary-500 ring-offset-2;
+}
+
+/* ============================================
+   DIRECTION (RTL/LTR)
+   ============================================ */
+
+[dir="rtl"] { direction: rtl; }
+[dir="ltr"] { direction: ltr; }
+
+/* ============================================
+   SCROLLBAR
+   ============================================ */
+
+::-webkit-scrollbar {
+  @apply w-2 h-2;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-300 rounded-full;
+  transition: background-color 0.2s;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-400;
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+/* ============================================
+   LAYOUT COMPONENTS
+   ============================================ */
+
+/* Sidebar */
+.sidebar {
+  @apply fixed top-16 bottom-0 w-64 bg-white z-40 overflow-y-auto;
+  @apply border-e border-slate-200;
+  inset-inline-start: 0;
+  transition: transform 0.3s ease-in-out;
+}
+
+.sidebar-hidden {
+  transform: translateX(-100%);
+}
+
+[dir="rtl"] .sidebar-hidden {
+  transform: translateX(100%);
+}
+
+/* Main Content Area */
+.main-content {
+  @apply pt-16 min-h-screen;
+  padding-inline-start: 16rem; /* sidebar width */
+  transition: padding 0.3s ease-in-out;
+}
+
+.main-content.sidebar-collapsed {
+  padding-inline-start: 0;
+}
+
+@media (max-width: 1024px) {
+  .main-content {
+    padding-inline-start: 0;
+  }
+}
+
+/* ============================================
+   COMPONENT CLASSES
+   ============================================ */
+
+/* Page Container */
+.page-container {
+  @apply p-6;
+}
+
+/* Page Header */
+.page-header {
+  @apply flex items-center justify-between mb-6;
+}
+
+.page-title {
+  @apply text-2xl font-bold text-slate-900;
+}
+
+.page-subtitle {
+  @apply text-sm text-slate-500 mt-1;
+}
+
+/* Card */
+.card {
+  @apply bg-white rounded-xl border border-slate-200 shadow-sm;
+}
+
+.card-header {
+  @apply px-6 py-4 border-b border-slate-200;
+}
+
+.card-body {
+  @apply p-6;
+}
+
+.card-footer {
+  @apply px-6 py-4 border-t border-slate-200 bg-slate-50/50;
+}
+
+/* Table */
+.table-container {
+  @apply overflow-x-auto;
+}
+
+.data-table {
+  @apply w-full;
+}
+
+.data-table thead {
+  @apply bg-slate-50 border-b border-slate-200;
+}
+
+.data-table th {
+  @apply px-4 py-3 text-start text-xs font-semibold text-slate-600 uppercase tracking-wider;
+}
+
+.data-table tbody {
+  @apply divide-y divide-slate-100;
+}
+
+.data-table td {
+  @apply px-4 py-3 text-sm text-slate-600;
+}
+
+.data-table tr:hover {
+  @apply bg-slate-50;
+}
+
+/* Form Controls */
+.form-label {
+  @apply block text-sm font-medium text-slate-700 mb-2;
+}
+
+.form-input {
+  @apply w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-lg;
+  @apply text-slate-900 placeholder:text-slate-400;
+  @apply focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white;
+  @apply transition-colors;
+}
+
+.form-input-lg {
+  @apply h-12 px-4;
+}
+
+.form-input-sm {
+  @apply h-8 px-2 text-sm;
+}
+
+.form-select {
+  @apply w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-lg;
+  @apply text-slate-900 placeholder:text-slate-400;
+  @apply focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white;
+  @apply transition-colors appearance-none cursor-pointer;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 0.5rem center;
+  background-repeat: no-repeat;
+  background-size: 1.5em 1.5em;
+  padding-right: 2.5rem;
+}
+
+[dir="rtl"] .form-select {
+  background-position: left 0.5rem center;
+  padding-right: 0.75rem;
+  padding-left: 2.5rem;
+}
+
+.filter-select {
+  @apply w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700;
+  @apply focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white;
+  @apply outline-none transition-all appearance-none cursor-pointer;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 0.75rem center;
+  background-repeat: no-repeat;
+  background-size: 1.25em 1.25em;
+  padding-right: 2.5rem;
+}
+
+[dir="rtl"] .filter-select {
+  background-position: left 0.75rem center;
+  padding-right: 1rem;
+  padding-left: 2.5rem;
+}
+
+/* Global select dropdown arrow for all native selects with rounded-xl */
+select.rounded-xl {
+  appearance: none;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 0.75rem center;
+  background-repeat: no-repeat;
+  background-size: 1.25em 1.25em;
+  padding-right: 2.5rem !important;
+}
+
+[dir="rtl"] select.rounded-xl {
+  background-position: left 0.75rem center;
+  padding-right: 1rem !important;
+  padding-left: 2.5rem !important;
+}
+
+/* Buttons */
+.btn {
+  @apply inline-flex items-center justify-center gap-2 font-medium rounded-lg;
+  @apply transition-all duration-200;
+  @apply focus:outline-none focus:ring-2 focus:ring-offset-2;
+  @apply disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.btn-sm {
+  @apply h-8 px-3 text-sm;
+}
+
+.btn-md {
+  @apply h-10 px-4 text-sm;
+}
+
+.btn-lg {
+  @apply h-12 px-6;
+}
+
+.btn-primary {
+  @apply bg-primary-600 text-white hover:bg-primary-700;
+  @apply focus:ring-primary-500 shadow-sm;
+}
+
+.btn-secondary {
+  @apply bg-slate-100 text-slate-700 hover:bg-slate-200;
+  @apply focus:ring-slate-500;
+}
+
+.btn-danger {
+  @apply bg-danger-600 text-white hover:bg-danger-700;
+  @apply focus:ring-danger-500 shadow-sm;
+}
+
+.btn-ghost {
+  @apply bg-transparent text-slate-600 hover:bg-slate-100;
+  @apply focus:ring-slate-500;
+}
+
+.btn-icon {
+  @apply p-2 rounded-lg;
+}
+
+/* Badges */
+.badge {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+
+.badge-primary {
+  @apply bg-primary-100 text-primary-700;
+}
+
+.badge-success {
+  @apply bg-success-100 text-success-700;
+}
+
+.badge-warning {
+  @apply bg-warning-100 text-warning-700;
+}
+
+.badge-danger {
+  @apply bg-danger-100 text-danger-700;
+}
+
+.badge-info {
+  @apply bg-info-100 text-info-700;
+}
+
+/* Status Dot */
+.status-dot {
+  @apply w-2 h-2 rounded-full;
+}
+
+.status-dot-success {
+  @apply bg-success-500;
+}
+
+.status-dot-danger {
+  @apply bg-danger-500;
+}
+
+.status-dot-warning {
+  @apply bg-warning-500;
+}
+
+/* Empty State */
+.empty-state {
+  @apply text-center py-12;
+}
+
+.empty-state-icon {
+  @apply w-16 h-16 mx-auto mb-4 text-slate-300;
+}
+
+.empty-state-title {
+  @apply text-lg font-semibold text-slate-900 mb-2;
+}
+
+.empty-state-description {
+  @apply text-slate-500 mb-6;
+}
+
+/* ============================================
+   TIPTAP EDITOR & TEMPLATE TABLES
+   ============================================ */
+
+.tiptap table,
+.dynamic-template table,
+#custom-table-container table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 8px 0;
+}
+
+.tiptap table td,
+.tiptap table th,
+.dynamic-template table td,
+.dynamic-template table th,
+#custom-table-container table td,
+#custom-table-container table th {
+  border: 1px solid #d1d5db;
+  padding: 6px 10px;
+  vertical-align: top;
+  min-width: 40px;
+}
+
+.tiptap table th,
+.dynamic-template table th,
+#custom-table-container table th {
+  background-color: #f3f4f6;
+  font-weight: 600;
+}
+
+.tiptap table .selectedCell {
+  background-color: #dbeafe;
+}
+
+.tiptap mark {
+  padding: 1px 2px;
+  border-radius: 2px;
+}
+
+.ms-tag {
+  display: inline-block;
+  padding: 1px 8px;
+  background: #e0f2fe;
+  color: #0369a1;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* Multi-select dropdown dark mode */
+.dark-mode .ms-trigger,
+.dark-mode .ms-wrap .ms-trigger,
+.dark-mode .ms-wrap-group .ms-trigger {
+  background: #1e293b !important;
+  border-color: #475569 !important;
+  color: #e2e8f0 !important;
+}
+
+.dark-mode .ms-menu,
+.dark-mode .ms-wrap .ms-menu,
+.dark-mode .ms-wrap-group .ms-menu {
+  background: #1e293b !important;
+  border-color: #475569 !important;
+}
+
+.dark-mode .ms-option,
+.dark-mode .ms-menu label {
+  color: #e2e8f0 !important;
+  border-bottom-color: #334155 !important;
+}
+
+.dark-mode .ms-option,
+.dark-mode .ms-menu label,
+.dark-mode .ms-option[style*="background"],
+.dark-mode .ms-menu label[style*="background"] {
+  background: transparent !important;
+}
+
+.dark-mode .ms-option:hover,
+.dark-mode .ms-menu label:hover {
+  background: #334155 !important;
+}
+
+.dark-mode .ms-display {
+  color: #e2e8f0 !important;
+}
+
+.dark-mode .editable-field,
+.dark-mode .editable-field-group {
+  background: #1e293b !important;
+  border-color: #475569 !important;
+  color: #e2e8f0 !important;
+}
+
+.dark-mode .dynamic-template table th,
+.dark-mode .dynamic-template table td,
+.dark-mode #custom-table-container table th,
+.dark-mode #custom-table-container table td {
+  background: transparent !important;
+  color: #e2e8f0 !important;
+  border-color: #475569 !important;
+}
+
+.dark-mode .dynamic-template,
+.dark-mode .dynamic-template p,
+.dark-mode .dynamic-template span,
+.dark-mode .dynamic-template strong,
+.dark-mode .dynamic-template b,
+.dark-mode #custom-table-container,
+.dark-mode #custom-table-container p,
+.dark-mode #custom-table-container span,
+.dark-mode #custom-table-container strong,
+.dark-mode #custom-table-container b {
+  color: #e2e8f0 !important;
+}
+
+/* Allow dropdowns to overflow template containers */
+.dynamic-template,
+.dynamic-template table,
+.dynamic-template td,
+.dynamic-template th,
+.dynamic-template p,
+.dynamic-template div:not(.ms-menu),
+#custom-table-container,
+#custom-table-container table,
+#custom-table-container td,
+#custom-table-container th,
+#custom-table-container p {
+  overflow: visible !important;
+}
+
+/* Dropdown menu needs scroll */
+.ms-menu,
+.ms-wrap .ms-menu,
+.ms-wrap-group .ms-menu {
+  z-index: 9999 !important;
+  overflow-y: auto !important;
+}
+
+/* ============================================
+   VUE TRANSITIONS
+   ============================================ */
+
+/* Fade */
+.fade-enter-active,
+.fade-leave-active {
+  @apply transition-opacity duration-200;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  @apply opacity-0;
+}
+
+/* Modal */
+.modal-enter-active,
+.modal-leave-active {
+  @apply transition-all duration-200;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  @apply opacity-0 scale-95;
+}
+
+/* Slide */
+.slide-enter-active,
+.slide-leave-active {
+  @apply transition-transform duration-300;
+}
+
+.slide-enter-from {
+  transform: translateX(-100%);
+}
+
+.slide-leave-to {
+  transform: translateX(-100%);
+}
+
+[dir="rtl"] .slide-enter-from {
+  transform: translateX(100%);
+}
+
+[dir="rtl"] .slide-leave-to {
+  transform: translateX(100%);
+}
+
+/* Dropdown */
+.dropdown-enter-active,
+.dropdown-leave-active {
+  @apply transition-all duration-150;
+}
+
+.dropdown-enter-from,
+.dropdown-leave-to {
+  @apply opacity-0 -translate-y-1;
+}
+
+/* Expand/Collapse */
+.expand-enter-active,
+.expand-leave-active {
+  @apply transition-all duration-200 overflow-hidden;
+}
+
+.expand-enter-from,
+.expand-leave-to {
+  max-height: 0;
+  @apply opacity-0;
+}
+
+.expand-enter-to,
+.expand-leave-from {
+  max-height: 500px;
+  @apply opacity-100;
+}
+
+/* Toast */
+.toast-enter-active {
+  @apply transition-all duration-300 ease-out;
+}
+
+.toast-leave-active {
+  @apply transition-all duration-200 ease-in;
+}
+
+.toast-enter-from {
+  @apply opacity-0 translate-x-8;
+}
+
+.toast-leave-to {
+  @apply opacity-0 translate-x-8;
+}
+
+.toast-move {
+  @apply transition-transform duration-300;
+}
+
+/* Success/Error Toast Notifications */
+.success-toast,
+.error-toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  padding: 16px 24px;
+  border-radius: 12px;
+  font-weight: 500;
+  font-size: 14px;
+  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.3);
+  animation: toast-slide-in 0.3s ease-out;
+}
+
+.success-toast {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+}
+
+.error-toast {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+}
+
+@keyframes toast-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(100px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+[dir="rtl"] .success-toast,
+[dir="rtl"] .error-toast {
+  right: auto;
+  left: 20px;
+}
+
+@keyframes toast-slide-in-rtl {
+  from {
+    opacity: 0;
+    transform: translateX(-100px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+[dir="rtl"] .success-toast,
+[dir="rtl"] .error-toast {
+  animation: toast-slide-in-rtl 0.3s ease-out;
+}
+
+/* ============================================
+   DARK MODE
+   ============================================ */
+
+/* Dark mode class-level overrides — applied globally when html.dark-mode */
+.dark-mode {
+  color-scheme: dark;
+}
+
+.dark-mode body {
+  @apply bg-slate-950 text-slate-200;
+}
+
+/* Scrollbar dark */
+.dark-mode ::-webkit-scrollbar-thumb {
+  @apply bg-slate-600;
+}
+
+.dark-mode ::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-500;
+}
+
+.dark-mode * {
+  scrollbar-color: #475569 transparent;
+}
+
+/* Layout background */
+.dark-mode .min-h-screen.bg-gradient-to-br {
+  background: linear-gradient(to bottom right, #020617, #0f172a, #020617) !important;
+}
+
+/* Background orbs in dark mode */
+.dark-mode .bg-primary-200\/20 { background-color: rgb(153 246 228 / 0.05) !important; }
+.dark-mode .bg-primary-300\/10 { background-color: rgb(94 234 212 / 0.03) !important; }
+
+/* ---- Cards & Surfaces ---- */
+.dark-mode .bg-white {
+  background-color: #1e293b !important; /* slate-800 */
+}
+
+.dark-mode .bg-white\/80 {
+  background-color: rgb(30 41 59 / 0.9) !important;
+}
+
+.dark-mode .bg-white\/50 {
+  background-color: rgb(30 41 59 / 0.5) !important;
+}
+
+.dark-mode .bg-white\/10 {
+  background-color: rgb(30 41 59 / 0.3) !important;
+}
+
+.dark-mode .bg-slate-50 {
+  background-color: #0f172a !important; /* slate-900 */
+}
+
+.dark-mode .bg-slate-50\/50 {
+  background-color: rgb(15 23 42 / 0.5) !important;
+}
+
+.dark-mode .bg-slate-100 {
+  background-color: #1e293b !important;
+}
+
+.dark-mode .bg-slate-100\/80 {
+  background-color: rgb(30 41 59 / 0.8) !important;
+}
+
+/* ---- Hover backgrounds ---- */
+.dark-mode .hover\:bg-slate-50:hover {
+  background-color: #1e293b !important;
+}
+
+.dark-mode .hover\:bg-slate-100:hover {
+  background-color: #334155 !important;
+}
+
+.dark-mode .hover\:bg-slate-50\/50:hover {
+  background-color: rgb(30 41 59 / 0.5) !important;
+}
+
+.dark-mode .hover\:bg-gray-50\/50:hover {
+  background-color: rgb(30 41 59 / 0.5) !important;
+}
+
+.dark-mode .hover\:bg-slate-50\/80:hover {
+  background-color: rgb(30 41 59 / 0.8) !important;
+}
+
+/* ---- Borders ---- */
+.dark-mode .border-slate-200,
+.dark-mode .border-slate-200\/80,
+.dark-mode .border-slate-100 {
+  border-color: #334155 !important; /* slate-700 */
+}
+
+.dark-mode .border-gray-100,
+.dark-mode .border-gray-200 {
+  border-color: #334155 !important;
+}
+
+.dark-mode .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+.dark-mode .divide-slate-50 > :not([hidden]) ~ :not([hidden]),
+.dark-mode .divide-gray-50 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #334155 !important;
+}
+
+.dark-mode .border-t.border-slate-100,
+.dark-mode .border-b.border-slate-100,
+.dark-mode .border-t.border-slate-200,
+.dark-mode .border-b.border-slate-200 {
+  border-color: #334155 !important;
+}
+
+/* ---- Text colors ---- */
+.dark-mode .text-slate-900 { color: #f1f5f9 !important; }
+.dark-mode .text-slate-800 { color: #e2e8f0 !important; }
+.dark-mode .text-slate-700 { color: #cbd5e1 !important; }
+.dark-mode .text-slate-600 { color: #94a3b8 !important; }
+.dark-mode .text-slate-500 { color: #64748b !important; }
+.dark-mode .text-slate-400 { color: #64748b !important; }
+
+.dark-mode .text-gray-900 { color: #f1f5f9 !important; }
+.dark-mode .text-gray-800 { color: #e2e8f0 !important; }
+.dark-mode .text-gray-700 { color: #cbd5e1 !important; }
+.dark-mode .text-gray-600 { color: #94a3b8 !important; }
+.dark-mode .text-gray-500 { color: #64748b !important; }
+.dark-mode .text-gray-400 { color: #64748b !important; }
+
+/* Placeholder text */
+.dark-mode .placeholder-primary-400::placeholder,
+.dark-mode .placeholder\:text-slate-400::placeholder {
+  color: #64748b !important;
+}
+
+/* ---- Gray backgrounds (used in super admin, patients, etc.) ---- */
+.dark-mode .bg-gray-50 {
+  background-color: #0f172a !important;
+}
+
+.dark-mode .bg-gray-100 {
+  background-color: #1e293b !important;
+}
+
+/* ---- Colored backgrounds (keep vibrant but darken slightly) ---- */
+.dark-mode .bg-blue-50 { background-color: rgb(30 58 138 / 0.25) !important; }
+.dark-mode .bg-green-50 { background-color: rgb(20 83 45 / 0.25) !important; }
+.dark-mode .bg-red-50 { background-color: rgb(127 29 29 / 0.25) !important; }
+.dark-mode .bg-purple-50 { background-color: rgb(88 28 135 / 0.25) !important; }
+.dark-mode .bg-amber-50 { background-color: rgb(120 53 15 / 0.25) !important; }
+.dark-mode .bg-indigo-50 { background-color: rgb(49 46 129 / 0.2) !important; }
+.dark-mode .bg-primary-50 { background-color: rgb(4 47 46 / 0.3) !important; }
+.dark-mode .bg-primary-100 { background-color: rgb(4 47 46 / 0.4) !important; }
+
+/* Status badges in dark mode */
+.dark-mode .bg-green-100 { background-color: rgb(20 83 45 / 0.3) !important; }
+.dark-mode .bg-amber-100 { background-color: rgb(120 53 15 / 0.3) !important; }
+.dark-mode .bg-red-100 { background-color: rgb(127 29 29 / 0.3) !important; }
+.dark-mode .bg-blue-100 { background-color: rgb(30 58 138 / 0.3) !important; }
+
+/* ---- Gray borders & misc gray classes ---- */
+.dark-mode .border-gray-300 { border-color: #334155 !important; }
+.dark-mode .border-gray-200 { border-color: #334155 !important; }
+.dark-mode .border-gray-100 { border-color: #1e293b !important; }
+.dark-mode .even\:bg-gray-100:nth-child(even) { background-color: #0f172a !important; }
+.dark-mode .bg-gray-200 { background-color: #334155 !important; }
+.dark-mode .bg-gray-300 { background-color: #475569 !important; }
+.dark-mode .hover\:bg-gray-100:hover { background-color: #334155 !important; }
+.dark-mode .text-green-700 { color: #6ee7b7 !important; }
+.dark-mode .text-red-600 { color: #fca5a5 !important; }
+.dark-mode .bg-green-50 { background-color: rgb(20 83 45 / 0.2) !important; }
+.dark-mode .bg-red-50 { background-color: rgb(127 29 29 / 0.2) !important; }
+.dark-mode .border-teal-400 { border-color: rgb(20 184 166 / 0.4) !important; }
+.dark-mode .shadow-2xl { box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.7) !important; }
+
+/* ---- Form inputs ---- */
+.dark-mode input,
+.dark-mode select,
+.dark-mode textarea {
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+  color: #e2e8f0 !important;
+}
+
+.dark-mode input::placeholder,
+.dark-mode textarea::placeholder {
+  color: #64748b !important;
+}
+
+.dark-mode input:focus,
+.dark-mode select:focus,
+.dark-mode textarea:focus {
+  background-color: #1e293b !important;
+  border-color: #14b8a6 !important;
+}
+
+/* ---- Tables ---- */
+.dark-mode .data-table thead,
+.dark-mode thead.bg-gray-50,
+.dark-mode thead.bg-slate-50 {
+  background-color: #0f172a !important;
+}
+
+.dark-mode .data-table th {
+  color: #94a3b8 !important;
+}
+
+.dark-mode .data-table tr:hover {
+  background-color: #1e293b !important;
+}
+
+/* ---- Component classes ---- */
+.dark-mode .card {
+  @apply bg-slate-800 border-slate-700;
+}
+
+.dark-mode .card-header {
+  @apply border-slate-700;
+}
+
+.dark-mode .card-footer {
+  @apply border-slate-700 bg-slate-800/50;
+}
+
+.dark-mode .page-title {
+  color: #f1f5f9 !important;
+}
+
+.dark-mode .form-label {
+  color: #cbd5e1 !important;
+}
+
+.dark-mode .form-input,
+.dark-mode .form-select,
+.dark-mode .filter-select {
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+  color: #e2e8f0 !important;
+}
+
+.dark-mode .form-input:focus,
+.dark-mode .form-select:focus,
+.dark-mode .filter-select:focus {
+  background-color: #1e293b !important;
+}
+
+.dark-mode .btn-secondary {
+  @apply bg-slate-700 text-slate-200 hover:bg-slate-600;
+}
+
+.dark-mode .btn-ghost {
+  @apply text-slate-300 hover:bg-slate-700;
+}
+
+.dark-mode .empty-state-title {
+  color: #f1f5f9 !important;
+}
+
+.dark-mode .empty-state-description {
+  color: #94a3b8 !important;
+}
+
+/* ---- Invoice form ---- */
+.dark-mode .details {
+  @apply bg-slate-800 border-slate-700;
+}
+
+.dark-mode .details h3 {
+  color: #e2e8f0 !important;
+}
+
+.dark-mode .details hr {
+  border-color: #334155 !important;
+}
+
+.dark-mode .add-patient-form {
+  @apply bg-slate-900 border-slate-700;
+}
+
+.dark-mode .input-name .ul {
+  @apply bg-slate-800 border-slate-700;
+}
+
+.dark-mode .invoice-form-content table th,
+.dark-mode .invoice-page-form table th {
+  background-color: #0f172a !important;
+  color: #94a3b8 !important;
+  border-color: #334155 !important;
+}
+
+.dark-mode .invoice-form-content table td,
+.dark-mode .invoice-page-form table td {
+  color: #94a3b8 !important;
+  border-color: #334155 !important;
+}
+
+.dark-mode .invoice-form-content table tr:hover td,
+.dark-mode .invoice-page-form table tr:hover td {
+  background-color: #1e293b !important;
+}
+
+/* ---- Shadows in dark mode ---- */
+.dark-mode .shadow-sm,
+.dark-mode .shadow-md,
+.dark-mode .shadow-lg,
+.dark-mode .shadow-xl {
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3) !important;
+}
+
+.dark-mode .shadow-xl.shadow-slate-200\/50 {
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.4) !important;
+}
+
+/* ---- Dropdown menus ---- */
+.dark-mode .dropdown-container .absolute {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+.dark-mode .dropdown-container .absolute button:hover,
+.dark-mode .dropdown-container .absolute a:hover {
+  background-color: #334155 !important;
+}
+
+/* ---- Gradient headers in pages (medical reports, dashboard) ---- */
+.dark-mode .bg-gradient-to-br.from-slate-900 {
+  background: linear-gradient(to bottom right, #020617, #0f172a, #020617) !important;
+}
+
+.dark-mode .bg-gradient-to-r.from-slate-50 {
+  background: linear-gradient(to right, #0f172a, #1e293b) !important;
+}
+
+/* ---- Loading overlay ---- */
+.dark-mode .bg-white\/90 {
+  background-color: rgb(15 23 42 / 0.92) !important; /* slate-900 with opacity */
+}
+
+.dark-mode .bg-white\/80 {
+  background-color: rgb(15 23 42 / 0.85) !important;
+}
+
+/* ---- UiModal dark overrides ---- */
+.dark-mode .p-dialog .p-dialog-content {
+  background-color: #1e293b !important;
+}
+
+.dark-mode .p-dialog .p-dialog-header {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f1f5f9 !important;
+}
+
+.dark-mode .p-dialog .p-dialog-footer {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+/* Modal backdrop */
+.dark-mode .bg-slate-900\/50 {
+  background-color: rgb(0 0 0 / 0.7) !important;
+}
+
+.dark-mode .bg-slate-900\/60 {
+  background-color: rgb(0 0 0 / 0.75) !important;
+}
+
+/* ---- Border-slate-300 (used in buttons, inputs, etc.) ---- */
+.dark-mode .border-slate-300 {
+  border-color: #475569 !important; /* slate-600 */
+}
+
+/* ---- Divide-slate-200 (tables) ---- */
+.dark-mode .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #334155 !important;
+}
+
+/* ---- Toast / notification overrides ---- */
+.dark-mode .bg-success-50 { background-color: rgb(20 83 45 / 0.3) !important; }
+.dark-mode .bg-danger-50 { background-color: rgb(127 29 29 / 0.3) !important; }
+.dark-mode .bg-warning-50 { background-color: rgb(120 53 15 / 0.3) !important; }
+.dark-mode .bg-info-50 { background-color: rgb(30 58 138 / 0.3) !important; }
+
+.dark-mode .border-success-200 { border-color: rgb(22 101 52 / 0.5) !important; }
+.dark-mode .border-danger-200 { border-color: rgb(153 27 27 / 0.5) !important; }
+.dark-mode .border-warning-200 { border-color: rgb(146 64 14 / 0.5) !important; }
+.dark-mode .border-info-200 { border-color: rgb(30 64 175 / 0.5) !important; }
+
+.dark-mode .border-primary-100 { border-color: rgb(13 148 136 / 0.3) !important; }
+.dark-mode .border-primary-200 { border-color: rgb(13 148 136 / 0.4) !important; }
+
+/* ---- Colored text stays readable ---- */
+.dark-mode .text-blue-700 { color: #60a5fa !important; }
+.dark-mode .text-blue-500 { color: #3b82f6 !important; }
+.dark-mode .text-green-700 { color: #4ade80 !important; }
+.dark-mode .text-green-600 { color: #22c55e !important; }
+.dark-mode .text-green-500 { color: #22c55e !important; }
+.dark-mode .text-red-700 { color: #f87171 !important; }
+.dark-mode .text-red-600 { color: #ef4444 !important; }
+.dark-mode .text-purple-700 { color: #a78bfa !important; }
+.dark-mode .text-purple-600 { color: #8b5cf6 !important; }
+.dark-mode .text-purple-500 { color: #8b5cf6 !important; }
+.dark-mode .text-amber-700 { color: #fbbf24 !important; }
+.dark-mode .text-amber-600 { color: #f59e0b !important; }
+.dark-mode .text-amber-500 { color: #f59e0b !important; }
+.dark-mode .text-primary-700 { color: #2dd4bf !important; }
+.dark-mode .text-primary-600 { color: #14b8a6 !important; }
+
+/* ---- Hover text in dark mode ---- */
+.dark-mode .hover\:text-slate-700:hover { color: #e2e8f0 !important; }
+.dark-mode .hover\:text-slate-600:hover { color: #cbd5e1 !important; }
+.dark-mode .hover\:bg-slate-200:hover { background-color: #475569 !important; }
+.dark-mode .hover\:bg-red-50:hover { background-color: rgb(127 29 29 / 0.3) !important; }
+
+/* ---- Specific bg overrides for deeper UI ---- */
+.dark-mode .bg-slate-200 {
+  background-color: #334155 !important;
+}
+
+.dark-mode .bg-slate-300 {
+  background-color: #475569 !important;
+}
+
+/* ---- Outline button dark mode ---- */
+.dark-mode .bg-white.text-slate-700 {
+  background-color: #1e293b !important;
+  color: #cbd5e1 !important;
+}
+
+/* ---- Gradient backgrounds that need dark treatment ---- */
+.dark-mode .from-primary-400.to-primary-600,
+.dark-mode .bg-gradient-to-br.from-primary-400 {
+  /* Keep primary gradients vibrant */
+}
+
+.dark-mode .bg-gradient-to-r.from-primary-500.to-primary-600,
+.dark-mode .bg-gradient-to-r.from-primary-600.to-primary-700 {
+  /* Keep primary action gradients */
+}
+
+/* ---- Selected/active row ---- */
+.dark-mode .bg-primary-50 {
+  background-color: rgb(4 47 46 / 0.3) !important;
+}
+
+/* ---- Ring offset for focus states ---- */
+.dark-mode :focus-visible {
+  @apply ring-primary-400 ring-offset-slate-900;
+}
+
+.dark-mode .focus\:ring-offset-2:focus {
+  --tw-ring-offset-color: #0f172a !important;
+}
+
+/* ---- Pagination active button ---- */
+.dark-mode .bg-blue-500 {
+  background-color: #3b82f6 !important;
+}
+
+/* ---- White/light text that should stay white in dark ---- */
+.dark-mode .bg-gradient-to-br .text-white,
+.dark-mode .bg-primary-600 .text-white,
+.dark-mode .bg-primary-500 .text-white {
+  color: white !important;
+}
+
+/* ---- Search results dropdown ---- */
+.dark-mode .shadow-xl.shadow-slate-200\/50 {
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.5) !important;
+}
+
+/* ---- PrimeVue component overrides ---- */
+.dark-mode .p-datatable .p-datatable-thead > tr > th {
+  background-color: #0f172a !important;
+  color: #94a3b8 !important;
+  border-color: #334155 !important;
+}
+
+.dark-mode .p-datatable .p-datatable-tbody > tr {
+  background-color: #1e293b !important;
+  color: #e2e8f0 !important;
+}
+
+.dark-mode .p-datatable .p-datatable-tbody > tr:hover {
+  background-color: #334155 !important;
+}
+
+.dark-mode .p-datatable .p-datatable-tbody > tr > td {
+  border-color: #334155 !important;
+}
+
+.dark-mode .p-dropdown {
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+  color: #e2e8f0 !important;
+}
+
+.dark-mode .p-dropdown-panel {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+.dark-mode .p-dropdown-items .p-dropdown-item {
+  color: #e2e8f0 !important;
+}
+
+.dark-mode .p-dropdown-items .p-dropdown-item:hover {
+  background-color: #334155 !important;
+}
+
+.dark-mode .p-inputtext {
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+  color: #e2e8f0 !important;
+}
+
+.dark-mode .p-calendar .p-datepicker {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #e2e8f0 !important;
+}
+
+.dark-mode .p-calendar .p-datepicker-header {
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+  color: #e2e8f0 !important;
+}
+
+.dark-mode .p-tabview .p-tabview-nav {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+.dark-mode .p-tabview .p-tabview-panels {
+  background-color: #1e293b !important;
+}
+
+.dark-mode .p-tooltip .p-tooltip-text {
+  background-color: #0f172a !important;
+  color: #e2e8f0 !important;
+}
+
+.dark-mode .p-confirmdialog,
+.dark-mode .p-dialog {
+  background-color: #1e293b !important;
+}
+
+/* ---- Chart.js backgrounds ---- */
+.dark-mode canvas {
+  filter: none; /* Keep charts readable */
+}
+
+/* ---- Misc utility fixes ---- */
+.dark-mode .bg-white.rounded-xl,
+.dark-mode .bg-white.rounded-2xl,
+.dark-mode .bg-white.rounded-lg {
+  background-color: #1e293b !important;
+}
+
+.dark-mode .hover\:bg-primary-50:hover {
+  background-color: rgb(4 47 46 / 0.3) !important;
+}
+
+.dark-mode .hover\:bg-blue-100:hover {
+  background-color: rgb(30 58 138 / 0.3) !important;
+}
+
+.dark-mode .hover\:bg-green-100:hover {
+  background-color: rgb(20 83 45 / 0.3) !important;
+}
+
+/* ---- Selection highlight ---- */
+.dark-mode ::selection {
+  background-color: rgb(20 184 166 / 0.3);
+  color: #f1f5f9;
+}
+
+/* ---- Transition for smooth dark mode switch ---- */
+.dark-mode *,
+.dark-mode *::before,
+.dark-mode *::after {
+  transition-property: background-color, border-color, color;
+  transition-duration: 0ms; /* instant switch, no flicker */
+}
+
+/* ---- Colored gradient section headers (invoices, forms) ---- */
+.dark-mode .bg-gradient-to-r.from-primary-50,
+.dark-mode .bg-gradient-to-r.from-primary-50.to-teal-50 {
+  background: linear-gradient(to right, rgb(4 47 46 / 0.25), rgb(19 78 74 / 0.2)) !important;
+}
+
+.dark-mode .bg-gradient-to-r.from-blue-50,
+.dark-mode .bg-gradient-to-r.from-blue-50.to-indigo-50 {
+  background: linear-gradient(to right, rgb(30 58 138 / 0.2), rgb(49 46 129 / 0.2)) !important;
+}
+
+.dark-mode .bg-gradient-to-r.from-purple-50,
+.dark-mode .bg-gradient-to-r.from-purple-50.to-fuchsia-50 {
+  background: linear-gradient(to right, rgb(88 28 135 / 0.2), rgb(112 26 117 / 0.2)) !important;
+}
+
+.dark-mode .bg-gradient-to-r.from-amber-50,
+.dark-mode .bg-gradient-to-r.from-amber-50.to-orange-50 {
+  background: linear-gradient(to right, rgb(120 53 15 / 0.2), rgb(124 45 18 / 0.2)) !important;
+}
+
+.dark-mode .bg-gradient-to-r.from-green-50,
+.dark-mode .bg-gradient-to-r.from-green-50.to-emerald-50 {
+  background: linear-gradient(to right, rgb(20 83 45 / 0.2), rgb(6 78 59 / 0.2)) !important;
+}
+
+.dark-mode .bg-gradient-to-r.from-rose-50,
+.dark-mode .bg-gradient-to-r.from-rose-50.to-pink-50 {
+  background: linear-gradient(to right, rgb(136 19 55 / 0.2), rgb(131 24 67 / 0.2)) !important;
+}
+
+.dark-mode .bg-gradient-to-r.from-teal-50,
+.dark-mode .bg-gradient-to-r.from-teal-50.to-cyan-50 {
+  background: linear-gradient(to right, rgb(19 78 74 / 0.2), rgb(22 78 99 / 0.2)) !important;
+}
+
+.dark-mode .bg-gradient-to-r.from-blue-50.to-white {
+  background: linear-gradient(to right, rgb(30 58 138 / 0.15), rgb(30 41 59 / 1)) !important;
+}
+
+.dark-mode .bg-gradient-to-r.from-amber-50.to-white {
+  background: linear-gradient(to right, rgb(120 53 15 / 0.15), rgb(30 41 59 / 1)) !important;
+}
+
+/* Colored light backgrounds used in sections */
+.dark-mode .bg-blue-50 {
+  background-color: rgb(30 58 138 / 0.15) !important;
+}
+
+.dark-mode .bg-indigo-50 {
+  background-color: rgb(49 46 129 / 0.15) !important;
+}
+
+.dark-mode .bg-purple-50,
+.dark-mode .bg-purple-50\/50 {
+  background-color: rgb(88 28 135 / 0.15) !important;
+}
+
+.dark-mode .bg-fuchsia-50 {
+  background-color: rgb(112 26 117 / 0.15) !important;
+}
+
+.dark-mode .bg-amber-50 {
+  background-color: rgb(120 53 15 / 0.15) !important;
+}
+
+.dark-mode .bg-orange-50 {
+  background-color: rgb(124 45 18 / 0.15) !important;
+}
+
+.dark-mode .bg-emerald-50 {
+  background-color: rgb(6 78 59 / 0.15) !important;
+}
+
+.dark-mode .bg-teal-50 {
+  background-color: rgb(19 78 74 / 0.15) !important;
+}
+
+.dark-mode .bg-rose-50 {
+  background-color: rgb(136 19 55 / 0.15) !important;
+}
+
+.dark-mode .bg-pink-50 {
+  background-color: rgb(131 24 67 / 0.15) !important;
+}
+
+/* Colored badge/chip backgrounds */
+.dark-mode .bg-blue-100 {
+  background-color: rgb(30 58 138 / 0.25) !important;
+}
+
+.dark-mode .bg-indigo-100 {
+  background-color: rgb(49 46 129 / 0.25) !important;
+}
+
+.dark-mode .bg-purple-100 {
+  background-color: rgb(88 28 135 / 0.25) !important;
+}
+
+.dark-mode .bg-amber-100 {
+  background-color: rgb(120 53 15 / 0.25) !important;
+}
+
+.dark-mode .bg-orange-100 {
+  background-color: rgb(124 45 18 / 0.25) !important;
+}
+
+.dark-mode .bg-emerald-100 {
+  background-color: rgb(6 78 59 / 0.25) !important;
+}
+
+.dark-mode .bg-teal-100 {
+  background-color: rgb(19 78 74 / 0.25) !important;
+}
+
+.dark-mode .bg-rose-100 {
+  background-color: rgb(136 19 55 / 0.25) !important;
+}
+
+.dark-mode .bg-pink-100 {
+  background-color: rgb(131 24 67 / 0.25) !important;
+}
+
+/* Colored borders in dark mode */
+.dark-mode .border-blue-200 { border-color: rgb(30 58 138 / 0.4) !important; }
+.dark-mode .border-purple-200 { border-color: rgb(88 28 135 / 0.4) !important; }
+.dark-mode .border-amber-200 { border-color: rgb(120 53 15 / 0.4) !important; }
+.dark-mode .border-green-200 { border-color: rgb(20 83 45 / 0.4) !important; }
+.dark-mode .border-emerald-200 { border-color: rgb(6 78 59 / 0.4) !important; }
+.dark-mode .border-rose-200 { border-color: rgb(136 19 55 / 0.4) !important; }
+.dark-mode .border-orange-200 { border-color: rgb(124 45 18 / 0.4) !important; }
+.dark-mode .border-indigo-200 { border-color: rgb(49 46 129 / 0.4) !important; }
+.dark-mode .border-pink-200 { border-color: rgb(131 24 67 / 0.4) !important; }
+.dark-mode .border-teal-200 { border-color: rgb(19 78 74 / 0.4) !important; }
+
+/* Colored text in section headers — keep readable in dark */
+.dark-mode .text-slate-800 { color: #e2e8f0 !important; }
+.dark-mode .text-blue-700 { color: #93c5fd !important; }
+.dark-mode .text-indigo-700 { color: #a5b4fc !important; }
+.dark-mode .text-purple-700 { color: #c4b5fd !important; }
+.dark-mode .text-fuchsia-700 { color: #e879f9 !important; }
+.dark-mode .text-amber-700 { color: #fbbf24 !important; }
+.dark-mode .text-orange-700 { color: #fb923c !important; }
+.dark-mode .text-emerald-700 { color: #6ee7b7 !important; }
+.dark-mode .text-rose-700 { color: #fda4af !important; }
+
+/* ============================================
+   PRINT STYLES
+   ============================================ */
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  body {
+    @apply bg-white text-black;
+  }
+
+  .sidebar,
+  header {
+    display: none !important;
+  }
+
+  .main-content {
+    padding: 0 !important;
+  }
+}
+
+/* ============================================
+   UTILITY EXTENSIONS
+   ============================================ */
+
+/* Text truncate with ellipsis */
+.truncate-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.truncate-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Hide scrollbar but keep functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Aspect ratios */
+.aspect-card {
+  aspect-ratio: 16 / 9;
+}
+
+.aspect-avatar {
+  aspect-ratio: 1 / 1;
+}
+
+/* ============================================
+   INVOICE FORM SPECIFIC STYLES
+   ============================================ */
+.details {
+  @apply p-4 border-2 border-primary-500/30 rounded-2xl bg-white;
+}
+
+.details .add {
+  @apply flex items-center justify-between mb-3;
+}
+
+.details h3 {
+  @apply text-lg font-semibold text-slate-800;
+}
+
+.details hr {
+  @apply border-slate-200 my-3;
+}
+
+.add-patient-form {
+  @apply bg-slate-50 p-4 rounded-xl border border-slate-200;
+}
+
+.input-name {
+  @apply relative;
+}
+
+.input-name .ul {
+  @apply absolute z-50 w-full mt-1 bg-white rounded-lg shadow-lg border border-slate-200;
+}
+
+.input-name .list {
+  @apply max-h-60 overflow-y-auto;
+}
+
+/* Invoice form tables */
+.invoice-form-content table,
+.invoice-page-form table {
+  @apply w-full border-collapse;
+}
+
+.invoice-form-content table th,
+.invoice-page-form table th {
+  @apply bg-slate-100 text-slate-700 font-semibold text-sm px-3 py-2 text-start border-b border-slate-200;
+}
+
+.invoice-form-content table td,
+.invoice-page-form table td {
+  @apply px-3 py-2 text-sm text-slate-600 border-b border-slate-100;
+}
+
+.invoice-form-content table tr:hover td,
+.invoice-page-form table tr:hover td {
+  @apply bg-slate-50;
+}
+
+/* Save patient button */
+.save-patient-btn {
+  @apply mt-6;
+}
+
+/* Spinner icon positioning */
+.pi-spin.pi-spinner.rtl {
+  @apply absolute end-3 top-1/2 -translate-y-1/2;
+}
+
+.pi-spin.pi-spinner.ltr {
+  @apply absolute end-3 top-1/2 -translate-y-1/2;
+}
+
+.pi-search.rtl,
+.pi-search.ltr {
+  @apply absolute end-3 top-1/2 -translate-y-1/2 text-slate-400;
+}

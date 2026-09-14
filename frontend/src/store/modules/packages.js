@@ -19,6 +19,8 @@ export const usePackagesStore = defineStore("packages", {
                is_constant_price: false, // "required|boolean",
                tests: null, // "required|array",
                cultures: null, // "required|array",
+               test_groups: null, // whole test groups included in the package
+               formula: [],
           },
      }),
      getters: {
@@ -26,33 +28,65 @@ export const usePackagesStore = defineStore("packages", {
      },
      actions: {
           async Getpackages() {
-               const { data } = await $http.get("/packages");
-               this.packagesList = data.map((item, index) => ({
-                    ...item,
-                    index: index + 1, // Adding 1 to start indexing from 1 instead of 0
-               }));
+               try {
+                    const { data } = await $http.get("/packages");
+                    this.packagesList = data.map((item, index) => ({
+                         ...item,
+                         index: index + 1, // Adding 1 to start indexing from 1 instead of 0
+                    }));
 
-               this.totalCount = this.packagesList.length;
+                    this.totalCount = this.packagesList.length;
+               } catch (error) {
+                    this.packagesList = [];
+               }
           },
 
           async Addpackage() {
-               this.record.cultures = this.record.cultures ? this.record.cultures : [];
-               this.record.tests = this.record.tests ? this.record.tests : [];
+               try {
+                    this.record.cultures = this.record.cultures ? this.record.cultures : [];
+                    this.record.tests = this.record.tests ? this.record.tests : [];
+                    this.record.test_groups = this.record.test_groups ? this.record.test_groups : [];
 
-               await $http.post(`/packages/create`, this.record);
-               this.Getpackages();
+                    await $http.post(`/packages/create`, this.record);
+                    this.Getpackages();
+               } catch (error) {
+                    throw error;
+               }
           },
           async Updatepackage() {
-               this.record.cultures = this.record.cultures ? this.record.cultures : [];
-               this.record.tests = this.record.tests ? this.record.tests : [];
-               await $http.put(`/packages/update`, checkObjectParams(this.record));
+               try {
+                    this.record.cultures = this.record.cultures ? this.record.cultures : [];
+                    this.record.tests = this.record.tests ? this.record.tests : [];
+                    this.record.test_groups = this.record.test_groups ? this.record.test_groups : [];
+                    await $http.put(`/packages/update`, checkObjectParams(this.record));
 
-               this.Getpackages();
+                    this.Getpackages();
+               } catch (error) {
+                    throw error;
+               }
           },
 
           async Removepackage() {
-               await $http.delete(`/packages/delete`, { data: { id: this.record.id } });
-               this.Getpackages();
+               try {
+                    await $http.delete(`/packages/delete`, { data: { id: this.record.id } });
+                    this.Getpackages();
+               } catch (error) {
+                    throw error;
+               }
+          },
+          async ImportPackages(file) {
+               try {
+                    const locale = localStorage.getItem("locale") || "ar";
+                    const formData = new FormData();
+                    formData.append("file", file);
+                    const { data } = await $http.post(`/packages/import?locale=${locale}`, formData, {
+                         headers: { "Content-Type": "multipart/form-data" },
+                    });
+                    this.Getpackages();
+                    return data;
+               } catch (error) {
+                    throw error;
+               }
           },
      },
 });

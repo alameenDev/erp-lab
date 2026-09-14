@@ -8,17 +8,17 @@ export const useTitlesStore = defineStore("Title", {
           dialog: false,
           record: {
                id: "",
-               name: "",
-               email: "",
-               password: "",
-               role_id: "",
+               title: "",
           },
      }),
      actions: {
           async GetTitles() {
-               const { data } = await $http.get("/titles");
-               // let pageNumber = Math.floor(this.filter.pageNumber / this.filter.pageSize) + 1;
-               this.titles = data.map((record) => ({ label: record.title, value: record.id }));
+               try {
+                    const { data } = await $http.get("/titles");
+                    this.titles = (data || []).map((record) => ({ label: record.title, value: record.id }));
+               } catch (error) {
+                    this.titles = [];
+               }
           },
 
           async AddTitle() {

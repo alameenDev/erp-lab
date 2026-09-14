@@ -24,15 +24,12 @@ jobs:
         working-directory: frontend
         env:
           VITE_BASE_URL: /api
-          VITE_BASE_URL2: /api
           VITE_ImageURL: /storage/
-          VITE_ImageURL2: /storage/
       - name: Publish compiled files to build branch
         env:
           SOURCE_COMMIT: ${{ github.sha }}
         run: |
           cp -R frontend/dist "$RUNNER_TEMP/erp-dist"
-          git restore --worktree -- frontend/yarn.lock
           if git ls-remote --exit-code --heads origin hostinger-build; then
             git fetch origin hostinger-build
             git switch -C hostinger-build FETCH_HEAD

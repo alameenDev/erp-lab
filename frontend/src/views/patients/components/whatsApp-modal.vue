@@ -6,13 +6,13 @@
           style="width: 50rem"
           :style="lang == 'en' ? 'direction:ltr ' : 'direction: rtl'">
           >
-          <form @submit.prevent="send()" class="border-top-1 border-bluegray-100">
+          <form @submit.prevent="send()" class="border-t border-slate-200">
                <div class="mt-5">
-                    <div class="pb-0 text-center">
+                    <div class="text-center">
                          <Textarea v-model="MsgRecord.message" rows="5" cols="50" :placeholder="t('writeMessage')" />
                     </div>
                </div>
-               <div class="flex justify-content-end gap-2 border-top-1 border-bluegray-100 mt-3 pt-3">
+               <div class="flex justify-end gap-2 border-t border-slate-200 mt-3 pt-3">
                     <Button size="small" :label="t('close')" severity="danger" @click="close()"></Button>
                     <Button size="small" type="submit" :label="t('send')" severity="success"></Button>
                </div>

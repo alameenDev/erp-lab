@@ -20,7 +20,6 @@ export const useContractsStore = defineStore("Contract", {
                address: "",
                phone_number: "",
                email: "",
-               password: "",
           },
           filter: {
                name: "",
@@ -35,19 +34,21 @@ export const useContractsStore = defineStore("Contract", {
      },
      actions: {
           async GetRecords() {
-               const { data } = await $http.get("/contracts");
-               // let pageNumber = Math.floor(this.filter.pageNumber / this.filter.pageSize) + 1;
-
-               this.records = data.map((item, index) => ({
-                    ...item,
-                    index: index + 1, // Adding 1 to start indexing from 1 instead of 0
-               }));
-
-               this.totalCount = this.records.length;
+               try {
+                    const { data } = await $http.get("/contracts");
+                    this.records = (data || []).map((item, index) => ({
+                         ...item,
+                         index: index + 1,
+                    }));
+                    this.totalCount = this.records.length;
+               } catch (error) {
+                    this.records = [];
+                    this.totalCount = 0;
+               }
           },
           async search(name) {
                if (name) {
-                    const { data } = await $http.get("/Contracts/search", { params: { name: name } });
+                    const { data } = await $http.get("/contracts/search", { params: { name: name } });
 
                     this.searchRecords = data;
 

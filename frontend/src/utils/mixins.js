@@ -1,6 +1,10 @@
 import { UserRole } from "@/enums";
+import { useToast } from "@/composables/useToast";
 import en from "./en.json";
 import ar from "./ar.json";
+
+const toast = useToast();
+
 const Mixins = {
      computed: {
           User() {
@@ -103,22 +107,16 @@ const Mixins = {
                return formData;
           },
           alertError(message) {
-               var toast = document.createElement("div");
-               toast.className = "error-toast";
-               toast.innerHTML = "خطأ : " + message;
-               document.body.appendChild(toast);
-               setTimeout(function () {
-                    document.body.removeChild(toast);
-               }, 3000);
+               toast.error(message, { title: "خطأ", duration: 4000 });
           },
           alertSuccess(message) {
-               var toast = document.createElement("div");
-               toast.className = "success-toast";
-               toast.innerHTML = message;
-               document.body.appendChild(toast);
-               setTimeout(function () {
-                    document.body.removeChild(toast);
-               }, 3000);
+               toast.success(message, { title: "", duration: 3000 });
+          },
+          alertWarning(message) {
+               toast.warning(message, { title: "", duration: 3000 });
+          },
+          alertInfo(message) {
+               toast.info(message, { title: "", duration: 3000 });
           },
           canAccess(roles) {
                if (this.Role) {

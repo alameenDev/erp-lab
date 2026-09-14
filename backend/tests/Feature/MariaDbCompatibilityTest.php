@@ -80,4 +80,32 @@ class MariaDbCompatibilityTest extends TestCase
         $this->assertDatabaseHas('lab_settings', ['logo' => 'logos/a.png',
             'report_background' => 'https://cdn.example/background.png']);
     }
+
+    public function test_corrected_frontend_can_log_in_and_load_its_admin_and_lab_endpoints(): void
+    {
+        $this->seed(ReferenceDataSeeder::class);
+        $admin = User::create([
+            'name' => 'Existing Administrator', 'email' => 'existing@example.test',
+            'password' => Hash::make('Existing-test-password-123'),
+            'role_id' => 1, 'status' => 1, 'email_verified_at' => now(),
+        ]);
+        $admin->assignRole('Admin');
+        $passwordHash = $admin->password;
+
+        $login = $this->postJson('/api/user/login', [
+            'email' => $admin->email, 'password' => 'Existing-test-password-123',
+        ])->assertOk()->assertJsonStructure(['token', 'user' => ['id', 'role_id']]);
+
+        $this->withToken($login->json('token'));
+        $this->getJson('/api/super-admin/kpis')->assertOk()
+            ->assertJsonPath('total_users', 1)->assertJsonPath('total_invoices', 0);
+        $this->getJson('/api/super-admin/revenue-trend?months=1')->assertOk();
+        $this->getJson('/api/reports/dashboard-stats')->assertOk()
+            ->assertJsonStructure(['tests_stats', 'cultures_stats', 'today_stats', 'recent_invoices']);
+        $this->getJson('/api/lab-settings')->assertOk()->assertJsonStructure(['setting']);
+        $this->assertSame($passwordHash, $admin->fresh()->password);
+        $this->assertDatabaseCount('users', 1);
+        $this->assertDatabaseCount('patients', 0);
+        $this->assertDatabaseCount('invoices', 0);
+    }
 }

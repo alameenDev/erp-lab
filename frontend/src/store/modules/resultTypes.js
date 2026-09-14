@@ -7,9 +7,13 @@ export const useResultTypesStore = defineStore("resultTypes", {
      }),
      actions: {
           async GetresultTypes() {
-               const { data } = await $http.get("/result-types");
+               try {
+                    const { data } = await $http.get("/result-types");
 
-               this.resultTypes = data.map((record) => ({ label: record.result_type_name, value: record.id }));
+                    this.resultTypes = data.map((record) => ({ label: record.result_type_name, value: record.id }));
+               } catch (error) {
+                    this.resultTypes = [];
+               }
           },
      },
 });

@@ -14,6 +14,8 @@ fi
 stage_dir="$(mktemp -d)"
 trap 'rm -rf "$stage_dir"' EXIT
 git archive origin/hostinger-build dist | tar -x -C "$stage_dir"
+# Read-only database check before switching the public frontend.
+"$php_bin" backend/artisan migrate:status
 "$php_bin" scripts/publish-hostinger.php "$public_dir" "$site_url" "$stage_dir/dist"
 cd backend
 "$php_bin" artisan config:clear

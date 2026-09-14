@@ -6,9 +6,9 @@
 
 // Plugins
 import pinia from "../store";
-import router from "../router";
 
 export function registerPlugins(app) {
-     app.use(router).use(pinia);
+     // Only register pinia - router is registered in main.js
+     app.use(pinia);
      app.config.globalProperties.$store = pinia;
 }

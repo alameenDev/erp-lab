@@ -18,26 +18,56 @@ export const usesamplesStore = defineStore("samples", {
      },
      actions: {
           async Getsamples() {
-               const { data } = await $http.get("/samples");
+               try {
+                    const { data } = await $http.get("/samples");
 
-               this.samplesList = data.map((item, index) => ({
-                    ...item,
-                    index: index + 1, // Adding 1 to start indexing from 1 instead of 0
-               }));
-               this.totalCount = this.samplesList.length;
+                    this.samplesList = data.map((item, index) => ({
+                         ...item,
+                         index: index + 1, // Adding 1 to start indexing from 1 instead of 0
+                    }));
+                    this.totalCount = this.samplesList.length;
+               } catch (error) {
+                    this.samplesList = [];
+               }
           },
           async Addsample() {
-               await $http.post(`/samples/create`, checkObjectParams(this.record));
-               this.Getsamples();
+               try {
+                    await $http.post(`/samples/create`, checkObjectParams(this.record));
+                    this.Getsamples();
+               } catch (error) {
+                    throw error;
+               }
           },
           async Updatesample() {
-               await $http.put(`/samples/update`, checkObjectParams(this.record));
+               try {
+                    await $http.put(`/samples/update`, checkObjectParams(this.record));
 
-               this.Getsamples();
+                    this.Getsamples();
+               } catch (error) {
+                    throw error;
+               }
           },
           async Removesample() {
-               await $http.delete(`/samples/delete`, { data: { id: this.record.id } });
-               this.Getsamples();
+               try {
+                    await $http.delete(`/samples/delete`, { data: { id: this.record.id } });
+                    this.Getsamples();
+               } catch (error) {
+                    throw error;
+               }
+          },
+          async ImportSamples(file) {
+               try {
+                    const locale = localStorage.getItem("locale") || "ar";
+                    const formData = new FormData();
+                    formData.append("file", file);
+                    const { data } = await $http.post(`/samples/import?locale=${locale}`, formData, {
+                         headers: { "Content-Type": "multipart/form-data" },
+                    });
+                    this.Getsamples();
+                    return data;
+               } catch (error) {
+                    throw error;
+               }
           },
      },
 });
