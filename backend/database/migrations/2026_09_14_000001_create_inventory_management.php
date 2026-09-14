@@ -1,0 +1,21 @@
+<?php
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+return new class extends Migration {
+ public function up(): void {
+  Schema::create('inventory_items',function(Blueprint $t){$t->id();$t->foreignId('lab_id')->constrained('users')->cascadeOnDelete();$t->string('name');$t->string('unit')->default('تحليل');$t->unsignedInteger('low_stock_threshold')->default(5);$t->timestamps();$t->unique(['lab_id','name']);});
+  Schema::create('inventory_kits',function(Blueprint $t){$t->id();$t->foreignId('lab_id')->constrained('users')->cascadeOnDelete();$t->foreignId('item_id')->constrained('inventory_items')->restrictOnDelete();$t->string('serial_number');$t->string('lot_number')->nullable();$t->date('expires_on')->nullable();$t->unsignedInteger('capacity');$t->unsignedInteger('remaining');$t->timestamps();$t->unique(['lab_id','serial_number']);$t->index(['lab_id','expires_on','remaining']);});
+  Schema::create('inventory_bindings',function(Blueprint $t){$t->id();$t->foreignId('lab_id')->constrained('users')->cascadeOnDelete();$t->string('subject_type',24);$t->unsignedBigInteger('subject_id');$t->foreignId('item_id')->constrained('inventory_items')->restrictOnDelete();$t->unsignedInteger('quantity')->default(1);$t->boolean('active')->default(true);$t->timestamps();$t->unique(['lab_id','subject_type','subject_id','item_id'],'inventory_binding_unique');});
+  Schema::create('inventory_runs',function(Blueprint $t){$t->id();$t->foreignId('lab_id')->constrained('users')->cascadeOnDelete();$t->unsignedBigInteger('invoice_id');$t->unsignedBigInteger('invoice_test_rel_id');$t->unsignedInteger('sequence')->default(1);$t->string('kind',20);$t->uuid('request_id')->nullable();$t->text('reason')->nullable();$t->string('test_name')->nullable();$t->unsignedBigInteger('actor_id')->nullable();$t->string('actor_name')->nullable();$t->timestamp('created_at')->useCurrent();$t->unique(['invoice_test_rel_id','sequence']);$t->unique(['lab_id','request_id']);$t->index(['lab_id','invoice_id']);});
+  Schema::create('inventory_movements',function(Blueprint $t){$t->id();$t->foreignId('lab_id')->constrained('users')->cascadeOnDelete();$t->foreignId('item_id')->constrained('inventory_items')->restrictOnDelete();$t->foreignId('kit_id')->constrained('inventory_kits')->restrictOnDelete();$t->foreignId('run_id')->nullable()->constrained('inventory_runs')->restrictOnDelete();$t->unsignedBigInteger('invoice_id')->nullable();$t->unsignedBigInteger('patient_id')->nullable();$t->string('patient_name')->nullable();$t->string('patient_code')->nullable();$t->string('test_name')->nullable();$t->string('kind',24);$t->integer('quantity');$t->unsignedInteger('balance_after');$t->unsignedBigInteger('actor_id')->nullable();$t->string('actor_name')->nullable();$t->text('reason')->nullable();$t->timestamp('created_at')->useCurrent();$t->index(['lab_id','created_at']);});
+  $names=['inventory view','inventory manage','inventory reports','inventory repeat'];
+  foreach($names as $name) DB::table('permissions')->insertOrIgnore(['name'=>$name,'guard_name'=>'web']);
+  $ps=DB::table('permissions')->whereIn('name',$names)->pluck('id');$rs=DB::table('roles')->whereIn('name',['Admin','Lab'])->pluck('id');
+  foreach($rs as $r)foreach($ps as $x)DB::table('role_has_permissions')->insertOrIgnore(['permission_id'=>$x,'role_id'=>$r]);
+  DB::table('invoice_test_rels')->where('is_done',true)->whereNotNull('result')->orderBy('id')->chunkById(500,function($rows){foreach($rows as $row){$i=DB::table('invoices')->find($row->invoice_id_fk);if($i)DB::table('inventory_runs')->insertOrIgnore(['lab_id'=>$i->lab_id_fk,'invoice_id'=>$i->id,'invoice_test_rel_id'=>$row->id,'sequence'=>1,'kind'=>'baseline','test_name'=>'Historical completed result','created_at'=>now()]);}});
+  app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+ }
+ public function down():void{Schema::dropIfExists('inventory_movements');Schema::dropIfExists('inventory_runs');Schema::dropIfExists('inventory_bindings');Schema::dropIfExists('inventory_kits');Schema::dropIfExists('inventory_items');}
+};

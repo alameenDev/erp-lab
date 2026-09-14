@@ -1040,5 +1040,6 @@
   "search_patient": "ابحث عن المريض بالاسم أو الكود",
   "preset_all": "كل البيانات",
   "summary": "ملخص",
-  "generated_at": "تاريخ الإنشاء"
+  "generated_at": "تاريخ الإنشاء",
+  "inventory": "المخزون"
 }

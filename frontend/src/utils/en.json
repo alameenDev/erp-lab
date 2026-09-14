@@ -1034,5 +1034,6 @@
   "search_patient": "Search patient by name or code",
   "preset_all": "All data",
   "summary": "Summary",
-  "generated_at": "Generated at"
+  "generated_at": "Generated at",
+  "inventory": "Inventory"
 }

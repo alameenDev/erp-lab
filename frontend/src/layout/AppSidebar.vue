@@ -115,6 +115,12 @@ const menuGroups = [
         permission: "accounting reports view",
       },
       {
+        label: "inventory",
+        to: "/inventory",
+        icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7L12 3 4 7m16 0-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>`,
+        permission: "inventory view",
+      },
+      {
         label: "devices",
         to: "/devices",
         icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">

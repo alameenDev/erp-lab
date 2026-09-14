@@ -175,6 +175,12 @@ const router = createRouter({
                          meta: { title: "Lab Settings | Digital Lab", description: "إعدادات المختبر" },
                     },
                     {
+                         path: "/inventory",
+                         name: "inventory",
+                         component: () => import("@/views/inventory/index.vue"),
+                         meta: { title: "Inventory | Digital Lab", description: "إدارة مخزون المختبر وتتبع الكِتّات" },
+                    },
+                    {
                          path: "/devices",
                          name: "devices",
                          component: () => import("@/views/devices/index.vue"),

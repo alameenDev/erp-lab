@@ -14,6 +14,7 @@ use App\Http\Controllers\DurationUnitController;
 use App\Http\Controllers\FrontendLogController;
 use App\Http\Controllers\GenderController;
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\LabController;
 use App\Http\Controllers\NationalityController;
 use App\Http\Controllers\PackageController;
@@ -441,4 +442,18 @@ Route::group(['middleware' => 'auth:sanctum'], function (): void {
     Route::delete('lab-settings/logo', [LabSettingController::class, 'removeLogo']);
     Route::delete('lab-settings/background', [LabSettingController::class, 'removeBackground']);
     Route::post('lab-settings/reset', [LabSettingController::class, 'reset']);
+
+    Route::prefix('inventory')->group(function (): void {
+        Route::get('options', [InventoryController::class, 'options']);
+        Route::get('/', [InventoryController::class, 'index']);
+        Route::post('items', [InventoryController::class, 'storeItem']);
+        Route::post('kits', [InventoryController::class, 'receiveKit']);
+        Route::post('bindings', [InventoryController::class, 'storeBinding']);
+        Route::post('kits/{kit}/adjust', [InventoryController::class, 'adjustKit']);
+        Route::get('report', [InventoryController::class, 'report']);
+        Route::get('report/export', [InventoryController::class, 'export']);
+        Route::get('invoices/{invoice}', [InventoryController::class, 'invoice']);
+        Route::post('invoices/{invoice}/repeat', [InventoryController::class, 'repeat']);
+    });
+
 });
