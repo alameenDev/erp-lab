@@ -1,0 +1,48 @@
+name: Build Hostinger frontend
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: hostinger-frontend-build
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --legacy-peer-deps
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+        env:
+          VITE_BASE_URL: /api
+          VITE_BASE_URL2: /api
+          VITE_ImageURL: /storage/
+          VITE_ImageURL2: /storage/
+      - name: Publish compiled files to build branch
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          cp -R frontend/dist "$RUNNER_TEMP/erp-dist"
+          if git ls-remote --exit-code --heads origin hostinger-build; then
+            git fetch origin hostinger-build
+            git switch -C hostinger-build FETCH_HEAD
+          else
+            git switch --orphan hostinger-build
+          fi
+          git rm -rf --ignore-unmatch .
+          cp -R "$RUNNER_TEMP/erp-dist" dist
+          echo "$SOURCE_COMMIT" > SOURCE_COMMIT
+          git add -f dist SOURCE_COMMIT
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m "Build frontend from $SOURCE_COMMIT"
+          git push origin HEAD:hostinger-build

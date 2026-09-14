@@ -74,3 +74,16 @@ Set VITE_BASE_URL in the frontend build environment to the backend /api URL and 
 Before real use: verify login, lab permissions, patient creation, invoice totals and payments, result entry, printing and uploads. The GitHub Actions MariaDB suite validates migration compatibility and targeted regressions; it is not full application UAT. Verify live server connectivity separately.
 
 Before upgrades, export the database in phpMyAdmin and download uploaded files. Keep an independent protected backup outside the hosting account and test restoration to a separate database. Do not run migrate:fresh or demo seeders on business data. Changing a default env template does not change an already deployed database.
+
+## Publish without Node.js on Hostinger
+
+The Build Hostinger frontend workflow compiles the Vue frontend and commits static files to the hostinger-build branch. The backend/API stay on the same origin. This does not deploy automatically to a live website.
+
+After that workflow succeeds, run from the repository root:
+
+```sh
+git pull --ff-only origin main
+bash scripts/deploy-hostinger.sh /home/u859215520/domains/lightpink-badger-650079.hostingersite.com/public_html https://lightpink-badger-650079.hostingersite.com
+```
+
+The script verifies that the build matches the current source commit, backs up overwritten web files and backend .env privately, copies the compiled assets, configures the Laravel public entrypoint and rewrite rules, creates the storage link, and updates application URLs while preserving database credentials and APP_KEY. Existing uploaded storage is not replaced. It does not run migrations or change users. Check /up and then test login and uploads. Web-server PHP must also be 8.4 with the required extensions.

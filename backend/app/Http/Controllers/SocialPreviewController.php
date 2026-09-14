@@ -15,7 +15,7 @@ class SocialPreviewController extends Controller
     {
         if (! $this->isSocialBot($request)) {
             $frontendUrl = config('app.frontend_url', env('FRONTEND_URL', 'https://digitals-labs.com'));
-            return redirect($frontendUrl . '/result/' . $invoiceId);
+            return $this->frontendResponse($request, $frontendUrl, '/result/' . $invoiceId);
         }
 
         $invoice = Invoice::with(['patient', 'lab', 'invoiceTestRels'])
@@ -33,7 +33,7 @@ class SocialPreviewController extends Controller
 
         $title = "Lab Results - {$patientName} | {$labName}";
         $description = "نتائج التحاليل لـ {$patientName} - {$testCount} فحص ({$statusAr}). Lab results for {$patientName} - {$testCount} tests ({$status}).";
-        $url = 'https://digitals-labs.com/result/' . $invoiceId;
+        $url = rtrim(config('app.url'), '/') . '/result/' . $invoiceId;
 
         return view('social-preview', compact('title', 'description', 'url', 'labName'));
     }
@@ -46,7 +46,7 @@ class SocialPreviewController extends Controller
     {
         if (! $this->isSocialBot($request)) {
             $frontendUrl = config('app.frontend_url', env('FRONTEND_URL', 'https://digitals-labs.com'));
-            return redirect($frontendUrl . '/invoice/' . $invoiceId);
+            return $this->frontendResponse($request, $frontendUrl, '/invoice/' . $invoiceId);
         }
 
         $invoice = Invoice::with(['patient', 'lab'])
@@ -61,7 +61,7 @@ class SocialPreviewController extends Controller
 
         $title = "Invoice - {$patientName} | {$labName}";
         $description = "فاتورة {$patientName} من مختبر {$labName}. Invoice for {$patientName} from {$labName}.";
-        $url = 'https://digitals-labs.com/invoice/' . $invoiceId;
+        $url = rtrim(config('app.url'), '/') . '/invoice/' . $invoiceId;
 
         return view('social-preview', compact('title', 'description', 'url', 'labName'));
     }
@@ -69,6 +69,15 @@ class SocialPreviewController extends Controller
     /**
      * Detect social media bots and crawlers by User-Agent.
      */
+    private function frontendResponse(Request $request, string $frontendUrl, string $path)
+    {
+        if (rtrim($frontendUrl, '/') === $request->getSchemeAndHttpHost()) {
+            abort_unless(is_file(public_path('index.html')), 503, 'Frontend build is not published.');
+            return response()->file(public_path('index.html'), ['Cache-Control' => 'no-cache']);
+        }
+        return redirect(rtrim($frontendUrl, '/') . $path);
+    }
+
     private function isSocialBot(Request $request): bool
     {
         $userAgent = $request->header('User-Agent', '');
