@@ -206,6 +206,7 @@ const resetBranding = async () => {
      resetting.value = true;
      try {
           await store.ResetSettings(activeTab.value);
+          documents.value = {invoice:documentConfig(settings.value,'invoice'),thermal:documentConfig(settings.value,'thermal')};
           if (activeTab.value === "branding") {
                logoPreview.value = null;
                logoFile.value = null;

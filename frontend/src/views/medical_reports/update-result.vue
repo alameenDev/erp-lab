@@ -2652,10 +2652,10 @@ const downloadAsPdf = async (withBg) => {
 
     const rawMargins = labSettingsStore.settings.print_margins || {};
     const margins = {
-      top: Number(rawMargins.top) || 20,
-      bottom: Number(rawMargins.bottom) || 20,
-      left: Number(rawMargins.left) || 15,
-      right: Number(rawMargins.right) || 15,
+      top: Number(rawMargins.top ?? 20),
+      bottom: Number(rawMargins.bottom ?? 20),
+      left: Number(rawMargins.left ?? 15),
+      right: Number(rawMargins.right ?? 15),
     };
     const bgImage = withBg ? reportBackground.value : null;
 
