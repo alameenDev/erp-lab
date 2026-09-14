@@ -1,0 +1,43 @@
+# Digital Lab - Medical Laboratory Management System
+# https://lightpink-badger-650079.hostingersite.com
+
+User-agent: *
+
+# Public pages
+Allow: /
+Allow: /login
+Allow: /register
+Allow: /result/
+Allow: /invoice/
+Allow: /medical-reports/
+
+# Authenticated/admin routes
+Disallow: /dashboard
+Disallow: /patients
+Disallow: /users
+Disallow: /roles
+Disallow: /activityLogger
+Disallow: /test-groups
+Disallow: /tests
+Disallow: /samples
+Disallow: /test-questions
+Disallow: /categories
+Disallow: /referrals
+Disallow: /packages
+Disallow: /cultures
+Disallow: /Antibiotics
+Disallow: /priceList
+Disallow: /paymentMethods
+Disallow: /invoices
+Disallow: /medical_reports
+Disallow: /contracts
+Disallow: /reports
+Disallow: /profile
+Disallow: /logout
+Disallow: /app
+
+# Error pages
+Disallow: /error/
+
+# Sitemap
+Sitemap: https://lightpink-badger-650079.hostingersite.com/sitemap.xml

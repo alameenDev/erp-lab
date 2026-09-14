@@ -1,1 +1,0 @@
-import{x as a,$ as n}from"./index-29cb79eb.js";const o=a("durationUnits",{state:()=>({durationUnits:[]}),actions:{async GetdurationUnits(){const{data:i}=await n.get("/duration-units");this.durationUnitsList=i.map(t=>({label:t.unit,value:t.id}))}}});export{o as u};

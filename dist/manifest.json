@@ -1,0 +1,29 @@
+{
+     "name": "Digital Lab - المختبر الرقمي - لابی دیجیتاڵ",
+     "short_name": "Digital Lab",
+     "description": "نظام إدارة المختبرات الطبية الرقمي - Medical Laboratory Management System - سیستەمی بەڕێوەبردنی تاقیگەی پزیشکی",
+     "start_url": "/",
+     "display": "standalone",
+     "background_color": "#ffffff",
+     "theme_color": "#0d9488",
+     "dir": "rtl",
+     "lang": "ar",
+     "icons": [
+          {
+               "src": "/logo-192x192.png",
+               "sizes": "192x192",
+               "type": "image/png"
+          },
+          {
+               "src": "/logo-512x512.png",
+               "sizes": "512x512",
+               "type": "image/png"
+          },
+          {
+               "src": "/logo-512x512.png",
+               "sizes": "512x512",
+               "type": "image/png",
+               "purpose": "maskable"
+          }
+     ]
+}
