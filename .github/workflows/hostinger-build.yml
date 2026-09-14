@@ -30,6 +30,8 @@ jobs:
           SOURCE_COMMIT: ${{ github.sha }}
         run: |
           cp -R frontend/dist "$RUNNER_TEMP/erp-dist"
+          # npm is authoritative; build tools may refresh the archived Yarn lock.
+          git restore --worktree -- frontend/yarn.lock
           if git ls-remote --exit-code --heads origin hostinger-build; then
             git fetch origin hostinger-build
             git switch -C hostinger-build FETCH_HEAD
