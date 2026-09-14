@@ -102,7 +102,8 @@ class MariaDbCompatibilityTest extends TestCase
         $this->getJson('/api/super-admin/revenue-trend?months=1')->assertOk();
         $this->getJson('/api/reports/dashboard-stats')->assertOk()
             ->assertJsonStructure(['tests_stats', 'cultures_stats', 'today_stats', 'recent_invoices']);
-        $this->getJson('/api/lab-settings')->assertOk()->assertJsonStructure(['setting']);
+        $this->getJson('/api/lab-settings')->assertOk()->assertJsonStructure(['id', 'lab_id_fk', 'primary_color', 'print_margins'])
+            ->assertJsonPath('lab_id_fk', $admin->id);
         $this->assertSame($passwordHash, $admin->fresh()->password);
         $this->assertDatabaseCount('users', 1);
         $this->assertDatabaseCount('patients', 0);
