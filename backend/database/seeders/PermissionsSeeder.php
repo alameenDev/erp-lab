@@ -17,6 +17,12 @@ class PermissionsSeeder extends Seeder
         $permissions = [
             'main dashboard view',
 
+            // Inventory
+            'inventory view',
+            'inventory manage',
+            'inventory reports',
+            'inventory repeat',
+
             // Reports
             'reports view',
             'accounting reports view',
