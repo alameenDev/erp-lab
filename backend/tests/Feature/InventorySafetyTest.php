@@ -77,4 +77,24 @@ class InventorySafetyTest extends TestCase
         $this->assertDatabaseCount('inventory_movements',0);
         $this->assertSame(30,(int)DB::table('inventory_kits')->where('id',$kit)->value('remaining'));
     }
+
+    public function test_options_return_group_names_and_exclude_other_labs(): void
+    {
+        [$owner] = $this->fixture();
+        $other = User::create(['name'=>'Other lab','email'=>'other@example.test','password'=>'test-password-123','role_id'=>2]);
+        $group = DB::table('test_groups')->insertGetId(['lab_id_fk'=>$owner->id,'group_name'=>'Thyroid panel']);
+        DB::table('test_groups')->insert(['lab_id_fk'=>$other->id,'group_name'=>'Private panel']);
+        $this->getJson('/api/inventory/options')->assertOk()
+            ->assertJsonPath('subjects.test_group.0.name','Thyroid panel')
+            ->assertJsonPath('subjects.test_group.0.id',$group)
+            ->assertJsonCount(1,'subjects.test_group')
+            ->assertJsonPath('subjects.test.0.name','Vitamin D3');
+    }
+
+    public function test_inventory_index_supports_strict_group_by(): void
+    {
+        $this->fixture();
+        $this->getJson('/api/inventory')->assertOk()
+            ->assertJsonPath('items.0.name','D3 reagent');
+    }
 }
