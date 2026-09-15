@@ -51,6 +51,8 @@ defineExpose({
 });
 const _defaultMargins = { top: 20, bottom: 20, left: 15, right: 15 };
 const labSettingsStore = useLabSettingsStore();
+const publicLabSettings = ref(null);
+const reportSettings = computed(() => publicLabSettings.value || labSettingsStore.settings);
 const serverMargins = ref(
   localStorage.getItem("token")
     ? (labSettingsStore.settings.print_margins || { ..._defaultMargins })
@@ -566,7 +568,7 @@ const applyPatientHeaderCss = (config) => {
     el.id = "patient-header-dynamic";
     document.head.appendChild(el);
   }
-  el.textContent = printStyles.getPatientHeaderCss(config);
+  el.textContent = printStyles.getPatientHeaderCss(config) + printStyles.getPrintTableCss(reportSettings.value.print_table_config);
 };
 if (hasToken) {
   applyPatientHeaderCss(labSettingsStore.settings.patient_header_config);
@@ -794,6 +796,7 @@ const getData = async () => {
       // Public: fetch from API
       try {
         const { data } = await $http.get(`/lab-settings/${printRecord.value.lab_id_fk}`);
+        publicLabSettings.value = data;
         serverMargins.value = data?.print_margins || _defaultMargins;
         if (data?.report_background) backgroundUrl.value = data.report_background;
         if (data?.show_categories !== undefined) showCategories.value = data.show_categories;
@@ -916,7 +919,7 @@ const printFromQR = () => {
   const bgImage = showBackground.value ? backgroundUrl.value : null;
 
   // Same CSS as staff print flow: getResultCss() + body padding + fixed background
-  let css = printStyles.getResultCss() + printStyles.getPatientHeaderCss(labSettingsStore.settings.patient_header_config) + printStyles.getPrintTableCss(labSettingsStore.settings.print_table_config);
+  let css = printStyles.getResultCss() + printStyles.getPatientHeaderCss(reportSettings.value.patient_header_config) + printStyles.getPrintTableCss(reportSettings.value.print_table_config);
   if (printBlackWhite.value) css += printStyles.getBlackWhiteCss();
   css += `
     body {

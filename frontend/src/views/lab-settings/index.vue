@@ -5,6 +5,7 @@ import { storeToRefs } from "pinia";
 import { t, showAlertWithConfirm } from "@/utils/helper";
 import { useToast } from "@/composables/useToast";
 import { applyBranding } from "@/utils/branding";
+import DocumentPreview from "./DocumentPreview.vue";
 
 import { documentDefaults, documentConfig } from "@/utils/labDocuments";
 const documents = ref(JSON.parse(JSON.stringify(documentDefaults)));
@@ -16,6 +17,7 @@ const { settings, isLoading } = storeToRefs(store);
 const lang = computed(() => localStorage.getItem("locale") || "ar");
 const activeTab = ref("branding");
 const printSection = ref("layout");
+const previewKind = ref("report");
 const sections = computed(() => lang.value === "en"
  ? [{id:"layout",label:"Paper & visibility"},{id:"barcode",label:"Barcode labels"},{id:"header",label:"Patient header"},{id:"table",label:"Result tables"},{id:"background",label:"Report background"}]
  : [{id:"layout",label:"الورق وإظهار الحقول"},{id:"barcode",label:"ملصقات الباركود"},{id:"header",label:"رأس التقرير"},{id:"table",label:"جداول النتائج"},{id:"background",label:"خلفية التقرير"}]);
@@ -567,7 +569,7 @@ const resetBranding = async () => {
                     </template>
 
 
-                    <section class="rounded-2xl border border-slate-200 bg-white p-6 space-y-5">
+                    <section v-if="activeTab === 'print'" class="rounded-2xl border border-slate-200 bg-white p-6 space-y-5">
                          <h3 class="font-bold text-slate-800">{{ lang === 'en' ? 'Invoice & thermal printing' : 'الفاتورة والطباعة الحرارية' }}</h3>
                          <div v-for="kind in ['invoice','thermal']" :key="kind" class="rounded-xl border border-slate-200 p-4 space-y-4">
                               <h4 class="font-semibold">{{ kind === 'invoice' ? (lang === 'en' ? 'Standard invoice' : 'الفاتورة العادية') : (lang === 'en' ? 'Thermal receipt' : 'الفاتورة الحرارية') }}</h4>
@@ -590,7 +592,7 @@ const resetBranding = async () => {
                               <label class="block text-sm">Footer / النص أسفل الفاتورة<textarea v-model="documents[kind].footer" maxlength="500" rows="2" class="block w-full border rounded-lg p-2"></textarea></label>
                          </div>
                     </section>
-                    <section class="rounded-2xl border border-slate-200 bg-white p-6 space-y-4">
+                    <section v-if="activeTab === 'branding'" class="rounded-2xl border border-slate-200 bg-white p-6 space-y-4">
                          <h3 class="font-bold text-slate-800">{{ lang === 'en' ? 'WhatsApp messages' : 'رسائل واتساب' }}</h3>
                          <p class="text-xs text-slate-500">{{ lang === 'en' ? 'Leave blank to keep the existing message. Supported variables:' : 'اترك الحقل فارغاً لاستخدام الرسالة الأصلية. المتغيرات المتاحة:' }}</p>
                          <code v-pre class="block text-xs" dir="ltr">{lab_name} · {patient_name} · {invoice_number} · {link}</code>
@@ -634,7 +636,10 @@ const resetBranding = async () => {
                                         </div>
                                    </div>
                                    
-<section v-if="activeTab === 'print'" class="overflow-auto rounded-xl border border-slate-200 bg-slate-100 p-4">
+<label v-if="activeTab === 'print'" class="block text-sm mb-3">نوع المعاينة
+<select v-model="previewKind" class="block w-full border rounded-lg p-2 mt-1"><option value="report">التقرير الطبي</option><option value="invoice">الفاتورة</option><option value="thermal">الفاتورة الحرارية</option></select></label>
+<DocumentPreview v-if="activeTab === 'print' && previewKind !== 'report'" :settings="settings" :documents="documents" :kind="previewKind" />
+<section v-if="activeTab === 'print' && previewKind === 'report'" class="overflow-auto rounded-xl border border-slate-200 bg-slate-100 p-4">
 <p class="mb-3 text-xs text-slate-500">{{ lang === 'en' ? 'Illustrative preview · sample data, not a clinical report' : 'معاينة توضيحية ببيانات تجريبية — ليست تقريراً طبياً' }}</p>
 <div class="min-w-[300px] bg-white p-4 shadow-sm" :style="{fontFamily: settings.font_family || 'Tajawal', filter: settings.print_black_white ? 'grayscale(1)' : 'none'}">
 <h4 class="mb-3 text-center font-bold" :style="{color: settings.primary_color}">{{ settings.lab_display_name || 'Digital Lab' }}</h4>

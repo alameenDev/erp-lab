@@ -6,7 +6,7 @@ import { usetestsStore } from "@/store/modules/tests";
 import { t, alertSuccess, clearObjectValues } from "@/utils/helper";
 import { Editor, EditorContent } from "@tiptap/vue-3";
 import StarterKit from "@tiptap/starter-kit";
-import Table from "@tiptap/extension-table";
+import { Table } from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
@@ -16,7 +16,7 @@ import Bold from "@tiptap/extension-bold";
 import Italic from "@tiptap/extension-italic";
 import Underline from "@tiptap/extension-underline";
 import Image from "@tiptap/extension-image";
-import TextStyle from "@tiptap/extension-text-style";
+import { TextStyle } from "@tiptap/extension-text-style";
 import Placeholder from "@tiptap/extension-placeholder";
 
 const templatesStore = useTemplatesStore();
@@ -54,7 +54,7 @@ const cols = ref(3);
 const editor = ref(
   new Editor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({ heading: false, paragraph: false, bold: false, italic: false, underline: false, link: false }),
       Table.configure({ resizable: true }),
       TableRow,
       TableCell,
