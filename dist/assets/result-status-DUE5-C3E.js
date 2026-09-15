@@ -1,1 +1,0 @@
-import{b as a}from"./vue-vendor-DnM_FKQV.js";import{$ as e}from"./index-CdOBL9Tp.js";import"./utils-DOjieFrw.js";const o=a("result-status",{state:()=>({resultStatus:[],dialog:!1}),actions:{async GetresultStatus(){try{const{data:t}=await e.get("/result-status");this.resultStatus=t.map(s=>({label:s.status,value:s.id}))}catch{this.resultStatus=[]}}}});export{o as u};
