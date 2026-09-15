@@ -6,6 +6,8 @@ import { useLabSettingsStore } from "@/store/modules/labSettings";
 import { usePrint } from "@/composables/usePrint";
 import { documentCss } from "@/utils/labDocuments";
 import { t, dateTimeFormat } from "@/utils/helper";
+import JsBarcode from "jsbarcode";
+import QrcodeVue from "qrcode.vue";
 import parcodModal from "./parcodeModal.vue";
 import thermalReciptModal from "./thermal_reciptModal.vue";
 import BarcodeComponent from "@/components/BarcodeComponent.vue";
@@ -14,6 +16,25 @@ const invoicesStore = useinvoicesStore();
 const labSettingsStore = useLabSettingsStore();
 const { printRecord, printInvoiceDialog } = storeToRefs(invoicesStore);
 const { printStyles } = usePrint();
+
+const appBaseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+const getPatientReportLink = () => `${appBaseUrl}/result/${printRecord.value?.id}`;
+
+// Same technique as print_invoice.vue: a raster <img> (not an inline <svg>)
+// so it matches the existing ".hdr-bc img { max-width:130px; height:28px }"
+// print CSS instead of needing separate sizing rules.
+const generateBarcodeImage = (value) => {
+  if (!value) return "";
+  const canvas = document.createElement("canvas");
+  JsBarcode(canvas, value, {
+    format: "CODE128",
+    displayValue: false,
+    width: 1.2,
+    height: 25,
+    margin: 0,
+  });
+  return canvas.toDataURL("image/png");
+};
 
 const close = () => {
   printInvoiceDialog.value = false;
@@ -328,6 +349,23 @@ const openthermalRecord = (data) => {
   <div class="hidden" id="printInvoice">
     <div class="inv">
       <div class="inv-title">INVOICE</div>
+
+      <!-- Barcode + Patient Code Barcode + QR link to results -->
+      <!-- Visibility toggled by lab_settings.document_config.invoice.show_barcode/show_qr via documentCss() -->
+      <div class="hdr">
+        <div class="hdr-bc">
+          <img :src="generateBarcodeImage(printRecord?.barcode)" alt="" />
+          <span>{{ printRecord?.barcode }}</span>
+        </div>
+        <div class="hdr-bc">
+          <img :src="generateBarcodeImage(printRecord?.patient?.code)" alt="" />
+          <span>{{ printRecord?.patient?.code }}</span>
+        </div>
+        <div class="hdr-qr">
+          <QrcodeVue :value="getPatientReportLink()" :size="70" level="H" render-as="svg" />
+          <span>Scan for results</span>
+        </div>
+      </div>
 
       <!-- Patient Info -->
       <div class="info-grid">
