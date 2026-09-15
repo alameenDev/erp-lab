@@ -21,7 +21,7 @@ export function usePrint() {
 
     return new Promise((resolve, reject) => {
       setTimeout(() => {
-        const content = document.getElementById(elementId)?.innerHTML;
+        const content = document.getElementById(elementId)?.outerHTML;
         if (!content) {
           console.error(`Element with id "${elementId}" not found`);
           reject(new Error(`Element not found: ${elementId}`));
@@ -286,7 +286,7 @@ export function usePrint() {
       };
       const hfs = c.header_font_size || 13;
       const hff = c.header_font_family || 'inherit';
-      const hc = darkenForPrint(c.header_color || '#0f172a');
+      const hc = c.header_color || '#0f172a';
       const hbg = c.header_bg_color || '#f1f5f9';
       const hfw = c.header_font_weight || 'bold';
       const bfs = c.body_font_size || 13;
@@ -306,7 +306,7 @@ export function usePrint() {
         #Result table thead.result-header th,
         .test-group-section table thead th,
         table.result-table th,
-        #Result table thead th {
+        #Result table:not(.print-wrapper):not(.info-table) > thead > tr > th {
           font-size: ${hfs}px !important;
           font-family: ${hff} !important;
           color: ${hc} !important;
@@ -320,7 +320,7 @@ export function usePrint() {
         #Result .test-group-section table tbody td,
         .test-group-section table tbody td,
         table.result-table td,
-        #Result table tbody td {
+        #Result table:not(.print-wrapper):not(.info-table) > tbody > tr > td {
           font-size: ${bfs}px !important;
           font-family: ${bff} !important;
           color: ${bc} !important;
@@ -349,14 +349,14 @@ export function usePrint() {
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
         }
-        #Result table thead th,
+        #Result table:not(.print-wrapper):not(.info-table) > thead > tr > th,
         #Result .test-group-section table thead th,
         .test-group-section table thead th {
           color: #000 !important;
           background-color: #fff !important;
           border-color: #000 !important;
         }
-        #Result table tbody td,
+        #Result table:not(.print-wrapper):not(.info-table) > tbody > tr > td,
         #Result .test-group-section table tbody td,
         .test-group-section table tbody td {
           color: #000 !important;
@@ -385,6 +385,9 @@ export function usePrint() {
       const qrS = c.qr_size || 90;
       const lh = c.line_height || 1.7;
       return `
+        .rs-header .rs-info, .rs-header .rs-dates { font-size: ${infoS}px !important; line-height: ${lh} !important; }
+        .rs-header .rs-info > div:first-child { font-size: ${nameS}px !important; }
+        .rs-header .rs-qr svg { width: ${qrS}px !important; height: ${qrS}px !important; }
         #Result .patient-header { font-size: ${infoS}px !important; line-height: ${lh} !important; }
         #Result .patient-header .patient-name { font-size: ${nameS}px !important; }
         #Result .patient-header .info-table td { font-size: ${infoS}px !important; }

@@ -235,7 +235,8 @@ const openprintResultTemplate = async (data) => {
   printSelectVisible.value = true;
 };
 
-const printParcode = (data) => {
+const printParcode = async (data) => {
+  await labSettingsStore.GetSettings();
   printWithIframe("parcode", printStyles.getBarcodeCss(labSettingsStore.settings.barcode_config), "Print Barcode", 100, () => invoicesStore.GetinvoicesById(data.id));
 };
 
@@ -291,7 +292,7 @@ const downloadAsPdf = async (withBg) => {
       return;
     }
 
-    const content = sourceEl.innerHTML;
+    const content = sourceEl.outerHTML;
     if (!content || !content.trim()) {
       console.error("[download] #Result is empty");
       toast.error(t("download_failed") || "Download failed");
@@ -302,10 +303,10 @@ const downloadAsPdf = async (withBg) => {
     // by the settings UI — Number() handles both number and string inputs.
     const rawMargins = labSettingsStore.settings.print_margins || {};
     const margins = {
-      top: Number(rawMargins.top) || 20,
-      bottom: Number(rawMargins.bottom) || 20,
-      left: Number(rawMargins.left) || 15,
-      right: Number(rawMargins.right) || 15,
+      top: Number(rawMargins.top ?? 20),
+      bottom: Number(rawMargins.bottom ?? 20),
+      left: Number(rawMargins.left ?? 15),
+      right: Number(rawMargins.right ?? 15),
     };
     const bgImage = withBg ? reportBackground.value : null;
 
@@ -458,7 +459,7 @@ const printDirectWithBackground = async () => {
   await nextTick();
   await new Promise((r) => setTimeout(r, 150));
 
-  const content = document.getElementById("Result")?.innerHTML;
+  const content = document.getElementById("Result")?.outerHTML;
   if (!content) return;
 
   const printWindow = window.open("", "_blank");
@@ -533,6 +534,7 @@ const printDirectWithBackground = async () => {
 
 // Handle print with selected items
 const handlePrintSelection = async (selection) => {
+  await labSettingsStore.GetSettings();
   // Save original data (deep copy arrays)
   const original = {
     tests: [...(printRecord.value.tests || [])],

@@ -582,6 +582,7 @@ watch(() => labSettingsStore.settings, (s) => {
   printBlackWhite.value = s.print_black_white === true;
   showStatus.value = s.show_status !== false;
   showLastResult.value = s.show_last_result === true;
+  serverMargins.value = s.print_margins || { ..._defaultMargins };
   applyPatientHeaderCss(s.patient_header_config);
 }, { deep: true });
 
@@ -909,7 +910,7 @@ const printFromQR = () => {
   const printWindow = window.open("", "_blank");
   if (!printWindow) return;
 
-  const content = document.getElementById("Result")?.innerHTML;
+  const content = document.getElementById("Result")?.outerHTML;
   if (!content) {
     printWindow.close();
     return;

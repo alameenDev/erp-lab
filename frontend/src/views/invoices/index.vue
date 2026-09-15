@@ -256,6 +256,7 @@ const openJobTemplateAsPDF = async (data) => {
 };
 
 const openthermalRecord = async (data) => {
+  await labSettingsStore.GetSettings();
   openMenuId.value = null;
   await printWithIframe(
     "thermalRecord",
@@ -267,6 +268,7 @@ const openthermalRecord = async (data) => {
 };
 
 const openprintINvoiceTemplate = async (data) => {
+  await labSettingsStore.GetSettings();
   openMenuId.value = null;
   await printWithIframe(
     "printInvoice",
@@ -277,7 +279,8 @@ const openprintINvoiceTemplate = async (data) => {
   );
 };
 
-const printParcode = (data) => {
+const printParcode = async (data) => {
+  await labSettingsStore.GetSettings();
   printWithIframe("parcode", printStyles.getBarcodeCss(labSettingsStore.settings.barcode_config), "Print Barcode", 100, () => invoicesStore.GetinvoicesById(data.id));
 };
 
