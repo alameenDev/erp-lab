@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { storeToRefs } from "pinia";
 import { useinvoicesStore } from "@/store/modules/invoices";
 import { usePatientsStore } from "@/store/modules/patients";
@@ -13,18 +13,34 @@ const { pdf } = invoicesStore;
 const { whatsapp } = patientsStore;
 
 const lang = computed(() => localStorage.getItem("locale") || "ar");
+const printInvoiceRef = ref(null);
+const sending = ref(false);
 
 const close = () => {
   WhatsUpDialog.value = false;
 };
 
 const sendMsg = async () => {
-  const invoiceContent = document.getElementById("printInvoice")?.outerHTML;
-  await pdf(invoiceContent, printRecord.value?.id);
-  whatsapp(printRecord.value?.patient?.phone, Pdfurl.value.path).then(() => {
+  if (sending.value) return;
+  sending.value = true;
+  try {
+    // Build a real, styled PDF (base template + the lab's saved Document
+    // Settings) instead of uploading the raw, unstyled page HTML — that
+    // old approach produced a file with none of the lab's print settings
+    // applied (colors, fonts, margins, logo, barcode/QR visibility, etc.).
+    const pdfBlob = await printInvoiceRef.value?.generatePdfBlob();
+    if (!pdfBlob) {
+      alertSuccess(t("download_failed") || "Failed to generate PDF");
+      sending.value = false;
+      return;
+    }
+    await pdf(pdfBlob, printRecord.value?.id);
+    await whatsapp(printRecord.value?.patient?.phone, Pdfurl.value.path);
     alertSuccess(t("alertSuccess"));
     close();
-  });
+  } finally {
+    sending.value = false;
+  }
 };
 </script>
 
@@ -49,7 +65,7 @@ const sendMsg = async () => {
 
           <!-- Content -->
           <div class="p-6 overflow-y-auto max-h-[calc(90vh-150px)]">
-            <printInvoice></printInvoice>
+            <printInvoice ref="printInvoiceRef"></printInvoice>
           </div>
 
           <!-- Footer -->

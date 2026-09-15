@@ -56,13 +56,19 @@ const getPatientReportLink = () => {
   return `${appBaseUrl}/result/${printRecord.value?.id || invoiceId.value}`;
 };
 
-const generatePDF = async () => {
+// Builds the styled invoice PDF (base CSS + the lab's Document Settings)
+// and returns it in the requested html2pdf output format. Shared by the
+// on-screen preview (datauristring) and by anyone needing the raw file
+// (e.g. WhatsApp sending) so both always produce the exact same,
+// settings-aware document instead of two different implementations
+// drifting out of sync.
+const buildInvoicePdf = async (outputType = "datauristring") => {
   const printEl = document.getElementById("printInvoice");
   if (printEl) printEl.style.display = "block";
 
   await nextTick();
   const element = contentToConvert.value;
-  if (!element) return;
+  if (!element) return null;
   const pdfStyle = document.createElement("style");
   const rawCss = printStyles.invoice + documentCss(effectiveSettings.value, "invoice");
   // Scope printable rules to this capture; do not restyle the application body.
@@ -80,19 +86,23 @@ const generatePDF = async () => {
   };
 
   try {
-  await html2pdf()
-    .set(opt)
-    .from(element)
-    .outputPdf("datauristring")
-    .then((pdfDataUri) => {
-      pdfUrl.value = pdfDataUri;
-    });
-
+    return await html2pdf().set(opt).from(element).outputPdf(outputType);
   } finally {
     pdfStyle.remove();
     if (printEl) printEl.style.display = "none";
   }
 };
+
+const generatePDF = async () => {
+  const pdfDataUri = await buildInvoicePdf("datauristring");
+  if (pdfDataUri) pdfUrl.value = pdfDataUri;
+};
+
+// Exposed for parents (e.g. the WhatsApp-send modal) that need the actual
+// PDF bytes — a real, correctly styled document instead of raw page HTML.
+defineExpose({
+  generatePdfBlob: () => buildInvoicePdf("blob"),
+});
 
 const generateBarcodeImage = (value) => {
   if (!value) return "";

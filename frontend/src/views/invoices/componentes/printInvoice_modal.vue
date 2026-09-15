@@ -4,6 +4,7 @@ import { storeToRefs } from "pinia";
 import { useinvoicesStore } from "@/store/modules/invoices";
 import { useLabSettingsStore } from "@/store/modules/labSettings";
 import { usePrint } from "@/composables/usePrint";
+import { documentCss } from "@/utils/labDocuments";
 import { t, dateTimeFormat } from "@/utils/helper";
 import parcodModal from "./parcodeModal.vue";
 import thermalReciptModal from "./thermal_reciptModal.vue";
@@ -49,7 +50,12 @@ const openprintINvoiceTemplate = (data) => {
     const jobContent = document.getElementById("printInvoice")?.innerHTML;
     if (!jobContent) return;
 
-    const css = printStyles.invoice;
+    // Merge the base invoice CSS with the lab's saved Document Settings
+    // (paper size, orientation, margin, font size/family, colors, barcode/QR
+    // visibility) — same as print_invoice.vue, so this print button honours
+    // the same settings as the PDF/preview flow instead of always using
+    // the hardcoded defaults.
+    const css = printStyles.invoice + documentCss(labSettingsStore.settings, "invoice");
 
     const printFrame = document.createElement("iframe");
     printFrame.style.cssText = "position: absolute; width: 0px; height: 0px; border: none;";
