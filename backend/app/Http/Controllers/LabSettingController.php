@@ -81,6 +81,26 @@ class LabSettingController extends Controller
             'document_config.thermal.footer' => 'sometimes|nullable|string|max:500',
             'document_config.invoice.color' => 'sometimes|regex:/^#[0-9a-fA-F]{6}$/',
             'document_config.invoice.accent' => 'sometimes|regex:/^#[0-9a-fA-F]{6}$/',
+            // Loyalty program (magic-link portal)
+            'loyalty_config' => 'nullable|array',
+            'loyalty_config.enabled' => 'sometimes|boolean',
+            'loyalty_config.require_otp' => 'sometimes|boolean',
+            'loyalty_config.points_per_currency' => 'sometimes|numeric|min:0',
+            'loyalty_config.welcome_bonus' => 'sometimes|integer|min:0',
+            'loyalty_config.checkup_bonus' => 'sometimes|integer|min:0',
+            'loyalty_config.review_bonus' => 'sometimes|integer|min:0',
+            'loyalty_config.referral_bonus' => 'sometimes|integer|min:0',
+            'loyalty_config.points_expiry_months' => 'sometimes|integer|min:1|max:60',
+            'loyalty_config.tiers' => 'sometimes|array',
+            'loyalty_config.tiers.*.key' => 'required_with:loyalty_config.tiers|string',
+            'loyalty_config.tiers.*.label_ar' => 'sometimes|string',
+            'loyalty_config.tiers.*.label_en' => 'sometimes|string',
+            'loyalty_config.tiers.*.min_yearly_points' => 'required_with:loyalty_config.tiers|integer|min:0',
+            'loyalty_config.tiers.*.multiplier' => 'required_with:loyalty_config.tiers|numeric|min:1',
+            'loyalty_config.redemption_catalog' => 'sometimes|array',
+            'loyalty_config.redemption_catalog.*.key' => 'required_with:loyalty_config.redemption_catalog|string',
+            'loyalty_config.redemption_catalog.*.label_ar' => 'sometimes|string',
+            'loyalty_config.redemption_catalog.*.points' => 'required_with:loyalty_config.redemption_catalog|integer|min:1',
             'primary_color' => 'nullable|string|max:20|regex:/^#[0-9a-fA-F]{3,8}$/',
             'secondary_color' => 'nullable|string|max:20|regex:/^#[0-9a-fA-F]{3,8}$/',
             'font_family' => 'nullable|string|in:Tajawal,Cairo,Amiri,Inter',
@@ -204,6 +224,10 @@ class LabSettingController extends Controller
         }
         if (isset($validated['document_config'])) {
             $setting->document_config = array_replace_recursive($setting->document_config ?? [], $validated['document_config']);
+        }
+        if (isset($validated['loyalty_config'])) {
+            // tiers/redemption_catalog are whole-list replacements when sent (not merged item by item)
+            $setting->loyalty_config = array_replace($setting->loyalty_config ?? [], $validated['loyalty_config']);
         }
         $setting->save();
 

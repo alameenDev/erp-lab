@@ -237,6 +237,15 @@ const router = createRouter({
                },
           },
           {
+               path: "/portal/:token",
+               name: "patient-portal",
+               component: () => import("@/views/portal/PatientPortal.vue"),
+               meta: {
+                    title: "بوابة المريض | Digital Lab",
+                    description: "نتائجك الطبية ونقاط الولاء - Your lab results and loyalty points",
+               },
+          },
+          {
                path: "/medical-reports/:patientId",
                name: "medical-reports",
                component: () => import("@/views/medical_reports/index.vue"),

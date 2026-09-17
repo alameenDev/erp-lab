@@ -28,11 +28,19 @@ class Patient extends Model
         'national_id_no',
         'user_id',
         'barcode',
+        'loyalty_points',
+        'loyalty_tier',
+        'loyalty_year_points',
+        'loyalty_joined_at',
+        'referred_by_patient_id',
     ];
 
     protected $casts = [
         'dob' => 'date',
         'age' => 'integer',
+        'loyalty_points' => 'integer',
+        'loyalty_year_points' => 'integer',
+        'loyalty_joined_at' => 'datetime',
     ];
 
     public function title()
@@ -63,6 +71,21 @@ class Patient extends Model
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id')->withTrashed();
+    }
+
+    public function referredBy()
+    {
+        return $this->belongsTo(Patient::class, 'referred_by_patient_id');
+    }
+
+    public function loyaltyTransactions()
+    {
+        return $this->hasMany(LoyaltyTransaction::class, 'patient_id_fk');
+    }
+
+    public function portalAccessTokens()
+    {
+        return $this->hasMany(PortalAccessToken::class, 'patient_id_fk');
     }
 
     public function lab()

@@ -10,6 +10,7 @@ use App\Models\InvoicePaidDetail;
 use App\Models\InvoiceTestRel;
 use App\Models\Patient;
 use App\Models\TestGroup;
+use App\Services\LoyaltyService;
 use App\Models\TestReferenceRange;
 use App\Models\User;
 use Exception;
@@ -2533,6 +2534,15 @@ class InvoiceController extends Controller
         // Refresh paid total
         $invoice->refresh();
         $newPaid = $invoice->paidDetails->sum('amount');
+
+        // Loyalty points: earn on spending, right when the payment lands.
+        if ($invoice->patient_id_fk && $invoice->lab_id_fk) {
+            $patient = Patient::find($invoice->patient_id_fk);
+            $lab = User::find($invoice->lab_id_fk);
+            if ($patient && $lab) {
+                app(LoyaltyService::class)->awardForPayment($patient, $lab, (float) $validated['amount'], $payment);
+            }
+        }
 
         ActivityLogController::storeActivity(
             'إضافة دفعة على فاتورة: '.$invoice->barcode.' - '.$validated['amount'],

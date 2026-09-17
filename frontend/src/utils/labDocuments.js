@@ -28,5 +28,5 @@ export function documentCss(settings,kind) {
 }
 export function messageTemplate(template,values,fallback) {
  const source=typeof template==="string"&&template.trim()?template:fallback;
- return source.replace(/\{(lab_name|patient_name|invoice_number|link)\}/g,(_,key)=>String(values[key]??""));
+ return source.replace(/\{(lab_name|patient_name|invoice_number|link|loyalty_points|loyalty_tier)\}/g,(_,key)=>String(values[key]??""));
 }

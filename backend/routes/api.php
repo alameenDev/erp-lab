@@ -14,6 +14,7 @@ use App\Http\Controllers\DurationUnitController;
 use App\Http\Controllers\FrontendLogController;
 use App\Http\Controllers\GenderController;
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\PatientPortalController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\LabController;
 use App\Http\Controllers\NationalityController;
@@ -70,6 +71,12 @@ Route::get('lab-background/{labId}', [UserController::class, 'getBackground']);
 Route::get('lab-margins/{labId}', [UserController::class, 'getMargins']);
 Route::get('lab-settings/{labId}', [LabSettingController::class, 'showPublic']);
 Route::get('invoices/public/{id}', [InvoiceController::class, 'publicShow']);
+
+// Patient portal (magic link) - public, token-secured, no login required.
+Route::get('portal/{token}', [PatientPortalController::class, 'show']);
+Route::post('portal/{token}/otp/request', [PatientPortalController::class, 'requestOtp'])->middleware('throttle:5,1');
+Route::post('portal/{token}/otp/verify', [PatientPortalController::class, 'verifyOtp'])->middleware('throttle:10,1');
+Route::post('portal/{token}/redeem', [PatientPortalController::class, 'redeem']);
 
 /**
  @ Result status Routes
@@ -130,6 +137,7 @@ Route::group(['middleware' => 'auth:sanctum'], function (): void {
      @ Roles Routes
      */
     Route::post('whatsapp/message', [WhatsAppController::class, 'sendWhatsAppMessage']); // send whatsapp message
+    Route::post('portal/generate', [PatientPortalController::class, 'generateLink']); // create/reuse a patient's magic-link portal URL
 
     /**
      @ Patients Routes

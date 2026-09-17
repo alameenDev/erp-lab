@@ -2622,18 +2622,42 @@ const openWhatsAppAction = async (withBg = false) => {
   printSelectVisible.value = true;
 };
 
-const sendWhatsApp = (rec, withBg = false) => {
+const sendWhatsApp = async (rec, withBg = false) => {
   const labName = labSettingsStore.settings.lab_display_name || User.value?.name || "المختبر";
   const patientName = rec?.patient?.name || "المريض";
   const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
-  const resultLink = `${appUrl}/result/${rec.id}${withBg ? "?form=1" : ""}`;
+  let resultLink = `${appUrl}/result/${rec.id}${withBg ? "?form=1" : ""}`;
+  let loyaltyPoints = "";
+  let loyaltyTier = "";
+
+  // Open the tab synchronously (before any await) so browsers don't treat
+  // the later window.open as a blocked, non-user-triggered popup; we fill
+  // in its address once the portal link/loyalty snapshot come back.
+  const waTab = window.open("", "_blank");
+
+  // Hand the patient a secure magic-link portal (results + loyalty points)
+  // instead of the bare result page; fall back to the old link if the
+  // portal endpoint isn't reachable for any reason.
+  if (rec?.patient?.id) {
+    try {
+      const { data } = await $http.post("/portal/generate", { patient_id: rec.patient.id });
+      if (data?.url) resultLink = data.url;
+      loyaltyPoints = data?.loyalty_points ?? "";
+      loyaltyTier = data?.loyalty_tier ?? "";
+    } catch (e) {
+      // keep the fallback resultLink
+    }
+  }
+
   const message = `اهلا بكم في مختبر ${labName}\nعزيزي ${patientName}\nإليك نتائج الفحوصات الطبية:\n${resultLink}`;
   let phone = rec?.patient?.phone?.replace(/\s+/g, "");
   if (phone?.startsWith("+")) phone = phone.substring(1);
   if (phone?.startsWith("00")) phone = phone.substring(2);
   if (phone?.startsWith("0")) phone = "964" + phone.substring(1);
   if (!phone?.startsWith("964")) phone = "964" + phone;
-  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(messageTemplate(labSettingsStore.settings.whatsapp_result_message,{lab_name:labName,patient_name:patientName,invoice_number:rec.id,link:resultLink},message))}`, "_blank");
+  const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(messageTemplate(labSettingsStore.settings.whatsapp_result_message,{lab_name:labName,patient_name:patientName,invoice_number:rec.id,link:resultLink,loyalty_points:loyaltyPoints,loyalty_tier:loyaltyTier},message))}`;
+  if (waTab) waTab.location.href = waUrl;
+  else window.open(waUrl, "_blank");
 };
 
 const downloadAsPdf = async (withBg) => {

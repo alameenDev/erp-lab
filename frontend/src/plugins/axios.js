@@ -115,7 +115,7 @@ _axios.interceptors.response.use(
           // If user is on a public page (welcome/login/register/result/invoice), don't redirect away.
           // Token was stale — silent removal is enough; public pages don't need auth.
           const path = window.location.pathname || "";
-          const publicPrefixes = ["/", "/login", "/register", "/result/", "/invoice/", "/medical-reports/", "/error/"];
+          const publicPrefixes = ["/", "/login", "/register", "/result/", "/invoice/", "/medical-reports/", "/portal/", "/error/"];
           const isPublic = publicPrefixes.some((p) => p === "/" ? path === "/" : path.startsWith(p));
           if (!isPublic) {
             // Send to /login (not /error/401) so user can re-auth and continue
