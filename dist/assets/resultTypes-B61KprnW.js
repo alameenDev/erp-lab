@@ -1,0 +1,1 @@
+import{b as s}from"./vue-vendor-BEtjDboL.js";import{$ as r}from"./index-BkvsOmlj.js";const l=s("resultTypes",{state:()=>({resultTypes:[]}),actions:{async GetresultTypes(){try{const{data:t}=await r.get("/result-types");this.resultTypes=t.map(e=>({label:e.result_type_name,value:e.id}))}catch{this.resultTypes=[]}}}});export{l as u};
