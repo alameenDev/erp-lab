@@ -118,7 +118,7 @@ class PatientPortalController extends Controller
                 'status' => $inv->is_done ? 'ready' : 'pending',
                 'view_url' => rtrim(config('app.frontend_url', env('FRONTEND_URL', config('app.url'))), '/')."/result/{$inv->id}",
             ]),
-            'loyalty' => $summary ? [
+            'loyalty' => $summary && ($config['enabled'] ?? true) ? [
                 'balance' => $summary['balance'],
                 'tier' => $summary['tier'],
                 'next_tier' => $summary['next_tier'],

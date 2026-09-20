@@ -1,4 +1,5 @@
 <script setup>
+import { sharePatientPortal } from "@/utils/sharePatientPortal";
 import { ref, computed, watch, onMounted, nextTick } from "vue";
 import { storeToRefs } from "pinia";
 import { useRoute, useRouter } from "vue-router";
@@ -606,18 +607,9 @@ const openWhatsAppSelection = async (data, withBg) => {
   printSelectVisible.value = true;
 };
 
-const sendWhatsApp = (rec, withBg = false) => {
-  const labName = User.value?.name || "المختبر";
-  const patientName = rec?.patient?.name || "المريض";
-  const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
-  const resultLink = `${appUrl}/result/${rec.id}${withBg ? "?form=1" : ""}`;
-  const message = `اهلا بكم في مختبر ${labName}\nعزيزي ${patientName}\nإليك نتائج الفحوصات الطبية:\n${resultLink}`;
-  let phone = rec?.patient?.phone?.replace(/\s+/g, "");
-  if (phone?.startsWith("+")) phone = phone.substring(1);
-  if (phone?.startsWith("00")) phone = phone.substring(2);
-  if (phone?.startsWith("0")) phone = "964" + phone.substring(1);
-  if (!phone?.startsWith("964")) phone = "964" + phone;
-  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank");
+const sendWhatsApp = async (rec, withBg = false) => {
+  try { await sharePatientPortal(rec, labSettingsStore.settings, User.value?.name); }
+  catch (error) { toast.error(error.message); }
 };
 
 // Reset background mode when worksheet dialog closes
