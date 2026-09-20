@@ -1,1 +1,0 @@
-import{_ as o}from"./ErrorPage-D39A-pew.js";import{E as r,i as t}from"./vue-vendor-BHBT87HN.js";import"./index-DQ3zpQaH.js";import"./utils-B9Lns4VQ.js";import"./pdf-libs-BWeRc4Tf.js";import"./qrcode-DILqw4pE.js";import"./chart-CH5GMtqH.js";const u={__name:"404",setup(m){return(p,e)=>(t(),r(o,{code:"404"}))}};export{u as default};
