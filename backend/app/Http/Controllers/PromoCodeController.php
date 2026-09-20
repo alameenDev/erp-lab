@@ -174,6 +174,7 @@ class PromoCodeController extends Controller
         $validated = $request->validate(['code' => 'required|string|max:50']);
 
         $invoice = Invoice::findOrFail($invoiceId);
+        if ($invoice->loyalty_discount > 0) return response()->json(['message'=>'لا يمكن جمع البروموكود مع استبدال النقاط في هذه الفاتورة.'],422);
         $labId = $this->service->resolveLabId(Auth::user());
         if ($invoice->lab_id_fk != $labId) {
             return response()->json(['message' => 'Unauthorized'], 403);
@@ -213,6 +214,7 @@ class PromoCodeController extends Controller
     public function removeFromInvoice($invoiceId)
     {
         $invoice = Invoice::findOrFail($invoiceId);
+        if ($invoice->loyalty_discount > 0) return response()->json(['message'=>'لا يمكن جمع البروموكود مع استبدال النقاط في هذه الفاتورة.'],422);
         $labId = $this->service->resolveLabId(Auth::user());
         if ($invoice->lab_id_fk != $labId) {
             return response()->json(['message' => 'Unauthorized'], 403);

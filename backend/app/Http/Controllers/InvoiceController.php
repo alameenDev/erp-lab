@@ -725,6 +725,8 @@ class InvoiceController extends Controller
             'discount_type' => $invoice->discountType?->type,
             'discount_type_id_fk' => $invoice->discount_type_id_fk,
             'discount' => $invoice->discount,
+            'promo_code_id_fk' => $invoice->promo_code_id_fk,
+            'promo_code' => $invoice->promoCode?->code,
             'show_result_date' => $invoice->show_result_date == 1,
             'show_patient_card_id' => $invoice->show_patient_card_id == 1,
             'show_patient_pic' => $invoice->show_patient_pic == 1,

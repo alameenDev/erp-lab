@@ -178,6 +178,8 @@ const loadInvoice = async (id) => {
     discountValue.value = dt === 3 ? Number(data.discount) || null : null;
     record.value.discount_type_id_fk = data.discount_type_id_fk ?? null;
     record.value.discount = data.discount ?? null;
+    record.value.loyalty_discount = data.loyalty_discount ?? 0;
+    record.value.loyalty_points_spent = data.loyalty_points_spent ?? 0;
     record.value.promo_code_id_fk = data.promo_code_id_fk ?? null;
     record.value.promo_code = data.promo_code ?? null;
 
