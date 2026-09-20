@@ -16,7 +16,7 @@ import BarcodeComponent from "@/components/BarcodeComponent.vue";
 const invoicesStore = useinvoicesStore();
 const labSettingsStore = useLabSettingsStore();
 const { printRecord, printInvoiceDialog } = storeToRefs(invoicesStore);
-const { printStyles } = usePrint();
+const { printStyles, printWithCustomContent } = usePrint();
 
 const dialog = ref(null);
 let previousFocus = null;
@@ -77,27 +77,16 @@ const close = () => {
 
 const due = computed(() => (printRecord.value?.total || 0) - (printRecord.value?.paid || 0));
 
-const printParcode = (data) => {
+const printParcode = async (data) => {
   printRecord.value = data;
-  setTimeout(() => {
-    const jobContent = document.getElementById("parcode")?.innerHTML;
-      const css = printStyles.getBarcodeCss(labSettingsStore.settings.barcode_config);
-
-      const printFrame = document.createElement("iframe");
-      printFrame.style.position = "absolute";
-      document.body.appendChild(printFrame);
-
-      const frameDoc = printFrame.contentWindow.document;
-      frameDoc.open();
-      frameDoc.write(`<html><head><title>Print Job</title><style>${css}</style></head><body>${jobContent}</body></html>`);
-      frameDoc.close();
-
-      printFrame.contentWindow.focus();
-      printFrame.contentWindow.print();
-      printFrame.contentWindow.onafterprint = () => {
-        document.body.removeChild(printFrame);
-      };
-    }, 50);
+  await nextTick();
+  const content = document.getElementById("parcode")?.innerHTML;
+  if (!content) return;
+  await printWithCustomContent(
+    content,
+    printStyles.getBarcodeCss(labSettingsStore.settings.barcode_config),
+    "Print Barcode"
+  );
 };
 
 const openprintINvoiceTemplate = (data) => {

@@ -1,10 +1,39 @@
-import { nextTick } from "vue";
+import { nextTick, onScopeDispose } from "vue";
 
 /**
  * Composable for handling print operations
  * Extracts print logic for reusability across components
  */
 export function usePrint() {
+  const frames = new Map();
+  let disposed = false;
+  const scheduled = new Map();
+  const removeFrame = (frame) => {
+    frame.remove();
+    const settle = frames.get(frame);
+    frames.delete(frame);
+    if (settle) settle();
+  };
+  const createFrame = (resolve) => {
+    const frame = document.createElement("iframe");
+    frame.style.cssText = "position: fixed; left: -10000px; top: 0; width: 0; height: 0; border: 0; pointer-events: none;";
+    frame.setAttribute("aria-hidden", "true");
+    frame.setAttribute("tabindex", "-1");
+    frames.set(frame, resolve);
+    document.body.appendChild(frame);
+    return frame;
+  };
+  const schedule = (callback, delay, resolve) => {
+    if (disposed) { resolve(); return; }
+    const id = setTimeout(() => { scheduled.delete(id); callback(); }, delay);
+    scheduled.set(id, resolve);
+  };
+  onScopeDispose(() => {
+    disposed = true;
+    scheduled.forEach((resolve, id) => { clearTimeout(id); resolve(); });
+    scheduled.clear();
+    [...frames.keys()].forEach(removeFrame);
+  });
   /**
    * Print content using iframe approach
    * @param {string} elementId - ID of the element to print
@@ -20,7 +49,7 @@ export function usePrint() {
     }
 
     return new Promise((resolve, reject) => {
-      setTimeout(() => {
+      schedule(() => {
         const content = document.getElementById(elementId)?.outerHTML;
         if (!content) {
           console.error(`Element with id "${elementId}" not found`);
@@ -28,9 +57,7 @@ export function usePrint() {
           return;
         }
 
-        const printFrame = document.createElement("iframe");
-        printFrame.style.cssText = "position: absolute; width: 0px; height: 0px; border: none;";
-        document.body.appendChild(printFrame);
+        const printFrame = createFrame(resolve);
 
         const frameDoc = printFrame.contentWindow.document;
         frameDoc.open();
@@ -50,15 +77,16 @@ export function usePrint() {
             ? Promise.resolve()
             : new Promise(done => { image.onload = done; image.onerror = done; })));
           if (frameDoc.fonts?.ready) await frameDoc.fonts.ready;
+          if (!frames.has(printFrame)) return;
           printFrame.contentWindow.onafterprint = () => {
-            printFrame.remove();
+            removeFrame(printFrame);
             resolve();
           };
           printFrame.contentWindow.focus();
           printFrame.contentWindow.print();
         };
-        runPrint().catch(() => { printFrame.remove(); resolve(); });
-      }, delay);
+        runPrint().catch(() => { removeFrame(printFrame); resolve(); });
+      }, delay, resolve);
     });
   };
 
@@ -67,10 +95,8 @@ export function usePrint() {
    */
   const printWithCustomContent = async (content, css, title = "Print", delay = 50) => {
     return new Promise((resolve) => {
-      setTimeout(() => {
-        const printFrame = document.createElement("iframe");
-        printFrame.style.cssText = "position: absolute; width: 0px; height: 0px; border: none;";
-        document.body.appendChild(printFrame);
+      schedule(() => {
+        const printFrame = createFrame(resolve);
 
         const frameDoc = printFrame.contentWindow.document;
         frameDoc.open();
@@ -90,15 +116,16 @@ export function usePrint() {
             ? Promise.resolve()
             : new Promise(done => { image.onload = done; image.onerror = done; })));
           if (frameDoc.fonts?.ready) await frameDoc.fonts.ready;
+          if (!frames.has(printFrame)) return;
           printFrame.contentWindow.onafterprint = () => {
-            printFrame.remove();
+            removeFrame(printFrame);
             resolve();
           };
           printFrame.contentWindow.focus();
           printFrame.contentWindow.print();
         };
-        runPrint().catch(() => { printFrame.remove(); resolve(); });
-      }, delay);
+        runPrint().catch(() => { removeFrame(printFrame); resolve(); });
+      }, delay, resolve);
     });
   };
 
