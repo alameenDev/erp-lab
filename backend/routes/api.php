@@ -15,6 +15,7 @@ use App\Http\Controllers\FrontendLogController;
 use App\Http\Controllers\GenderController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\PatientPortalController;
+use App\Http\Controllers\PromoCodeController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\LabController;
 use App\Http\Controllers\NationalityController;
@@ -138,6 +139,16 @@ Route::group(['middleware' => 'auth:sanctum'], function (): void {
      */
     Route::post('whatsapp/message', [WhatsAppController::class, 'sendWhatsAppMessage']); // send whatsapp message
     Route::post('portal/generate', [PatientPortalController::class, 'generateLink']); // create/reuse a patient's magic-link portal URL
+
+    // Promo codes
+    Route::get('promo-codes', [PromoCodeController::class, 'index']);
+    Route::post('promo-codes', [PromoCodeController::class, 'store']);
+    Route::post('promo-codes/generate-batch', [PromoCodeController::class, 'generateBatch']);
+    Route::post('promo-codes/preview', [PromoCodeController::class, 'preview']);
+    Route::put('promo-codes/{id}', [PromoCodeController::class, 'update']);
+    Route::delete('promo-codes/{id}', [PromoCodeController::class, 'destroy']);
+    Route::post('invoices/{invoiceId}/apply-promo-code', [PromoCodeController::class, 'applyToInvoice']);
+    Route::delete('invoices/{invoiceId}/promo-code', [PromoCodeController::class, 'removeFromInvoice']);
 
     /**
      @ Patients Routes

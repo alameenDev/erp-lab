@@ -237,6 +237,14 @@ const menuGroups = [
           <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>`,
       },
+      {
+        label: "promo_codes",
+        to: "/promo-codes",
+        icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581a1.75 1.75 0 002.475 0l6.191-6.191a1.75 1.75 0 000-2.475L11.318 3.66A2.25 2.25 0 009.568 3z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 6.75h.007" />
+        </svg>`,
+      },
     ],
   },
 ];

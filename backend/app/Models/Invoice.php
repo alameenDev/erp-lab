@@ -25,6 +25,7 @@ class Invoice extends Model
         'sub_total',
         'discount',
         'discount_type_id_fk',
+        'promo_code_id_fk',
         'total',
         'paid',
         'sent_to_patient',
@@ -118,6 +119,11 @@ class Invoice extends Model
     public function discountType()
     {
         return $this->belongsTo(DiscountType::class, 'discount_type_id_fk');
+    }
+
+    public function promoCode()
+    {
+        return $this->belongsTo(PromoCode::class, 'promo_code_id_fk');
     }
 
     /**

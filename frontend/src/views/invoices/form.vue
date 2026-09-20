@@ -178,6 +178,8 @@ const loadInvoice = async (id) => {
     discountValue.value = dt === 3 ? Number(data.discount) || null : null;
     record.value.discount_type_id_fk = data.discount_type_id_fk ?? null;
     record.value.discount = data.discount ?? null;
+    record.value.promo_code_id_fk = data.promo_code_id_fk ?? null;
+    record.value.promo_code = data.promo_code ?? null;
 
     // Map test questions
     testQuesions.value = selectedTests.value?.map((test) => ({

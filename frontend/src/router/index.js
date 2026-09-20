@@ -175,6 +175,12 @@ const router = createRouter({
                          meta: { title: "Lab Settings | Digital Lab", description: "إعدادات المختبر" },
                     },
                     {
+                         path: "/promo-codes",
+                         name: "promo-codes",
+                         component: () => import("@/views/promo-codes/index.vue"),
+                         meta: { title: "Promo Codes | Digital Lab", description: "إدارة أكواد الخصم - Promo codes management" },
+                    },
+                    {
                          path: "/inventory",
                          name: "inventory",
                          component: () => import("@/views/inventory/index.vue"),
