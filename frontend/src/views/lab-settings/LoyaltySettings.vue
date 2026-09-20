@@ -6,7 +6,7 @@ const emit = defineEmits(['saved']);
 const form = ref(null), busy = ref(false), error = ref(''), success = ref('');
 watch(() => props.config, value => { if (value) form.value = structuredClone(JSON.parse(JSON.stringify(value))); }, { immediate: true });
 const example = computed(() => Math.floor(10000 * Number(form.value?.points_per_currency || 0)));
-function reward() { form.value.redemption_catalog.push({key:'reward_'+crypto.randomUUID(),label_ar:'',points:100}); }
+function reward() { form.value.redemption_catalog.push({key:'reward_'+crypto.randomUUID(),label_ar:'',points:100,discount_amount:0}); }
 function tier() { form.value.tiers.push({key:'tier_'+Date.now(),label_ar:'',label_en:'',min_yearly_points:1000,multiplier:1}); }
 async function save() {
   busy.value=true; error.value=''; success.value='';
@@ -28,8 +28,8 @@ async function save() {
  <div v-for="(row,i) in form.tiers" :key="row.key" class="grid gap-3 sm:grid-cols-4 border rounded-xl p-3 mt-3">
   <label>اسم المستوى<input v-model="row.label_ar" required maxlength="80"></label><label>الحد الأدنى السنوي<input v-model.number="row.min_yearly_points" type="number" min="0" required></label><label>مضاعف النقاط<input v-model.number="row.multiplier" type="number" min="1" max="10" step="0.05" required></label><button type="button" :disabled="form.tiers.length===1" @click="form.tiers.splice(i,1)" class="text-red-700 disabled:opacity-40">حذف المستوى</button>
  </div><button type="button" @click="tier" class="mt-3 text-teal-700 font-bold">+ إضافة مستوى</button></div>
- <div class="border-t pt-4"><h4 class="font-bold">دليل المكافآت</h4><p class="text-sm text-slate-500">اسم المكافأة يظهر للمريض مع النقاط المطلوبة. الاستبدال يسجّل خصم النقاط؛ تقديم الفحص أو الخصم يتم من المختبر ولا يُعدّل الفاتورة تلقائياً.</p>
- <div v-for="(row,i) in form.redemption_catalog" :key="row.key" class="grid gap-3 sm:grid-cols-3 border rounded-xl p-3 mt-3"><label>اسم المكافأة<input v-model="row.label_ar" required maxlength="150" placeholder="مثال: خصم 5,000 دينار"></label><label>النقاط المطلوبة<input v-model.number="row.points" type="number" min="1" required></label><button type="button" @click="form.redemption_catalog.splice(i,1)" class="text-red-700">حذف المكافأة</button></div>
+ <div class="border-t pt-4"><h4 class="font-bold">دليل المكافآت</h4><p class="text-sm text-slate-500">حدد مبلغ الخصم بالدينار ليصبح قابلاً للاستبدال عند الاستقبال أثناء إنشاء الفاتورة. صفر يعني مكافأة خدمية تُنفّذ يدوياً.</p>
+ <div v-for="(row,i) in form.redemption_catalog" :key="row.key" class="grid gap-3 sm:grid-cols-3 border rounded-xl p-3 mt-3"><label>اسم المكافأة<input v-model="row.label_ar" required maxlength="150" placeholder="مثال: خصم 5,000 دينار"></label><label>النقاط المطلوبة<input v-model.number="row.points" type="number" min="1" required></label><label>مبلغ خصم الفاتورة (دينار)<input v-model.number="row.discount_amount" type="number" min="0" max="100000000" placeholder="0"></label><button type="button" @click="form.redemption_catalog.splice(i,1)" class="text-red-700">حذف المكافأة</button></div>
  <p v-if="!form.redemption_catalog.length" class="text-sm mt-2">لا توجد مكافآت متاحة للاستبدال.</p><button type="button" @click="reward" class="mt-3 text-teal-700 font-bold">+ إضافة مكافأة</button></div>
  <p v-if="error" role="alert" class="text-red-700">{{error}}</p><p v-if="success" role="status" class="text-emerald-700">{{success}}</p>
  <button :disabled="busy" class="rounded-xl bg-teal-700 text-white px-5 py-3 disabled:opacity-50">{{busy?'جارٍ الحفظ…':'حفظ إعدادات الولاء'}}</button>

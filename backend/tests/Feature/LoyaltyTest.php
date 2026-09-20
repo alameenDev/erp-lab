@@ -50,4 +50,37 @@ class LoyaltyTest extends TestCase
         $this->assertSame(20,$service->balance($patient));
         $this->assertDatabaseHas('loyalty_transactions',['lab_id_fk'=>$lab->id,'points'=>20]);
     }
+
+    private function receptionFixture(): array
+    {
+        [$lab,$patient,$service]=$this->fixture();
+        $lab->givePermissionTo(\Spatie\Permission\Models\Permission::findOrCreate('invoices create','api'));
+        LabSetting::create(['lab_id_fk'=>$lab->id,'loyalty_config'=>['redemption_catalog'=>[['key'=>'discount5','label_ar'=>'خصم خمسة آلاف','points'=>100,'discount_amount'=>5000]]]]);
+        $service->awardPoints($patient,$lab,'manual',150);
+        $this->actingAs($lab);
+        return [$lab,$patient,$service];
+    }
+
+    public function test_reception_can_read_patient_balance_and_discount_rewards(): void
+    {
+        [, $patient]=$this->receptionFixture();
+        $this->getJson('/api/patients/'.$patient->id.'/loyalty')->assertOk()->assertJsonPath('balance',150)->assertJsonPath('rewards.0.discount_amount',5000);
+    }
+
+    public function test_invoice_redemption_reduces_total_and_records_points(): void
+    {
+        [$lab,$patient,$service]=$this->receptionFixture();
+        $this->postJson('/api/invoices/create',['patient_id_fk'=>$patient->id,'sub_total'=>20000,'total'=>15000,'total_before_loyalty'=>20000,'loyalty_reward_key'=>'discount5','paid'=>0])->assertSuccessful();
+        $this->assertSame(50,$service->balance($patient));
+        $this->assertDatabaseHas('invoices',['patient_id_fk'=>$patient->id,'total'=>15000,'loyalty_discount'=>5000,'loyalty_points_spent'=>100]);
+        $this->assertDatabaseHas('loyalty_transactions',['patient_id_fk'=>$patient->id,'type'=>'redemption','reference_type'=>\App\Models\Invoice::class,'points'=>-100]);
+    }
+
+    public function test_invalid_invoice_discount_does_not_spend_points(): void
+    {
+        [, $patient,$service]=$this->receptionFixture();
+        $this->postJson('/api/invoices/create',['patient_id_fk'=>$patient->id,'total'=>0,'total_before_loyalty'=>1000,'loyalty_reward_key'=>'discount5'])->assertUnprocessable();
+        $this->assertSame(150,$service->balance($patient));
+        $this->assertDatabaseCount('invoices',0);
+    }
 }

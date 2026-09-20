@@ -375,6 +375,7 @@ const openprintINvoiceTemplate = (data) => {
               <td class="lbl">Discount {{ printRecord?.discount_type ? '(' + printRecord.discount_type + ')' : '' }}</td>
               <td>IQD {{ printRecord?.discount }}</td>
             </tr>
+            <tr v-if="printRecord?.loyalty_discount"><td class="lbl">خصم الولاء ({{printRecord.loyalty_points_spent}} نقطة)</td><td>- IQD {{printRecord.loyalty_discount}}</td></tr>
             <tr class="total">
               <td>Total</td>
               <td>IQD {{ printRecord?.total }}</td>

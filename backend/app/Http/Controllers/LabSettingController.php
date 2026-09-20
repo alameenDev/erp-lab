@@ -101,6 +101,7 @@ class LabSettingController extends Controller
             'loyalty_config.redemption_catalog' => 'sometimes|array',
             'loyalty_config.redemption_catalog.*.key' => 'required_with:loyalty_config.redemption_catalog|string|max:60|distinct',
             'loyalty_config.redemption_catalog.*.label_ar' => 'sometimes|string',
+            'loyalty_config.redemption_catalog.*.discount_amount' => 'sometimes|integer|min:0|max:100000000',
             'loyalty_config.redemption_catalog.*.points' => 'required_with:loyalty_config.redemption_catalog|integer|min:1',
             'primary_color' => 'nullable|string|max:20|regex:/^#[0-9a-fA-F]{3,8}$/',
             'secondary_color' => 'nullable|string|max:20|regex:/^#[0-9a-fA-F]{3,8}$/',

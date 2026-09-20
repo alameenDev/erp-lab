@@ -541,6 +541,8 @@ class InvoiceController extends Controller
             'total' => $invoice->total,
             'sub_total' => $invoice->sub_total,
             'paid' => $invoice->paidDetails->sum('amount'),
+            'loyalty_discount' => $invoice->loyalty_discount,
+            'loyalty_points_spent' => $invoice->loyalty_points_spent,
             'discount' => $invoice->discount,
             'discount_type' => $invoice->discountType?->type,
             'sample_collector' => $invoice->sample_collector_id_fk,
@@ -723,8 +725,6 @@ class InvoiceController extends Controller
             'discount_type' => $invoice->discountType?->type,
             'discount_type_id_fk' => $invoice->discount_type_id_fk,
             'discount' => $invoice->discount,
-            'promo_code_id_fk' => $invoice->promo_code_id_fk,
-            'promo_code' => $invoice->promoCode?->code,
             'show_result_date' => $invoice->show_result_date == 1,
             'show_patient_card_id' => $invoice->show_patient_card_id == 1,
             'show_patient_pic' => $invoice->show_patient_pic == 1,
@@ -1246,6 +1246,8 @@ class InvoiceController extends Controller
         }
         // validation
         $request->validate([
+            'loyalty_reward_key' => 'nullable|string|max:60',
+            'total_before_loyalty' => 'required_with:loyalty_reward_key|integer|min:0',
             'patient_id_fk' => 'required|integer',
             'referral_id_fk' => 'nullable|integer',
             'sub_total' => 'nullable|integer',
@@ -1293,7 +1295,29 @@ class InvoiceController extends Controller
             $invoice->show_result_date = $request->show_result_date ?? false;
             $invoice->show_patient_card_id = $request->show_patient_card_id ?? false;
             $invoice->show_patient_pic = $request->show_patient_pic ?? false;
-            $invoice->save();
+            if ($request->filled('loyalty_reward_key')) {
+                $resolver = app(\App\Services\InventoryService::class);
+                $lab = User::findOrFail($resolver->labId($user));
+                $patient = Patient::whereKey($invoice->patient_id_fk)->lockForUpdate()->firstOrFail();
+                $owner = User::findOrFail($patient->creator_id);
+                abort_unless($resolver->labId($owner) === (int) $lab->id, 403);
+                $service = app(LoyaltyService::class);
+                $reward = collect($service->config($lab)['redemption_catalog'])->firstWhere('key', $request->loyalty_reward_key);
+                $amount = (int) ($reward['discount_amount'] ?? 0);
+                $gross = (int) $request->total_before_loyalty;
+                if (!$reward || $amount <= 0 || $amount > $gross) throw \Illuminate\Validation\ValidationException::withMessages(['loyalty_reward_key'=>'المكافأة غير صالحة أو تتجاوز مبلغ الفاتورة.']);
+                $invoice->total = $gross - $amount;
+                if ((int) $invoice->paid > $invoice->total) throw \Illuminate\Validation\ValidationException::withMessages(['paid'=>'المبلغ المدفوع يتجاوز المبلغ بعد خصم الولاء.']);
+                try { $service->redeem($patient, $lab, $request->loyalty_reward_key); }
+                catch (\RuntimeException $e) { throw \Illuminate\Validation\ValidationException::withMessages(['loyalty_reward_key'=>$e->getMessage()]); }
+                $invoice->loyalty_discount = $amount;
+                $invoice->loyalty_points_spent = (int) $reward['points'];
+                $invoice->loyalty_reward_key = $request->loyalty_reward_key;
+                $invoice->save();
+                \App\Models\LoyaltyTransaction::where('patient_id_fk',$patient->id)->where('type','redemption')->latest('id')->firstOrFail()->update(['reference_type'=>Invoice::class,'reference_id'=>$invoice->id,'description'=>'خصم فاتورة '.$invoice->id.' — '.$reward['label_ar'].' — المستخدم '.$user->id]);
+            } else {
+                $invoice->save();
+            }
 
             // add invoice_test_rels
             if (isset($request->tests) && $request->tests !== null) {
@@ -2339,6 +2363,10 @@ class InvoiceController extends Controller
                 }
             }
 
+            if ($invoice->loyalty_discount > 0 && (int)$request->patient_id_fk !== (int)$invoice->patient_id_fk) {
+                DB::rollBack();
+                return response()->json(['message'=>'لا يمكن تغيير مريض فاتورة مرتبطة باستبدال نقاط.'],422);
+            }
             $oldInvoice = $invoice->replicate();
             // Frontend dropdown now sends users.id directly (optionValue="user_id").
             // referral_id_fk column is FK → users.id, so no remap needed.

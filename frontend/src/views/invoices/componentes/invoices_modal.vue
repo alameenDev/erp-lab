@@ -602,6 +602,24 @@
                     </p>
                   </div>
 
+                  <section v-if="!isEditMode && responseData?.id" class="rounded-xl border border-teal-200 bg-teal-50 p-4 mb-4">
+                    <h3 class="font-bold text-teal-900">نقاط المريض وخصم الولاء</h3>
+                    <p v-if="loyaltyLoading">جارٍ تحميل الرصيد…</p>
+                    <p v-else-if="loyaltyError" role="alert" class="text-red-700">{{loyaltyError}}</p>
+                    <template v-else-if="loyalty?.enabled">
+                      <p class="my-2">الرصيد المتاح: <strong>{{loyalty.balance}} نقطة</strong></p>
+                      <label class="block text-sm">اسأل المريض قبل الاستبدال
+                        <select v-model="loyaltyKey" class="block w-full rounded-lg border p-2 mt-2">
+                          <option value="">بدون استبدال نقاط</option>
+                          <option v-for="r in loyalty.rewards" :key="r.key" :value="r.key" :disabled="loyalty.balance < r.points || r.discount_amount > discountedTotal + loyaltyDiscount">{{r.label_ar}} — {{r.points}} نقطة مقابل {{r.discount_amount}} د.ع {{loyalty.balance < r.points ? '(الرصيد غير كافٍ)' : ''}}</option>
+                        </select>
+                      </label>
+                      <p v-if="!loyalty.rewards?.length" class="text-sm mt-2">لا توجد مكافآت بخصم مالي. تُضاف من إعدادات الولاء.</p>
+                      <p v-if="loyaltyDiscount" class="font-bold mt-2">خصم الولاء: {{loyaltyDiscount}} د.ع</p>
+                      <p class="text-xs mt-2">تُخصم النقاط عند حفظ الفاتورة فقط، ويُعاد فحص الرصيد عند الحفظ.</p>
+                    </template>
+                    <p v-else>برنامج الولاء غير مفعّل لهذا المختبر.</p>
+                  </section>
                   <!-- RIGHT: Summary detail lines + discount -->
                   <div class="space-y-1.5">
                     <div class="flex items-center justify-between py-1.5">
@@ -627,34 +645,6 @@
                     <div class="flex items-center justify-between py-1.5" v-if="discountValue">
                       <span class="text-sm text-slate-600">{{ t("it_discount") }}</span>
                       <span class="text-sm font-medium text-rose-600 tabular-nums">- {{ discountValue || 0 }}</span>
-                    </div>
-
-                    <!-- Promo code -->
-                    <div class="pt-3 mt-1 border-t border-slate-100">
-                      <label class="block text-sm font-medium text-slate-700 mb-2">بروموكود</label>
-                      <div v-if="!promoCodeApplied" class="flex items-center gap-2">
-                        <input
-                          v-model="promoCodeInput"
-                          type="text"
-                          placeholder="أدخل الكود"
-                          class="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm"
-                          @keyup.enter="previewPromoCode"
-                        />
-                        <button
-                          type="button"
-                          @click="previewPromoCode"
-                          :disabled="promoCodeApplying || !promoCodeInput"
-                          class="bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-bold px-4 py-2 rounded-lg"
-                        >
-                          {{ promoCodeApplying ? "..." : "تطبيق" }}
-                        </button>
-                      </div>
-                      <div v-else class="flex items-center justify-between bg-emerald-50 rounded-lg px-3 py-2">
-                        <span class="text-sm font-bold text-emerald-700">{{ promoCodeApplied }}</span>
-                        <button type="button" @click="clearPromoCode" class="text-xs text-red-500 font-bold">إزالة</button>
-                      </div>
-                      <div v-if="promoCodeMessage" class="text-xs text-emerald-600 mt-1">{{ promoCodeMessage }}</div>
-                      <div v-if="promoCodeError" class="text-xs text-red-500 mt-1">{{ promoCodeError }}</div>
                     </div>
 
                     <!-- Discount inputs -->
@@ -773,6 +763,7 @@ export default {
   emits: ['saved', 'cancelled'],
   data() {
     return {
+      loyalty: null, loyaltyLoading: false, loyaltyError: "", loyaltyKey: "",
       errorMessage: "",
       selectedTest: null,
       selectedCulture: null,
@@ -783,11 +774,6 @@ export default {
       showTests: [],
       showCultures: [],
       valueInput: false,
-      promoCodeInput: "",
-      promoCodeApplying: false,
-      promoCodeMessage: "",
-      promoCodeError: "",
-      promoCodeApplied: null, // the code string currently reflected in discount fields, sent on save
       paid: 0,
       index: 0,
       Contract_payment: 0,
@@ -807,6 +793,7 @@ export default {
     Dialog,
   },
   computed: {
+    loyaltyDiscount() { return this.isEditMode ? Number(this.record.loyalty_discount || 0) : Number(this.loyalty?.rewards?.find(x => x.key === this.loyaltyKey)?.discount_amount || 0); },
     ...mapWritableState(LoaderStore, ["hideLoading"]),
     ...mapWritableState(useresultStatusStore, ["resultStatus"]),
     ...mapWritableState(useinvoicesStore, [
@@ -880,7 +867,7 @@ export default {
       return this.collectorsList?.find((c) => c.id === this.record.sample_collector_id_fk)?.commission ?? 0;
     },
     discountedTotal() {
-      const t = this.baseTotal + this.payment_percent + this.commission + this.Sample_collection_fees - this.discountValue;
+      const t = this.baseTotal + this.payment_percent + this.commission + this.Sample_collection_fees - this.discountValue - this.loyaltyDiscount;
       return t > 0 ? t : 0;
     },
     baseTotal() {
@@ -1203,73 +1190,8 @@ export default {
       this.recalcTotal();
       this.$nextTick(() => { this._updatingDiscount = false; });
     },
-    async previewPromoCode() {
-      if (!this.promoCodeInput) return;
-      this.promoCodeApplying = true;
-      this.promoCodeMessage = "";
-      this.promoCodeError = "";
-      try {
-        const { data } = await $http.post("/promo-codes/preview", {
-          code: this.promoCodeInput,
-          invoice_amount: Math.round(Number(this.baseTotal) || 0),
-          patient_id_fk: this.record.patient_id_fk || null,
-        });
-        this._updatingDiscount = true;
-        if (data.discount_type === "percentage") {
-          this.discountPercentage = Number(data.discount_value);
-          this.discountValue = (this.baseTotal * this.discountPercentage) / 100;
-          this.perceInput = true;
-          this.valueInput = false;
-        } else {
-          this.discountValue = Number(data.discount_amount);
-          this.discountPercentage = this.baseTotal > 0 ? (this.discountValue / this.baseTotal) * 100 : 0;
-          this.valueInput = true;
-          this.perceInput = false;
-        }
-        this.recalcTotal();
-        this.$nextTick(() => { this._updatingDiscount = false; });
-        this.promoCodeApplied = this.promoCodeInput.trim();
-        this.promoCodeMessage = `تم تطبيق الخصم (-${data.discount_amount})`;
-      } catch (e) {
-        this.promoCodeApplied = null;
-        this.promoCodeError = e?.response?.data?.message || "تعذر تطبيق البروموكود";
-      } finally {
-        this.promoCodeApplying = false;
-      }
-    },
-    clearPromoCode() {
-      this.promoCodeInput = "";
-      this.promoCodeApplied = null;
-      this.promoCodeMessage = "";
-      this.promoCodeError = "";
-      this.discountPercentage = 0;
-      this.discountValue = 0;
-      this.perceInput = false;
-      this.valueInput = false;
-      this.recalcTotal();
-    },
-    // Persists the previewed promo code against a saved invoice (records
-    // the redemption + re-syncs the authoritative discount/total from the
-    // backend). Called right after the invoice itself is created/updated.
-    async commitPromoCode(invoiceId) {
-      if (!invoiceId) return;
-      if (this.promoCodeApplied) {
-        try {
-          await $http.post(`/invoices/${invoiceId}/apply-promo-code`, { code: this.promoCodeApplied });
-        } catch (e) {
-          this.alertSuccess(e?.response?.data?.message || "تعذر تسجيل استخدام البروموكود");
-        }
-      } else if (this.record.promo_code_id_fk) {
-        // promo was cleared while editing an invoice that already had one
-        try {
-          await $http.delete(`/invoices/${invoiceId}/promo-code`);
-        } catch (e) {
-          // ignore
-        }
-      }
-    },
     recalcTotal() {
-      const total = this.baseTotal + this.payment_percent + this.commission + this.Sample_collection_fees - this.discountValue;
+      const total = this.baseTotal + this.payment_percent + this.commission + this.Sample_collection_fees - this.discountValue - this.loyaltyDiscount;
       this.record.total = total > 0 ? Math.round(total) : 0;
     },
     getTotal() {
@@ -1407,6 +1329,8 @@ export default {
       this.record.show_patient_card_id = this.record?.show_patient_card_id ? true : false;
       this.record.show_result_date = this.record?.show_result_date ? true : false;
       this.record.show_patient_pic = this.record?.show_patient_pic ? true : false;
+      this.record.loyalty_reward_key = this.loyaltyKey || null;
+      this.record.total_before_loyalty = Math.round(Number(this.record.total) + this.loyaltyDiscount);
       this.record.payment_details = this.payment_details;
       if (this.perceInput) {
         this.record.discount = Math.round(Number(this.discountPercentage) || 0);
@@ -1482,8 +1406,7 @@ export default {
       }));
 
       this.Addinvoices()
-        .then(async (createdInvoice) => {
-          await this.commitPromoCode(createdInvoice?.id);
+        .then(() => {
           this.alertSuccess(this.t("invoice_created_successfully") || this.t("alertSuccess"));
           this.clearObjectValues(this.record);
           // Clear patient form + selection so next invoice starts fresh
@@ -1496,10 +1419,6 @@ export default {
           this.payment_details = [{ amount: null, contract_id_fk: null, payment_method_id_fk: null }];
           this.discountPercentage = 0;
           this.discountValue = 0;
-          this.promoCodeInput = "";
-          this.promoCodeApplied = null;
-          this.promoCodeMessage = "";
-          this.promoCodeError = "";
           if (this.isPageMode) {
             this.printInvoiceDialog = true;
           } else {
@@ -1617,16 +1536,10 @@ export default {
         questions: null,
       }));
 
-      const _updatingInvoiceId = this.record.id;
       this.Updateinvoices()
-        .then(async () => {
-          await this.commitPromoCode(_updatingInvoiceId);
+        .then(() => {
           this.alertSuccess(this.t("invoice_updated_successfully") || this.t("alertSuccess"));
           this.clearObjectValues(this.record);
-          this.promoCodeInput = "";
-          this.promoCodeApplied = null;
-          this.promoCodeMessage = "";
-          this.promoCodeError = "";
           if (this.isPageMode) {
             this.$emit('saved');
           } else {
@@ -1662,18 +1575,18 @@ export default {
     },
   },
   watch: {
+    "responseData.id": { immediate:true, async handler(id) {
+      this.loyaltyKey=""; this.loyalty=null; this.loyaltyError="";
+      if (!id || this.isEditMode) return;
+      this.loyaltyLoading=true;
+      try { const {data}=await $http.get('/patients/'+id+'/loyalty'); if(this.responseData?.id===id) this.loyalty=data; }
+      catch(e) { if(this.responseData?.id===id) this.loyaltyError=e.response?.data?.message || 'تعذر تحميل نقاط المريض'; }
+      finally { if(this.responseData?.id===id) this.loyaltyLoading=false; }
+    }},
+    loyaltyKey() { this.recalcTotal(); },
+    loyaltyDiscount() { this.recalcTotal(); },
     "record.notes": function () {
       this.$nextTick(() => this.autoGrowNotes());
-    },
-    // Pre-fill the promo code box when editing an invoice that already has one applied.
-    "record.promo_code": {
-      immediate: true,
-      handler(v) {
-        if (v) {
-          this.promoCodeInput = v;
-          this.promoCodeApplied = v;
-        }
-      },
     },
     // Init discount mode flags when invoice loads in edit mode (form.vue sets record.discount_type_id_fk)
     // Also computes the paired field (% ↔ amount) since v-model values arrive separately.
