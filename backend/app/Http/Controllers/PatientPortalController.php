@@ -101,8 +101,9 @@ class PatientPortalController extends Controller
         $summary = $lab ? $this->loyalty->refreshSummary($patient, $lab) : null;
 
         $invoices = Invoice::where('patient_id_fk', $patient->id)
+            ->with(['invoiceTestRels.test', 'invoiceTestRels.culture', 'invoiceTestRels.package', 'invoiceTestRels.testGroup'])
             ->orderByDesc('created_at')
-            ->get(['id', 'barcode', 'is_done', 'created_at', 'result_date']);
+            ->get(['id', 'barcode', 'is_done', 'created_at', 'result_date', 'sub_total', 'total', 'paid', 'loyalty_discount', 'loyalty_points_spent']);
 
         return response()->json([
             'requires_otp' => false,
@@ -115,8 +116,22 @@ class PatientPortalController extends Controller
                 'barcode' => $inv->barcode,
                 'date' => $inv->created_at,
                 'result_date' => $inv->result_date,
+                'total' => (float) $inv->total,
+                'paid' => (float) $inv->paid,
+                'due' => max(0, (float) $inv->total - (float) $inv->paid),
+                'loyalty_discount' => (float) $inv->loyalty_discount,
+                'loyalty_points_spent' => (int) $inv->loyalty_points_spent,
+                // Only workflow status is published here, never unapproved result values.
+                'tests' => $inv->invoiceTestRels->map(fn ($rel) => [
+                    'id' => $rel->id,
+                    'name' => $rel->test?->report_name ?: ($rel->test?->name ?? $rel->culture?->name ?? $rel->package?->name ?? $rel->testGroup?->group_name ?? 'فحص'),
+                    'kind' => $rel->package_id_fk ? 'باقة' : ($rel->test_group_id_fk ? 'مجموعة' : ($rel->culture_id_fk ? 'زرع' : 'تحليل')),
+                    'status' => $rel->is_done ? 'ready' : 'pending',
+                    'sample_received' => (bool) $rel->is_sample_received,
+                    'price' => (float) $rel->price,
+                ]),
                 'status' => $inv->is_done ? 'ready' : 'pending',
-                'view_url' => rtrim(config('app.frontend_url', env('FRONTEND_URL', config('app.url'))), '/')."/result/{$inv->id}",
+                'view_url' => $inv->is_done ? rtrim(config('app.frontend_url', env('FRONTEND_URL', config('app.url'))), '/')."/result/{$inv->id}" : null,
             ]),
             'loyalty' => $summary && ($config['enabled'] ?? true) ? [
                 'balance' => $summary['balance'],

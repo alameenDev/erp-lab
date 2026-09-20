@@ -83,4 +83,32 @@ class LoyaltyTest extends TestCase
         $this->assertSame(150,$service->balance($patient));
         $this->assertDatabaseCount('invoices',0);
     }
+
+    public function test_portal_shows_only_own_invoices_and_pending_work_without_draft_results(): void
+    {
+        [$lab,$patient]=$this->fixture();
+        LabSetting::create(['lab_id_fk'=>$lab->id,'loyalty_config'=>['enabled'=>false]]);
+        $invoice=\App\Models\Invoice::create(['patient_id_fk'=>$patient->id,'lab_id_fk'=>$lab->id,'total'=>20000,'paid'=>5000,'is_done'=>false]);
+        \App\Models\InvoiceTestRel::create(['invoice_id_fk'=>$invoice->id,'is_done'=>false,'is_sample_received'=>true,'price'=>20000,'result'=>'PRIVATE_DRAFT']);
+        $other=Patient::create(['user_id'=>$lab->id,'creator_id'=>$lab->id,'code'=>'P2']);
+        \App\Models\Invoice::create(['patient_id_fk'=>$other->id,'lab_id_fk'=>$lab->id,'total'=>90000]);
+        $access=\App\Models\PortalAccessToken::create(['patient_id_fk'=>$patient->id,'token'=>\App\Models\PortalAccessToken::generatePlainToken(),'expires_at'=>now()->addDay()]);
+        $response=$this->getJson('/api/portal/'.$access->token)->assertOk()->assertJsonCount(1,'reports')
+            ->assertJsonPath('reports.0.id',$invoice->id)->assertJsonPath('reports.0.due',15000)
+            ->assertJsonPath('reports.0.view_url',null)->assertJsonPath('reports.0.tests.0.status','pending')
+            ->assertJsonPath('reports.0.tests.0.sample_received',true);
+        $this->assertStringNotContainsString('PRIVATE_DRAFT',$response->getContent());
+        $invoice->update(['is_done'=>true]);
+        $this->assertStringEndsWith('/result/'.$invoice->id,$this->getJson('/api/portal/'.$access->token)->assertOk()->json('reports.0.view_url'));
+    }
+
+    public function test_portal_hides_invoice_details_until_otp_and_rejects_expired_link(): void
+    {
+        [$lab,$patient]=$this->fixture();
+        LabSetting::create(['lab_id_fk'=>$lab->id,'loyalty_config'=>['require_otp'=>true]]);
+        $access=\App\Models\PortalAccessToken::create(['patient_id_fk'=>$patient->id,'token'=>\App\Models\PortalAccessToken::generatePlainToken(),'expires_at'=>now()->addDay()]);
+        $this->getJson('/api/portal/'.$access->token)->assertOk()->assertJsonPath('requires_otp',true)->assertJsonMissingPath('reports');
+        $access->update(['expires_at'=>now()->subMinute()]);
+        $this->getJson('/api/portal/'.$access->token)->assertNotFound();
+    }
 }

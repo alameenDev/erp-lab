@@ -1,5 +1,6 @@
 <script setup>
-import { computed } from "vue";
+import { computed, ref, watch, nextTick } from "vue";
+import { sharePatientPortal } from "@/utils/sharePatientPortal";
 import { storeToRefs } from "pinia";
 import { useinvoicesStore } from "@/store/modules/invoices";
 import { useLabSettingsStore } from "@/store/modules/labSettings";
@@ -16,6 +17,40 @@ const invoicesStore = useinvoicesStore();
 const labSettingsStore = useLabSettingsStore();
 const { printRecord, printInvoiceDialog } = storeToRefs(invoicesStore);
 const { printStyles } = usePrint();
+
+const dialog = ref(null);
+let previousFocus = null;
+watch(printInvoiceDialog, async (open) => {
+  if (open) { previousFocus = document.activeElement; await nextTick(); dialog.value?.focus(); }
+  else previousFocus?.focus?.();
+});
+const trapFocus = (event) => {
+  const nodes = [...dialog.value.querySelectorAll('button:not(:disabled), [href], [tabindex="0"]')];
+  if (!nodes.length) return;
+  const first = nodes[0], last = nodes[nodes.length - 1];
+  if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog.value)) { event.preventDefault(); last.focus(); }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+};
+const sending = ref(false);
+const shareError = ref("");
+const shareNotice = ref("");
+const money = (value) => new Intl.NumberFormat('ar-IQ').format(Number(value) || 0);
+const invoiceItems = computed(() => [
+  ...(printRecord.value?.tests || []).map(x => ({...x, label:x.report_name || x.name, kind:'تحليل'})),
+  ...(printRecord.value?.cultures || []).map(x => ({...x, label:x.name, kind:'زرع'})),
+  ...(printRecord.value?.test_groups || []).map(x => ({...x, label:x.group_name || x.name, kind:'مجموعة', price:x.price ?? [...(x.tests || []), ...(x.cultures || [])].reduce((sum, test) => sum + (Number(test.price) || 0), 0), children:[...(x.tests || []), ...(x.cultures || [])]})),
+  ...(printRecord.value?.packages || []).map(x => ({...x, label:x.name, kind:'باقة', children:[...(x.tests || []), ...(x.cultures || [])]})),
+]);
+watch(printInvoiceDialog, () => { shareError.value = ''; shareNotice.value = ''; });
+const sendWelcome = async () => {
+  if (sending.value) return;
+  sending.value = true; shareError.value = ''; shareNotice.value = '';
+  try {
+    await sharePatientPortal(printRecord.value, labSettingsStore.settings, '', 'invoice');
+    shareNotice.value = 'تم فتح الرسالة في واتساب؛ اضغط إرسال هناك لإيصالها للمريض.';
+  } catch (e) { shareError.value = e.message; }
+  finally { sending.value = false; }
+};
 
 const appBaseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
 const getPatientReportLink = () => `${appBaseUrl}/result/${printRecord.value?.id}`;
@@ -101,7 +136,7 @@ const openthermalRecord = (data) => {
     const jobContent = document.getElementById("thermalRecord")?.innerHTML;
     if (!jobContent) return;
 
-    const css = printStyles.thermalReceipt;
+    const css = printStyles.thermalReceipt + documentCss(labSettingsStore.settings, "thermal");
 
     const printFrame = document.createElement("iframe");
     printFrame.style.cssText = "position: absolute; width: 0px; height: 0px; border: none;";
@@ -124,221 +159,48 @@ const openthermalRecord = (data) => {
 <template>
   <Teleport to="body">
     <Transition name="modal">
-      <div v-if="printInvoiceDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="fixed inset-0 bg-black/50" @click="close"></div>
-        <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden">
-          <!-- Header -->
-          <div class="flex items-center justify-between p-4 border-b border-gray-200">
-            <h2 class="text-xl font-semibold text-gray-800">{{ t("print_invoice") }}</h2>
-            <button @click="close" class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg">
-              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          <!-- Content -->
-          <div class="p-6 overflow-y-auto max-h-[calc(90vh-150px)]">
-            <!-- Top Actions: Barcode + Thermal Receipt -->
-            <section class="flex justify-between items-center border border-gray-300 p-4 rounded-lg mb-4">
-              <span @click="printParcode(printRecord)" class="cursor-pointer">
-                <div class="flex flex-col items-center">
-                  <BarcodeComponent :value="printRecord?.barcode" />
-                  <span class="text-sm font-bold mt-1">{{ printRecord?.barcode }}</span>
-                </div>
-              </span>
-              <button
-                @click="openthermalRecord(printRecord)"
-                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
-              >
-                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                {{ t('thermal_recipt') }}
-              </button>
+      <div v-if="printInvoiceDialog" class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-5" dir="rtl">
+        <div class="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" @click="close"></div>
+        <section ref="dialog" @keydown.tab="trapFocus" role="dialog" aria-modal="true" aria-labelledby="invoice-summary-title" tabindex="-1" @keydown.esc="close" class="relative w-full max-w-5xl max-h-[94vh] flex flex-col overflow-hidden rounded-2xl bg-slate-50 shadow-2xl">
+          <header class="flex items-center justify-between gap-4 bg-slate-900 text-white px-6 py-5">
+            <div><p class="text-teal-300 text-xs mb-1">الفاتورة مسجلة • #{{ printRecord?.id }}</p><h2 id="invoice-summary-title" class="text-xl font-bold">ملخص الزيارة والطباعة</h2><p class="text-slate-300 text-sm mt-1">راجع التفاصيل، اطبع الوصل وشارك بوابة المريض.</p></div>
+            <button type="button" @click="close" aria-label="إغلاق ملخص الفاتورة" class="rounded-xl px-3 py-2 bg-white/10 hover:bg-white/20">✕</button>
+          </header>
+          <div class="overflow-y-auto p-4 sm:p-6 space-y-5">
+            <section class="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col sm:flex-row justify-between gap-4">
+              <div><p class="text-xs text-slate-500 mb-1">المريض</p><h3 class="text-xl font-bold text-slate-900">{{ printRecord?.patient?.name }}</h3><div class="flex flex-wrap gap-4 text-sm text-slate-500 mt-2"><span>رقم الملف: {{ printRecord?.patient?.code || '—' }}</span><span>{{ printRecord?.patient?.age }} {{ printRecord?.patient?.age_unit }} · {{ printRecord?.patient?.gender }}</span><span dir="ltr">{{ printRecord?.patient?.phone || 'لا يوجد رقم هاتف' }}</span></div></div>
+              <div class="text-sm text-slate-500 space-y-2"><p>تاريخ التسجيل: {{ dateTimeFormat(printRecord?.registration_date) }}</p><p>موعد النتائج: {{ printRecord?.result_date ? dateTimeFormat(printRecord.result_date) : 'غير محدد' }}</p><p v-if="printRecord?.referral?.name">الطبيب المحيل: {{ printRecord.referral.name }}</p></div>
             </section>
-
-            <!-- Invoice Preview -->
-            <div class="border border-gray-200 rounded-lg p-6 bg-gray-50">
-              <!-- Patient Info -->
-              <div class="grid grid-cols-2 gap-x-6 gap-y-2 mb-4 text-sm">
-                <div class="flex gap-2"><span class="font-semibold text-gray-500 w-28 shrink-0">Patient:</span><strong>{{ printRecord?.patient?.name }}</strong></div>
-                <div class="flex gap-2"><span class="font-semibold text-gray-500 w-28 shrink-0">Code:</span><span>{{ printRecord?.patient?.code }}</span></div>
-                <div class="flex gap-2"><span class="font-semibold text-gray-500 w-28 shrink-0">Age / Sex:</span><span>{{ printRecord?.patient?.age }}{{ printRecord?.patient?.age_unit }} / {{ printRecord?.patient?.gender }}</span></div>
-                <div class="flex gap-2"><span class="font-semibold text-gray-500 w-28 shrink-0">Phone:</span><span>{{ printRecord?.patient?.phone || '-' }}</span></div>
-                <div class="flex gap-2"><span class="font-semibold text-gray-500 w-28 shrink-0">Reg. Date:</span><span>{{ dateTimeFormat(printRecord?.registration_date) }}</span></div>
-                <div class="flex gap-2"><span class="font-semibold text-gray-500 w-28 shrink-0">Result Date:</span><span>{{ dateTimeFormat(printRecord?.result_date) }}</span></div>
-                <div v-if="printRecord?.referral?.name" class="flex gap-2"><span class="font-semibold text-gray-500 w-28 shrink-0">Referral:</span><span>{{ printRecord?.referral?.name }}</span></div>
-                <div v-if="printRecord?.contract?.name" class="flex gap-2"><span class="font-semibold text-gray-500 w-28 shrink-0">Contract:</span><span>{{ printRecord?.contract?.name }}</span></div>
-                <div v-if="printRecord?.sample_collector?.name" class="flex gap-2"><span class="font-semibold text-gray-500 w-28 shrink-0">Collector:</span><span>{{ printRecord?.sample_collector?.name }}</span></div>
-                <div v-if="printRecord?.from_lab" class="flex gap-2"><span class="font-semibold text-gray-500 w-28 shrink-0">From Lab:</span><span>{{ printRecord?.from_lab }}</span></div>
-              </div>
-
-              <hr class="my-3">
-
-              <!-- Test Groups -->
-              <div v-if="printRecord?.test_groups?.length > 0">
-                <div v-for="(group, gi) in printRecord.test_groups" :key="'g-' + gi" class="mb-3">
-                  <div class="bg-teal-700 text-white font-bold px-3 py-1.5 text-sm rounded-t">{{ group.group_name }}</div>
-                  <table class="w-full text-sm border-collapse">
-                    <thead class="bg-teal-500 text-white">
-                      <tr>
-                        <th class="border border-teal-400 px-2 py-1.5 w-10 text-center">#</th>
-                        <th class="border border-teal-400 px-2 py-1.5 text-start">Test</th>
-                        <th class="border border-teal-400 px-2 py-1.5 w-24 text-center">Sample</th>
-                        <th class="border border-teal-400 px-2 py-1.5 w-20 text-center">Price</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="(item, idx) in group.tests" :key="'gt-' + idx" class="even:bg-gray-100">
-                        <td class="border border-gray-200 px-2 py-1 text-center">{{ idx + 1 }}</td>
-                        <td class="border border-gray-200 px-2 py-1">{{ item.report_name || item.name }}</td>
-                        <td class="border border-gray-200 px-2 py-1 text-center text-xs">{{ item.sample_name || '-' }}</td>
-                        <td class="border border-gray-200 px-2 py-1 text-center font-semibold">{{ item.price }}</td>
-                      </tr>
-                      <tr v-for="(item, idx) in group.cultures" :key="'gc-' + idx" class="even:bg-gray-100">
-                        <td class="border border-gray-200 px-2 py-1 text-center">{{ (group.tests?.length || 0) + idx + 1 }}</td>
-                        <td class="border border-gray-200 px-2 py-1">{{ item.name }}</td>
-                        <td class="border border-gray-200 px-2 py-1 text-center text-xs">{{ item.sample_name || '-' }}</td>
-                        <td class="border border-gray-200 px-2 py-1 text-center font-semibold">{{ item.price }}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <!-- Packages -->
-              <div v-if="printRecord?.packages?.length > 0">
-                <div v-for="(pkg, pi) in printRecord.packages" :key="'pkg-' + pi" class="mb-3">
-                  <div class="bg-teal-700 text-white font-bold px-3 py-1.5 text-sm rounded-t">{{ pkg.name }} (Package)</div>
-                  <table class="w-full text-sm border-collapse">
-                    <thead class="bg-teal-500 text-white">
-                      <tr>
-                        <th class="border border-teal-400 px-2 py-1.5 w-10 text-center">#</th>
-                        <th class="border border-teal-400 px-2 py-1.5 text-start">Test</th>
-                        <th class="border border-teal-400 px-2 py-1.5 w-24 text-center">Sample</th>
-                        <th class="border border-teal-400 px-2 py-1.5 w-20 text-center">Price</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="(item, idx) in pkg.tests" :key="'pt-' + idx" class="even:bg-gray-100">
-                        <td class="border border-gray-200 px-2 py-1 text-center">{{ idx + 1 }}</td>
-                        <td class="border border-gray-200 px-2 py-1">{{ item.report_name || item.name }}</td>
-                        <td class="border border-gray-200 px-2 py-1 text-center text-xs">{{ item.sample_name || '-' }}</td>
-                        <td class="border border-gray-200 px-2 py-1 text-center font-semibold">{{ idx === 0 ? pkg.price : '' }}</td>
-                      </tr>
-                      <tr v-for="(item, idx) in pkg.cultures" :key="'pc-' + idx" class="even:bg-gray-100">
-                        <td class="border border-gray-200 px-2 py-1 text-center">{{ (pkg.tests?.length || 0) + idx + 1 }}</td>
-                        <td class="border border-gray-200 px-2 py-1">{{ item.name }}</td>
-                        <td class="border border-gray-200 px-2 py-1 text-center text-xs">{{ item.sample_name || '-' }}</td>
-                        <td class="border border-gray-200 px-2 py-1 text-center font-semibold">{{ !pkg.tests?.length && idx === 0 ? pkg.price : '' }}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <!-- Individual Tests & Cultures -->
-              <div v-if="printRecord?.tests?.length > 0 || printRecord?.cultures?.length > 0" class="mb-3">
-                <div class="bg-teal-700 text-white font-bold px-3 py-1.5 text-sm rounded-t">Individual Tests</div>
-                <table class="w-full text-sm border-collapse">
-                  <thead class="bg-teal-500 text-white">
-                    <tr>
-                      <th class="border border-teal-400 px-2 py-1.5 w-10 text-center">#</th>
-                      <th class="border border-teal-400 px-2 py-1.5 text-start">Test</th>
-                      <th class="border border-teal-400 px-2 py-1.5 w-24 text-center">Sample</th>
-                      <th class="border border-teal-400 px-2 py-1.5 w-20 text-center">Price</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="(item, index) in printRecord?.tests" :key="'t-' + index" class="even:bg-gray-100">
-                      <td class="border border-gray-200 px-2 py-1 text-center">{{ index + 1 }}</td>
-                      <td class="border border-gray-200 px-2 py-1">{{ item.report_name || item.name }}</td>
-                      <td class="border border-gray-200 px-2 py-1 text-center text-xs">{{ item.sample_name || '-' }}</td>
-                      <td class="border border-gray-200 px-2 py-1 text-center font-semibold">{{ item.price }}</td>
-                    </tr>
-                    <tr v-for="(item, index) in printRecord?.cultures" :key="'c-' + index" class="even:bg-gray-100">
-                      <td class="border border-gray-200 px-2 py-1 text-center">{{ (printRecord?.tests?.length || 0) + index + 1 }}</td>
-                      <td class="border border-gray-200 px-2 py-1">{{ item.name }}</td>
-                      <td class="border border-gray-200 px-2 py-1 text-center text-xs">{{ item.sample_name || '-' }}</td>
-                      <td class="border border-gray-200 px-2 py-1 text-center font-semibold">{{ item.price }}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <!-- Notes -->
-              <div v-if="printRecord?.notes" class="bg-amber-50 border border-amber-300 rounded p-3 text-sm mb-3">
-                <strong class="text-amber-800">Notes:</strong> {{ printRecord.notes }}
-              </div>
-
-              <!-- Financial Summary -->
-              <div class="flex justify-end mt-4">
-                <div class="w-72 border border-gray-300 rounded overflow-hidden">
-                  <div class="flex justify-between px-4 py-2 bg-gray-50 border-b border-gray-200">
-                    <span class="font-semibold text-gray-600">Subtotal</span>
-                    <span>IQD {{ printRecord?.sub_total }}</span>
-                  </div>
-                  <div v-if="printRecord?.discount" class="flex justify-between px-4 py-2 bg-gray-50 border-b border-gray-200">
-                    <span class="font-semibold text-gray-600">Discount</span>
-                    <span>IQD {{ printRecord?.discount }}</span>
-                  </div>
-                  <div class="flex justify-between px-4 py-2 bg-teal-500 text-white font-bold border-b border-teal-400">
-                    <span>Total</span>
-                    <span>IQD {{ printRecord?.total }}</span>
-                  </div>
-                  <div class="flex justify-between px-4 py-2 bg-green-50 text-green-700 font-semibold border-b border-gray-200">
-                    <span>Paid</span>
-                    <span>IQD {{ printRecord?.paid }}</span>
-                  </div>
-                  <div class="flex justify-between px-4 py-2 bg-red-50 text-red-600 font-bold">
-                    <span>Due</span>
-                    <span>IQD {{ due }}</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Payment Details -->
-              <div v-if="printRecord?.paidDetails?.length > 1" class="flex justify-end mt-2">
-                <table class="w-72 text-xs border-collapse">
-                  <thead>
-                    <tr class="bg-gray-100">
-                      <th class="border border-gray-200 px-2 py-1">#</th>
-                      <th class="border border-gray-200 px-2 py-1">Method</th>
-                      <th class="border border-gray-200 px-2 py-1">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="(pd, idx) in printRecord.paidDetails" :key="'pd-' + idx">
-                      <td class="border border-gray-200 px-2 py-1 text-center">{{ idx + 1 }}</td>
-                      <td class="border border-gray-200 px-2 py-1 text-center">{{ pd.payment_method || '-' }}</td>
-                      <td class="border border-gray-200 px-2 py-1 text-center">IQD {{ pd.amount }}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div class="rounded-xl border border-slate-200 bg-white p-4"><p class="text-sm text-slate-500">إجمالي الفاتورة</p><p class="text-2xl font-bold mt-2 text-slate-900">{{ money(printRecord?.total) }} <small class="text-xs">د.ع</small></p></div>
+              <div class="rounded-xl border border-teal-100 bg-teal-50 p-4"><p class="text-sm text-teal-700">المبلغ المدفوع</p><p class="text-2xl font-bold mt-2 text-teal-800">{{ money(printRecord?.paid) }} <small class="text-xs">د.ع</small></p></div>
+              <div class="rounded-xl border border-amber-100 bg-amber-50 p-4"><p class="text-sm text-amber-800">المبلغ المتبقي</p><p class="text-2xl font-bold mt-2 text-amber-900">{{ money(due) }} <small class="text-xs">د.ع</small></p></div>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+              <section class="lg:col-span-2 bg-white border border-slate-200 rounded-2xl overflow-hidden">
+                <h3 class="font-bold text-slate-800 border-b border-slate-100 p-4">الفحوصات المطلوبة <span class="text-xs text-slate-500 font-normal">({{ invoiceItems.length }} بند)</span></h3>
+                <div v-for="(item, index) in invoiceItems" :key="index" class="p-4 border-b border-slate-100 last:border-0 flex justify-between gap-3"><div><p class="font-semibold text-slate-800">{{ item.label }}</p><p class="text-xs text-slate-500 mt-1">{{ item.kind }}<span v-if="item.sample_name"> · {{ item.sample_name }}</span></p><p v-if="item.children?.length" class="text-xs text-slate-500 mt-2">{{ item.children.map(x => x.report_name || x.name).join('، ') }}</p></div><span class="text-sm font-semibold text-slate-700 whitespace-nowrap">{{ money(item.price) }} د.ع</span></div>
+                <p v-if="!invoiceItems.length" class="p-5 text-sm text-slate-500">لا توجد فحوصات لعرضها.</p>
+                <div class="p-4 text-sm text-slate-600 border-t border-slate-100"><p>المجموع قبل الخصم: {{ money(printRecord?.sub_total) }} د.ع</p><p v-if="printRecord?.discount" class="mt-1">الخصم: {{ printRecord.discount }} {{ Number(printRecord.discount_type_id_fk) === 2 ? '%' : 'د.ع' }}</p><div v-if="printRecord?.paidDetails?.length" class="mt-3 space-y-1"><p v-for="(payment, i) in printRecord.paidDetails" :key="i">{{ payment.payment_method || 'دفعة' }}: {{ money(payment.amount) }} د.ع</p></div></div>
+                <div v-if="printRecord?.loyalty_discount" class="p-4 bg-teal-50 text-sm text-teal-800">خصم الولاء: {{ money(printRecord.loyalty_discount) }} د.ع مقابل {{ printRecord.loyalty_points_spent }} نقطة</div>
+                <p v-if="printRecord?.notes" class="p-4 text-sm bg-amber-50 text-amber-900">ملاحظات: {{ printRecord.notes }}</p>
+              </section>
+              <aside class="space-y-4">
+                <section class="bg-white rounded-2xl border border-slate-200 p-4 space-y-3"><h3 class="font-bold text-slate-800">الطباعة</h3>
+                  <button type="button" @click="openthermalRecord(printRecord)" class="w-full rounded-xl bg-slate-900 text-white p-3 font-semibold hover:bg-slate-800">طباعة الوصل الحراري</button>
+                  <button type="button" @click="openprintINvoiceTemplate(printRecord)" class="w-full rounded-xl border border-slate-300 p-3 text-slate-700 hover:bg-slate-50">طباعة الفاتورة الورقية</button>
+                  <button type="button" @click="printParcode(printRecord)" class="w-full rounded-xl border border-slate-300 p-3 text-slate-700 hover:bg-slate-50">طباعة ملصق الباركود</button>
+                  <div v-if="printRecord?.barcode" class="flex flex-col items-center overflow-hidden pt-2" dir="ltr"><BarcodeComponent :value="printRecord.barcode" /><span class="text-xs text-slate-500">{{ printRecord.barcode }}</span></div>
+                </section>
+                <section class="bg-teal-50 rounded-2xl border border-teal-100 p-4"><h3 class="font-bold text-teal-900">بوابة المريض</h3><p class="text-sm text-teal-800 my-2 leading-6">رسالة ترحيبية ورابط خاص لمتابعة النقاط والفواتير والتحاليل والنتائج.</p>
+                  <button type="button" @click="sendWelcome" :disabled="sending || !printRecord?.patient?.phone" class="w-full rounded-xl bg-teal-700 hover:bg-teal-800 text-white p-3 font-semibold disabled:opacity-50">{{ sending ? 'جاري تجهيز الرسالة…' : 'إرسال الترحيب عبر واتساب' }}</button>
+                  <p v-if="!printRecord?.patient?.phone" class="text-xs mt-2 text-amber-900">أضف رقم هاتف المريض لتفعيل الإرسال.</p><p v-if="shareError" role="alert" class="text-sm mt-2 text-red-700">{{ shareError }}</p><p v-if="shareNotice" role="status" class="text-sm mt-2 text-teal-900">{{ shareNotice }}</p>
+                </section>
+              </aside>
             </div>
           </div>
-
-          <!-- Footer -->
-          <div class="flex justify-center gap-2 p-4 border-t border-gray-200">
-            <button
-              @click="close"
-              class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-            >
-              {{ t('close') }}
-            </button>
-            <button
-              @click="openprintINvoiceTemplate(printRecord)"
-              class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center gap-2"
-            >
-              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-              </svg>
-              {{ t("printInvoice") }}
-            </button>
-          </div>
-        </div>
+          <footer class="border-t border-slate-200 bg-white px-6 py-3 flex justify-end"><button type="button" @click="close" class="rounded-xl px-6 py-2 border border-slate-300 text-slate-700 hover:bg-slate-50">تم، إغلاق</button></footer>
+        </section>
       </div>
     </Transition>
   </Teleport>
@@ -502,6 +364,7 @@ const openthermalRecord = (data) => {
             <td class="lbl">Discount</td>
             <td>IQD {{ printRecord?.discount }}</td>
           </tr>
+          <tr v-if="printRecord?.loyalty_discount"><td class="lbl">خصم الولاء</td><td>IQD {{ printRecord.loyalty_discount }}</td></tr>
           <tr class="total">
             <td>Total</td>
             <td>IQD {{ printRecord?.total }}</td>

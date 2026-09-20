@@ -20,6 +20,9 @@ const patient = ref(null);
 const reports = ref([]);
 const loyalty = ref(null);
 
+const reportFilter = ref('all');
+const filteredReports = computed(() => reports.value.filter(r => reportFilter.value === 'all' || r.status === reportFilter.value));
+const money = value => new Intl.NumberFormat('ar-IQ').format(Number(value) || 0);
 const activeTab = ref("reports"); // reports | loyalty
 
 const redeemingKey = ref(null);
@@ -205,7 +208,7 @@ onMounted(load);
               activeTab === 'reports' ? 'bg-teal-600 text-white' : 'text-gray-500',
             ]"
           >
-            نتائج التحاليل
+            الفواتير والتحاليل
           </button>
           <button
             v-if="loyalty"
@@ -224,24 +227,17 @@ onMounted(load);
           <div v-if="!reports.length" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center text-gray-400">
             لا توجد فحوصات مسجلة حتى الآن
           </div>
-          <a
-            v-for="r in reports"
-            :key="r.id"
-            :href="r.view_url"
-            target="_blank"
-            rel="noopener"
-            class="block bg-white rounded-2xl shadow-sm border border-gray-100 p-4 hover:border-teal-300 transition"
-          >
-            <div class="flex items-center justify-between">
-              <div>
-                <div class="font-bold text-gray-800">{{ r.barcode || `فحص #${r.id}` }}</div>
-                <div class="text-xs text-gray-400 mt-1">{{ formatDate(r.date) }}</div>
-              </div>
-              <span :class="['text-xs font-bold px-3 py-1 rounded-full', statusClass(r.status)]">
-                {{ statusLabel(r.status) }}
-              </span>
-            </div>
-          </a>
+          <div class="flex flex-wrap gap-2" aria-label="تصفية الفواتير">
+            <button v-for="filter in [{key:'all',label:'الكل'}, {key:'pending',label:'قيد الإجراء'}, {key:'ready',label:'جاهزة'}]" :key="filter.key" @click="reportFilter = filter.key" :aria-pressed="reportFilter === filter.key" :class="['px-4 py-2 rounded-full text-sm border', reportFilter === filter.key ? 'bg-teal-700 text-white border-teal-700' : 'bg-white text-slate-600 border-slate-200']">{{ filter.label }} ({{ reports.filter(r => filter.key === 'all' || r.status === filter.key).length }})</button>
+          </div>
+          <p v-if="reports.length && !filteredReports.length" class="text-sm text-slate-500 p-4">لا توجد فواتير ضمن هذه الحالة.</p>
+          <article v-for="r in filteredReports" :key="r.id" class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <header class="flex items-center justify-between gap-3 p-4 border-b border-slate-100"><div><h2 class="font-bold text-gray-800">فاتورة #{{ r.id }}</h2><p class="text-xs text-gray-500 mt-1">{{ formatDate(r.date) }} · {{ r.barcode }}</p></div><span :class="['text-xs font-bold px-3 py-1 rounded-full', statusClass(r.status)]">{{ statusLabel(r.status) }}</span></header>
+            <div class="grid grid-cols-3 gap-2 p-4 text-sm bg-slate-50"><div><p class="text-xs text-slate-500">الإجمالي</p><p class="font-bold mt-1">{{ money(r.total) }} د.ع</p></div><div><p class="text-xs text-slate-500">المدفوع</p><p class="font-bold text-teal-700 mt-1">{{ money(r.paid) }} د.ع</p></div><div><p class="text-xs text-slate-500">المتبقي</p><p class="font-bold text-amber-800 mt-1">{{ money(r.due) }} د.ع</p></div></div>
+            <p v-if="r.loyalty_discount" class="px-4 py-2 text-xs text-teal-700">خصم نقاط: {{ money(r.loyalty_discount) }} د.ع مقابل {{ r.loyalty_points_spent }} نقطة</p>
+            <details class="p-4"><summary class="cursor-pointer font-semibold text-sm text-slate-700">تفاصيل الفحوصات ({{ r.tests?.length || 0 }})</summary><div v-for="test in r.tests" :key="test.id" class="flex justify-between gap-3 border-b border-slate-100 py-3 text-sm"><div><p class="font-semibold">{{ test.name }}</p><p class="text-xs text-slate-500 mt-1">{{ test.kind }} · {{ test.sample_received ? 'تم استلام العينة' : 'بانتظار استلام العينة' }}</p></div><span :class="['text-xs self-start px-2 py-1 rounded-full whitespace-nowrap', statusClass(test.status)]">{{ test.status === 'ready' ? 'مكتمل' : 'قيد الإجراء' }}</span></div></details>
+            <footer class="px-4 pb-4"><p v-if="r.result_date" class="text-xs text-slate-500 mb-3">موعد النتائج: {{ formatDate(r.result_date) }}</p><a v-if="r.status === 'ready' && r.view_url" :href="r.view_url" target="_blank" rel="noopener" class="block text-center rounded-xl bg-teal-700 text-white py-3 text-sm font-bold">عرض التقرير والنتائج</a><p v-else class="rounded-xl bg-amber-50 text-amber-900 p-3 text-xs">الفحوصات قيد الإجراء؛ سيظهر رابط التقرير عند اكتمال الفاتورة.</p></footer>
+          </article>
         </div>
 
         <!-- Loyalty tab -->
