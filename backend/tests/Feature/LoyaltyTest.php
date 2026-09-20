@@ -111,4 +111,14 @@ class LoyaltyTest extends TestCase
         $access->update(['expires_at'=>now()->subMinute()]);
         $this->getJson('/api/portal/'.$access->token)->assertNotFound();
     }
+
+    public function test_staff_can_share_own_lab_patient_portal_but_not_other_labs(): void
+    {
+        [$lab,$patient]=$this->fixture();
+        $staff=User::create(['name'=>'Reception','email'=>'portalstaff@example.test','password'=>'test-password-123','role_id'=>7,'creator_id'=>$lab->id]);
+        $patient->update(['creator_id'=>$staff->id]);
+        $this->actingAs($staff)->postJson('/api/portal/generate',['patient_id'=>$patient->id])->assertOk()->assertJsonStructure(['url','loyalty_points']);
+        $other=User::create(['name'=>'Other lab','email'=>'portallab@example.test','password'=>'test-password-123','role_id'=>2]);
+        $this->actingAs($other)->postJson('/api/portal/generate',['patient_id'=>$patient->id])->assertForbidden();
+    }
 }

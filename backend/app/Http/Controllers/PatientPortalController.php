@@ -32,15 +32,10 @@ class PatientPortalController extends Controller
             return response()->json(['message' => 'Patient not found'], 404);
         }
 
-        // Tenant check - same pattern used across the app.
-        if ($user->role_id != 1) {
-            $labId = $user->role_id == 2 ? $user->id : ($user->creator_id ?? $user->id);
-            if ($patient->creator_id != $labId) {
-                return response()->json(['message' => 'Unauthorized'], 403);
-            }
+        $lab = $this->patientLab($patient);
+        if (! $lab || ((int) $user->role_id !== 1 && app(\App\Services\InventoryService::class)->labId($user) !== (int) $lab->id)) {
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
-
-        $lab = $patient->lab ?? $user;
 
         $token = PortalAccessToken::where('patient_id_fk', $patient->id)
             ->where('expires_at', '>', now())
@@ -82,7 +77,7 @@ class PatientPortalController extends Controller
             return response()->json(['message' => 'الرابط غير صالح'], 404);
         }
 
-        $lab = $patient->lab;
+        $lab = $this->patientLab($patient);
         $config = $lab ? $this->loyalty->config($lab) : LoyaltyService::defaultConfig();
 
         if (($config['require_otp'] ?? false) && ! $access->isOtpVerified()) {
@@ -193,7 +188,7 @@ class PatientPortalController extends Controller
         }
 
         $patient = Patient::find($access->patient_id_fk);
-        $lab = $patient?->lab;
+        $lab = $patient ? $this->patientLab($patient) : null;
         if (! $patient || ! $lab) {
             return response()->json(['message' => 'تعذر إتمام العملية'], 422);
         }
@@ -213,6 +208,12 @@ class PatientPortalController extends Controller
             'item' => $item,
             'balance' => $this->loyalty->balance($patient),
         ]);
+    }
+
+    private function patientLab(Patient $patient): ?\App\Models\User
+    {
+        $creator = $patient->lab;
+        return $creator ? \App\Models\User::find(app(\App\Services\InventoryService::class)->labId($creator)) : null;
     }
 
     /**
