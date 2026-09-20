@@ -1438,6 +1438,13 @@ class InvoiceController extends Controller
                 }
             }
 
+            $loyaltyPatient = Patient::find($invoice->patient_id_fk);
+            $loyaltyLab = User::find($invoice->lab_id_fk);
+            if ($loyaltyPatient && $loyaltyLab) {
+                foreach ($invoice->paidDetails()->get() as $payment) {
+                    app(LoyaltyService::class)->awardForPayment($loyaltyPatient, $loyaltyLab, (float) $payment->amount, $payment);
+                }
+            }
             ActivityLogController::storeActivity('إنشاء فاتورة', $invoice);
             $invoice->load($this->invoiceRelations());
             $invoiceJson = $this->transformInvoice($invoice);

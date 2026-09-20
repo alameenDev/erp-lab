@@ -42,6 +42,7 @@ class LabSettingController extends Controller
             $setting->print_margins = ['top' => 20, 'bottom' => 20, 'left' => 15, 'right' => 15];
         }
 
+        $setting->loyalty_config = array_replace(\App\Services\LoyaltyService::defaultConfig(), $setting->loyalty_config ?? []);
         return response()->json($setting);
     }
 
@@ -91,14 +92,14 @@ class LabSettingController extends Controller
             'loyalty_config.review_bonus' => 'sometimes|integer|min:0',
             'loyalty_config.referral_bonus' => 'sometimes|integer|min:0',
             'loyalty_config.points_expiry_months' => 'sometimes|integer|min:1|max:60',
-            'loyalty_config.tiers' => 'sometimes|array',
-            'loyalty_config.tiers.*.key' => 'required_with:loyalty_config.tiers|string',
+            'loyalty_config.tiers' => 'sometimes|array|min:1|max:10',
+            'loyalty_config.tiers.*.key' => 'required_with:loyalty_config.tiers|string|max:40|distinct',
             'loyalty_config.tiers.*.label_ar' => 'sometimes|string',
             'loyalty_config.tiers.*.label_en' => 'sometimes|string',
             'loyalty_config.tiers.*.min_yearly_points' => 'required_with:loyalty_config.tiers|integer|min:0',
             'loyalty_config.tiers.*.multiplier' => 'required_with:loyalty_config.tiers|numeric|min:1',
             'loyalty_config.redemption_catalog' => 'sometimes|array',
-            'loyalty_config.redemption_catalog.*.key' => 'required_with:loyalty_config.redemption_catalog|string',
+            'loyalty_config.redemption_catalog.*.key' => 'required_with:loyalty_config.redemption_catalog|string|max:60|distinct',
             'loyalty_config.redemption_catalog.*.label_ar' => 'sometimes|string',
             'loyalty_config.redemption_catalog.*.points' => 'required_with:loyalty_config.redemption_catalog|integer|min:1',
             'primary_color' => 'nullable|string|max:20|regex:/^#[0-9a-fA-F]{3,8}$/',

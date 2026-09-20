@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\LoyaltyTransaction;
 use App\Models\Patient;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 class LoyaltyService
 {
@@ -42,7 +43,8 @@ class LoyaltyService
     public function config(User $lab): array
     {
         $defaults = self::defaultConfig();
-        $override = $lab->labSetting?->loyalty_config ?? [];
+        $lab = User::findOrFail(app(InventoryService::class)->labId($lab));
+        $override = $lab->labSetting()->first()?->loyalty_config ?? [];
 
         $merged = array_merge($defaults, is_array($override) ? $override : []);
 
@@ -50,7 +52,7 @@ class LoyaltyService
         if (empty($merged['tiers']) || ! is_array($merged['tiers'])) {
             $merged['tiers'] = $defaults['tiers'];
         }
-        if (empty($merged['redemption_catalog']) || ! is_array($merged['redemption_catalog'])) {
+        if (! is_array($merged['redemption_catalog'])) {
             $merged['redemption_catalog'] = $defaults['redemption_catalog'];
         }
 
@@ -147,6 +149,13 @@ class LoyaltyService
         ?string $description = null,
         $reference = null
     ): ?LoyaltyTransaction {
+        return DB::transaction(function () use ($patient, $lab, $type, $points, $description, $reference) {
+        $patient = Patient::whereKey($patient->id)->lockForUpdate()->firstOrFail();
+        $lab = User::findOrFail(app(InventoryService::class)->labId($lab));
+        if ($reference) {
+            $existing = LoyaltyTransaction::where('patient_id_fk', $patient->id)->where('lab_id_fk', $lab->id)->where('type', $type)->where('reference_type', get_class($reference))->where('reference_id', $reference->id)->first();
+            if ($existing) return $existing;
+        }
         $config = $this->config($lab);
         if (! ($config['enabled'] ?? true) || $points <= 0) {
             return null;
@@ -173,6 +182,7 @@ class LoyaltyService
         $this->refreshSummary($patient, $lab);
 
         return $transaction;
+        });
     }
 
     /**
@@ -194,6 +204,9 @@ class LoyaltyService
      */
     public function awardWelcomeBonusIfNeeded(Patient $patient, User $lab): void
     {
+        DB::transaction(function () use ($patient, $lab) {
+        $patient = Patient::whereKey($patient->id)->lockForUpdate()->firstOrFail();
+        if (! ($this->config($lab)['enabled'] ?? true)) return;
         if ($patient->loyalty_joined_at) {
             return;
         }
@@ -206,6 +219,7 @@ class LoyaltyService
         if ($bonus > 0) {
             $this->awardPoints($patient, $lab, 'welcome', $bonus, 'نقاط ترحيبية');
         }
+        });
     }
 
     /**
@@ -216,6 +230,9 @@ class LoyaltyService
     public function redeem(Patient $patient, User $lab, string $catalogKey): array
     {
         $config = $this->config($lab);
+        if (! ($config['enabled'] ?? true)) throw new \RuntimeException('برنامج الولاء غير مفعّل');
+        return DB::transaction(function () use ($patient, $lab, $catalogKey, $config) {
+        $patient = Patient::whereKey($patient->id)->lockForUpdate()->firstOrFail();
         $item = collect($config['redemption_catalog'])->firstWhere('key', $catalogKey);
         if (! $item) {
             throw new \RuntimeException('صنف الاستبدال غير موجود');
@@ -237,5 +254,6 @@ class LoyaltyService
         $this->refreshSummary($patient, $lab);
 
         return $item;
+        });
     }
 }
