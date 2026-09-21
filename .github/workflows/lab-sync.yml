@@ -1,0 +1,46 @@
+name: Sync transport verification
+on:
+  push:
+    branches: [feature/bidirectional-sync]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  transport:
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: test-only-password
+          MARIADB_DATABASE: erp_lab_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      APP_ENV: testing
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: erp_lab_test
+      DB_USERNAME: root
+      DB_PASSWORD: test-only-password
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_mysql, mbstring, xml, gd, zip, bcmath, intl
+          tools: composer:v2
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist
+      - run: cp .env.example .env
+      - run: php artisan key:generate
+      - run: find app database config routes tests -name '*.php' -print0 | xargs -0 -n1 php -l
+      - run: php artisan test --filter='SyncTransportTest|MariaDbCompatibilityTest|LabSettingsTest|InventorySafetyTest|LoyaltyTest'
