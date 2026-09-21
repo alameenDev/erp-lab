@@ -206,6 +206,7 @@ class SyncTransportTest extends TestCase
         catch (\RuntimeException $e) {}
         $this->assertDatabaseHas('lab_sync_peers', ['id' => $peer->id, 'pull_cursor' => 0]);
         $this->assertDatabaseCount('lab_sync_events', 1);
+        Http::swap(new \Illuminate\Http\Client\Factory());
         Http::fake(['*/changes*' => Http::response($batch), '*/acknowledgements' => Http::response(['acknowledged' => $remote['event_uuid']])]);
         app(SyncExchange::class)->run($peer->id);
         $this->assertDatabaseCount('lab_sync_events', 1);
@@ -222,4 +223,19 @@ class SyncTransportTest extends TestCase
         $this->postJson('/api/lab-sync/v1/acknowledgements', $receipt)->assertConflict();
         $this->assertDatabaseHas('lab_sync_events', ['event_uuid' => $event['event_uuid'], 'remote_state' => 'conflict']);
     }
+    public function test_inspection_reports_counts_without_names_emails_or_secrets(): void
+    {
+        $peer = $this->peer();
+        $this->assertSame(0, \Illuminate\Support\Facades\Artisan::call('lab-sync:inspect'));
+        $output = \Illuminate\Support\Facades\Artisan::output();
+        $report = json_decode($output, true, 32, JSON_THROW_ON_ERROR);
+        $this->assertTrue($report['read_only']);
+        $this->assertFalse($report['clinical_sync_ready']);
+        $this->assertSame(1, $report['counts']['users']);
+        $this->assertStringNotContainsString($peer->token, $output);
+        $this->assertStringNotContainsString('@example.test', $output);
+        $this->assertStringNotContainsString('Sync lab', $output);
+        $this->assertDatabaseCount('lab_sync_events', 0);
+    }
+
 }

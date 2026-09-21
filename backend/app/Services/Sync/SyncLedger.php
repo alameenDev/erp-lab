@@ -81,7 +81,12 @@ class SyncLedger
         $keys = ['protocol', 'event_uuid', 'lab_uuid', 'origin_node_uuid', 'kind', 'entity_uuid',
             'base_event_uuid', 'author_uuid', 'authored_at', 'operation', 'payload'];
         abort_if(array_diff(array_keys($event), $keys), 422, 'Unknown envelope fields.');
-        abort_if(strlen(json_encode($event, JSON_THROW_ON_ERROR)) > config('lab_sync.max_event_bytes'), 413);
+        try {
+            $encoded = json_encode($event, JSON_THROW_ON_ERROR, 32);
+        } catch (\JsonException $e) {
+            abort(422, 'Invalid envelope encoding or depth.');
+        }
+        abort_if(strlen($encoded) > config('lab_sync.max_event_bytes'), 413);
         Validator::make($event, [
             'protocol' => ['required', 'integer', Rule::in([1])],
             'event_uuid' => ['required', 'uuid'], 'lab_uuid' => ['required', 'uuid'],
