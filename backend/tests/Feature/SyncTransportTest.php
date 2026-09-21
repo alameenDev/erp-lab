@@ -139,7 +139,10 @@ class SyncTransportTest extends TestCase
         $ledger->stage($other->id, $this->event($other, true));
         $this->postEvent($peer, $this->event($peer))->assertOk();
         $response = $this->withToken($peer->token)->getJson('/api/lab-sync/v1/changes?after=0')
-            ->assertOk()->assertHeader('Cache-Control', 'no-store, private')->assertJsonCount(1, 'events')->assertJsonPath('events.0.event.event_uuid', $local['event_uuid']);
+            ->assertOk()->assertJsonCount(1, 'events')->assertJsonPath('events.0.event.event_uuid', $local['event_uuid']);
+        $directives = array_map('trim', explode(',', $response->headers->get('Cache-Control')));
+        $this->assertContains('no-store', $directives);
+        $this->assertContains('private', $directives);
         $cursor = $response->json('cursor');
         $this->getJson('/api/lab-sync/v1/changes?after='.$cursor)->assertOk()->assertJsonCount(0, 'events');
     }
