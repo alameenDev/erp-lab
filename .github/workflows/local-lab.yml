@@ -1,0 +1,37 @@
+name: Local lab container verification
+on:
+  push:
+    branches: [feature/local-lab-server]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  local:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare disposable test secrets
+        run: |
+          echo "LOCAL_APP_KEY=base64:$(openssl rand -base64 32)" > .env.local
+          echo "LOCAL_DB_PASSWORD=$(openssl rand -hex 24)" >> .env.local
+          echo "LOCAL_DB_ROOT_PASSWORD=$(openssl rand -hex 24)" >> .env.local
+      - name: Build and start isolated stack
+        run: docker compose --env-file .env.local -f deploy/local/compose.yaml up -d --build --wait --wait-timeout 300
+      - name: Verify app, database, persistence and no exposed database port
+        run: |
+          curl -fsS http://localhost:8080/up > /dev/null
+          curl -fsS http://localhost:8080/invoices/create | grep -q '<div id="app"'
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/api/lab-settings)" = 401
+          test -z "$(docker compose --env-file .env.local -f deploy/local/compose.yaml port db 3306)"
+          docker compose --env-file .env.local -f deploy/local/compose.yaml exec -T app php artisan migrate:status
+          docker compose --env-file .env.local -f deploy/local/compose.yaml exec -T app sh -c 'echo persistence > storage/app/local-persistence-test'
+          docker compose --env-file .env.local -f deploy/local/compose.yaml up -d --force-recreate --no-build --pull never --wait
+          docker compose --env-file .env.local -f deploy/local/compose.yaml exec -T app test -f storage/app/local-persistence-test
+          curl -fsS http://localhost:8080/up > /dev/null
+      - name: Diagnostics
+        if: failure()
+        run: docker compose --env-file .env.local -f deploy/local/compose.yaml logs --tail 100
+      - name: Remove disposable test containers
+        if: always()
+        run: docker compose --env-file .env.local -f deploy/local/compose.yaml down -v
