@@ -23,7 +23,8 @@ jobs:
           curl -fsS http://localhost:8080/up > /dev/null
           curl -fsS http://localhost:8080/invoices/create | grep -q '<div id="app"'
           test "$(curl -s -H 'Accept: application/json' -o /dev/null -w '%{http_code}' http://localhost:8080/api/lab-settings)" = 401
-          test -z "$(docker compose --env-file .env.local -f deploy/local/compose.yaml port db 3306)"
+          db_id=$(docker compose --env-file .env.local -f deploy/local/compose.yaml ps -q db)
+          docker inspect --format '{{json .HostConfig.PortBindings}}' "$db_id" | python -c "import json,sys; assert not (json.load(sys.stdin) or {}).get('3306/tcp')"
           docker compose --env-file .env.local -f deploy/local/compose.yaml exec -T app php artisan migrate:status
           docker compose --env-file .env.local -f deploy/local/compose.yaml exec -T app sh -c 'echo persistence > storage/app/local-persistence-test'
           docker compose --env-file .env.local -f deploy/local/compose.yaml up -d --force-recreate --no-build --pull never --wait
