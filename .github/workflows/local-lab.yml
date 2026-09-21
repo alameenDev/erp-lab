@@ -22,7 +22,7 @@ jobs:
         run: |
           curl -fsS http://localhost:8080/up > /dev/null
           curl -fsS http://localhost:8080/invoices/create | grep -q '<div id="app"'
-          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/api/lab-settings)" = 401
+          test "$(curl -s -H 'Accept: application/json' -o /dev/null -w '%{http_code}' http://localhost:8080/api/lab-settings)" = 401
           test -z "$(docker compose --env-file .env.local -f deploy/local/compose.yaml port db 3306)"
           docker compose --env-file .env.local -f deploy/local/compose.yaml exec -T app php artisan migrate:status
           docker compose --env-file .env.local -f deploy/local/compose.yaml exec -T app sh -c 'echo persistence > storage/app/local-persistence-test'
@@ -35,3 +35,15 @@ jobs:
       - name: Remove disposable test containers
         if: always()
         run: docker compose --env-file .env.local -f deploy/local/compose.yaml down -v
+
+  powershell:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Windows installer syntax
+        shell: powershell
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile("$PWD/deploy/local/Start-LocalLab.ps1", [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) { $errors | Format-List; exit 1 }

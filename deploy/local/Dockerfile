@@ -8,9 +8,10 @@ RUN npm run build
 
 FROM php:8.4-apache-bookworm
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libicu-dev libzip-dev libpng-dev libjpeg62-turbo-dev libfreetype6-dev libonig-dev unzip \
+    libicu-dev libzip-dev libpng-dev libjpeg62-turbo-dev libfreetype6-dev libonig-dev libmagickwand-dev unzip \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j2 pdo_mysql bcmath intl zip gd mbstring opcache \
+    && pecl install imagick-3.8.0 && docker-php-ext-enable imagick \
     && a2enmod rewrite headers \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
