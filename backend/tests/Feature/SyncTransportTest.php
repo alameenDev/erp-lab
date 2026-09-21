@@ -139,7 +139,7 @@ class SyncTransportTest extends TestCase
         $ledger->stage($other->id, $this->event($other, true));
         $this->postEvent($peer, $this->event($peer))->assertOk();
         $response = $this->withToken($peer->token)->getJson('/api/lab-sync/v1/changes?after=0')
-            ->assertOk()->assertJsonCount(1, 'events')->assertJsonPath('events.0.event.event_uuid', $local['event_uuid']);
+            ->assertOk()->assertHeader('Cache-Control', 'no-store, private')->assertJsonCount(1, 'events')->assertJsonPath('events.0.event.event_uuid', $local['event_uuid']);
         $cursor = $response->json('cursor');
         $this->getJson('/api/lab-sync/v1/changes?after='.$cursor)->assertOk()->assertJsonCount(0, 'events');
     }
@@ -235,6 +235,27 @@ class SyncTransportTest extends TestCase
         $this->assertStringNotContainsString($peer->token, $output);
         $this->assertStringNotContainsString('@example.test', $output);
         $this->assertStringNotContainsString('Sync lab', $output);
+        $this->assertDatabaseCount('lab_sync_events', 0);
+    }
+
+    public function test_insecure_remote_origin_never_receives_credentials(): void
+    {
+        $peer = $this->peer();
+        DB::table('lab_sync_peers')->where('id', $peer->id)->update(['remote_url' => 'http://sync.example.test']);
+        Http::fake();
+        try { app(SyncExchange::class)->run($peer->id); $this->fail('Expected HTTPS validation'); }
+        catch (\RuntimeException $e) {}
+        Http::assertNothingSent();
+    }
+
+    public function test_fabricated_cursor_cannot_skip_unreceived_events(): void
+    {
+        $peer = $this->peer();
+        Http::fake(['*' => Http::response(['protocol' => 1, 'mode' => 'staging_only',
+            'clinical_applied' => false, 'events' => [], 'cursor' => 999])]);
+        try { app(SyncExchange::class)->run($peer->id); $this->fail('Expected cursor validation'); }
+        catch (\RuntimeException $e) {}
+        $this->assertDatabaseHas('lab_sync_peers', ['id' => $peer->id, 'pull_cursor' => 0]);
         $this->assertDatabaseCount('lab_sync_events', 0);
     }
 

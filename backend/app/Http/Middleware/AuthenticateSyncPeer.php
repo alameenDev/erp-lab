@@ -19,6 +19,8 @@ class AuthenticateSyncPeer
             ->where('enabled', true)->first();
         abort_unless($peer, 401);
         $request->attributes->set('sync_peer_id', (int) $peer->id);
-        return $next($request);
+        $response = $next($request);
+        $response->headers->set('Cache-Control', 'no-store, private');
+        return $response;
     }
 }

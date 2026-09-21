@@ -23,6 +23,6 @@ class StatusController extends Controller
             'conflicts' => (clone $events)->where(function ($q) { $q->where('state', 'conflict')->orWhere('remote_state', 'conflict'); })->count(),
             'last_contact_at' => $peer?->last_contact_at,
             'last_error' => $peer?->last_error,
-        ]);
+        ])->header('Cache-Control', 'no-store, private');
     }
 }
