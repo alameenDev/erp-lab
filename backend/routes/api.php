@@ -477,3 +477,5 @@ Route::group(['middleware' => 'auth:sanctum'], function (): void {
     });
 
 });
+
+require __DIR__.'/lab-sync.php';
