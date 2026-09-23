@@ -19,6 +19,7 @@ const otpSent = ref(false);
 const patient = ref(null);
 const reports = ref([]);
 const loyalty = ref(null);
+const doctors = ref([]);
 
 const reportFilter = ref('all');
 const filteredReports = computed(() => reports.value.filter(r => reportFilter.value === 'all' || r.status === reportFilter.value));
@@ -28,6 +29,43 @@ const activeTab = ref("reports"); // reports | loyalty
 const redeemingKey = ref(null);
 const redeemMessage = ref("");
 const redeemError = ref("");
+
+const bookingOpenFor = ref(null);
+const bookingForm = ref({ phone: "", preferred_date: "", notes: "" });
+const bookingSending = ref(false);
+const bookingMessage = ref("");
+const bookingError = ref("");
+
+const toggleBooking = (doctorId) => {
+  bookingMessage.value = "";
+  bookingError.value = "";
+  if (bookingOpenFor.value === doctorId) {
+    bookingOpenFor.value = null;
+    return;
+  }
+  bookingOpenFor.value = doctorId;
+  bookingForm.value = { phone: "", preferred_date: "", notes: "" };
+};
+
+const submitBooking = async (doctor) => {
+  bookingSending.value = true;
+  bookingMessage.value = "";
+  bookingError.value = "";
+  try {
+    const { data } = await $http.post(`/portal/${token}/book-doctor`, {
+      doctor_id: doctor.id,
+      phone: bookingForm.value.phone || undefined,
+      preferred_date: bookingForm.value.preferred_date || undefined,
+      notes: bookingForm.value.notes || undefined,
+    });
+    bookingMessage.value = data?.message || "تم إرسال طلب الحجز";
+    bookingOpenFor.value = null;
+  } catch (e) {
+    bookingError.value = e?.response?.data?.message || "تعذر إرسال طلب الحجز";
+  } finally {
+    bookingSending.value = false;
+  }
+};
 
 const load = async () => {
   loading.value = true;
@@ -42,6 +80,7 @@ const load = async () => {
       patient.value = data.patient;
       reports.value = data.reports || [];
       loyalty.value = data.loyalty;
+      doctors.value = data.doctors || [];
     }
   } catch (e) {
     loadError.value = e?.response?.data?.message || "تعذر فتح الرابط، تأكد أنه صحيح أو غير منتهي الصلاحية";
@@ -220,6 +259,16 @@ onMounted(load);
           >
             برنامج الولاء
           </button>
+          <button
+            v-if="doctors.length"
+            @click="activeTab = 'doctors'"
+            :class="[
+              'flex-1 py-2.5 rounded-lg text-sm font-bold transition',
+              activeTab === 'doctors' ? 'bg-teal-600 text-white' : 'text-gray-500',
+            ]"
+          >
+            الأطباء
+          </button>
         </div>
 
         <!-- Reports tab -->
@@ -282,6 +331,68 @@ onMounted(load);
                   {{ redeemingKey === item.key ? "..." : "استبدال" }}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Doctors tab -->
+        <div v-else-if="activeTab === 'doctors'" class="space-y-3">
+          <div v-if="bookingMessage" class="bg-emerald-50 text-emerald-700 text-sm rounded-xl p-3">{{ bookingMessage }}</div>
+          <div v-for="doc in doctors" :key="doc.id" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+            <div class="flex gap-3">
+              <img
+                :src="doc.photo || 'https://placehold.co/64x64?text=%20'"
+                class="w-16 h-16 rounded-xl object-cover bg-gray-100 shrink-0"
+              />
+              <div class="flex-1 min-w-0">
+                <div class="font-bold text-gray-800">{{ doc.name }}</div>
+                <div class="text-sm text-teal-700">{{ doc.specialty }}</div>
+                <p v-if="doc.description" class="text-xs text-gray-500 mt-1">{{ doc.description }}</p>
+                <div class="flex flex-wrap gap-2 mt-2 text-xs">
+                  <a v-if="doc.phone" :href="`tel:${doc.phone}`" class="text-gray-500" dir="ltr">📞 {{ doc.phone }}</a>
+                  <a v-if="doc.whatsapp" :href="`https://wa.me/${doc.whatsapp.replace(/\\D/g,'')}`" target="_blank" rel="noopener" class="text-emerald-600">واتساب</a>
+                  <a v-if="doc.links?.website" :href="doc.links.website" target="_blank" rel="noopener" class="text-teal-600">الموقع</a>
+                  <a v-if="doc.links?.instagram" :href="doc.links.instagram" target="_blank" rel="noopener" class="text-pink-600">انستغرام</a>
+                  <a v-if="doc.links?.facebook" :href="doc.links.facebook" target="_blank" rel="noopener" class="text-blue-600">فيسبوك</a>
+                </div>
+              </div>
+            </div>
+
+            <button
+              v-if="doc.bookable"
+              @click="toggleBooking(doc.id)"
+              class="w-full mt-3 text-sm font-bold py-2 rounded-lg bg-teal-50 text-teal-700"
+            >
+              {{ bookingOpenFor === doc.id ? "إلغاء" : "احجز موعد" }}
+            </button>
+
+            <div v-if="bookingOpenFor === doc.id" class="mt-3 space-y-2 border-t border-gray-100 pt-3">
+              <input
+                v-model="bookingForm.phone"
+                type="text"
+                placeholder="رقم هاتفك (اختياري)"
+                class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                dir="ltr"
+              />
+              <input
+                v-model="bookingForm.preferred_date"
+                type="datetime-local"
+                class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+              />
+              <textarea
+                v-model="bookingForm.notes"
+                rows="2"
+                placeholder="ملاحظات (اختياري)"
+                class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+              ></textarea>
+              <div v-if="bookingError" class="text-red-500 text-xs">{{ bookingError }}</div>
+              <button
+                @click="submitBooking(doc)"
+                :disabled="bookingSending"
+                class="w-full bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white text-sm font-bold py-2.5 rounded-lg"
+              >
+                {{ bookingSending ? "جاري الإرسال..." : "إرسال طلب الحجز" }}
+              </button>
             </div>
           </div>
         </div>

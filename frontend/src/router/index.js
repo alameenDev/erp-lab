@@ -181,6 +181,12 @@ const router = createRouter({
                          meta: { title: "Promo Codes | Digital Lab", description: "إدارة أكواد الخصم - Promo codes management" },
                     },
                     {
+                         path: "/doctors",
+                         name: "doctors",
+                         component: () => import("@/views/doctors/index.vue"),
+                         meta: { title: "Doctors | Digital Lab", description: "إدارة الأطباء وطلبات الحجز - Doctors and booking requests" },
+                    },
+                    {
                          path: "/inventory",
                          name: "inventory",
                          component: () => import("@/views/inventory/index.vue"),

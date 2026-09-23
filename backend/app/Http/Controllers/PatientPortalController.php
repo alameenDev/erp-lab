@@ -135,6 +135,11 @@ class PatientPortalController extends Controller
                 'yearly_points' => $summary['yearly_points'],
                 'redemption_catalog' => $config['redemption_catalog'],
             ] : null,
+            'doctors' => $lab ? \App\Models\Doctor::where('lab_id_fk', $lab->id)
+                ->where('is_active', true)
+                ->orderBy('sort_order')->orderBy('name')
+                ->get(['id', 'name', 'specialty', 'description', 'photo', 'phone', 'whatsapp', 'links', 'bookable'])
+                : [],
         ]);
     }
 
@@ -208,6 +213,47 @@ class PatientPortalController extends Controller
             'item' => $item,
             'balance' => $this->loyalty->balance($patient),
         ]);
+    }
+
+    public function bookDoctor(string $token, Request $request)
+    {
+        $validated = $request->validate([
+            'doctor_id' => 'required|integer|exists:doctors,id',
+            'phone' => 'nullable|string|max:50',
+            'preferred_date' => 'nullable|date',
+            'notes' => 'nullable|string|max:1000',
+        ]);
+
+        $access = PortalAccessToken::where('token', $token)->first();
+        if (! $access || $access->isExpired()) {
+            return response()->json(['message' => 'الرابط غير صالح أو منتهي الصلاحية'], 404);
+        }
+
+        $patient = Patient::with('user')->find($access->patient_id_fk);
+        if (! $patient) {
+            return response()->json(['message' => 'تعذر إتمام العملية'], 422);
+        }
+
+        $doctor = \App\Models\Doctor::find($validated['doctor_id']);
+        $lab = $this->patientLab($patient);
+        if (! $doctor || ! $lab || $doctor->lab_id_fk != $lab->id || ! $doctor->is_active || ! $doctor->bookable) {
+            return response()->json(['message' => 'هذا الطبيب غير متاح للحجز حالياً'], 422);
+        }
+
+        $booking = \App\Models\DoctorBookingRequest::create([
+            'doctor_id_fk' => $doctor->id,
+            'lab_id_fk' => $lab->id,
+            'patient_id_fk' => $patient->id,
+            'patient_name' => $patient->user?->name,
+            'phone' => $validated['phone'] ?? $patient->user?->phone_number,
+            'preferred_date' => $validated['preferred_date'] ?? null,
+            'notes' => $validated['notes'] ?? null,
+        ]);
+
+        return response()->json([
+            'message' => 'تم إرسال طلب الحجز، سيتواصل معك المختبر لتأكيد الموعد',
+            'booking' => $booking,
+        ], 201);
     }
 
     private function patientLab(Patient $patient): ?\App\Models\User

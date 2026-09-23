@@ -245,6 +245,13 @@ const menuGroups = [
           <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 6.75h.007" />
         </svg>`,
       },
+      {
+        label: "doctors",
+        to: "/doctors",
+        icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75a3 3 0 116 0c0 1.5-1.5 2.25-2.25 3v.75M12 16.5h.008M4.5 19.5h15a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5h-15A1.5 1.5 0 003 6v12a1.5 1.5 0 001.5 1.5z" />
+        </svg>`,
+      },
     ],
   },
 ];

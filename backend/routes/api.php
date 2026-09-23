@@ -16,6 +16,7 @@ use App\Http\Controllers\GenderController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\PatientPortalController;
 use App\Http\Controllers\PromoCodeController;
+use App\Http\Controllers\DoctorController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\LabController;
 use App\Http\Controllers\NationalityController;
@@ -78,6 +79,7 @@ Route::get('portal/{token}', [PatientPortalController::class, 'show']);
 Route::post('portal/{token}/otp/request', [PatientPortalController::class, 'requestOtp'])->middleware('throttle:5,1');
 Route::post('portal/{token}/otp/verify', [PatientPortalController::class, 'verifyOtp'])->middleware('throttle:10,1');
 Route::post('portal/{token}/redeem', [PatientPortalController::class, 'redeem']);
+Route::post('portal/{token}/book-doctor', [PatientPortalController::class, 'bookDoctor']);
 
 /**
  @ Result status Routes
@@ -150,6 +152,14 @@ Route::group(['middleware' => 'auth:sanctum'], function (): void {
     Route::delete('promo-codes/{id}', [PromoCodeController::class, 'destroy']);
     Route::post('invoices/{invoiceId}/apply-promo-code', [PromoCodeController::class, 'applyToInvoice']);
     Route::delete('invoices/{invoiceId}/promo-code', [PromoCodeController::class, 'removeFromInvoice']);
+
+    // Doctors directory (shown in patient portal) + booking requests
+    Route::get('doctors', [DoctorController::class, 'index']);
+    Route::post('doctors', [DoctorController::class, 'store']);
+    Route::post('doctors/{id}', [DoctorController::class, 'update']); // POST + _method=PUT for multipart photo uploads
+    Route::delete('doctors/{id}', [DoctorController::class, 'destroy']);
+    Route::get('doctor-bookings', [DoctorController::class, 'bookingRequests']);
+    Route::put('doctor-bookings/{id}', [DoctorController::class, 'updateBookingRequest']);
 
     /**
      @ Patients Routes
