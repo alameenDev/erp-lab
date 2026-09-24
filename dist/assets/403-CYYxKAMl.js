@@ -1,0 +1,1 @@
+import{_ as o}from"./ErrorPage-AeZ13VZM.js";import{E as r,i as t}from"./vue-vendor-BEtjDboL.js";import"./index-Q5KkqQ08.js";import"./utils-B9Lns4VQ.js";import"./pdf-libs-C6Qelw8-.js";import"./qrcode-DF9FS7d8.js";import"./chart-CH5GMtqH.js";const u={__name:"403",setup(m){return(p,e)=>(t(),r(o,{code:"403"}))}};export{u as default};

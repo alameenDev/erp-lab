@@ -1,1 +1,0 @@
-import{b as a}from"./vue-vendor-BEtjDboL.js";import{$ as s}from"./index-bMuGyZuE.js";const r=a("durationUnits",{state:()=>({durationUnitsList:[]}),actions:{async GetdurationUnits(){try{const{data:t}=await s.get("/duration-units");this.durationUnitsList=t.map(i=>({label:i.unit,value:i.id}))}catch{this.durationUnitsList=[]}}}});export{r as u};
