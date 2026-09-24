@@ -80,6 +80,8 @@ Route::post('portal/{token}/otp/request', [PatientPortalController::class, 'requ
 Route::post('portal/{token}/otp/verify', [PatientPortalController::class, 'verifyOtp'])->middleware('throttle:10,1');
 Route::post('portal/{token}/redeem', [PatientPortalController::class, 'redeem']);
 Route::post('portal/{token}/book-doctor', [PatientPortalController::class, 'bookDoctor']);
+Route::get('portal/{token}/catalog', [PatientPortalController::class, 'catalog']);
+Route::post('portal/{token}/ai-chat', [PatientPortalController::class, 'aiChat'])->middleware('throttle:15,1');
 
 /**
  @ Result status Routes

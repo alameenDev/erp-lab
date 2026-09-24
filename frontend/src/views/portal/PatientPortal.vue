@@ -20,6 +20,16 @@ const patient = ref(null);
 const reports = ref([]);
 const loyalty = ref(null);
 const doctors = ref([]);
+const aiEnabled = ref(false);
+
+const catalog = ref(null); // lazy-loaded { tests, packages }
+const catalogLoading = ref(false);
+const catalogTab = ref("tests"); // tests | packages
+
+const chatMessages = ref([]); // [{role:'user'|'assistant', content}]
+const chatInput = ref("");
+const chatSending = ref(false);
+const chatError = ref("");
 
 const reportFilter = ref('all');
 const filteredReports = computed(() => reports.value.filter(r => reportFilter.value === 'all' || r.status === reportFilter.value));
@@ -67,6 +77,44 @@ const submitBooking = async (doctor) => {
   }
 };
 
+const loadCatalog = async () => {
+  if (catalog.value) return; // already loaded once
+  catalogLoading.value = true;
+  try {
+    const { data } = await $http.get(`/portal/${token}/catalog`);
+    catalog.value = { tests: data.tests || [], packages: data.packages || [] };
+  } catch (e) {
+    catalog.value = { tests: [], packages: [] };
+  } finally {
+    catalogLoading.value = false;
+  }
+};
+
+const openTab = (tab) => {
+  activeTab.value = tab;
+  if (tab === "catalog") loadCatalog();
+};
+
+const sendChatMessage = async () => {
+  const text = chatInput.value.trim();
+  if (!text || chatSending.value) return;
+  chatMessages.value.push({ role: "user", content: text });
+  chatInput.value = "";
+  chatSending.value = true;
+  chatError.value = "";
+  try {
+    const { data } = await $http.post(`/portal/${token}/ai-chat`, {
+      message: text,
+      history: chatMessages.value.slice(0, -1),
+    });
+    chatMessages.value.push({ role: "assistant", content: data.reply });
+  } catch (e) {
+    chatError.value = e?.response?.data?.message || "تعذر الحصول على رد من المساعد الذكي";
+  } finally {
+    chatSending.value = false;
+  }
+};
+
 const load = async () => {
   loading.value = true;
   loadError.value = "";
@@ -81,6 +129,7 @@ const load = async () => {
       reports.value = data.reports || [];
       loyalty.value = data.loyalty;
       doctors.value = data.doctors || [];
+      aiEnabled.value = !!data.ai_enabled;
     }
   } catch (e) {
     loadError.value = e?.response?.data?.message || "تعذر فتح الرابط، تأكد أنه صحيح أو غير منتهي الصلاحية";
@@ -269,6 +318,25 @@ onMounted(load);
           >
             الأطباء
           </button>
+          <button
+            @click="openTab('catalog')"
+            :class="[
+              'flex-1 py-2.5 rounded-lg text-sm font-bold transition',
+              activeTab === 'catalog' ? 'bg-teal-600 text-white' : 'text-gray-500',
+            ]"
+          >
+            الأسعار
+          </button>
+          <button
+            v-if="aiEnabled"
+            @click="activeTab = 'ai'"
+            :class="[
+              'flex-1 py-2.5 rounded-lg text-sm font-bold transition',
+              activeTab === 'ai' ? 'bg-teal-600 text-white' : 'text-gray-500',
+            ]"
+          >
+            المساعد الذكي
+          </button>
         </div>
 
         <!-- Reports tab -->
@@ -394,6 +462,83 @@ onMounted(load);
                 {{ bookingSending ? "جاري الإرسال..." : "إرسال طلب الحجز" }}
               </button>
             </div>
+          </div>
+        </div>
+
+        <!-- Catalog tab: test/package prices -->
+        <div v-else-if="activeTab === 'catalog'" class="space-y-3">
+          <div v-if="catalogLoading" class="text-center text-gray-400 py-8">جاري التحميل...</div>
+          <template v-else>
+            <div class="flex gap-2 bg-white rounded-xl p-1 shadow-sm border border-gray-100 w-fit">
+              <button
+                @click="catalogTab = 'tests'"
+                :class="['px-4 py-2 rounded-lg text-xs font-bold', catalogTab === 'tests' ? 'bg-teal-600 text-white' : 'text-gray-500']"
+              >
+                التحاليل
+              </button>
+              <button
+                @click="catalogTab = 'packages'"
+                :class="['px-4 py-2 rounded-lg text-xs font-bold', catalogTab === 'packages' ? 'bg-teal-600 text-white' : 'text-gray-500']"
+              >
+                الباقات والعروض
+              </button>
+            </div>
+
+            <div v-if="catalogTab === 'tests'" class="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y divide-gray-50">
+              <div v-if="!catalog?.tests?.length" class="p-6 text-center text-gray-400 text-sm">لا توجد أسعار متاحة حالياً</div>
+              <div v-for="t in catalog?.tests" :key="t.id" class="flex items-center justify-between px-4 py-3">
+                <span class="text-sm text-gray-700">{{ t.name }}</span>
+                <span class="text-sm font-bold text-gray-800">{{ money(t.price) }} د.ع</span>
+              </div>
+            </div>
+
+            <div v-else class="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y divide-gray-50">
+              <div v-if="!catalog?.packages?.length" class="p-6 text-center text-gray-400 text-sm">لا توجد باقات متاحة حالياً</div>
+              <div v-for="p in catalog?.packages" :key="p.id" class="flex items-center justify-between px-4 py-3">
+                <span class="text-sm text-gray-700">{{ p.name }}</span>
+                <div class="text-left">
+                  <span class="text-sm font-bold text-emerald-700">{{ money(p.price) }} د.ع</span>
+                  <span v-if="p.has_offer" class="text-xs text-gray-400 line-through mr-2">{{ money(p.original_price) }}</span>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <!-- AI assistant tab -->
+        <div v-else-if="activeTab === 'ai'" class="space-y-3">
+          <div class="bg-amber-50 text-amber-900 text-xs rounded-xl p-3">
+            هذا مساعد معلومات عام وليس تشخيصاً طبياً، ولا يغني عن مراجعة طبيب مختص.
+          </div>
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-3 min-h-[200px]">
+            <div v-if="!chatMessages.length" class="text-center text-gray-400 text-sm py-6">
+              صف حالتك أو استفسارك الصحي وراح يساعدك المساعد الذكي
+            </div>
+            <div
+              v-for="(m, i) in chatMessages"
+              :key="i"
+              :class="['max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-line', m.role === 'user' ? 'bg-teal-600 text-white mr-auto' : 'bg-gray-100 text-gray-700 ml-auto']"
+            >
+              {{ m.content }}
+            </div>
+            <div v-if="chatSending" class="text-gray-400 text-sm">المساعد يكتب...</div>
+          </div>
+          <div v-if="chatError" class="bg-red-50 text-red-600 text-sm rounded-xl p-3">{{ chatError }}</div>
+          <div class="flex gap-2">
+            <input
+              v-model="chatInput"
+              type="text"
+              placeholder="اكتب هنا..."
+              class="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-sm"
+              @keyup.enter="sendChatMessage"
+            />
+            <button
+              @click="sendChatMessage"
+              :disabled="chatSending || !chatInput.trim()"
+              class="bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-bold px-5 rounded-xl"
+            >
+              إرسال
+            </button>
           </div>
         </div>
       </div>

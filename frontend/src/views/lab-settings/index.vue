@@ -7,6 +7,7 @@ import { useToast } from "@/composables/useToast";
 import { applyBranding } from "@/utils/branding";
 import DocumentPreview from "./DocumentPreview.vue";
 import LoyaltySettings from "./LoyaltySettings.vue";
+import AiAssistantSettings from "./AiAssistantSettings.vue";
 
 import { documentDefaults, documentConfig } from "@/utils/labDocuments";
 const documents = ref(JSON.parse(JSON.stringify(documentDefaults)));
@@ -601,6 +602,7 @@ const resetBranding = async () => {
                          <label class="block text-sm">Result message / رسالة النتائج<textarea v-model="communication.result" rows="4" maxlength="3000" class="block w-full border rounded-lg p-3"></textarea></label>
                     </section>
                     <LoyaltySettings v-if="activeTab === 'branding'" :config="settings.loyalty_config" @saved="store.GetSettings()" />
+                    <AiAssistantSettings v-if="activeTab === 'branding'" :config="settings.ai_config" @saved="store.GetSettings()" />
                     <!-- Save Button -->
                     <button @click="save" :disabled="saving" class="w-full px-6 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors font-medium flex items-center justify-center gap-2 disabled:opacity-50">
                          <svg v-if="saving" class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" /><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>

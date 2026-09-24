@@ -5,13 +5,14 @@ namespace App\Http\Controllers;
 use App\Models\Invoice;
 use App\Models\Patient;
 use App\Models\PortalAccessToken;
+use App\Services\AiAssistantService;
 use App\Services\LoyaltyService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class PatientPortalController extends Controller
 {
-    public function __construct(private LoyaltyService $loyalty) {}
+    public function __construct(private LoyaltyService $loyalty, private AiAssistantService $ai) {}
 
     /**
      * Staff-triggered: create (or reuse) a magic-link token for a patient
@@ -140,7 +141,95 @@ class PatientPortalController extends Controller
                 ->orderBy('sort_order')->orderBy('name')
                 ->get(['id', 'name', 'specialty', 'description', 'photo', 'phone', 'whatsapp', 'links', 'bookable'])
                 : [],
+            'ai_enabled' => $lab ? (bool) ($lab->labSetting?->ai_config['enabled'] ?? false) : false,
         ]);
+    }
+
+    /**
+     * Public: list of the lab's tests and packages with prices, so a
+     * patient can check pricing/offers before booking. Lazy-loaded
+     * separately from show() since it can be a long list.
+     */
+    public function catalog(string $token)
+    {
+        $access = PortalAccessToken::where('token', $token)->first();
+        if (! $access || $access->isExpired()) {
+            return response()->json(['message' => 'الرابط غير صالح أو منتهي الصلاحية'], 404);
+        }
+
+        $patient = Patient::find($access->patient_id_fk);
+        $lab = $patient ? $this->patientLab($patient) : null;
+        if (! $lab) {
+            return response()->json(['tests' => [], 'packages' => []]);
+        }
+
+        $tests = \App\Models\Test::where('lab_id_fk', $lab->id)
+            ->whereNotNull('price')
+            ->orderBy('name')
+            ->get(['id', 'name', 'price', 'category_id_fk'])
+            ->map(fn ($t) => ['id' => $t->id, 'name' => $t->name, 'price' => $t->price]);
+
+        $packages = \App\Models\TestGroup::where('lab_id_fk', $lab->id)
+            ->whereNotNull('for_customer_price')
+            ->orderBy('group_name')
+            ->get(['id', 'group_name', 'original_price', 'for_customer_price'])
+            ->map(fn ($p) => [
+                'id' => $p->id,
+                'name' => $p->group_name,
+                'price' => $p->for_customer_price,
+                'original_price' => $p->original_price,
+                'has_offer' => $p->original_price && $p->original_price > $p->for_customer_price,
+            ]);
+
+        return response()->json(['tests' => $tests, 'packages' => $packages]);
+    }
+
+    /**
+     * Public: patient describes symptoms/questions to the lab's configured
+     * AI assistant. See AiAssistantService for the safety-constrained
+     * system prompt - this is general information, never a diagnosis.
+     */
+    public function aiChat(string $token, Request $request)
+    {
+        $validated = $request->validate([
+            'message' => 'required|string|max:2000',
+            'history' => 'nullable|array',
+        ]);
+
+        $access = PortalAccessToken::where('token', $token)->first();
+        if (! $access || $access->isExpired()) {
+            return response()->json(['message' => 'الرابط غير صالح أو منتهي الصلاحية'], 404);
+        }
+
+        $patient = Patient::find($access->patient_id_fk);
+        $lab = $patient ? $this->patientLab($patient) : null;
+        $settings = $lab?->labSetting;
+        if (! $lab || ! $settings) {
+            return response()->json(['message' => 'المساعد الذكي غير متاح حالياً'], 422);
+        }
+
+        $doctors = \App\Models\Doctor::where('lab_id_fk', $lab->id)
+            ->where('is_active', true)->where('bookable', true)
+            ->get(['name', 'specialty'])->toArray();
+
+        $tests = \App\Models\Test::where('lab_id_fk', $lab->id)->whereNotNull('price')
+            ->limit(200)->get(['name', 'price'])->toArray();
+
+        $packages = \App\Models\TestGroup::where('lab_id_fk', $lab->id)->whereNotNull('for_customer_price')
+            ->get(['group_name as name', 'for_customer_price as price'])->toArray();
+
+        try {
+            $reply = $this->ai->chat($settings, $validated['message'], [
+                'lab_name' => $lab->labSetting?->lab_display_name ?? $lab->name,
+                'doctors' => $doctors,
+                'tests' => $tests,
+                'packages' => $packages,
+            ], $validated['history'] ?? []);
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json(['reply' => $reply]);
     }
 
     public function requestOtp(string $token)

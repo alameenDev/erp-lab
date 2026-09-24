@@ -43,6 +43,16 @@ class LabSettingController extends Controller
         }
 
         $setting->loyalty_config = array_replace(\App\Services\LoyaltyService::defaultConfig(), $setting->loyalty_config ?? []);
+
+        // Never echo the AI provider's API key back to the client once
+        // saved - only tell the UI whether one is already configured.
+        if ($setting->ai_config) {
+            $aiConfig = $setting->ai_config;
+            $aiConfig['has_api_key'] = ! empty($aiConfig['api_key']);
+            unset($aiConfig['api_key']);
+            $setting->ai_config = $aiConfig;
+        }
+
         return response()->json($setting);
     }
 
@@ -103,6 +113,13 @@ class LabSettingController extends Controller
             'loyalty_config.redemption_catalog.*.label_ar' => 'sometimes|string',
             'loyalty_config.redemption_catalog.*.discount_amount' => 'sometimes|integer|min:0|max:100000000',
             'loyalty_config.redemption_catalog.*.points' => 'required_with:loyalty_config.redemption_catalog|integer|min:1',
+            // AI assistant (patient portal) - OpenAI-compatible chat completions endpoint
+            'ai_config' => 'nullable|array',
+            'ai_config.enabled' => 'sometimes|boolean',
+            'ai_config.base_url' => 'nullable|string|max:255|url',
+            'ai_config.api_key' => 'nullable|string|max:500',
+            'ai_config.model' => 'nullable|string|max:100',
+            'ai_config.promo_code_note' => 'nullable|string|max:1000',
             'primary_color' => 'nullable|string|max:20|regex:/^#[0-9a-fA-F]{3,8}$/',
             'secondary_color' => 'nullable|string|max:20|regex:/^#[0-9a-fA-F]{3,8}$/',
             'font_family' => 'nullable|string|in:Tajawal,Cairo,Amiri,Inter',
@@ -231,9 +248,27 @@ class LabSettingController extends Controller
             // tiers/redemption_catalog are whole-list replacements when sent (not merged item by item)
             $setting->loyalty_config = array_replace($setting->loyalty_config ?? [], $validated['loyalty_config']);
         }
+        if (isset($validated['ai_config'])) {
+            $existingAiConfig = $setting->ai_config ?? [];
+            $newAiConfig = $validated['ai_config'];
+            // The client never receives the real key back (see show()), so
+            // an empty/omitted value here means "keep the current key",
+            // not "clear it". Send an explicit empty string to actually clear it.
+            if (! array_key_exists('api_key', $newAiConfig) || $newAiConfig['api_key'] === null) {
+                unset($newAiConfig['api_key']);
+            }
+            $setting->ai_config = array_replace($existingAiConfig, $newAiConfig);
+        }
         $setting->save();
 
         Log::info('Lab settings updated', ['lab_id' => $labOwnerId, 'user_id' => $user->id]);
+
+        if ($setting->ai_config) {
+            $maskedAiConfig = $setting->ai_config;
+            $maskedAiConfig['has_api_key'] = ! empty($maskedAiConfig['api_key']);
+            unset($maskedAiConfig['api_key']);
+            $setting->ai_config = $maskedAiConfig;
+        }
 
         return response()->json([
             'message' => 'Settings updated successfully',
@@ -267,6 +302,10 @@ class LabSettingController extends Controller
                 'report_background' => null,
             ]);
         }
+
+        // Never expose AI provider credentials (or internal printer
+        // preferences) via this public, unauthenticated endpoint.
+        $setting->makeHidden(['ai_config', 'printer_config']);
 
         return response()->json($setting);
     }
