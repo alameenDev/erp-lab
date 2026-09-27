@@ -128,7 +128,7 @@ _axios.interceptors.response.use(
 
       case 403:
         // Don't redirect for login or public endpoints — let the component handle it
-        if (!error.config?.url?.includes("/invoices/public/") && !error.config?.url?.includes("/user/login")) {
+        if (!error.config?.url?.includes("/invoices/public/") && !error.config?.url?.includes("/user/login") && !router.currentRoute.value.path.startsWith("/referral-portal")) {
           showToast(error.response.data?.message || "Access denied", "error");
           router.push("/error/403");
         }
