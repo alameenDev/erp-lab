@@ -1,0 +1,1 @@
+import{_ as o}from"./ErrorPage-1xy3v1NY.js";import{E as r,i as t}from"./vue-vendor-BEtjDboL.js";import"./index-C7st2rMr.js";import"./utils-B9Lns4VQ.js";import"./pdf-libs-BnubpVHC.js";import"./qrcode-DF9FS7d8.js";import"./chart-CH5GMtqH.js";const u={__name:"400",setup(m){return(p,e)=>(t(),r(o,{code:"400"}))}};export{u as default};
