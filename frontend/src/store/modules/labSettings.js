@@ -32,6 +32,7 @@ export const useLabSettingsStore = defineStore("labSettings", {
                     this.settings = normalizeSettings(data);
                } catch (error) {
                     console.error("Error fetching lab settings:", error);
+                    throw error;
                } finally {
                     this.isLoading = false;
                }

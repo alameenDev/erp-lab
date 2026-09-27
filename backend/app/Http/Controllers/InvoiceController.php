@@ -567,7 +567,7 @@ class InvoiceController extends Controller
      * @param  Invoice  $invoice
      * @return array
      */
-    private function transformInvoice($invoice)
+    private function transformInvoice($invoice, bool $includeHistory = true)
     {
         $test_groups = [];
         $tests = $cultures = $packages = $cultures_last_results = $tests_last_results = [];
@@ -577,10 +577,11 @@ class InvoiceController extends Controller
         $test_group_comments = [];
 
         // Pre-fetch last results to avoid N+1 queries
-        $lastResultsMap = $this->batchLoadLastResults($invoice);
+        $lastResultsMap = $includeHistory ? $this->batchLoadLastResults($invoice) : collect();
 
         // Process each relation of the invoice
         foreach ($invoice->invoiceTestRels as $rel) {
+            if (!$includeHistory) { $rel->last_result = false; $rel->last_result_data = null; }
             $this->processRelation($rel, $tests, $cultures, $packages, $test_groups, $this->referenceData);
 
             // Collect result comments for tests
@@ -1802,6 +1803,31 @@ class InvoiceController extends Controller
      * Get a specific invoice by ID.
      * Returns the invoice with all related data.
      */
+    /** Shared rendering data; authorization remains at the referral boundary. No staff endpoint is opened. */
+    public function referralDocument(Invoice $invoice, bool $report = false): array
+    {
+        $invoice->refresh();
+        $userId = Auth::id();
+        abort_unless((int)$invoice->from_lab_id_fk === (int)$userId && \App\Models\Referal::where('referral_id_fk', $userId)->where('lab_id_fk', $invoice->lab_id_fk)->exists(), 403);
+        if ($report) abort_unless($invoice->is_done && !$invoice->invoiceTestRels()->where(fn ($q) => $q->where('is_done', false)->orWhereNull('is_done'))->exists(), 409, 'النتائج لم تكتمل بعد');
+        $invoice->load($this->invoiceRelations());
+        $data = $this->transformInvoice($invoice, false);
+        unset($data['created_by'], $data['contract'], $data['sample_collector'], $data['promo_code'], $data['attachments'], $data['result_doc'], $data['pdf_qr_code']);
+        $data['signed_by'] = $invoice->signedBy ? $invoice->signedBy->only(['name', 'image']) : null;
+        // Never expose another partner's price list or patient history through a nested test resource.
+        $clean = function ($value) use (&$clean, $report) {
+            if ($value instanceof \Illuminate\Contracts\Support\Arrayable) $value = $value->toArray();
+            if (!is_array($value)) return $value;
+            foreach ($value as $key => &$child) {
+                if (in_array($key, ['prices','last_result_data','last_result','tests_last_results','cultures_last_results'], true)) { $child = null; continue; }
+                if (!$report && in_array($key, ['result','value','sub_tests','content','attribute','comment','result_status_text','tests_comment','cultures_comment','package_comments','result_comments_tests','result_comments_cultures','result_package_comments','test_group_comments'], true)) { $child = null; continue; }
+                $child = $clean($child);
+            }
+            return $value;
+        };
+        return $clean($data);
+    }
+
     public function show(Request $request, $id)
     {
         $invoice = Invoice::with($this->invoiceRelations())->findOrFail($id);

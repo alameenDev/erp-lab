@@ -53,7 +53,7 @@ const sendWelcome = async () => {
 };
 
 const appBaseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
-const getPatientReportLink = () => `${appBaseUrl}/result/${printRecord.value?.id}`;
+const getPatientReportLink = () => `${appBaseUrl}${printRecord.value?.referral_document ? "/referral-portal/reports/" : "/result/"}${printRecord.value?.id}`;
 
 // Same technique as print_invoice.vue: a raster <img> (not an inline <svg>)
 // so it matches the existing ".hdr-bc img { max-width:130px; height:28px }"
@@ -182,7 +182,7 @@ const openthermalRecord = (data) => {
                   <div v-if="printRecord?.barcode" class="flex flex-col items-center overflow-hidden pt-2" dir="ltr"><BarcodeComponent :value="printRecord.barcode" /><span class="text-xs text-slate-500">{{ printRecord.barcode }}</span></div>
                 </section>
                 <section class="bg-teal-50 rounded-2xl border border-teal-100 p-4"><h3 class="font-bold text-teal-900">بوابة المريض</h3><p class="text-sm text-teal-800 my-2 leading-6">رسالة ترحيبية ورابط خاص لمتابعة النقاط والفواتير والتحاليل والنتائج.</p>
-                  <button type="button" @click="sendWelcome" :disabled="sending || !printRecord?.patient?.phone" class="w-full rounded-xl bg-teal-700 hover:bg-teal-800 text-white p-3 font-semibold disabled:opacity-50">{{ sending ? 'جاري تجهيز الرسالة…' : 'إرسال الترحيب عبر واتساب' }}</button>
+                  <button v-if="!printRecord?.referral_document" type="button" @click="sendWelcome" :disabled="sending || !printRecord?.patient?.phone" class="w-full rounded-xl bg-teal-700 hover:bg-teal-800 text-white p-3 font-semibold disabled:opacity-50">{{ sending ? 'جاري تجهيز الرسالة…' : 'إرسال الترحيب عبر واتساب' }}</button>
                   <p v-if="!printRecord?.patient?.phone" class="text-xs mt-2 text-amber-900">أضف رقم هاتف المريض لتفعيل الإرسال.</p><p v-if="shareError" role="alert" class="text-sm mt-2 text-red-700">{{ shareError }}</p><p v-if="shareNotice" role="status" class="text-sm mt-2 text-teal-900">{{ shareNotice }}</p>
                 </section>
               </aside>

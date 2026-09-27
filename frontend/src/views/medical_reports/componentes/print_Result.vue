@@ -329,7 +329,7 @@ onMounted(() => {
   showWithForm.value = route.query.form === "1";
 
   // Only fetch auth-required data for logged-in users
-  if (hasToken) {
+  if (hasToken && !route.path.startsWith("/referral-portal")) {
     GetTemplates();
   }
   if (!resultStatus.value?.length) {
@@ -777,7 +777,7 @@ const getData = async () => {
     }
     computeAllFormulas();
   } catch (err) {
-    if (!hasToken && err?.response?.status === 403) {
+    if ((!hasToken && err?.response?.status === 403) || (route.path.startsWith("/referral-portal") && err?.response?.status === 409)) {
       reportNotReady.value = true;
     }
     console.error("Failed to fetch invoice data:", err);
@@ -825,7 +825,7 @@ const getData = async () => {
 const appBaseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
 
 const getPatientReportLink = () => {
-  return `${appBaseUrl}/result/${patientId.value}`;
+  return `${appBaseUrl}${printRecord.value?.referral_document ? "/referral-portal/reports/" : "/result/"}${patientId.value}`;
 };
 
 const generatePDF = async () => {

@@ -1,6 +1,7 @@
 import axios from "axios";
 import { LoaderStore } from "@/store/modules/loader";
 import router from "@/router";
+import { scopeReferralRequest } from "@/utils/referralWorkspace";
 
 // Axios configuration with CORS support
 let config = {
@@ -49,6 +50,7 @@ const shouldHideLoader = (url) => {
 // Request interceptor
 _axios.interceptors.request.use(
   (request) => {
+    scopeReferralRequest(request, router.currentRoute.value.path);
     const token = localStorage.getItem("token");
     if (token) {
       request.headers.Authorization = `Bearer ${token}`;

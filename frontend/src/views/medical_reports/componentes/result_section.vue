@@ -13,7 +13,7 @@ const patientId = computed(() => printRecord.value?.id);
 const appBaseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
 
 const getPatientReportLink = () => {
-     return `${appBaseUrl}/result/${patientId.value}`;
+     return `${appBaseUrl}${printRecord.value?.referral_document ? "/referral-portal/reports/" : "/result/"}${patientId.value}`;
 };
 </script>
 

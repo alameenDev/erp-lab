@@ -493,20 +493,20 @@
                 </div>
               </div>
               <div class="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                <div>
+                <div v-if="!isReferralMode">
                   <label class="block text-sm font-medium text-slate-700 mb-1.5">{{ t("from_lab") }}</label>
                   <Dropdown showClear class="w-full" v-model="record.from_lab_id_fk" :options="fromLap" @change="price_list(record.from_lab_id_fk); autofillPhoneFromReferral()" optionValue="user_id" optionLabel="name" :placeholder="t('select')" />
                 </div>
-                <div>
+                <div v-if="!isReferralMode">
                   <label class="block text-sm font-medium text-slate-700 mb-1.5">{{ t("sample_collector") }}</label>
                   <Dropdown class="w-full" showClear v-model="record.sample_collector_id_fk" :options="collectorsList" @change="getTotal()" optionLabel="name" optionValue="id" :placeholder="t('select')" />
                 </div>
-                <div>
+                <div v-if="!isReferralMode">
                   <label class="block text-sm font-medium text-slate-700 mb-1.5">{{ t("contract") }}</label>
                   <Dropdown class="w-full" showClear v-model="record.contract_id_fk" @change="cheackMaximunInvoice()" :options="contractsList" optionLabel="name" optionValue="id" :placeholder="t('select')" />
                   <Message severity="warn" v-if="ErrorMessage" class="mt-2 text-sm">{{ ErrorMessage }}</Message>
                 </div>
-                <div>
+                <div v-if="!isReferralMode">
                   <label class="block text-sm font-medium text-slate-700 mb-1.5">{{ t("referrals") }}</label>
                   <Dropdown class="w-full" showClear v-model="record.referral_id_fk" @change="applyReferralPriceList(); getTotal(); autofillPhoneFromReferral()" :options="theDoctorReferal" optionLabel="name" optionValue="user_id" :placeholder="t('select')" />
                 </div>
@@ -602,7 +602,7 @@
                     </p>
                   </div>
 
-                  <section v-if="!isEditMode && responseData?.id" class="rounded-xl border border-teal-200 bg-teal-50 p-4 mb-4">
+                  <section v-if="!isReferralMode && !isEditMode && responseData?.id" class="rounded-xl border border-teal-200 bg-teal-50 p-4 mb-4">
                     <h3 class="font-bold text-teal-900">نقاط المريض وخصم الولاء</h3>
                     <p v-if="loyaltyLoading">جارٍ تحميل الرصيد…</p>
                     <p v-else-if="loyaltyError" role="alert" class="text-red-700">{{loyaltyError}}</p>
@@ -648,7 +648,7 @@
                     </div>
 
                     <!-- Promo code -->
-                    <div class="pt-3 mt-1 border-t border-slate-100">
+                    <div v-if="!isReferralMode" class="pt-3 mt-1 border-t border-slate-100">
                       <label class="block text-sm font-medium text-slate-700 mb-2">بروموكود</label>
                       <div v-if="!promoCodeApplied" class="flex items-center gap-2">
                         <input
@@ -676,7 +676,7 @@
                     </div>
 
                     <!-- Discount inputs -->
-                    <div class="pt-3 mt-1 border-t border-slate-100">
+                    <div v-if="!isReferralMode" class="pt-3 mt-1 border-t border-slate-100">
                       <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("it_discount") }}</label>
                       <div class="flex items-center gap-2">
                         <div class="relative flex-1">
@@ -826,6 +826,7 @@ export default {
     Dialog,
   },
   computed: {
+    isReferralMode() { return this.$route.path.startsWith("/referral-portal"); },
     loyaltyDiscount() { return this.isEditMode ? Number(this.record.loyalty_discount || 0) : Number(this.loyalty?.rewards?.find(x => x.key === this.loyaltyKey)?.discount_amount || 0); },
     ...mapWritableState(LoaderStore, ["hideLoading"]),
     ...mapWritableState(useresultStatusStore, ["resultStatus"]),
@@ -1081,6 +1082,11 @@ export default {
       }
       pr.gender_id_fk = pr.gender_type_id_fk;
       pr.phone_number = pr.phone ? `+964${pr.phone}` : "";
+      if (this.isReferralMode) {
+        this.record.patient_id_fk = null;
+        this.record.inline_patient = { ...pr };
+        return true;
+      }
       try {
         await this.patientStore.AddPatient();
         return !!this.responseData?.id;
@@ -1426,6 +1432,7 @@ export default {
       // Set patient_id_fk from selected/newly-created patient
       if (this.responseData?.id) {
         this.record.patient_id_fk = this.responseData.id;
+        if (this.isReferralMode) delete this.record.inline_patient;
       }
 
       this.record.show_patient_card_id = this.record?.show_patient_card_id ? true : false;
@@ -1507,6 +1514,7 @@ export default {
         questions: null,
       }));
 
+      if (this.isReferralMode && !this.record.request_id) this.record.request_id = crypto.randomUUID();
       this.Addinvoices()
         .then(async (createdInvoice) => {
           await this.commitPromoCode(createdInvoice?.id);
@@ -1514,6 +1522,7 @@ export default {
           this.clearObjectValues(this.record);
           // Clear patient form + selection so next invoice starts fresh
           this.clearObjectValues(this.patientStore.record);
+          this.patientStore.selectedFile = "";
           this.responseData = null;
           this.selectedTests = [];
           this.selectedCultures = [];
@@ -1570,6 +1579,7 @@ export default {
       // Ensure patient_id_fk is set from responseData if not already set
       if (!this.record.patient_id_fk && this.responseData?.id) {
         this.record.patient_id_fk = this.responseData.id;
+        if (this.isReferralMode) delete this.record.inline_patient;
       }
       this.record.show_patient_card_id = this.record?.show_patient_card_id ? true : false;
       this.record.show_result_date = this.record?.show_result_date ? true : false;
@@ -1691,6 +1701,7 @@ export default {
     "responseData.id": { immediate:true, async handler(id) {
       this.loyaltyKey=""; this.loyalty=null; this.loyaltyError="";
       if (!id || this.isEditMode) return;
+      if (this.isReferralMode) return;
       this.loyaltyLoading=true;
       try { const {data}=await $http.get('/patients/'+id+'/loyalty'); if(this.responseData?.id===id) this.loyalty=data; }
       catch(e) { if(this.responseData?.id===id) this.loyaltyError=e.response?.data?.message || 'تعذر تحميل نقاط المريض'; }

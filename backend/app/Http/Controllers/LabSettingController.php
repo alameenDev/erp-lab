@@ -13,6 +13,9 @@ class LabSettingController extends Controller
 {
     use SecureFileUpload;
 
+    protected function settings() { return LabSetting::query(); }
+
+
     /**
      * Get current lab's settings (creates default if none exists).
      */
@@ -21,7 +24,7 @@ class LabSettingController extends Controller
         $user = Auth::user();
         $labOwnerId = $this->resolveLabOwnerId($user);
 
-        $setting = LabSetting::firstOrCreate(
+        $setting = $this->settings()->firstOrCreate(
             ['lab_id_fk' => $labOwnerId],
             [
                 'primary_color' => '#0d9488',
@@ -169,33 +172,24 @@ class LabSettingController extends Controller
             'report_background' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:10240',
         ]);
 
-        $setting = LabSetting::firstOrCreate(
+        $setting = $this->settings()->firstOrCreate(
             ['lab_id_fk' => $labOwnerId],
             ['primary_color' => '#0d9488', 'secondary_color' => '#14b8a6', 'font_family' => 'Tajawal']
         );
 
-        // Handle logo upload
-        if ($request->hasFile('logo')) {
-            if ($setting->getRawOriginal('logo')) {
-                $this->safeDeleteFile($setting->getRawOriginal('logo'));
-            }
-            $result = $this->secureUploadImage($request->file('logo'), 'logos');
+        // Keep the old file until the new settings row is saved successfully.
+        $oldFiles = [];
+        $uploadedFiles = [];
+        foreach (['logo' => 'logos', 'report_background' => 'backgrounds'] as $field => $directory) {
+            if (! $request->hasFile($field)) continue;
+            $result = $this->secureUploadImage($request->file($field), $directory);
             if (! $result['success']) {
+                foreach ($uploadedFiles as $path) $this->safeDeleteFile($path);
                 return response()->json(['message' => $result['error']], 422);
             }
-            $setting->logo = $result['path']; // store relative path only
-        }
-
-        // Handle report background upload
-        if ($request->hasFile('report_background')) {
-            if ($setting->getRawOriginal('report_background')) {
-                $this->safeDeleteFile($setting->getRawOriginal('report_background'));
-            }
-            $result = $this->secureUploadImage($request->file('report_background'), 'backgrounds');
-            if (! $result['success']) {
-                return response()->json(['message' => $result['error']], 422);
-            }
-            $setting->report_background = $result['path']; // store relative path only
+            $oldFiles[] = $setting->getRawOriginal($field);
+            $uploadedFiles[] = $result['path'];
+            $setting->$field = $result['path'];
         }
 
         // Update branding fields
@@ -259,7 +253,13 @@ class LabSettingController extends Controller
             }
             $setting->ai_config = array_replace($existingAiConfig, $newAiConfig);
         }
-        $setting->save();
+        try {
+            $setting->save();
+        } catch (\Throwable $e) {
+            foreach ($uploadedFiles as $path) $this->safeDeleteFile($path);
+            throw $e;
+        }
+        foreach ($oldFiles as $path) if ($path) $this->safeDeleteFile($path);
 
         Log::info('Lab settings updated', ['lab_id' => $labOwnerId, 'user_id' => $user->id]);
 
@@ -281,7 +281,7 @@ class LabSettingController extends Controller
      */
     public function showPublic($labId)
     {
-        $setting = LabSetting::where('lab_id_fk', $labId)->first();
+        $setting = $this->settings()->where('lab_id_fk', $labId)->first();
 
         if (! $setting) {
             return response()->json([
@@ -322,7 +322,7 @@ class LabSettingController extends Controller
             return response()->json(['message' => 'Only the lab owner can update settings'], 403);
         }
 
-        $setting = LabSetting::where('lab_id_fk', $labOwnerId)->first();
+        $setting = $this->settings()->where('lab_id_fk', $labOwnerId)->first();
         if (! $setting || ! $setting->logo) {
             return response()->json(['message' => 'No logo to remove'], 404);
         }
@@ -345,7 +345,7 @@ class LabSettingController extends Controller
             return response()->json(['message' => 'Only the lab owner can update settings'], 403);
         }
 
-        $setting = LabSetting::where('lab_id_fk', $labOwnerId)->first();
+        $setting = $this->settings()->where('lab_id_fk', $labOwnerId)->first();
         if (! $setting || ! $setting->getRawOriginal('report_background')) {
             return response()->json(['message' => 'No background to remove'], 404);
         }
@@ -370,7 +370,7 @@ class LabSettingController extends Controller
             return response()->json(['message' => 'Only the lab owner can reset settings'], 403);
         }
 
-        $setting = LabSetting::where('lab_id_fk', $labOwnerId)->first();
+        $setting = $this->settings()->where('lab_id_fk', $labOwnerId)->first();
         if (! $setting) {
             return response()->json(['message' => 'No settings to reset'], 404);
         }
@@ -431,7 +431,7 @@ class LabSettingController extends Controller
         ]);
     }
 
-    private function resolveLabOwnerId($user): int
+    protected function resolveLabOwnerId($user): int
     {
         if ($user->role_id == 2) {
             return $user->id;

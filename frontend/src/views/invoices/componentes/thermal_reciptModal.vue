@@ -18,7 +18,7 @@ const qrDataUrl = ref("");
 const appBaseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
 
 const getResultLink = (invoiceId) => {
-  return `${appBaseUrl}/result/${invoiceId}`;
+  return `${appBaseUrl}${printRecord.value?.referral_document ? "/referral-portal/reports/" : "/result/"}${invoiceId}`;
 };
 
 // Generate QR code as data URL whenever printRecord changes

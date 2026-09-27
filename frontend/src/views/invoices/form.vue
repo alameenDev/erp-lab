@@ -108,6 +108,7 @@ const loading = ref(false);
 
 // Navigation
 const returnTarget = () => {
+     if (route.path.startsWith("/referral-portal")) return "/referral-portal";
      if (route.query.return === "update-result") {
           const id = route.params.id || route.query.return_id;
           if (id) return `/medical_reports/update-result/${id}`;

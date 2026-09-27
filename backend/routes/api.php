@@ -164,7 +164,21 @@ Route::group(['middleware' => ['auth:sanctum', \App\Http\Middleware\RestrictRefe
     Route::get('doctor-bookings', [DoctorController::class, 'bookingRequests']);
 
     // Referral lab portal (small labs/doctors sending samples to this lab)
-    Route::get('referral-portal/options', [ReferralPortalController::class, 'options']);
+    Route::prefix('referral-portal/workspace')->group(function () {
+        $settings = \App\Http\Controllers\ReferralPrintSettingsController::class;
+        $workspace = \App\Http\Controllers\ReferralWorkspaceController::class;
+        Route::get('lab-settings', [$settings, 'show']);
+        Route::post('lab-settings', [$settings, 'update']);
+        Route::post('lab-settings/reset', [$settings, 'reset']);
+        Route::delete('lab-settings/logo', [$settings, 'removeLogo']);
+        Route::delete('lab-settings/background', [$settings, 'removeBackground']);
+        Route::post('invoices/create', [$workspace, 'store']);
+        Route::get('invoices/{id}', [$workspace, 'show'])->whereNumber('id');
+        Route::post('patients/search-name', [$workspace, 'patients']);
+        Route::post('tests/questions', [$workspace, 'questions']);
+        Route::get('{resource}', [$workspace, 'lookup'])->whereIn('resource', ['tests','cultures','packages','genders','age-units','titles','nationalities','payment-methods','result-status','labs','collectors','contracts','referrals','templates']);
+    });
+    Route::get('referral-portal/options' , [ReferralPortalController::class, 'options']);
     Route::get('referral-portal/patients', [ReferralPortalController::class, 'patients']);
     Route::post('referrals/portal-account', [ReferalController::class, 'createPortalAccount']);
     Route::get('referral-portal/connections', [ReferralPortalController::class, 'connections']);

@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { $http } from "@/plugins/axios";
+import { usePatientsStore } from "@/store/modules/patients";
 import { checkObjectParams } from "@/utils/helper";
 
 /**
@@ -218,7 +219,20 @@ export const useinvoicesStore = defineStore("invoices", {
 
     async Addinvoices() {
       try {
-        const { data } = await $http.post(`/invoices/create`, checkObjectParams(this.record));
+        let payload = checkObjectParams(this.record);
+        let options = {};
+        if (this.record.request_id && this.record.inline_patient && usePatientsStore().selectedFile instanceof File) {
+          const form = new FormData();
+          const append = (key,value) => {
+            if(value === null || value === undefined || value === '') return;
+            if(typeof value === 'object') Object.entries(value).forEach(([k,v]) => append(`${key}[${k}]`,v));
+            else form.append(key, typeof value === 'boolean' ? (value ? '1' : '0') : value);
+          };
+          Object.entries(payload).forEach(([key,value]) => append(key,value));
+          form.append('image',usePatientsStore().selectedFile);
+          payload = form; options.headers = { 'Content-Type':'multipart/form-data' };
+        }
+        const { data } = await $http.post(`/invoices/create`, payload, options);
         this.printRecord = data;
         return data;
       } catch (error) {
