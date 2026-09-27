@@ -26,6 +26,7 @@ class Invoice extends Model
         'discount',
         'discount_type_id_fk',
         'promo_code_id_fk',
+        'referral_seen_at',
         'total',
         'paid',
         'sent_to_patient',
@@ -48,6 +49,7 @@ class Invoice extends Model
 
     protected $casts = [
         'attachments' => 'json',
+        'referral_seen_at' => 'datetime',
         'tests_comment' => 'json',
         'cultures_comment' => 'json',
         'packages_comment' => 'json',

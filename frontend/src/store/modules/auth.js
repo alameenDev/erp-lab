@@ -72,7 +72,11 @@
 
           // Navigate based on role using Vue Router
           let targetRoute = "/dashboard";
-          if (data.user.role_id == 1) {
+          if (data.user.is_referral_partner) {
+            // Referral partners (small labs/doctors sending samples here)
+            // get their own dedicated portal regardless of role_id.
+            targetRoute = "/referral-portal";
+          } else if (data.user.role_id == 1) {
             targetRoute = "/super-admin";
           } else if (data.user.role_id == 4) {
             targetRoute = "/patients";

@@ -17,6 +17,7 @@ use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\PatientPortalController;
 use App\Http\Controllers\PromoCodeController;
 use App\Http\Controllers\DoctorController;
+use App\Http\Controllers\ReferralPortalController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\LabController;
 use App\Http\Controllers\NationalityController;
@@ -161,6 +162,15 @@ Route::group(['middleware' => 'auth:sanctum'], function (): void {
     Route::post('doctors/{id}', [DoctorController::class, 'update']); // POST + _method=PUT for multipart photo uploads
     Route::delete('doctors/{id}', [DoctorController::class, 'destroy']);
     Route::get('doctor-bookings', [DoctorController::class, 'bookingRequests']);
+
+    // Referral lab portal (small labs/doctors sending samples to this lab)
+    Route::get('referral-portal/connections', [ReferralPortalController::class, 'connections']);
+    Route::get('referral-portal/profile', [ReferralPortalController::class, 'profile']);
+    Route::post('referral-portal/profile', [ReferralPortalController::class, 'updateProfile']);
+    Route::get('referral-portal/price-list/{labId}', [ReferralPortalController::class, 'priceList']);
+    Route::get('referral-portal/invoices', [ReferralPortalController::class, 'index']);
+    Route::get('referral-portal/invoices/{id}', [ReferralPortalController::class, 'show']);
+    Route::post('referral-portal/invoices', [ReferralPortalController::class, 'store']);
     Route::put('doctor-bookings/{id}', [DoctorController::class, 'updateBookingRequest']);
 
     /**

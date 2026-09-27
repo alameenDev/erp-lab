@@ -310,6 +310,11 @@ class AuthController extends Controller
             // Load user relationships including permissions
             $user->load(['roles.permissions', 'permissions']);
 
+            // Lets the frontend route referral partners (labs/doctors that
+            // send samples here) straight to their own dedicated portal,
+            // regardless of their role_id.
+            $user->is_referral_partner = \App\Models\Referal::where('referral_id_fk', $user->id)->exists();
+
             // log user login activity
             ActivityLogController::loginActivity('تسجيل الدخول');
 

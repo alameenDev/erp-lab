@@ -231,6 +231,37 @@ const router = createRouter({
                ],
           },
           {
+               path: "/referral-portal",
+               component: () => import("@/layout/ReferralPortalLayout.vue"),
+               meta: { requiresAuth: true },
+               children: [
+                    {
+                         path: "",
+                         name: "referral-portal-home",
+                         component: () => import("@/views/referral-portal/index.vue"),
+                         meta: { title: "بوابة الإحالة | Digital Lab", description: "العينات المرسلة للمختبر الرئيسي" },
+                    },
+                    {
+                         path: "new",
+                         name: "referral-portal-new",
+                         component: () => import("@/views/referral-portal/new-sample.vue"),
+                         meta: { title: "عينة جديدة | Digital Lab", description: "إرسال عينة جديدة للمختبر الرئيسي" },
+                    },
+                    {
+                         path: "profile",
+                         name: "referral-portal-profile",
+                         component: () => import("@/views/referral-portal/profile.vue"),
+                         meta: { title: "هوية المختبر | Digital Lab", description: "شعار واسم المختبر المحيل" },
+                    },
+                    {
+                         path: ":id",
+                         name: "referral-portal-sample",
+                         component: () => import("@/views/referral-portal/sample-detail.vue"),
+                         meta: { title: "تفاصيل العينة | Digital Lab", description: "حالة العينة ونتيجتها" },
+                    },
+               ],
+          },
+          {
                path: "/result/:patientId",
                name: "result",
                component: () => import("@/views/medical_reports/componentes/print_Result.vue"),
@@ -357,21 +388,28 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
      const isAuthenticated = localStorage.getItem("token");
      const requiresAuth = to.matched.some((record) => record.meta.requiresAuth);
+     let storedUser = null;
+     try {
+          storedUser = JSON.parse(localStorage.getItem("user"));
+     } catch {
+          storedUser = null;
+     }
 
      // Redirect authenticated users away from welcome and login pages
      if (isAuthenticated && (to.name === "welcome" || to.name === "login")) {
-          try {
-               const user = JSON.parse(localStorage.getItem("user"));
-               if (user?.role_id == 1) {
-                    next("/super-admin");
-               } else {
-                    next("/dashboard");
-               }
-          } catch {
+          if (storedUser?.is_referral_partner) {
+               next("/referral-portal");
+          } else if (storedUser?.role_id == 1) {
+               next("/super-admin");
+          } else {
                next("/dashboard");
           }
      } else if (requiresAuth && !isAuthenticated) {
           next("/login");
+     } else if (isAuthenticated && storedUser?.is_referral_partner && requiresAuth && !to.path.startsWith("/referral-portal")) {
+          // Referral partner accounts only ever see their own portal, not
+          // the main lab's staff area.
+          next("/referral-portal");
      } else {
           next();
      }
