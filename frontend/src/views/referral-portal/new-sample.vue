@@ -2,9 +2,24 @@
 import { ref, computed, onMounted, nextTick, watch } from "vue";
 import { $http } from "@/plugins/axios";
 import { useRouter } from "vue-router";
+import { usePrint } from "@/composables/usePrint";
 import BarcodeComponent from "@/components/BarcodeComponent.vue";
 
 const router = useRouter();
+const { printWithCustomContent } = usePrint();
+const requestId = ref(crypto.randomUUID());
+const previousPatients = ref([]);
+const selectedPatient = ref(null);
+const findPatients = async () => {
+  error.value = "";
+  try {
+    const { data } = await $http.get('/referral-portal/patients', { params: { lab_id: selectedLabId.value, name: patientName.value } });
+    previousPatients.value = data;
+    if (!data.length) error.value = 'لا يوجد مريض مطابق ضمن عيناتك السابقة؛ يمكنك تسجيل مريض جديد.';
+  } catch (e) { error.value = e?.response?.data?.message || 'تعذر البحث'; }
+};
+const choosePatient = (p) => { selectedPatient.value = p; patientName.value = p.name; patientDob.value = p.dob || ''; previousPatients.value = []; };
+
 const connections = ref([]);
 const selectedLabId = ref(null);
 const tests = ref([]);
@@ -55,6 +70,8 @@ const submit = async () => {
   error.value = "";
   try {
     const { data } = await $http.post("/referral-portal/invoices", {
+      request_id: requestId.value,
+      patient_id: selectedPatient.value?.id,
       lab_id: selectedLabId.value,
       patient_name: patientName.value,
       patient_phone: patientPhone.value || undefined,
@@ -73,27 +90,18 @@ const printBarcode = async () => {
   await nextTick();
   const el = document.getElementById("tube-label");
   if (!el) return;
-  const frame = document.createElement("iframe");
-  frame.style.cssText = "position:absolute;width:0;height:0;border:none;";
-  document.body.appendChild(frame);
-  const doc = frame.contentWindow.document;
-  doc.open();
-  doc.write(`<html><head><title>Barcode</title><style>
+  await printWithCustomContent(el.innerHTML, `
     @page{size:60mm 30mm;margin:2mm}
-    body{font-family:sans-serif;text-align:center;margin:0}
-    svg{max-width:100%}
-    .name{font-size:11px;font-weight:bold;margin-top:2px}
-  </style></head><body>${el.innerHTML}</body></html>`);
-  doc.close();
-  frame.onload = () => {
-    frame.contentWindow.focus();
-    frame.contentWindow.print();
-    setTimeout(() => document.body.removeChild(frame), 1000);
-  };
+    body{font-family:Arial,sans-serif;text-align:center;margin:0}
+    svg{max-width:100%}.name{font-size:11px;font-weight:bold}
+  `, 'Barcode');
 };
 
 const startAnother = () => {
   createdSample.value = null;
+  requestId.value = crypto.randomUUID();
+  selectedPatient.value = null;
+  previousPatients.value = [];
   patientName.value = "";
   patientPhone.value = "";
   patientDob.value = "";
@@ -102,6 +110,7 @@ const startAnother = () => {
 
 onMounted(loadConnections);
 watch(selectedLabId, (id) => {
+  selectedPatient.value = null; previousPatients.value = [];
   if (id) loadTests(id);
 });
 </script>
@@ -141,7 +150,7 @@ watch(selectedLabId, (id) => {
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-3">
         <div>
           <label class="text-xs text-gray-500 block mb-1">اسم المريض</label>
-          <input v-model="patientName" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+          <input :readonly="!!selectedPatient" v-model="patientName" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
@@ -150,11 +159,19 @@ watch(selectedLabId, (id) => {
           </div>
           <div>
             <label class="text-xs text-gray-500 block mb-1">تاريخ الميلاد (اختياري)</label>
-            <input v-model="patientDob" type="date" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+            <input :readonly="!!selectedPatient" v-model="patientDob" type="date" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
           </div>
         </div>
       </div>
 
+      <div class="bg-teal-50 rounded-xl p-4 text-sm space-y-2">
+        <p>رقم الهاتف لا يربط المرضى تلقائياً. اختر المريض السابق بعد التأكد من الاسم وتاريخ الميلاد، أو سجّل مريضاً جديداً.</p>
+        <button v-if="!selectedPatient" type="button" @click="findPatients" :disabled="!selectedLabId || patientName.length < 3" class="text-teal-800 underline disabled:opacity-40">بحث بالاسم ضمن مرضاي السابقين</button>
+        <div v-if="selectedPatient">المريض المحدد: {{ selectedPatient.name }} — {{ selectedPatient.code }} — {{ selectedPatient.dob || 'الميلاد غير مسجل' }}
+          <button type="button" @click="selectedPatient = null" class="underline mx-2">إلغاء الاختيار وتسجيل جديد</button>
+        </div>
+        <button v-for="p in previousPatients" :key="p.id" type="button" @click="choosePatient(p)" class="block w-full text-right border p-2 rounded">{{ p.name }} — {{ p.code }} — {{ p.dob || 'الميلاد غير مسجل' }}</button>
+      </div>
       <div v-if="selectedLabId" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
         <div class="text-sm font-bold text-gray-700 mb-2">اختر الفحوصات</div>
         <div v-if="testsLoading" class="text-center text-gray-400 py-4">جاري التحميل...</div>

@@ -12,6 +12,30 @@ use Illuminate\Support\Str;
 
 class ReferalController extends Controller
 {
+    public function createPortalAccount(Request $request)
+    {
+        abort_unless(Auth::user()->hasPermissionTo('referrals create'), 403);
+        $labId = app(\App\Services\InventoryService::class)->labId(Auth::user());
+        $v = $request->validate([
+            'name' => 'required|string|max:255', 'email' => 'required|email|max:255|unique:users,email',
+            'password' => 'required|string|min:12|max:128|confirmed',
+            'phone_number' => 'nullable|string|max:50', 'address' => 'nullable|string|max:255',
+            'price_list_id_fk' => ['required', \Illuminate\Validation\Rule::exists('price_lists', 'id')->where('lab_id_fk', $labId)->whereNull('deleted_at')],
+        ]);
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($v, $labId) {
+            $user = User::create(['name' => $v['name'], 'email' => $v['email'], 'password' => Hash::make($v['password']),
+                'phone_number' => $v['phone_number'] ?? null, 'address' => $v['address'] ?? null,
+                'creator_id' => $labId, 'role_id' => 5, 'status' => 1, 'email_verified_at' => now()]);
+            $user->referral_portal_only = true;
+            $user->save();
+            $referral = Referal::create(['referral_id_fk' => $user->id, 'lab_id_fk' => $labId,
+                'commission' => 0, 'price_list_id_fk' => $v['price_list_id_fk']]);
+            \App\Models\ReferralLabProfile::create(['user_id_fk' => $user->id, 'display_name' => $v['name']]);
+            ActivityLogController::registerActivity('إنشاء حساب بوابة إحالة رقم '.$referral->id);
+            return response()->json(['id' => $referral->id, 'email' => $user->email], 201);
+        });
+    }
+
     public function index(Request $request)
     {
         $user = Auth::user();

@@ -1,9 +1,11 @@
 <script setup>
 import { ref, onMounted, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { usePrint } from "@/composables/usePrint";
 import { $http } from "@/plugins/axios";
 
 const route = useRoute();
+const { printWithCustomContent } = usePrint();
 const router = useRouter();
 const invoice = ref(null);
 const profile = ref(null);
@@ -27,28 +29,13 @@ const printResult = async () => {
   await nextTick();
   const el = document.getElementById("referral-result-print");
   if (!el) return;
-  const frame = document.createElement("iframe");
-  frame.style.cssText = "position:absolute;width:0;height:0;border:none;";
-  document.body.appendChild(frame);
-  const doc = frame.contentWindow.document;
-  doc.open();
-  doc.write(`<html><head><title>Result</title><style>
-    @page{size:A4;margin:15mm}
-    body{font-family:Tajawal,Arial,sans-serif;direction:rtl}
-    .hdr{display:flex;align-items:center;gap:12px;border-bottom:2px solid #0f766e;padding-bottom:10px;margin-bottom:16px}
-    .hdr img{width:56px;height:56px;object-fit:cover;border-radius:8px}
-    .hdr h1{font-size:18px;margin:0;color:#0f766e}
-    .hdr p{font-size:12px;margin:2px 0 0;color:#666}
-    table{width:100%;border-collapse:collapse;margin-top:12px}
-    th,td{border:1px solid #e5e7eb;padding:8px;font-size:13px;text-align:right}
-    th{background:#f8fafc}
-  </style></head><body>${el.innerHTML}</body></html>`);
-  doc.close();
-  frame.onload = () => {
-    frame.contentWindow.focus();
-    frame.contentWindow.print();
-    setTimeout(() => document.body.removeChild(frame), 1000);
-  };
+  await printWithCustomContent(el.innerHTML, `
+    @page{size:A4;margin:15mm} body{font-family:Arial,sans-serif;direction:rtl;font-size:12px}
+    .hdr{display:flex;gap:12px;border-bottom:2px solid #0f766e;padding-bottom:10px}
+    .hdr img{width:56px;height:56px;object-fit:contain}.hdr h1{font-size:18px}
+    table{width:100%;border-collapse:collapse;margin-top:12px} th,td{border:1px solid #ddd;padding:8px;text-align:right;white-space:pre-wrap}
+    thead{display:table-header-group} tr{break-inside:avoid} th{background:#f1f5f9}
+  `, 'Medical report');
 };
 
 const statusLabel = (s) => (s === "ready" ? "جاهزة" : "قيد الفحص");
@@ -75,7 +62,7 @@ onMounted(load);
         <div v-for="(t, i) in invoice.tests" :key="i" class="flex items-center justify-between px-4 py-3">
           <span class="text-sm text-gray-700">{{ t.name }}</span>
           <span class="text-sm font-bold" :class="t.is_done ? 'text-emerald-700' : 'text-gray-400'">
-            {{ t.is_done ? t.result || "—" : "قيد الفحص" }}
+            {{ invoice.status === 'ready' && t.is_done ? t.result ?? "—" : "قيد الفحص" }}
           </span>
         </div>
       </div>
@@ -100,18 +87,23 @@ onMounted(load);
           </div>
         </div>
         <p><strong>المريض:</strong> {{ invoice.patient?.name }}</p>
+        <p><strong>رمز المريض:</strong> {{ invoice.patient?.code }} — <strong>الميلاد:</strong> {{ invoice.patient?.dob || 'غير مسجل' }} — <strong>الجنس:</strong> {{ invoice.patient?.gender || 'غير مسجل' }}</p>
+        <p><strong>مختبر إجراء الفحص:</strong> {{ invoice.performing_lab }} — <strong>تاريخ التسجيل:</strong> {{ invoice.created_at }} — <strong>تاريخ النتيجة:</strong> {{ invoice.result_date || 'غير مسجل' }}</p>
         <p><strong>رقم العينة:</strong> {{ invoice.barcode }}</p>
         <table>
           <thead>
             <tr>
               <th>الفحص</th>
-              <th>النتيجة</th>
+              <th>النتيجة</th><th>الوحدة</th><th>المديات المرجعية حسب الفئة</th><th>الملاحظات</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="(t, i) in invoice.tests" :key="i">
               <td>{{ t.name }}</td>
-              <td>{{ t.result || "—" }}</td>
+              <td>{{ t.result ?? "—" }}<div>{{ t.result_status_text }}</div></td>
+              <td>{{ t.unit || '—' }}</td>
+              <td><div v-for="(r, n) in t.reference_ranges" :key="n">{{ r.gender }} / {{ r.age_from ?? '—' }}–{{ r.age_to ?? '—' }} {{ r.age_unit }}: {{ r.from ?? '—' }}–{{ r.to ?? '—' }}<div>{{ r.notes }}</div></div><span v-if="!t.reference_ranges?.length">غير مسجل</span></td>
+              <td>{{ t.comment || '—' }}</td>
             </tr>
           </tbody>
         </table>

@@ -1,4 +1,5 @@
 <script setup>
+import { $http } from "@/plugins/axios";
 import { ref, computed, watch, onMounted } from "vue";
 import { storeToRefs } from "pinia";
 import { useReferralsStore } from "@/store/modules/referrals";
@@ -20,6 +21,12 @@ const { hideLoading } = storeToRefs(loaderStore);
 const lang = computed(() => localStorage.getItem("locale") || "ar");
 const UserRoles = ReverralUserRole;
 
+const portalAccount = ref(false);
+const password = ref('');
+const passwordConfirmation = ref('');
+const saving = ref(false);
+const formError = ref('');
+watch(dialog, () => { password.value = ''; passwordConfirmation.value = ''; portalAccount.value = false; formError.value = ''; });
 const isShow = ref(false);
 const selectedRecord = ref("");
 const showPassword = ref(false);
@@ -28,20 +35,21 @@ onMounted(() => {
   GetpriceList();
 });
 
-const handleSubmit = () => {
-  record.value.commission = record.value.commission || 0;
-  if (record.value.id) {
-    UpdateReferral().then(() => {
-      alertSuccess(t("alertSuccess"));
-      clearObjectValues(record.value);
-      dialog.value = false;
-    });
-  } else {
-    AddReferral().then(() => {
-      alertSuccess(t("alertSuccess"));
-      dialog.value = false;
-    });
-  }
+const handleSubmit = async () => {
+  saving.value = true; formError.value = '';
+  try {
+    record.value.commission = record.value.commission || 0;
+    if (portalAccount.value && !record.value.id) {
+      await $http.post('/referrals/portal-account', { name: record.value.name, email: record.value.email,
+        phone_number: record.value.phone_number, address: record.value.address,
+        price_list_id_fk: record.value.price_list_id_fk, password: password.value, password_confirmation: passwordConfirmation.value });
+      await referralsStore.GetRecords();
+    } else if (record.value.id) await UpdateReferral();
+    else await AddReferral();
+    alertSuccess(t("alertSuccess")); clearObjectValues(record.value); dialog.value = false;
+    password.value = ''; passwordConfirmation.value = '';
+  } catch (e) { formError.value = Object.values(e?.response?.data?.errors || {}).flat().join(' / ') || e?.response?.data?.message || 'تعذر الحفظ'; }
+  finally { saving.value = false; }
 };
 
 const close = () => {
@@ -97,6 +105,9 @@ watch(selectedRecord, (v) => {
           <!-- Body -->
           <div class="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
             <form @submit.prevent="handleSubmit" @click="isShow = false">
+              <label v-if="!record.id" class="block bg-teal-50 p-3 rounded-lg mb-4 text-sm"><input type="checkbox" v-model="portalAccount" /> إنشاء حساب دخول لبوابة الإحالة فقط (بدون صلاحيات الموظفين)</label>
+              <p v-if="portalAccount" class="text-sm mb-3">البريد هو اسم الدخول. حدّد كلمة مرور لا تقل عن 12 حرفاً وشاركها مع الجهة بشكل خاص. قائمة الأسعار مطلوبة.</p>
+              <p v-if="formError" role="alert" class="text-red-700 mb-3">{{ formError }}</p>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <!-- Name with Search -->
                 <div class="relative">
@@ -106,7 +117,7 @@ watch(selectedRecord, (v) => {
                       v-model="record.name"
                       type="text"
                       required
-                      @input="searchitem(record.name)"
+                      @input="!portalAccount && searchitem(record.name)"
                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                     <svg v-show="hideLoading" class="absolute top-2.5 w-5 h-5 text-teal-600 animate-spin" :class="lang === 'ar' ? 'left-2' : 'right-2'" fill="none" viewBox="0 0 24 24">
@@ -132,6 +143,7 @@ watch(selectedRecord, (v) => {
                   <label class="block text-sm font-medium text-gray-700 mb-1">{{ t("email") }}</label>
                   <input
                     v-model="record.email"
+                    :required="portalAccount"
                     type="email"
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
@@ -169,7 +181,7 @@ watch(selectedRecord, (v) => {
                 </div>
 
                 <!-- User Role -->
-                <div>
+                <div v-if="!portalAccount">
                   <label class="block text-sm font-medium text-gray-700 mb-1">{{ t("userRole") }} <span class="text-red-500">*</span></label>
                   <select
                     v-model="record.role_id"
@@ -184,7 +196,7 @@ watch(selectedRecord, (v) => {
                 </div>
 
                 <!-- Price List (for Lab role) -->
-                <div v-if="record.role_id === 2">
+                <div v-if="portalAccount || record.role_id === 2">
                   <label class="block text-sm font-medium text-gray-700 mb-1">{{ t("priceList") }} <span class="text-red-500">*</span></label>
                   <select
                     v-model="record.price_list_id_fk"
@@ -199,6 +211,10 @@ watch(selectedRecord, (v) => {
                 </div>
               </div>
 
+              <div v-if="portalAccount" class="grid md:grid-cols-2 gap-4 mt-4">
+                <label class="text-sm">كلمة المرور<input v-model="password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required class="block border rounded p-2 w-full" /></label>
+                <label class="text-sm">تأكيد كلمة المرور<input v-model="passwordConfirmation" type="password" autocomplete="new-password" required class="block border rounded p-2 w-full" /></label>
+              </div>
               <!-- Footer -->
               <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
                 <button
@@ -209,7 +225,7 @@ watch(selectedRecord, (v) => {
                   {{ t("close") }}
                 </button>
                 <button
-                  type="submit"
+                  type="submit" :disabled="saving"
                   class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors"
                 >
                   {{ record.id ? t("save") : t("add") }}

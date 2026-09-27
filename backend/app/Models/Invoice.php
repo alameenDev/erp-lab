@@ -27,6 +27,8 @@ class Invoice extends Model
         'discount_type_id_fk',
         'promo_code_id_fk',
         'referral_seen_at',
+        'referral_request_uuid',
+        'referral_request_hash',
         'total',
         'paid',
         'sent_to_patient',

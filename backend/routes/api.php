@@ -115,7 +115,7 @@ Route::post('device/results', [DeviceResultController::class, 'receiveResults'])
 Route::post('device/heartbeat', [DeviceResultController::class, 'heartbeat'])
     ->middleware('throttle:120,1');
 
-Route::group(['middleware' => 'auth:sanctum'], function (): void {
+Route::group(['middleware' => ['auth:sanctum', \App\Http\Middleware\RestrictReferralPortal::class]], function (): void {
 
     /**
      @ User Api Routes
@@ -164,6 +164,8 @@ Route::group(['middleware' => 'auth:sanctum'], function (): void {
     Route::get('doctor-bookings', [DoctorController::class, 'bookingRequests']);
 
     // Referral lab portal (small labs/doctors sending samples to this lab)
+    Route::get('referral-portal/patients', [ReferralPortalController::class, 'patients']);
+    Route::post('referrals/portal-account', [ReferalController::class, 'createPortalAccount']);
     Route::get('referral-portal/connections', [ReferralPortalController::class, 'connections']);
     Route::get('referral-portal/profile', [ReferralPortalController::class, 'profile']);
     Route::post('referral-portal/profile', [ReferralPortalController::class, 'updateProfile']);

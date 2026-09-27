@@ -284,11 +284,13 @@ class AuthController extends Controller
         // Attempt to log the user in
         if (Auth::attempt(['email' => $request->email, 'password' => $request->password])) {
 
+            $isReferral = $user->referral_portal_only || \App\Models\Referal::where('referral_id_fk', $user->id)->exists();
             // Check subscription for non-admin users
             if ($user->role_id != 1) {
                 $labId = $user->role_id == 2 ? $user->id : $user->creator_id;
                 if ($labId) {
-                    $subscription = \App\Models\Subscription::where('lab_id_fk', $labId)
+                    $subscription = \App\Models\Subscription::query()
+                        ->when($isReferral, fn ($q) => $q->whereIn('lab_id_fk', \App\Models\Referal::where('referral_id_fk', $user->id)->select('lab_id_fk')), fn ($q) => $q->where('lab_id_fk', $labId))
                         ->whereIn('status', ['active', 'trial'])
                         ->where('end_date', '>=', now()->toDateString())
                         ->first();
@@ -313,7 +315,7 @@ class AuthController extends Controller
             // Lets the frontend route referral partners (labs/doctors that
             // send samples here) straight to their own dedicated portal,
             // regardless of their role_id.
-            $user->is_referral_partner = \App\Models\Referal::where('referral_id_fk', $user->id)->exists();
+            $user->is_referral_partner = $isReferral;
 
             // log user login activity
             ActivityLogController::loginActivity('تسجيل الدخول');
