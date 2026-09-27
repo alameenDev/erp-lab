@@ -74,10 +74,11 @@ class ReferralWorkspaceTest extends TestCase
         [$lab,$partner,$other,$test]=$this->fixture();
         $id=$this->postJson('/api/referral-portal/workspace/invoices/create',$this->payload($lab,$test))->assertCreated()->json('id');
         $patientId=Invoice::findOrFail($id)->patient_id_fk;
+        PaymentMethod::create(['name'=>'Other cash','lab_id_fk'=>$other->id]);
         $this->actingAs($other);
-        $v=$this->payload($lab,$test);unset($v['inline_patient']);$v['patient_id_fk']=$patientId;
+        $v=$this->payload($lab,$test);$v['payment_details'][0]['payment_method_id_fk']=2;unset($v['inline_patient']);$v['patient_id_fk']=$patientId;
         $this->postJson('/api/referral-portal/workspace/invoices/create',$v)->assertNotFound();
-        $v=$this->payload($lab,$test);$v['tests'][0]['test_id_fk']=999999;
+        $v=$this->payload($lab,$test);$v['payment_details'][0]['payment_method_id_fk']=2;$v['tests'][0]['test_id_fk']=999999;
         $this->postJson('/api/referral-portal/workspace/invoices/create',$v)->assertStatus(422);
         $this->assertDatabaseCount('invoices',1);
     }
