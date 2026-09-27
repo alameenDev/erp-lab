@@ -1,1 +1,0 @@
-import{_ as o}from"./ErrorPage-COODZhRp.js";import{E as t,i as r}from"./vue-vendor-BEtjDboL.js";import"./index-DFc4w7dH.js";import"./utils-B9Lns4VQ.js";import"./pdf-libs-D-wp8mdj.js";import"./qrcode-DF9FS7d8.js";import"./chart-CH5GMtqH.js";const u={__name:"500",setup(a){return(e,m)=>(r(),t(o,{code:"500","show-back-button":!1}))}};export{u as default};
