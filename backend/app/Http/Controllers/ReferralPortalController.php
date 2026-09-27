@@ -198,14 +198,7 @@ class ReferralPortalController extends Controller
         ]);
     }
 
-    /**
-     * Creates the patient (a fresh minimal record, or reuses one already
-     * on file for this same connected main lab, matched by phone) and the
-     * invoice itself with lab-to-lab pricing, ready to run once the
-     * physical tube reaches the main lab. Deliberately does not touch
-     * InvoiceController::store() at all - this is a small, self-contained
-     * path scoped to referral portal accounts only.
-     */
+    /** Only invoices belonging to this partner and a currently connected lab. */
     private function ownInvoices(int $userId) {
         return Invoice::where('from_lab_id_fk', $userId)->whereIn('lab_id_fk',
             Referal::where('referral_id_fk', $userId)->select('lab_id_fk'));

@@ -87,6 +87,8 @@ class ReferralPortalSafetyTest extends TestCase {
         $this->assertTrue(Hash::check($v['password'],$u->password)); $this->assertTrue((bool)$u->referral_portal_only);
         $this->assertSame(0,$u->permissions()->count()); $this->assertSame(0,$u->roles()->count());
         \App\Models\Subscription::create(['lab_id_fk'=>$lab->id,'plan_name'=>'Test','status'=>'active','start_date'=>now(),'end_date'=>now()->addMonth()]);
+        // A real login is a fresh request, not the RequestGuard retained by preceding test API calls.
+        \Illuminate\Support\Facades\Auth::shouldUse('web');
         $this->postJson('/api/user/login',['email'=>$v['email'],'password'=>$v['password']])->assertOk()->assertJsonPath('user.is_referral_partner',true);
         Referal::where('referral_id_fk',$u->id)->delete(); $this->actingAs($u);
         $this->getJson('/api/lab-settings')->assertForbidden();
