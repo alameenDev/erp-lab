@@ -90,7 +90,7 @@ class ReferralPortalSafetyTest extends TestCase {
         // A real login is a fresh request, not the RequestGuard retained by preceding test API calls.
         \Illuminate\Support\Facades\Auth::shouldUse('web');
         $this->postJson('/api/user/login',['email'=>$v['email'],'password'=>$v['password']])->assertOk()->assertJsonPath('user.is_referral_partner',true);
-        Referal::where('referral_id_fk',$u->id)->delete(); $this->actingAs($u);
+        Referal::where('referral_id_fk',$u->id)->delete(); $this->actingAs($u, 'sanctum');
         $this->getJson('/api/lab-settings')->assertForbidden();
     }
 }
