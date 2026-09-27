@@ -44,6 +44,11 @@ class ReferralPortalController extends Controller
      * lab-to-lab price list (a referral can be connected to more than one
      * main lab).
      */
+    public function options() {
+        $this->assertReferralPartner();
+        return response()->json(['genders' => \App\Models\Gender::whereIn('gender_type', ['Male', 'Female'])->get(['id','gender_type'])]);
+    }
+
     public function connections()
     {
         $userId = $this->assertReferralPartner();
@@ -176,10 +181,11 @@ class ReferralPortalController extends Controller
                 'gender' => $invoice->patient?->gender?->gender_type,
             ],
             'tests' => $invoice->invoiceTestRels->map(fn ($t) => [
-                'name' => $t->test?->name ?? $t->testGroup?->group_name,
+                'name' => $t->test?->report_name ?: ($t->test?->name ?? $t->testGroup?->group_name),
                 'price' => $t->price,
                 'result' => $invoice->is_done && $t->is_done ? $t->result : null,
                 'unit' => $t->test?->unit,
+                'sub_tests' => $invoice->is_done && $t->is_done ? collect($t->sub_tests ?? [])->map(fn ($s) => \Illuminate\Support\Arr::only($s, ['name', 'value', 'unit', 'comment']))->values() : [],
                 'comment' => $invoice->is_done && $t->is_done ? $t->comment : null,
                 'reference_ranges' => $t->test?->testReferenceRanges->whereNull('deleted_at')->where('lab_id_fk', $invoice->lab_id_fk)->map(fn ($r) => [
                     'from' => $r->from, 'to' => $r->to, 'notes' => $r->notes,

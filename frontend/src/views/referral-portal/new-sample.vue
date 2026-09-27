@@ -28,6 +28,8 @@ const testsLoading = ref(false);
 const patientName = ref("");
 const patientPhone = ref("");
 const patientDob = ref("");
+const genderId = ref(null);
+const genders = ref([]);
 const selectedTestIds = ref([]);
 
 const saving = ref(false);
@@ -76,6 +78,7 @@ const submit = async () => {
       patient_name: patientName.value,
       patient_phone: patientPhone.value || undefined,
       patient_dob: patientDob.value || undefined,
+      gender_id_fk: genderId.value || undefined,
       test_ids: selectedTestIds.value,
     });
     createdSample.value = data;
@@ -104,11 +107,14 @@ const startAnother = () => {
   previousPatients.value = [];
   patientName.value = "";
   patientPhone.value = "";
-  patientDob.value = "";
+  patientDob.value = ""; genderId.value = null;
   selectedTestIds.value = [];
 };
 
-onMounted(loadConnections);
+onMounted(async () => {
+  try { await loadConnections(); genders.value = (await $http.get('/referral-portal/options')).data.genders; }
+  catch (e) { error.value = e?.response?.data?.message || 'تعذر تحميل بيانات المختبر'; }
+});
 watch(selectedLabId, (id) => {
   selectedPatient.value = null; previousPatients.value = [];
   if (id) loadTests(id);
@@ -164,6 +170,9 @@ watch(selectedLabId, (id) => {
         </div>
       </div>
 
+      <label v-if="!selectedPatient" class="block text-sm">الجنس (لا يُفترض تلقائياً)
+        <select v-model="genderId" class="border rounded p-2 w-full"><option :value="null">غير محدد</option><option v-for="g in genders" :key="g.id" :value="g.id">{{ g.gender_type === 'Male' ? 'ذكر' : 'أنثى' }}</option></select>
+      </label>
       <div class="bg-teal-50 rounded-xl p-4 text-sm space-y-2">
         <p>رقم الهاتف لا يربط المرضى تلقائياً. اختر المريض السابق بعد التأكد من الاسم وتاريخ الميلاد، أو سجّل مريضاً جديداً.</p>
         <button v-if="!selectedPatient" type="button" @click="findPatients" :disabled="!selectedLabId || patientName.length < 3" class="text-teal-800 underline disabled:opacity-40">بحث بالاسم ضمن مرضاي السابقين</button>

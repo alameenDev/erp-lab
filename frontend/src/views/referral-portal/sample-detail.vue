@@ -10,6 +10,7 @@ const router = useRouter();
 const invoice = ref(null);
 const profile = ref(null);
 const loading = ref(true);
+const error = ref('');
 
 const load = async () => {
   loading.value = true;
@@ -20,7 +21,7 @@ const load = async () => {
     ]);
     invoice.value = invRes.data;
     profile.value = profRes.data;
-  } finally {
+  } catch (e) { error.value = e?.response?.data?.message || 'تعذر تحميل التقرير'; } finally {
     loading.value = false;
   }
 };
@@ -49,6 +50,7 @@ onMounted(load);
 
     <div v-if="loading" class="text-center text-gray-400 py-10">جاري التحميل...</div>
 
+    <p v-else-if="error" role="alert" class="text-red-700">{{ error }}</p>
     <template v-else-if="invoice">
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4">
         <div class="flex items-center justify-between mb-3">
@@ -98,13 +100,13 @@ onMounted(load);
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(t, i) in invoice.tests" :key="i">
+            <template v-for="(t, i) in invoice.tests" :key="i"><tr>
               <td>{{ t.name }}</td>
               <td>{{ t.result ?? "—" }}<div>{{ t.result_status_text }}</div></td>
               <td>{{ t.unit || '—' }}</td>
               <td><div v-for="(r, n) in t.reference_ranges" :key="n">{{ r.gender }} / {{ r.age_from ?? '—' }}–{{ r.age_to ?? '—' }} {{ r.age_unit }}: {{ r.from ?? '—' }}–{{ r.to ?? '—' }}<div>{{ r.notes }}</div></div><span v-if="!t.reference_ranges?.length">غير مسجل</span></td>
               <td>{{ t.comment || '—' }}</td>
-            </tr>
+            </tr><tr v-for="(s, j) in t.sub_tests" :key="`sub-${j}`"><td>{{ s.name }}</td><td>{{ s.value ?? '—' }}</td><td>{{ s.unit || '—' }}</td><td>راجع المدى الخاص بالفحص</td><td>{{ s.comment || '—' }}</td></tr></template>
           </tbody>
         </table>
       </div>

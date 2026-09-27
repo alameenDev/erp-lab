@@ -7,14 +7,18 @@ const router = useRouter();
 const invoices = ref([]);
 const unseenCount = ref(0);
 const loading = ref(true);
+const error = ref('');
+const page = ref(1);
+const lastPage = ref(1);
 
 const load = async () => {
-  loading.value = true;
+  loading.value = true; error.value = '';
   try {
-    const { data } = await $http.get("/referral-portal/invoices");
+    const { data } = await $http.get("/referral-portal/invoices", { params: { page: page.value } });
+    lastPage.value = data.invoices?.last_page || 1;
     invoices.value = data.invoices?.data || [];
     unseenCount.value = data.unseen_ready_count || 0;
-  } finally {
+  } catch (e) { error.value = e?.response?.data?.message || 'تعذر تحميل العينات'; } finally {
     loading.value = false;
   }
 };
@@ -37,11 +41,13 @@ onMounted(load);
     </div>
 
     <div v-if="loading" class="text-center text-gray-400 py-10">جاري التحميل...</div>
+    <p v-else-if="error" role="alert" class="text-red-700">{{ error }}</p>
     <div v-else-if="!invoices.length" class="text-center text-gray-400 py-10">
       ما عندك عينات مرسلة بعد. اضغط "+ عينة جديدة" من الأعلى للبدء.
     </div>
 
     <div v-else class="space-y-2">
+      <div class="flex justify-between"><button :disabled="page <= 1" @click="page--; load()">السابق</button><span>{{ page }} / {{ lastPage }}</span><button :disabled="page >= lastPage" @click="page++; load()">التالي</button></div>
       <button
         v-for="inv in invoices"
         :key="inv.id"

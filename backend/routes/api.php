@@ -164,6 +164,7 @@ Route::group(['middleware' => ['auth:sanctum', \App\Http\Middleware\RestrictRefe
     Route::get('doctor-bookings', [DoctorController::class, 'bookingRequests']);
 
     // Referral lab portal (small labs/doctors sending samples to this lab)
+    Route::get('referral-portal/options', [ReferralPortalController::class, 'options']);
     Route::get('referral-portal/patients', [ReferralPortalController::class, 'patients']);
     Route::post('referrals/portal-account', [ReferalController::class, 'createPortalAccount']);
     Route::get('referral-portal/connections', [ReferralPortalController::class, 'connections']);

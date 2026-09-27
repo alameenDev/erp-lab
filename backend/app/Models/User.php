@@ -37,6 +37,8 @@ class User extends Authenticatable
     // Add eager loading of permissions
     // protected $with = ['roles', 'permissions'];
 
+    protected $attributes = ['referral_portal_only' => false];
+
     protected $guard_name = 'api';
 
     public function role()
@@ -92,6 +94,7 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
+            'referral_portal_only' => 'boolean',
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'print_margins' => 'array',

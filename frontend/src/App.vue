@@ -31,6 +31,7 @@ export default {
 
     if (this.isUserLoggedIn()) {
       const user = JSON.parse(localStorage.getItem("user"));
+      if (user?.is_referral_partner) return;
       try {
         const { data } = await $http.get(`/permissions?role_id=${user.role_id}`);
         authStore.setPermissions(data.permissions);

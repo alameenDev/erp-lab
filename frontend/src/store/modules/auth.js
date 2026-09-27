@@ -39,7 +39,9 @@
             allPermissions.push(...data.user.permissions.map((p) => p.name));
           }
 
-          if (allPermissions.length > 0) {
+          if (data.user.is_referral_partner) {
+            this.rolePermissions = []; localStorage.setItem('rolePermissions', '[]');
+          } else if (allPermissions.length > 0) {
             this.rolePermissions = [...new Set(allPermissions)];
             localStorage.setItem("rolePermissions", JSON.stringify(this.rolePermissions));
           } else if (data.permissions?.length) {
@@ -56,6 +58,7 @@
             }
           }
 
+          if (!data.user.is_referral_partner) {
           // Fetch lab branding + print settings on first login.
           // App.vue's mounted hook only runs once when the SPA boots; if the
           // user lands on /login first, isUserLoggedIn() is false there so
@@ -70,6 +73,7 @@
             console.error("Error loading lab branding on login:", brandingErr);
           }
 
+          }
           // Navigate based on role using Vue Router
           let targetRoute = "/dashboard";
           if (data.user.is_referral_partner) {
