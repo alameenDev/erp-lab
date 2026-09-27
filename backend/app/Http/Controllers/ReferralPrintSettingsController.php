@@ -9,10 +9,19 @@ class ReferralPrintSettingsController extends LabSettingController {
   return (int) $user->id;
  }
  public function show() {
-  $id=$this->resolveLabOwnerId(\Illuminate\Support\Facades\Auth::user());
+  $user=\Illuminate\Support\Facades\Auth::user();
+  $id=$this->resolveLabOwnerId($user);
   $response=parent::show();
   $setting=ReferralPrintSetting::where('lab_id_fk',$id)->firstOrFail();
-  if(!$setting->lab_display_name) { $setting->update(['lab_display_name'=>\Illuminate\Support\Facades\Auth::user()->name]); return parent::show(); }
+  $profile=\App\Models\ReferralLabProfile::where('user_id_fk',$id)->first();
+  $changed=false;
+  if(!$setting->lab_display_name) { $setting->lab_display_name=$profile?->display_name ?: $user->name; $changed=true; }
+  $oldLogo=$profile?->getRawOriginal('logo');
+  if(!$setting->logo && $oldLogo && \Illuminate\Support\Facades\Storage::disk('public')->exists($oldLogo)) {
+   $newLogo='referral-logos/print-'.\Illuminate\Support\Str::uuid().'.'.pathinfo($oldLogo,PATHINFO_EXTENSION);
+   if(\Illuminate\Support\Facades\Storage::disk('public')->copy($oldLogo,$newLogo)) { $setting->logo=$newLogo; $changed=true; }
+  }
+  if($changed) { $setting->save(); return parent::show(); }
   return $response;
  }
  public function update(Request $request) {

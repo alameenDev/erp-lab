@@ -25,8 +25,9 @@ onBeforeUnmount(() => { clearInterval(timer); store.printInvoiceDialog = false; 
   <div v-if="invoice" class="bg-white border rounded-2xl p-6 space-y-4">
    <div class="flex justify-between flex-wrap gap-3"><h1 class="text-xl font-bold">فاتورة {{invoice.id}} — {{invoice.patient?.name}}</h1><button @click="load" :disabled="loading" class="text-teal-700">تحديث النتائج</button></div>
    <p>{{invoice.is_done ? 'النتائج مكتملة' : 'الفحوصات قيد الإجراء'}} · آخر تحديث: {{new Date(invoice.updated_at).toLocaleString('ar-IQ')}}</p>
-   <p>المجموع: {{invoice.total}} · المدفوع: {{invoice.paid}} · المتبقي: {{Number(invoice.total)-Number(invoice.paid)}}</p>
-   <div class="flex gap-3 flex-wrap"><button @click="print" class="px-5 py-3 rounded-xl bg-teal-700 text-white">الفاتورة والوصل الحراري والباركود</button><router-link v-if="invoice.is_done" :to="`/referral-portal/reports/${invoice.id}?form=1`" class="px-5 py-3 rounded-xl border border-teal-700 text-teal-700">التقرير الطبي والطباعة</router-link></div>
+   <p v-if="invoice.financials_unavailable" class="text-amber-800">فاتورة قديمة: تفاصيل مبلغ الزبون غير محفوظة بهذه البوابة، ويظل التقرير الطبي متاحاً بعد اكتماله.</p>
+   <p v-else>المجموع: {{invoice.total}} · المدفوع: {{invoice.paid}} · المتبقي: {{Number(invoice.total)-Number(invoice.paid)}}</p>
+   <div class="flex gap-3 flex-wrap"><button v-if="!invoice.financials_unavailable" @click="print" class="px-5 py-3 rounded-xl bg-teal-700 text-white">الفاتورة والوصل الحراري والباركود</button><router-link v-if="invoice.is_done" :to="`/referral-portal/reports/${invoice.id}?form=1`" class="px-5 py-3 rounded-xl border border-teal-700 text-teal-700">التقرير الطبي والطباعة</router-link></div>
    <table class="w-full text-right"><thead><tr><th class="p-3">الفحص</th><th class="p-3">الحالة</th></tr></thead><tbody><tr v-for="(item,index) in [...invoice.tests,...invoice.cultures,...invoice.packages,...invoice.test_groups]" :key="index" class="border-t"><td class="p-3">{{item.name || item.group_name}}</td><td class="p-3">{{item.is_done ? 'مكتمل' : 'قيد الإجراء'}}</td></tr></tbody></table>
   </div>
   <PrintInvoice />

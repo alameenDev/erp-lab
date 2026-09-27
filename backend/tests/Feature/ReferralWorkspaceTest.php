@@ -1,7 +1,7 @@
 <?php
 namespace Tests\Feature;
 
-use App\Models\{User, Referal, PriceList, PriceListRel, Test as LabTest, Invoice, InvoiceTestRel, Patient};
+use App\Models\{User, Referal, PriceList, PriceListRel, Test as LabTest, Invoice, InvoiceTestRel, Patient, PaymentMethod};
 use Database\Seeders\ReferenceDataSeeder;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +18,7 @@ class ReferralWorkspaceTest extends TestCase
         $lab = User::create(['name'=>'Destination','email'=>'destination@example.test','password'=>'secret-password-123','role_id'=>2]);
         $partner = User::create(['name'=>'Referral','email'=>'referral@example.test','password'=>'secret-password-123','role_id'=>5,'creator_id'=>$lab->id]);
         $other = User::create(['name'=>'Other referral','email'=>'other@example.test','password'=>'secret-password-123','role_id'=>5,'creator_id'=>$lab->id]);
+        PaymentMethod::create(['name'=>'Cash','lab_id_fk'=>$partner->id]);
         $list = PriceList::create(['name'=>'Price list','lab_id_fk'=>$lab->id,'discount'=>10]);
         foreach ([$partner,$other] as $p) Referal::create(['referral_id_fk'=>$p->id,'lab_id_fk'=>$lab->id,'price_list_id_fk'=>$list->id]);
         $test = LabTest::create(['name'=>'Vitamin D','unit'=>'ng/mL','lab_id_fk'=>$lab->id]);

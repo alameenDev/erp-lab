@@ -145,6 +145,7 @@ class ReferralPortalController extends Controller
             'status' => $inv->is_done ? 'ready' : 'pending',
             'is_new' => $inv->is_done && ! $inv->referral_seen_at,
             'created_at' => $inv->created_at,
+            'updated_at' => $inv->updated_at,
         ]);
 
         $unseenReadyCount = $this->ownInvoices($userId)

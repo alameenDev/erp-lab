@@ -45,7 +45,15 @@ class ReferralWorkspaceController extends Controller {
   return $d;
  }
  public function lookup(Request $r, string $resource) {
-  $references=['genders'=>\App\Models\Gender::class,'age-units'=>\App\Models\AgeUnit::class,'titles'=>\App\Models\Title::class,'nationalities'=>\App\Models\Nationality::class,'payment-methods'=>\App\Models\PaymentMethod::class,'result-status'=>\App\Models\ResultStatus::class];
+  $references=['genders'=>\App\Models\Gender::class,'age-units'=>\App\Models\AgeUnit::class,'titles'=>\App\Models\Title::class,'nationalities'=>\App\Models\Nationality::class,'result-status'=>\App\Models\ResultStatus::class];
+  if($resource==='payment-methods') {
+   $methods=\App\Models\PaymentMethod::where('lab_id_fk',Auth::id())->get();
+   if($methods->isEmpty()) {
+    foreach(['نقدي','بطاقة','تحويل'] as $name) \App\Models\PaymentMethod::firstOrCreate(['lab_id_fk'=>Auth::id(),'name'=>$name]);
+    $methods=\App\Models\PaymentMethod::where('lab_id_fk',Auth::id())->get();
+   }
+   return response()->json($methods);
+  }
   if(isset($references[$resource])) return response()->json($references[$resource]::all());
   if(in_array($resource,['labs','collectors','contracts','referrals','templates'])) return response()->json([]);
   $c=$this->connection($r);
@@ -75,14 +83,19 @@ class ReferralWorkspaceController extends Controller {
   }
   return response()->json(['questions'=>$questions,'result_comments'=>[]]);
  }
- public function show(Request $r, $id) { return response()->json($this->document($this->ownInvoice($id), $r->input('document')==='report')); }
+ public function show(Request $r, $id) {
+  $i=$this->ownInvoice($id); $report=$r->input('document')==='report';
+  $document=$this->document($i,$report);
+  if($report && !$i->referral_seen_at) $i->update(['referral_seen_at'=>now()]);
+  return response()->json($document);
+ }
  private function document(Invoice $i, bool $report=false): array {
   $data=app(InvoiceController::class)->referralDocument($i,$report);
   $own=DB::table('referral_invoice_details')->where('invoice_id',$i->id)->where('referral_id',Auth::id())->first();
   if($own) {
    foreach(['sub_total','total','paid','discount','discount_type_id_fk','notes'] as $key) $data[$key]=$own->$key;
    $data['paidDetails']=json_decode($own->payments ?? '[]',true);
-  } else { $data['paid']=0; $data['paidDetails']=[]; }
+  } else { foreach(['sub_total','total','paid','discount','discount_type_id_fk'] as $key) $data[$key]=null; $data['paidDetails']=[]; $data['financials_unavailable']=true; }
   $data['referral_document']=true;
   return $data;
  }
@@ -99,7 +112,7 @@ class ReferralWorkspaceController extends Controller {
    'notes'=>'nullable|string|max:255',
    'discount'=>'nullable|integer|min:0','discount_type_id_fk'=>'nullable|in:2,3',
    'payment_details'=>'nullable|array|max:20','payment_details.*.amount'=>'nullable|integer|min:0',
-   'payment_details.*.payment_method_id_fk'=>'nullable|exists:payment_methods,id'];
+   'payment_details.*.payment_method_id_fk'=>['nullable',\Illuminate\Validation\Rule::exists('payment_methods','id')->where('lab_id_fk',Auth::id())->whereNull('deleted_at')]];
   foreach(self::KINDS as $key=>[$rel,$field]) { $rules[$key]='nullable|array|max:100'; $rules[$key.'.*.'.$field]='required|integer|distinct'; }
   $rules['tests.*.questions']='nullable|array|max:100';
   $rules['tests.*.questions.*.question.id']='required|integer';
