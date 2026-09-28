@@ -428,51 +428,66 @@
 
         <!-- ==================== TESTS SECTION (tabs moved out to full width above) ==================== -->
         <div v-if="activeSection === 'tests' && updateResultRecord.tests?.length > 0" class="space-y-4">
-          <!-- Quick entry: readable rows on desktop and mobile -->
+          <!-- Quick entry: one consistent column for every piece of result data -->
           <div v-if="activeTestTab === 'all'" class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/70 p-4 sm:px-6">
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4 sm:px-6">
               <div>
                 <h3 class="font-bold text-slate-900">إدخال نتائج التحاليل</h3>
-                <p class="mt-0.5 text-xs text-slate-500">أدخل النتيجة، راجع السابقة، ثم حدّد حالة الفحص. زر Enter ينقلك للتالي.</p>
+                <p class="mt-0.5 text-xs text-slate-500">كل تحليل بسطر واحد. اسحب الجدول أفقياً بالشاشات الصغيرة، واضغط Enter للانتقال للتحليل التالي.</p>
               </div>
               <input v-model="testSearch" type="search" placeholder="ابحث عن تحليل..." aria-label="بحث في التحاليل" class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-primary-500 sm:w-64" />
             </div>
-            <div class="divide-y divide-slate-100">
-              <div v-for="{ item, index } in filteredAllTabTests" :key="'all-' + index" class="p-4 transition-colors hover:bg-slate-50/70 sm:px-6" :class="item.is_done ? 'border-s-4 border-emerald-400' : 'border-s-4 border-transparent'">
-                <div class="grid gap-4 xl:grid-cols-[minmax(170px,1.2fr)_minmax(300px,2fr)_minmax(140px,0.9fr)]">
-                  <div class="min-w-0">
-                    <div class="flex flex-wrap items-center gap-2"><h4 class="font-bold text-slate-900">{{ item.name }}</h4><span v-if="item.is_done" class="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">مكتمل</span></div>
-                    <p v-if="item.shortcut" class="mt-0.5 text-xs text-slate-500">{{ item.shortcut }}</p>
-                    <p class="mt-2 text-xs text-slate-600">{{ t('Unit') }}: {{ item.unit || '—' }}</p>
-                    <div v-if="displayRanges(item).length" class="mt-1 text-xs text-blue-700">
-                      <span class="font-medium">المدى المرجعي: </span><span v-for="range in displayRanges(item)" :key="range.test_reference_range_id || range.id" class="me-2">{{ range.notes || `${range.from} - ${range.to}` }}</span>
-                    </div>
-                  </div>
-                  <div class="grid gap-2 sm:grid-cols-[minmax(120px,1fr)_minmax(136px,1fr)]">
-                    <label class="block text-xs font-medium text-slate-600">النتيجة الحالية
-                      <input v-if="Number(item.result_type_id_fk) === 1 || Number(item.result_type_id_fk) === 2" type="text" inputmode="decimal" v-model="item.result" @input="autoDetectStatus(item)" @change="autoDetectStatus(item)" @keydown.enter.prevent="confirmAndNext(item, index)" :data-test-row="index" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-primary-500" />
-                      <input v-else-if="Number(item.result_type_id_fk) === 3 || !item.result_type_id_fk" type="text" v-model="item.result" @input="autoDetectStatus(item)" @change="autoDetectStatus(item)" @keydown.enter.prevent="confirmAndNext(item, index)" :data-test-row="index" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-primary-500" />
-                      <select v-else-if="Number(item.result_type_id_fk) === 4" v-model="item.result" @keydown.enter.prevent="confirmAndNext(item, index)" :data-test-row="index" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-primary-500"><option value="">{{ t('select') }}</option><option v-for="opt in item.selection_type_options" :key="opt" :value="opt">{{ opt }}</option></select>
-                    </label>
-                    <PreviousResult v-bind="previousLabel('test', item)" class="self-end" />
-                  </div>
-                  <div class="flex flex-wrap items-end gap-2 xl:justify-end">
-                    <label class="min-w-[130px] flex-1 text-xs font-medium text-slate-600">الحالة
-                      <select v-model="item.result_status_id_fk" class="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"><option value="">{{ t('select') }}</option><option v-for="status in resultStatus" :key="status.value" :value="status.value">{{ status.label }}</option></select>
-                    </label>
-                    <label class="inline-flex min-h-10 items-center gap-2 rounded-lg bg-emerald-50 px-3 text-xs font-semibold text-emerald-800"><input type="checkbox" v-model="item.is_done" class="h-4 w-4 accent-emerald-600" />{{ t('done') }}</label>
-                    <button type="button" @click="openTestEdit(item)" class="min-h-10 rounded-lg border border-slate-200 px-3 text-xs font-medium text-slate-700 hover:bg-slate-50" :title="t('edit_test')">تعديل</button>
-                  </div>
-                </div>
-                <input v-model="item.comment" type="text" :placeholder="t('enter_comment')" class="mt-3 w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs outline-none focus:border-primary-500" />
-              </div>
-              <div v-if="!filteredAllTabTests.length" class="p-10 text-center text-sm text-slate-500">لا توجد تحاليل تطابق البحث.</div>
+            <div class="overflow-x-auto">
+              <table class="w-full min-w-[1080px] table-fixed text-start text-sm">
+                <colgroup><col style="width:21%" /><col style="width:18%" /><col style="width:17%" /><col style="width:18%" /><col style="width:10%" /><col style="width:16%" /></colgroup>
+                <thead class="bg-slate-50 text-xs font-semibold text-slate-600">
+                  <tr>
+                    <th scope="col" class="px-4 py-3 text-start">اسم التحليل</th>
+                    <th scope="col" class="px-4 py-3 text-start">النتيجة</th>
+                    <th scope="col" class="px-4 py-3 text-start">النتيجة السابقة</th>
+                    <th scope="col" class="px-4 py-3 text-start">الطبيعي (Normal)</th>
+                    <th scope="col" class="px-4 py-3 text-start">الوحدة (Unit)</th>
+                    <th scope="col" class="px-4 py-3 text-start">حفظ وتعديل</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                  <tr v-for="{ item, index } in filteredAllTabTests" :key="'all-' + index" class="align-middle transition-colors hover:bg-primary-50/30" :class="item.is_done ? 'bg-emerald-50/30' : ''">
+                    <th scope="row" class="px-4 py-4 text-start">
+                      <div class="flex items-center gap-2"><span class="h-2 w-2 shrink-0 rounded-full" :class="item.is_done ? 'bg-emerald-500' : 'bg-slate-300'"></span><span class="break-words font-semibold text-slate-900">{{ item.name }}</span></div>
+                      <span v-if="item.shortcut" class="ms-4 text-xs text-slate-500">{{ item.shortcut }}</span>
+                    </th>
+                    <td class="px-4 py-3">
+                      <input v-if="[1, 2, 3].includes(Number(item.result_type_id_fk)) || !item.result_type_id_fk" type="text" :inputmode="[1, 2].includes(Number(item.result_type_id_fk)) ? 'decimal' : 'text'" v-model="item.result" @input="autoDetectStatus(item)" @change="autoDetectStatus(item)" @keydown.enter.prevent="confirmAndNext(item, index)" :data-test-row="index" :aria-label="`نتيجة ${item.name}`" class="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100" />
+                      <select v-else-if="Number(item.result_type_id_fk) === 4" v-model="item.result" @keydown.enter.prevent="confirmAndNext(item, index)" :data-test-row="index" :aria-label="`نتيجة ${item.name}`" class="h-10 w-full rounded-lg border border-slate-300 bg-white px-2 text-sm outline-none focus:border-primary-500"><option value="">{{ t('select') }}</option><option v-for="opt in item.selection_type_options" :key="opt" :value="opt">{{ opt }}</option></select>
+                      <select v-if="Number(item.result_type_id_fk) !== 3" v-model="item.result_status_id_fk" :aria-label="`حالة ${item.name}`" class="mt-1 w-full border-0 bg-transparent px-1 text-xs text-slate-500 outline-none focus:text-primary-700"><option value="">تحديد الحالة</option><option v-for="status in resultStatus" :key="status.value" :value="status.value">{{ status.label }}</option></select>
+                    </td>
+                    <td class="px-4 py-3"><PreviousResult v-bind="previousLabel('test', item)" class="!min-w-0 !max-w-none" /></td>
+                    <td class="px-4 py-3 text-xs leading-5 text-slate-700"><div v-if="displayRanges(item).length" class="max-h-24 space-y-1 overflow-y-auto"><div v-for="range in displayRanges(item)" :key="range.test_reference_range_id || range.id" class="whitespace-pre-line">{{ range.notes || `${range.from ?? '—'} – ${range.to ?? '—'}` }}</div></div><span v-else class="text-slate-400">—</span></td>
+                    <td class="break-words px-4 py-3 text-xs font-medium text-slate-600" dir="auto">{{ item.unit || '—' }}</td>
+                    <td class="px-4 py-3">
+                      <div class="flex items-center gap-2">
+                        <button type="button" @click="saveTestRow(item)" :disabled="savingTestRow === item" class="inline-flex h-9 flex-1 items-center justify-center rounded-lg bg-primary-600 px-2 text-xs font-semibold text-white hover:bg-primary-700 disabled:opacity-60">{{ savingTestRow === item ? 'جاري الحفظ' : item.is_done ? 'حفظ' : 'حفظ ✓' }}</button>
+                        <button type="button" @click="activeTestTab = updateResultRecord.tests.indexOf(item)" class="inline-flex h-9 flex-1 items-center justify-center rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 hover:bg-slate-50" title="فتح تفاصيل التحليل وتعديل النتيجة">تعديل</button>
+                      </div>
+                      <details class="mt-1 text-xs text-slate-500"><summary class="cursor-pointer py-1">ملاحظة</summary><input v-model="item.comment" type="text" :placeholder="t('enter_comment')" class="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-xs outline-none focus:border-primary-500" /></details>
+                    </td>
+                  </tr>
+                  <tr v-if="!filteredAllTabTests.length"><td colspan="6" class="p-10 text-center text-sm text-slate-500">لا توجد تحاليل تطابق البحث.</td></tr>
+                </tbody>
+              </table>
             </div>
           </div>
 
           <!-- Test Content -->
           <div v-else v-for="(item, index) in updateResultRecord.tests" :key="index" v-show="activeTestTab === index">
             <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+              <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/70 px-5 py-3">
+                <div><h3 class="font-semibold text-slate-900">{{ item.name }}</h3><p class="text-xs text-slate-500">تفاصيل التحليل وتعديل النتيجة</p></div>
+                <div class="flex gap-2">
+                  <button type="button" @click="activeTestTab = 'all'" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700">رجوع للتحاليل</button>
+                  <button type="button" @click="openTestEdit(item)" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700">إعدادات التحليل</button>
+                </div>
+              </div>
               <!-- Done + Last Result toggles (always visible) -->
               <div v-if="item.sub_tests?.length > 0 && selectedTemplate" class="px-6 pt-5 pb-2 flex flex-wrap gap-6">
                 <label class="flex items-center gap-3 cursor-pointer">
@@ -1487,6 +1502,7 @@ const isLoading = ref(true);
 // ===== Auto-save (debounced, silent) =====
 const autoSaveReady = ref(false); // gate: don't save during initial load
 const autoSaveState = ref("idle"); // idle | saving | saved | error
+const savingTestRow = ref(null);
 let autoSaveTimer = null;
 let autoSaveInFlight = false;
 let autoSavePending = false;
@@ -1519,9 +1535,11 @@ const runAutoSave = async () => {
       attachments.value = [{ name: "", file: null }];
     }
     autoSaveState.value = "saved";
+    return true;
   } catch {
     autoSaveState.value = "error";
     autoSaveDirty = true; // retry on next change / unmount
+    return false;
   } finally {
     autoSaveInFlight = false;
     if (autoSavePending) {
@@ -1529,6 +1547,21 @@ const runAutoSave = async () => {
       scheduleAutoSave();
     }
   }
+};
+
+const saveTestRow = async (item) => {
+  if (savingTestRow.value) return;
+  savingTestRow.value = item;
+  item.is_done = true;
+  clearTimeout(autoSaveTimer);
+  // An older autosave may already be sending the previous value.
+  while (autoSaveInFlight) {
+    await new Promise(resolve => setTimeout(resolve, 80));
+  }
+  const saved = await runAutoSave();
+  if (saved) toast.success("تم حفظ النتيجة");
+  else toast.error("تعذر حفظ النتيجة، حاول مرة أخرى");
+  savingTestRow.value = null;
 };
 
 const scheduleAutoSave = () => {
