@@ -147,7 +147,6 @@ Route::group(['middleware' => ['auth:sanctum', \App\Http\Middleware\RestrictRefe
      @ Roles Routes
      */
     Route::post('whatsapp/message', [WhatsAppController::class, 'sendWhatsAppMessage']); // send whatsapp message
-    Route::post('whatsapp/medical-report', [WhatsAppController::class, 'sendMedicalReport'])->middleware('throttle:10,1');
     Route::get('patients/{patient}/loyalty', [\App\Http\Controllers\ReceptionLoyaltyController::class, 'show']);
     Route::post('portal/generate', [PatientPortalController::class, 'generateLink']); // create/reuse a patient's magic-link portal URL
 

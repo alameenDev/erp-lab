@@ -1415,6 +1415,7 @@
 
 <script setup>
 import { messageTemplate } from '@/utils/labDocuments';
+import { prepareMedicalReportWhatsApp } from '@/utils/sharePatientPortal';
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { storeToRefs } from "pinia";
@@ -2638,6 +2639,7 @@ const handlePrintSelection = async (selection) => {
   if (reportActionBusy.value || !printRecord.value) return;
   reportActionBusy.value = true;
   const previewTab = selection.action === 'preview' ? window.open('about:blank', '_blank') : null;
+  const whatsappTab = selection.action === 'whatsapp' ? window.open('about:blank', '_blank') : null;
   const original = {
     tests: [...(printRecord.value.tests || [])], cultures: [...(printRecord.value.cultures || [])],
     packages: [...(printRecord.value.packages || [])], test_groups: [...(printRecord.value.test_groups || [])],
@@ -2663,11 +2665,13 @@ const handlePrintSelection = async (selection) => {
         if (previewTab) previewTab.location.href = url; else window.open(url, '_blank');
         setTimeout(() => URL.revokeObjectURL(url), 120000);
       } else {
-        const payload = new FormData();
-        payload.append('invoice_id', String(printRecord.value.id));
-        payload.append('report', new File([result.blob], result.filename, { type: 'application/pdf' }));
-        await $http.post('/whatsapp/medical-report', payload);
-        toast.success('تم إرسال ملف التقرير ورابط بوابة المريض إلى الرقم المسجل.');
+        const share = await prepareMedicalReportWhatsApp(printRecord.value, labSettingsStore.settings, printRecord.value?.lab?.name);
+        const url = URL.createObjectURL(result.blob);
+        const link = document.createElement('a'); link.href = url; link.download = result.filename; link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 120000);
+        if (whatsappTab) { whatsappTab.opener = null; whatsappTab.location.href = share.whatsappUrl; }
+        else if (!window.open(share.whatsappUrl, '_blank')) throw new Error('اسمح بالنوافذ المنبثقة ثم أعد المحاولة.');
+        toast.success('نُزّل PDF وفُتحت محادثة المريض مع رابط البوابة. أرفق الملف ثم أرسل الرسالة.');
       }
     }
     if (selection.action === 'print' || selection.action === 'print-download') {
@@ -2682,9 +2686,9 @@ const handlePrintSelection = async (selection) => {
     }
     if (selection.action !== 'preview') printSelectVisible.value = false;
   } catch (error) {
-    previewTab?.close();
+    previewTab?.close(); whatsappTab?.close();
     console.error('Report action failed:', error);
-    toast.error(error?.response?.data?.message || 'تعذر إرسال التقرير. حاول مرة ثانية.');
+    toast.error(error?.response?.data?.message || error?.message || 'تعذر تجهيز التقرير. حاول مرة ثانية.');
   } finally {
     Object.assign(printRecord.value, original);
     reportActionBusy.value = false;
