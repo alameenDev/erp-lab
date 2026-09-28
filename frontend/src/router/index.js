@@ -254,6 +254,12 @@ const router = createRouter({
                          meta: { title: "هوية المختبر | Digital Lab", description: "شعار واسم المختبر المحيل" },
                     },
                     {
+                         path: "financial-report",
+                         name: "referral-portal-financial-report",
+                         component: () => import("@/views/referral-portal/financial-report.vue"),
+                         meta: { title: "التقرير المالي | بوابة الإحالة", description: "مطالبات المختبرات والدفعات والفواتير" },
+                    },
+                    {
                          path: "reports/:patientId",
                          name: "referral-portal-report",
                          component: () => import("@/views/medical_reports/componentes/print_Result.vue"),

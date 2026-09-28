@@ -191,6 +191,7 @@ Route::group(['middleware' => ['auth:sanctum', \App\Http\Middleware\RestrictRefe
     Route::post('referral-portal/profile', [ReferralPortalController::class, 'updateProfile']);
     Route::get('referral-portal/price-list/{labId}', [ReferralPortalController::class, 'priceList']);
     Route::get('referral-portal/invoices', [ReferralPortalController::class, 'index']);
+    Route::get('referral-portal/financial-report', [ReferralPortalController::class, 'financialReport']);
     Route::get('referral-portal/invoices/{id}', [ReferralPortalController::class, 'show']);
     Route::post('referral-portal/invoices', [ReferralPortalController::class, 'store']);
     Route::put('doctor-bookings/{id}', [DoctorController::class, 'updateBookingRequest']);
