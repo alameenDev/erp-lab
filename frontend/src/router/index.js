@@ -274,6 +274,25 @@ const router = createRouter({
                ],
           },
           {
+               path: "/doctor-portal",
+               component: () => import("@/layout/DoctorPortalLayout.vue"),
+               meta: { requiresAuth: true },
+               children: [
+                    {
+                         path: "",
+                         name: "doctor-portal-home",
+                         component: () => import("@/views/doctor-portal/index.vue"),
+                         meta: { title: "بوابة الطبيب | Digital Lab" },
+                    },
+                    {
+                         path: "patients/:id",
+                         name: "doctor-portal-patient",
+                         component: () => import("@/views/doctor-portal/patient-results.vue"),
+                         meta: { title: "نتائج المريض | بوابة الطبيب" },
+                    },
+               ],
+          },
+          {
                path: "/result/:patientId",
                name: "result",
                component: () => import("@/views/medical_reports/componentes/print_Result.vue"),
@@ -412,11 +431,12 @@ router.beforeEach((to, from, next) => {
      } catch {
           storedUser = null;
      }
+     const referralHome = storedUser?.is_doctor_portal ? "/doctor-portal" : "/referral-portal";
 
      // Redirect authenticated users away from welcome and login pages
      if (isAuthenticated && (to.name === "welcome" || to.name === "login")) {
           if (storedUser?.is_referral_partner) {
-               next("/referral-portal");
+               next(referralHome);
           } else if (storedUser?.role_id == 1) {
                next("/super-admin");
           } else {
@@ -424,10 +444,10 @@ router.beforeEach((to, from, next) => {
           }
      } else if (requiresAuth && !isAuthenticated) {
           next("/login");
-     } else if (isAuthenticated && storedUser?.is_referral_partner && requiresAuth && !to.path.startsWith("/referral-portal")) {
+     } else if (isAuthenticated && storedUser?.is_referral_partner && requiresAuth && !to.path.startsWith(referralHome)) {
           // Referral partner accounts only ever see their own portal, not
           // the main lab's staff area.
-          next("/referral-portal");
+          next(referralHome);
      } else {
           next();
      }

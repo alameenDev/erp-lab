@@ -20,20 +20,43 @@ class ReferalController extends Controller
             'name' => 'required|string|max:255', 'email' => 'required|email|max:255|unique:users,email',
             'password' => 'required|string|min:12|max:128|confirmed',
             'phone_number' => 'nullable|string|max:50', 'address' => 'nullable|string|max:255',
-            'price_list_id_fk' => ['required', \Illuminate\Validation\Rule::exists('price_lists', 'id')->where('lab_id_fk', $labId)->whereNull('deleted_at')],
+            'role_id' => 'nullable|in:2,5',
+            'commission' => 'nullable|integer|min:0',
+            'price_list_id_fk' => ['required_unless:role_id,5', 'nullable', \Illuminate\Validation\Rule::exists('price_lists', 'id')->where('lab_id_fk', $labId)->whereNull('deleted_at')],
         ]);
         return \Illuminate\Support\Facades\DB::transaction(function () use ($v, $labId) {
             $user = User::create(['name' => $v['name'], 'email' => $v['email'], 'password' => Hash::make($v['password']),
                 'phone_number' => $v['phone_number'] ?? null, 'address' => $v['address'] ?? null,
-                'creator_id' => $labId, 'role_id' => 5, 'status' => 1, 'email_verified_at' => now()]);
+                'creator_id' => $labId, 'role_id' => (int) ($v['role_id'] ?? 5), 'status' => 1, 'email_verified_at' => now()]);
             $user->referral_portal_only = true;
             $user->save();
             $referral = Referal::create(['referral_id_fk' => $user->id, 'lab_id_fk' => $labId,
-                'commission' => 0, 'price_list_id_fk' => $v['price_list_id_fk']]);
-            \App\Models\ReferralLabProfile::create(['user_id_fk' => $user->id, 'display_name' => $v['name']]);
+                'commission' => $v['commission'] ?? 0, 'price_list_id_fk' => $v['price_list_id_fk'] ?? null]);
+            if (! isset($v['role_id']) || (int) $v['role_id'] === 2) \App\Models\ReferralLabProfile::create(['user_id_fk' => $user->id, 'display_name' => $v['name']]);
             ActivityLogController::registerActivity('إنشاء حساب بوابة إحالة رقم '.$referral->id);
             return response()->json(['id' => $referral->id, 'email' => $user->email], 201);
         });
+    }
+
+    public function enableDoctorPortal(Request $request, Referal $referral)
+    {
+        abort_unless(Auth::user()->hasPermissionTo('referrals edit'), 403);
+        $labId = app(\App\Services\InventoryService::class)->labId(Auth::user());
+        abort_unless((int) $referral->lab_id_fk === $labId && (int) $referral->user?->role_id === 5, 404);
+        abort_if(\App\Models\ReferralLabProfile::where('user_id_fk', $referral->referral_id_fk)->exists(), 409, 'هذا الحساب مرتبط ببوابة إحالة مختبر');
+        $v = $request->validate([
+            'email' => ['required', 'email', 'max:255', \Illuminate\Validation\Rule::unique('users', 'email')->ignore($referral->referral_id_fk)],
+            'password' => 'required|string|min:12|max:128|confirmed',
+        ]);
+        $doctor = $referral->user;
+        $doctor->email = $v['email'];
+        $doctor->password = Hash::make($v['password']);
+        $doctor->referral_portal_only = true;
+        $doctor->email_verified_at = now();
+        $doctor->status = 1;
+        $doctor->save();
+        ActivityLogController::registerActivity('تفعيل بوابة الطبيب للإحالة رقم '.$referral->id);
+        return response()->json(['message' => 'تم تفعيل بوابة الطبيب', 'email' => $doctor->email]);
     }
 
     public function index(Request $request)
@@ -71,6 +94,8 @@ class ReferalController extends Controller
                 'role' => $referral->user->role?->name,
                 'lab' => $referral->lab?->name,
                 'role_id' => $referral->user->role_id,
+                'portal_enabled' => (bool) $referral->user->referral_portal_only,
+                'lab_portal_profile' => \App\Models\ReferralLabProfile::where('user_id_fk', $referral->referral_id_fk)->exists(),
                 'price_list_id_fk' => $referral->price_list_id_fk,
                 // Partner-lab fields (only populated for Lab-role referrals)
                 'lab_discount_percentage' => $partnerLab?->discount_percentage,

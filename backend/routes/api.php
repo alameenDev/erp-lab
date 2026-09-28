@@ -186,6 +186,9 @@ Route::group(['middleware' => ['auth:sanctum', \App\Http\Middleware\RestrictRefe
     Route::get('referral-portal/options' , [ReferralPortalController::class, 'options']);
     Route::get('referral-portal/patients', [ReferralPortalController::class, 'patients']);
     Route::post('referrals/portal-account', [ReferalController::class, 'createPortalAccount']);
+    Route::post('referrals/{referral}/doctor-portal', [ReferalController::class, 'enableDoctorPortal'])->whereNumber('referral');
+    Route::get('doctor-portal/patients', [\App\Http\Controllers\DoctorPortalController::class, 'patients']);
+    Route::get('doctor-portal/patients/{id}', [\App\Http\Controllers\DoctorPortalController::class, 'patientResults'])->whereNumber('id');
     Route::get('referral-portal/connections', [ReferralPortalController::class, 'connections']);
     Route::get('referral-portal/profile', [ReferralPortalController::class, 'profile']);
     Route::post('referral-portal/profile', [ReferralPortalController::class, 'updateProfile']);
