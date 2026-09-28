@@ -1,165 +1,34 @@
 <template>
-  <div class="min-h-screen" :style="lang === 'en' ? 'direction:ltr' : 'direction: rtl'">
+  <div class="min-h-screen bg-slate-50/80" :style="lang === 'en' ? 'direction:ltr' : 'direction: rtl'">
 
-    <!-- Auto-save status pill -->
-    <div
-      v-if="autoSaveReady"
-      class="fixed bottom-4 end-4 z-50 flex items-center gap-2 px-3 py-2 rounded-full text-xs font-medium shadow-lg transition-all"
-      :class="{
-        'bg-slate-800 text-slate-200': autoSaveState === 'saving',
-        'bg-green-600 text-white': autoSaveState === 'saved',
-        'bg-red-600 text-white': autoSaveState === 'error',
-      }"
-    >
-      <svg v-if="autoSaveState === 'saving'" class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
-        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-      </svg>
-      <svg v-else-if="autoSaveState === 'saved'" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
-      <svg v-else-if="autoSaveState === 'error'" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 00-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" /></svg>
-      <span>
-        {{ autoSaveState === 'saving' ? (t('saving') || 'جاري الحفظ...') : autoSaveState === 'saved' ? (t('saved') || 'تم الحفظ') : (t('save_failed') || 'فشل الحفظ') }}
-      </span>
-    </div>
-
-    <!-- ==================== TOP BAR ==================== -->
-    <div class="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 sticky top-0 z-30 shadow-lg shadow-slate-900/20">
-      <!-- Decorative background (clipped, won't affect dropdowns) -->
-      <div class="absolute inset-0 overflow-hidden pointer-events-none">
-        <div class="absolute -top-20 -end-20 w-72 h-72 bg-primary-500/20 rounded-full blur-3xl"></div>
-        <div class="absolute -bottom-16 -start-16 w-56 h-56 bg-primary-600/15 rounded-full blur-2xl"></div>
-      </div>
-
-      <div class="relative flex items-center justify-between gap-3 px-4 lg:px-6 py-3">
-        <!-- Title cluster -->
-        <div class="flex items-center gap-3 min-w-0">
-          <button
-            @click="goBack"
-            :aria-label="t('back') || 'Back'"
-            :title="t('back') || 'Back'"
-            class="w-10 h-10 flex items-center justify-center rounded-xl text-white/80 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-colors cursor-pointer focus:outline-none focus:ring-4 focus:ring-white/20 shrink-0"
-          >
-            <svg class="w-5 h-5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
+    <!-- Focused result-entry header -->
+    <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
+      <div class="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-3 px-4 py-3 lg:px-8">
+        <div class="flex min-w-0 items-center gap-3">
+          <button type="button" @click="goBack" :aria-label="t('back') || 'رجوع'" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50">
+            <svg class="h-5 w-5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
           </button>
           <div class="min-w-0">
-            <p class="text-[10px] sm:text-xs text-primary-300/80 font-semibold uppercase tracking-widest">{{ t("medical_reports") }}</p>
-            <h1 class="text-base sm:text-lg lg:text-xl font-bold text-white truncate">{{ t("update_result") }}</h1>
+            <p class="text-[11px] font-semibold tracking-wide text-primary-700">{{ t('medical_reports') }} / {{ updateResultRecord?.barcode || route.params.id }}</p>
+            <h1 class="truncate text-lg font-bold text-slate-900">{{ t('update_result') }} <span v-if="updateResultRecord?.patient?.name" class="font-medium text-slate-500">· {{ updateResultRecord.patient.name }}</span></h1>
           </div>
         </div>
-
-        <!-- Action cluster -->
-        <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
-          <!-- Print -->
-          <div class="relative">
-            <button
-              type="button"
-              @click.stop="togglePrintMenu"
-              :title="t('print') || 'Print'"
-              :aria-label="t('print') || 'Print'"
-              class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 text-xs sm:text-sm font-medium text-white/90 hover:text-white bg-white/5 hover:bg-white/15 border border-white/10 rounded-lg transition-colors cursor-pointer focus:outline-none focus:ring-4 focus:ring-white/20"
-            >
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-              </svg>
-              <span class="hidden sm:inline">{{ t("print") || "Print" }}</span>
-              <svg class="w-3 h-3 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
-            </button>
-            <div v-if="printMenuOpen" class="absolute end-0 z-[60] mt-2 w-52 bg-white rounded-xl shadow-xl border border-slate-200 py-2 overflow-hidden">
-              <button @click="openPrintAction(false)" class="w-full px-4 py-2.5 text-start text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors">
-                <svg class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-                {{ t("without_background") || "Without Background" }}
-              </button>
-              <button @click="openPrintAction(true)" class="w-full px-4 py-2.5 text-start text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors">
-                <svg class="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                {{ t("with_background") || "With Background" }}
-              </button>
-            </div>
-          </div>
-          <!-- Download PDF -->
-          <div class="relative">
-            <button
-              type="button"
-              @click.stop="toggleDownloadMenu"
-              :title="t('download_pdf') || 'Download PDF'"
-              :aria-label="t('download_pdf') || 'Download PDF'"
-              :disabled="downloadInProgress"
-              class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 text-xs sm:text-sm font-medium text-white bg-gradient-to-br from-blue-500/80 to-blue-600/80 hover:from-blue-500 hover:to-blue-600 border border-blue-400/30 rounded-lg shadow-sm shadow-blue-500/30 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-4 focus:ring-blue-400/40"
-            >
-              <svg v-if="!downloadInProgress" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-              <svg v-else class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-              </svg>
-              <span class="hidden sm:inline">{{ t("download_pdf") || "PDF" }}</span>
-              <svg class="w-3 h-3 opacity-80" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
-            </button>
-            <div v-if="downloadMenuOpen" class="absolute end-0 z-[60] mt-2 w-52 bg-white rounded-xl shadow-xl border border-slate-200 py-2 overflow-hidden">
-              <button @click="openDownloadAction(false)" class="w-full px-4 py-2.5 text-start text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors">
-                <svg class="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                {{ t("without_background") || "Without Background" }}
-              </button>
-              <button @click="openDownloadAction(true)" class="w-full px-4 py-2.5 text-start text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors">
-                <svg class="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                {{ t("with_background") || "With Background" }}
-              </button>
-            </div>
-          </div>
-          <!-- WhatsApp -->
-          <div class="relative">
-            <button
-              type="button"
-              @click.stop="toggleWhatsappMenu"
-              :title="t('whatsapp') || 'WhatsApp'"
-              :aria-label="t('whatsapp') || 'WhatsApp'"
-              class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 text-xs sm:text-sm font-medium text-white bg-gradient-to-br from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 rounded-lg transition-colors cursor-pointer shadow-sm shadow-green-500/30 focus:outline-none focus:ring-4 focus:ring-green-300/40"
-            >
-              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
-              </svg>
-              <span class="hidden sm:inline">{{ t("whatsapp") || "WhatsApp" }}</span>
-              <svg class="w-3 h-3 opacity-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
-            </button>
-            <div v-if="whatsappMenuOpen" class="absolute end-0 z-[60] mt-2 w-52 bg-white rounded-xl shadow-xl border border-slate-200 py-2 overflow-hidden">
-              <button @click="openWhatsAppAction(false)" class="w-full px-4 py-2.5 text-start text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors">
-                <svg class="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654z"/></svg>
-                {{ t("without_background") || "Without Background" }}
-              </button>
-              <button @click="openWhatsAppAction(true)" class="w-full px-4 py-2.5 text-start text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors">
-                <svg class="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                {{ t("with_background") || "With Background" }}
-              </button>
-            </div>
-          </div>
-
-          <!-- Divider -->
-          <span class="hidden lg:block w-px h-7 bg-white/15 mx-1" aria-hidden="true"></span>
-
-          <!-- Cancel -->
-          <button
-            type="button"
-            @click="goBack"
-            class="hidden sm:inline-flex px-3 py-2 text-xs sm:text-sm font-medium text-white/80 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-colors cursor-pointer focus:outline-none focus:ring-4 focus:ring-white/20"
-          >
-            {{ t("cancel") }}
+        <div class="flex items-center gap-2">
+          <span v-if="autoSaveReady" class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs" :class="autoSaveState === 'error' ? 'bg-red-50 text-red-700' : autoSaveState === 'saving' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'">
+            <span class="h-2 w-2 rounded-full" :class="autoSaveState === 'saving' ? 'animate-pulse bg-amber-500' : autoSaveState === 'error' ? 'bg-red-500' : 'bg-emerald-500'"></span>
+            {{ autoSaveState === 'saving' ? 'جاري الحفظ' : autoSaveState === 'error' ? 'تعذر الحفظ' : 'حفظ تلقائي' }}
+          </span>
+          <button type="button" @click="openReportActions" :disabled="isLoading || reportActionBusy" class="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2 2v4h10z" /></svg>
+            <span>إخراج التقرير</span>
           </button>
-          <!-- Save (primary) -->
-          <button
-            type="button"
-            @click="update"
-            class="inline-flex items-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-semibold text-white bg-gradient-to-br from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 rounded-lg shadow-sm shadow-primary-500/40 transition-colors cursor-pointer focus:outline-none focus:ring-4 focus:ring-primary-400/40"
-          >
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-            <span>{{ t("save") }}</span>
+          <button type="button" @click="update" :disabled="isLoading" class="inline-flex h-10 items-center gap-2 rounded-xl bg-primary-600 px-4 text-sm font-bold text-white shadow-sm hover:bg-primary-700 disabled:opacity-50">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+            {{ t('save') }}
           </button>
         </div>
       </div>
-    </div>
+    </header>
 
     <!-- Loading State -->
     <div
@@ -182,10 +51,15 @@
 
     <!-- Main Content -->
     <template v-else>
-      <div class="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+      <div class="mx-auto max-w-[1500px] space-y-5 px-4 py-5 pb-24 lg:px-8">
 
         <!-- ==================== PATIENT SEARCH + ADD ==================== -->
-        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-3 flex flex-col sm:flex-row gap-2">
+        <details class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <summary class="flex cursor-pointer list-none items-center justify-between px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+            <span>إدارة المريض والفاتورة <small class="ms-2 font-normal text-slate-500">بحث، إضافة مريض، أو إنشاء فاتورة</small></span>
+            <span class="text-slate-400">⌄</span>
+          </summary>
+          <div class="flex flex-col gap-2 border-t border-slate-100 p-4 sm:flex-row">
           <div class="relative flex-1" @click.stop>
             <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
               <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -249,7 +123,8 @@
             </svg>
             <span>{{ t("add_invoice_for_patient") || "فاتورة جديدة" }}</span>
           </button>
-        </div>
+          </div>
+        </details>
 
         <!-- ==================== PATIENT INFO (full width) ==================== -->
         <div class="grid grid-cols-1 gap-4">
@@ -382,20 +257,109 @@
         </div>
         <!-- End: Patient row -->
 
+        <section class="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm" aria-label="تقدم إدخال النتائج">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div><h2 class="text-sm font-bold text-slate-900">تقدم النتائج</h2><p class="mt-1 text-xs text-slate-500">اختر القسم، أدخل النتائج، وراجع آخر نتيجة للمريض قبل اعتماد الفحص.</p></div>
+            <span class="rounded-full bg-primary-50 px-3 py-1.5 text-sm font-bold text-primary-700">{{ completedCount }} من {{ resultItems.length }} مكتمل</span>
+          </div>
+          <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-primary-600 transition-all" :style="{ width: completionPercent + '%' }"></div></div>
+        </section>
+
+        <!-- ==================== SECTION NAV + CONTENT (3/9 split) ==================== -->
+        <div class="space-y-4">
+
+          <!-- Section Navigation Tabs — col-2 sidebar -->
+          <nav aria-label="أقسام النتائج" class="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+            <div class="flex gap-2 overflow-x-auto pb-1">
+            <button
+              v-if="updateResultRecord.tests?.length > 0"
+              type="button"
+              @click="activeSection = 'tests'"
+              :class="[
+                'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ',
+                activeSection === 'tests'
+                  ? 'bg-primary-50 text-primary-700 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              ]"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+              </svg>
+              {{ t("tests") }}
+              <span class="px-1.5 py-0.5 text-xs rounded-md bg-primary-100 text-primary-600">{{ updateResultRecord.tests?.length || 0 }}</span>
+            </button>
+            <button
+              v-if="updateResultRecord.packages?.length > 0"
+              type="button"
+              @click="activeSection = 'packages'"
+              :class="[
+                'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ',
+                activeSection === 'packages'
+                  ? 'bg-purple-50 text-purple-700 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              ]"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+              </svg>
+              {{ t("packages") }}
+              <span class="px-1.5 py-0.5 text-xs rounded-md bg-purple-100 text-purple-600">{{ updateResultRecord.packages?.length || 0 }}</span>
+            </button>
+            <button
+              v-if="updateResultRecord.test_groups?.length > 0"
+              type="button"
+              @click="activeSection = 'test_groups'"
+              :class="[
+                'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ',
+                activeSection === 'test_groups'
+                  ? 'bg-amber-50 text-amber-700 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              ]"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+              {{ t("test-groups") }}
+              <span class="px-1.5 py-0.5 text-xs rounded-md bg-amber-100 text-amber-600">{{ updateResultRecord.test_groups?.length || 0 }}</span>
+            </button>
+            <button
+              v-if="updateResultRecord.cultures?.length > 0"
+              type="button"
+              @click="activeSection = 'cultures'"
+              :class="[
+                'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ',
+                activeSection === 'cultures'
+                  ? 'bg-rose-50 text-rose-700 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              ]"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+              </svg>
+              {{ t("cultures") }}
+              <span class="px-1.5 py-0.5 text-xs rounded-md bg-rose-100 text-rose-600">{{ updateResultRecord.cultures?.length || 0 }}</span>
+            </button>
+            <button
+              type="button"
+              @click="activeSection = 'extras'"
+              :class="[
+                'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ',
+                activeSection === 'extras'
+                  ? 'bg-slate-100 text-slate-700 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              ]"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+              </svg>
+              {{ t("attachments") }} & {{ t("comments") || "تعليقات" }}
+            </button>
+            </div>
+          </nav>
+
         <!-- ==================== TEST TABS (full width col-12, only when activeSection === 'tests') ==================== -->
         <div v-if="activeSection === 'tests' && updateResultRecord.tests?.length > 0" class="bg-white rounded-xl border border-slate-200 shadow-sm px-3 py-2">
-          <button
-            type="button"
-            @click="openInvoiceEdit"
-            class="w-full mb-2 px-3 py-2 rounded-lg text-sm font-semibold text-white bg-gradient-to-br from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 shadow-sm shadow-primary-500/20 inline-flex items-center justify-center gap-2 transition-all focus:outline-none focus:ring-4 focus:ring-primary-300/40"
-            :title="t('add_test')"
-          >
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            <span>{{ t("add_test") }}</span>
-          </button>
-          <div class="flex flex-wrap gap-2">
+          <div class="flex gap-2 overflow-x-auto pb-1">
             <button
               v-if="allTabTests.length"
               type="button"
@@ -426,11 +390,22 @@
               <span v-if="item.is_done" class="w-2 h-2 bg-green-500 rounded-full shrink-0"></span>
             </button>
           </div>
+          <button
+            type="button"
+            @click="openInvoiceEdit"
+            class="mt-2 px-3 py-2 rounded-lg text-sm font-semibold bg-primary-50 text-primary-700 hover:bg-primary-100 border border-primary-200 inline-flex items-center justify-center gap-2 transition-all focus:outline-none focus:ring-4 focus:ring-primary-300/40"
+            :title="t('add_test')"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            <span>{{ t("add_test") }}</span>
+          </button>
         </div>
 
         <!-- ==================== TEST GROUPS TABS (full width col-12, only when activeSection === 'test_groups') ==================== -->
         <div v-if="activeSection === 'test_groups' && updateResultRecord.test_groups?.length > 0" class="bg-white rounded-xl border border-slate-200 shadow-sm px-3 py-2">
-          <div class="flex flex-wrap gap-2">
+          <div class="flex gap-2 overflow-x-auto pb-1">
             <button
               type="button"
               v-for="(item, index) in updateResultRecord.test_groups"
@@ -448,211 +423,50 @@
           </div>
         </div>
 
-        <!-- ==================== SECTION NAV + CONTENT (3/9 split) ==================== -->
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
-
-          <!-- Section Navigation Tabs — col-2 sidebar -->
-          <div class="lg:col-span-2 lg:order-1 bg-white rounded-xl border border-slate-200 shadow-sm">
-            <div class="flex overflow-x-auto lg:flex-col lg:overflow-visible px-2 py-2 gap-1">
-            <button
-              v-if="updateResultRecord.tests?.length > 0"
-              type="button"
-              @click="activeSection = 'tests'"
-              :class="[
-                'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all lg:w-full lg:justify-start',
-                activeSection === 'tests'
-                  ? 'bg-primary-50 text-primary-700 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-              ]"
-            >
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-              </svg>
-              {{ t("tests") }}
-              <span class="px-1.5 py-0.5 text-xs rounded-md bg-primary-100 text-primary-600">{{ updateResultRecord.tests?.length || 0 }}</span>
-            </button>
-            <button
-              v-if="updateResultRecord.packages?.length > 0"
-              type="button"
-              @click="activeSection = 'packages'"
-              :class="[
-                'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all lg:w-full lg:justify-start',
-                activeSection === 'packages'
-                  ? 'bg-purple-50 text-purple-700 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-              ]"
-            >
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-              </svg>
-              {{ t("packages") }}
-              <span class="px-1.5 py-0.5 text-xs rounded-md bg-purple-100 text-purple-600">{{ updateResultRecord.packages?.length || 0 }}</span>
-            </button>
-            <button
-              v-if="updateResultRecord.test_groups?.length > 0"
-              type="button"
-              @click="activeSection = 'test_groups'"
-              :class="[
-                'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all lg:w-full lg:justify-start',
-                activeSection === 'test_groups'
-                  ? 'bg-amber-50 text-amber-700 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-              ]"
-            >
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-              {{ t("test-groups") }}
-              <span class="px-1.5 py-0.5 text-xs rounded-md bg-amber-100 text-amber-600">{{ updateResultRecord.test_groups?.length || 0 }}</span>
-            </button>
-            <button
-              v-if="updateResultRecord.cultures?.length > 0"
-              type="button"
-              @click="activeSection = 'cultures'"
-              :class="[
-                'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all lg:w-full lg:justify-start',
-                activeSection === 'cultures'
-                  ? 'bg-rose-50 text-rose-700 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-              ]"
-            >
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-              </svg>
-              {{ t("cultures") }}
-              <span class="px-1.5 py-0.5 text-xs rounded-md bg-rose-100 text-rose-600">{{ updateResultRecord.cultures?.length || 0 }}</span>
-            </button>
-            <button
-              type="button"
-              @click="activeSection = 'extras'"
-              :class="[
-                'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all lg:w-full lg:justify-start',
-                activeSection === 'extras'
-                  ? 'bg-slate-100 text-slate-700 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-              ]"
-            >
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-              </svg>
-              {{ t("attachments") }} & {{ t("comments") || "تعليقات" }}
-            </button>
-            </div>
-          </div>
-
-          <!-- ==================== CONTENT (col-9) ==================== -->
-          <div class="lg:col-span-10 lg:order-2 space-y-4">
+          <!-- Results workspace -->
+          <div class="space-y-4">
 
         <!-- ==================== TESTS SECTION (tabs moved out to full width above) ==================== -->
         <div v-if="activeSection === 'tests' && updateResultRecord.tests?.length > 0" class="space-y-4">
-          <!-- All-tests Table View -->
-          <div v-if="activeTestTab === 'all'">
-            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-              <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                  <thead class="bg-slate-50 border-b border-slate-200">
-                    <tr>
-                      <th class="px-3 py-2.5 text-start text-xs font-semibold text-slate-600 uppercase tracking-wide">{{ t("test") || "Test" }}</th>
-                      <th class="px-3 py-2.5 text-start text-xs font-semibold text-slate-600 uppercase tracking-wide">{{ t("Result") }}</th>
-                      <th class="px-3 py-2.5 text-start text-xs font-semibold text-slate-600 uppercase tracking-wide">{{ t("Unit") }}</th>
-                      <th class="px-3 py-2.5 text-start text-xs font-semibold text-slate-600 uppercase tracking-wide">{{ t("tests-reference-ranges") }}</th>
-                      <th class="px-3 py-2.5 text-start text-xs font-semibold text-slate-600 uppercase tracking-wide">{{ t("status") || "Status" }}</th>
-                      <th class="px-3 py-2.5 text-start text-xs font-semibold text-slate-600 uppercase tracking-wide">{{ t("Test_Group_Comment") }}</th>
-                      <th class="px-3 py-2.5 text-center text-xs font-semibold text-slate-600 uppercase tracking-wide">{{ t("done") }}</th>
-                      <th class="px-3 py-2.5 text-center text-xs font-semibold text-slate-600 uppercase tracking-wide">{{ t("actions") || "Actions" }}</th>
-                    </tr>
-                  </thead>
-                  <tbody class="divide-y divide-slate-100">
-                    <tr v-for="(item, index) in allTabTests" :key="'all-' + index" class="hover:bg-slate-50/50">
-                      <td class="px-3 py-2.5 align-top">
-                        <p class="text-sm font-medium text-slate-800">{{ item.name }}</p>
-                        <p v-if="item.shortcut" class="text-[10px] text-slate-400 font-mono">{{ item.shortcut }}</p>
-                      </td>
-                      <td class="px-3 py-2.5 align-top">
-                        <input
-                          v-if="Number(item.result_type_id_fk) === 1 || Number(item.result_type_id_fk) === 2"
-                          type="text" inputmode="decimal" pattern="-?[0-9]*\.?[0-9]*"
-                          v-model="item.result"
-                          @input="autoDetectStatus(item)"
-                          @change="autoDetectStatus(item)"
-                          @keydown.enter.prevent="confirmAndNext(item, index)"
-                          :data-test-row="index"
-                          class="w-32 px-2 py-1.5 text-sm border border-slate-200 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-                        />
-                        <input
-                          v-else-if="Number(item.result_type_id_fk) === 3 || !item.result_type_id_fk"
-                          type="text"
-                          v-model="item.result"
-                          @input="autoDetectStatus(item)"
-                          @change="autoDetectStatus(item)"
-                          @keydown.enter.prevent="confirmAndNext(item, index)"
-                          :data-test-row="index"
-                          class="w-32 px-2 py-1.5 text-sm border border-slate-200 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-                        />
-                        <select
-                          v-else-if="Number(item.result_type_id_fk) === 4"
-                          v-model="item.result"
-                          @keydown.enter.prevent="confirmAndNext(item, index)"
-                          :data-test-row="index"
-                          class="w-32 px-2 py-1.5 text-sm border border-slate-200 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none bg-white"
-                        >
-                          <option value="">{{ t("select") }}</option>
-                          <option v-for="opt in item.selection_type_options" :key="opt" :value="opt">{{ opt }}</option>
-                        </select>
-                        <PreviousResult v-bind="previousLabel('test', item)" class="mt-2" />
-                      </td>
-                      <td class="px-3 py-2.5 align-top text-xs text-slate-600">{{ item.unit ?? "—" }}</td>
-                      <td class="px-3 py-2.5 align-top text-xs text-blue-600">
-                        <div v-if="displayRanges(item).length" class="space-y-0.5">
-                          <div v-for="range in displayRanges(item)" :key="range.test_reference_range_id || range.id" style="white-space: pre-line;">
-                            <span v-if="range.notes">{{ range.notes }}</span>
-                            <span v-else>{{ range.from }} - {{ range.to }}</span>
-                          </div>
-                        </div>
-                        <span v-else class="text-slate-400">—</span>
-                      </td>
-                      <td class="px-3 py-2.5 align-top">
-                        <select
-                          v-model="item.result_status_id_fk"
-                          class="w-28 px-2 py-1.5 text-xs border border-slate-200 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none bg-white"
-                        >
-                          <option value="">{{ t("select") }}</option>
-                          <option v-for="status in resultStatus" :key="status.value" :value="status.value">{{ status.label }}</option>
-                        </select>
-                      </td>
-                      <td class="px-3 py-2.5 align-top">
-                        <input
-                          type="text"
-                          v-model="item.comment"
-                          :placeholder="t('enter_comment')"
-                          class="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-                        />
-                      </td>
-                      <td class="px-3 py-2.5 align-top text-center">
-                        <label class="inline-flex cursor-pointer">
-                          <input type="checkbox" v-model="item.is_done" class="sr-only peer" />
-                          <div class="relative w-10 h-6 bg-slate-200 rounded-full peer-checked:bg-primary-600 transition-colors">
-                            <div class="absolute top-0.5 start-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform peer-checked:translate-x-4 rtl:peer-checked:-translate-x-4"></div>
-                          </div>
-                        </label>
-                      </td>
-                      <td class="px-3 py-2.5 align-top text-center">
-                        <button
-                          type="button"
-                          @click="openTestEdit(item)"
-                          :title="t('edit_test') || 'Edit test'"
-                          :aria-label="t('edit_test') || 'Edit test'"
-                          class="inline-flex items-center justify-center w-8 h-8 rounded-md text-amber-600 hover:text-white hover:bg-amber-500 border border-amber-200 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-300"
-                        >
-                          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </button>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+          <!-- Quick entry: readable rows on desktop and mobile -->
+          <div v-if="activeTestTab === 'all'" class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/70 p-4 sm:px-6">
+              <div>
+                <h3 class="font-bold text-slate-900">إدخال نتائج التحاليل</h3>
+                <p class="mt-0.5 text-xs text-slate-500">أدخل النتيجة، راجع السابقة، ثم حدّد حالة الفحص. زر Enter ينقلك للتالي.</p>
               </div>
+              <input v-model="testSearch" type="search" placeholder="ابحث عن تحليل..." aria-label="بحث في التحاليل" class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-primary-500 sm:w-64" />
+            </div>
+            <div class="divide-y divide-slate-100">
+              <div v-for="{ item, index } in filteredAllTabTests" :key="'all-' + index" class="p-4 transition-colors hover:bg-slate-50/70 sm:px-6" :class="item.is_done ? 'border-s-4 border-emerald-400' : 'border-s-4 border-transparent'">
+                <div class="grid gap-4 xl:grid-cols-[minmax(170px,1.2fr)_minmax(300px,2fr)_minmax(140px,0.9fr)]">
+                  <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-2"><h4 class="font-bold text-slate-900">{{ item.name }}</h4><span v-if="item.is_done" class="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">مكتمل</span></div>
+                    <p v-if="item.shortcut" class="mt-0.5 text-xs text-slate-500">{{ item.shortcut }}</p>
+                    <p class="mt-2 text-xs text-slate-600">{{ t('Unit') }}: {{ item.unit || '—' }}</p>
+                    <div v-if="displayRanges(item).length" class="mt-1 text-xs text-blue-700">
+                      <span class="font-medium">المدى المرجعي: </span><span v-for="range in displayRanges(item)" :key="range.test_reference_range_id || range.id" class="me-2">{{ range.notes || `${range.from} - ${range.to}` }}</span>
+                    </div>
+                  </div>
+                  <div class="grid gap-2 sm:grid-cols-[minmax(120px,1fr)_minmax(136px,1fr)]">
+                    <label class="block text-xs font-medium text-slate-600">النتيجة الحالية
+                      <input v-if="Number(item.result_type_id_fk) === 1 || Number(item.result_type_id_fk) === 2" type="text" inputmode="decimal" v-model="item.result" @input="autoDetectStatus(item)" @change="autoDetectStatus(item)" @keydown.enter.prevent="confirmAndNext(item, index)" :data-test-row="index" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-primary-500" />
+                      <input v-else-if="Number(item.result_type_id_fk) === 3 || !item.result_type_id_fk" type="text" v-model="item.result" @input="autoDetectStatus(item)" @change="autoDetectStatus(item)" @keydown.enter.prevent="confirmAndNext(item, index)" :data-test-row="index" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-primary-500" />
+                      <select v-else-if="Number(item.result_type_id_fk) === 4" v-model="item.result" @keydown.enter.prevent="confirmAndNext(item, index)" :data-test-row="index" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-primary-500"><option value="">{{ t('select') }}</option><option v-for="opt in item.selection_type_options" :key="opt" :value="opt">{{ opt }}</option></select>
+                    </label>
+                    <PreviousResult v-bind="previousLabel('test', item)" class="self-end" />
+                  </div>
+                  <div class="flex flex-wrap items-end gap-2 xl:justify-end">
+                    <label class="min-w-[130px] flex-1 text-xs font-medium text-slate-600">الحالة
+                      <select v-model="item.result_status_id_fk" class="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"><option value="">{{ t('select') }}</option><option v-for="status in resultStatus" :key="status.value" :value="status.value">{{ status.label }}</option></select>
+                    </label>
+                    <label class="inline-flex min-h-10 items-center gap-2 rounded-lg bg-emerald-50 px-3 text-xs font-semibold text-emerald-800"><input type="checkbox" v-model="item.is_done" class="h-4 w-4 accent-emerald-600" />{{ t('done') }}</label>
+                    <button type="button" @click="openTestEdit(item)" class="min-h-10 rounded-lg border border-slate-200 px-3 text-xs font-medium text-slate-700 hover:bg-slate-50" :title="t('edit_test')">تعديل</button>
+                  </div>
+                </div>
+                <input v-model="item.comment" type="text" :placeholder="t('enter_comment')" class="mt-3 w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs outline-none focus:border-primary-500" />
+              </div>
+              <div v-if="!filteredAllTabTests.length" class="p-10 text-center text-sm text-slate-500">لا توجد تحاليل تطابق البحث.</div>
             </div>
           </div>
 
@@ -828,7 +642,7 @@
         <div v-if="activeSection === 'packages' && updateResultRecord.packages?.length > 0" class="space-y-4">
           <!-- Package Tabs -->
           <div class="bg-white rounded-xl border border-slate-200 shadow-sm px-3 py-2">
-            <div class="flex flex-wrap gap-2">
+            <div class="flex gap-2 overflow-x-auto pb-1">
               <button
                 type="button"
                 v-for="(item, index) in updateResultRecord.packages"
@@ -917,7 +731,7 @@
                       <span v-else class="text-slate-400">—</span>
                     </div>
                   </div>
-                  <div class="flex items-center gap-2 shrink-0">
+                  <div class="flex flex-wrap items-center gap-2">
                     <input
                       v-if="Number(test.result_type_id_fk) === 1 || Number(test.result_type_id_fk) === 2"
                       type="text"
@@ -984,7 +798,7 @@
                       <p class="text-xs text-slate-400">{{ t("price") }}: {{ culture.price ?? 0 }}</p>
                     </div>
                   </div>
-                  <div class="flex items-center gap-2 shrink-0">
+                  <div class="flex flex-wrap items-center gap-2">
                     <input
                       type="text"
                       v-model="culture.result"
@@ -1106,7 +920,7 @@
                       <span v-else class="text-slate-400">{{ t("tests-reference-ranges") }}: —</span>
                     </div>
                   </div>
-                  <div class="flex items-center gap-2 shrink-0">
+                  <div class="flex flex-wrap items-center gap-2">
                     <input
                       v-if="Number(test.result_type_id_fk) === 1 || Number(test.result_type_id_fk) === 2"
                       type="text"
@@ -1176,7 +990,7 @@
         <div v-if="activeSection === 'cultures' && updateResultRecord.cultures?.length > 0" class="space-y-4">
           <!-- Culture Tabs -->
           <div class="bg-white rounded-xl border border-slate-200 shadow-sm px-3 py-2">
-            <div class="flex flex-wrap gap-2">
+            <div class="flex gap-2 overflow-x-auto pb-1">
               <button
                 type="button"
                 v-for="(item, index) in updateResultRecord.cultures"
@@ -1282,7 +1096,7 @@
                     <div
                       v-for="attribute in culture.attribute"
                       :key="attribute.id"
-                      class="flex items-center gap-3 p-3.5"
+                      class="flex flex-wrap items-center gap-3 p-3.5"
                     >
                       <div class="flex-1 min-w-0">
                         <p class="text-sm font-medium text-slate-700">{{ attribute.name }}</p>
@@ -1573,8 +1387,10 @@
     <!-- Print/Download/WhatsApp modal + hidden print-result template -->
     <printSelectModal
       v-model="printSelectVisible"
-      :print-mode="printSelectMode"
-      @print="handlePrintSelection"
+      :can-share="true"
+      :has-background="!!reportBackground"
+      :busy="reportActionBusy"
+      @execute="handlePrintSelection"
     />
     <printResult ref="printResultRef" />
     <pationtHistoryModal />
@@ -1582,7 +1398,6 @@
 </template>
 
 <script setup>
-import { sharePatientPortal } from "@/utils/sharePatientPortal";
 import { messageTemplate } from '@/utils/labDocuments';
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -1623,6 +1438,20 @@ const reportBackground = computed(() => labSettingsStore.settings.report_backgro
 const allTabTests = computed(() =>
      (updateResultRecord.value?.tests || []).filter((t) => !t.is_special_test)
 );
+const testSearch = ref("");
+const filteredAllTabTests = computed(() => allTabTests.value
+  .map((item, index) => ({ item, index }))
+  .filter(({ item }) => !testSearch.value.trim() || `${item.name || ''} ${item.shortcut || ''}`.toLocaleLowerCase().includes(testSearch.value.trim().toLocaleLowerCase())));
+const resultItems = computed(() => {
+  const record = updateResultRecord.value || {};
+  return [
+    ...(record.tests || []), ...(record.cultures || []),
+    ...(record.packages || []).flatMap(pkg => [...(pkg.tests || []), ...(pkg.cultures || [])]),
+    ...(record.test_groups || []).flatMap(group => [...(group.tests || []), ...(group.cultures || [])]),
+  ];
+});
+const completedCount = computed(() => resultItems.value.filter(item => item.is_done).length);
+const completionPercent = computed(() => resultItems.value.length ? Math.round(100 * completedCount.value / resultItems.value.length) : 0);
 const previousResults = ref({});
 const previousLoading = ref(false);
 const previousError = ref(false);
@@ -1649,23 +1478,8 @@ const loadPreviousResults = async (invoiceId) => {
 // Print/Download/WhatsApp state — mirrors medical_reports/index.vue
 const printResultRef = ref(null);
 const printSelectVisible = ref(false);
-const printSelectMode = ref("normal");
-const printSelectItem = ref(null);
 const downloadInProgress = ref(false);
-const printMenuOpen = ref(false);
-const downloadMenuOpen = ref(false);
-const whatsappMenuOpen = ref(false);
-const closeAllMenus = () => {
-  printMenuOpen.value = false;
-  downloadMenuOpen.value = false;
-  whatsappMenuOpen.value = false;
-};
-const togglePrintMenu = () => { const v = !printMenuOpen.value; closeAllMenus(); printMenuOpen.value = v; };
-const toggleDownloadMenu = () => { const v = !downloadMenuOpen.value; closeAllMenus(); downloadMenuOpen.value = v; };
-const toggleWhatsappMenu = () => { const v = !whatsappMenuOpen.value; closeAllMenus(); whatsappMenuOpen.value = v; };
-const User = computed(() => {
-  try { return JSON.parse(localStorage.getItem("user")); } catch { return null; }
-});
+const reportActionBusy = ref(false);
 
 const lang = computed(() => localStorage.getItem("locale") || "ar");
 const isLoading = ref(true);
@@ -1966,8 +1780,10 @@ const evalFormula = (parent) => {
 const confirmAndNext = async (item, index) => {
   if (item) item.is_done = true;
   await nextTick();
-  const total = allTabTests.value.length || 0;
-  const next = index + 1 < total ? index + 1 : 0;
+  const visible = filteredAllTabTests.value.map(row => row.index);
+  const position = visible.indexOf(index);
+  const next = visible[(position + 1) % visible.length];
+  if (next === undefined) return;
   const sel = `[data-test-row="${next}"]`;
   const el = document.querySelector(sel);
   if (el) {
@@ -2503,9 +2319,6 @@ const goBack = () => {
 
 // Lifecycle
 const handleDocClick = () => {
-  if (printMenuOpen.value || downloadMenuOpen.value || whatsappMenuOpen.value) {
-    closeAllMenus();
-  }
   if (patientSearchOpen.value) {
     patientSearchOpen.value = false;
   }
@@ -2629,44 +2442,28 @@ watch(allTabTests, (list) => {
 
 // =============== Print / Download / WhatsApp actions (mirrors medical_reports/index.vue) ===============
 
-const openPrintAction = async (withBg = false) => {
-  closeAllMenus();
+const openReportActions = async () => {
   const id = updateResultRecord.value?.id || route.params.id;
-  if (!id) return;
-  invoicesStore.changeInvoiceStatus(id, withBg);
-  await invoicesStore.GetinvoicesById(id);
-  printSelectItem.value = updateResultRecord.value;
-  printSelectMode.value = withBg ? "background" : "normal";
-  printSelectVisible.value = true;
+  if (!id || reportActionBusy.value) return;
+  reportActionBusy.value = true;
+  try {
+    clearTimeout(autoSaveTimer);
+    for (let i = 0; autoSaveInFlight && i < 100; i++) await new Promise(resolve => setTimeout(resolve, 100));
+    if (autoSaveInFlight) throw new Error('Save still in progress');
+    clearTimeout(autoSaveTimer);
+    if (autoSaveDirty) await runAutoSave();
+    if (autoSaveState.value === 'error') { toast.error('احفظ النتائج قبل تجهيز التقرير.'); return; }
+    await labSettingsStore.GetSettings();
+    await invoicesStore.GetinvoicesById(id);
+    printSelectVisible.value = true;
+  } catch {
+    toast.error('تعذر تحميل التقرير. حاول مرة ثانية.');
+  } finally {
+    reportActionBusy.value = false;
+  }
 };
 
-const openDownloadAction = async (withBg = false) => {
-  closeAllMenus();
-  const id = updateResultRecord.value?.id || route.params.id;
-  if (!id) return;
-  await invoicesStore.GetinvoicesById(id);
-  printSelectItem.value = updateResultRecord.value;
-  printSelectMode.value = withBg ? "download-bg" : "download";
-  printSelectVisible.value = true;
-};
-
-const openWhatsAppAction = async (withBg = false) => {
-  closeAllMenus();
-  const id = updateResultRecord.value?.id || route.params.id;
-  if (!id) return;
-  invoicesStore.changeInvoiceStatus(id, withBg);
-  await invoicesStore.GetinvoicesById(id);
-  printSelectItem.value = updateResultRecord.value;
-  printSelectMode.value = withBg ? "whatsapp-bg" : "whatsapp";
-  printSelectVisible.value = true;
-};
-
-const sendWhatsApp = async (rec, withBg = false) => {
-  try { await sharePatientPortal(rec, labSettingsStore.settings, User.value?.name); }
-  catch (error) { toast.error(error.message); }
-};
-
-const downloadAsPdf = async (withBg) => {
+const downloadAsPdf = async (withBg, output = "download") => {
   if (downloadInProgress.value) return;
   downloadInProgress.value = true;
   printResultRef.value?.beginCapture?.();
@@ -2723,8 +2520,10 @@ const downloadAsPdf = async (withBg) => {
       pdf.addImage(imgData, "JPEG", margins.left, margins.top, imgW, imgH);
     }
 
-    const safeName = (printSelectItem.value?.patient?.name || "patient").replace(/[^\p{L}\p{N}\s_-]/gu, "");
-    pdf.save(`${safeName}-${printSelectItem.value?.barcode || ""}.pdf`);
+    const safeName = (printRecord.value?.patient?.name || "patient").replace(/[^\p{L}\p{N}\s_-]/gu, "");
+    const filename = `${safeName}-${printRecord.value?.barcode || ""}.pdf`;
+    if (output === "download") pdf.save(filename);
+    return { blob: pdf.output("blob"), filename };
   } catch (e) {
     console.error("[download]", e);
     toast.error(t("download_failed") || "Download failed");
@@ -2768,43 +2567,69 @@ const printDirectWithBackground = async () => {
 };
 
 const handlePrintSelection = async (selection) => {
+  if (reportActionBusy.value || !printRecord.value) return;
+  reportActionBusy.value = true;
+  const previewTab = selection.action === 'preview' ? window.open('about:blank', '_blank') : null;
+  const supportsFileShare = Boolean(navigator.share && navigator.canShare?.({ files: [new File([''], 'report.pdf', { type: 'application/pdf' })] }));
+  const whatsappTab = selection.action === 'whatsapp' && !supportsFileShare ? window.open('about:blank', '_blank') : null;
   const original = {
-    tests: [...(printRecord.value.tests || [])],
-    cultures: [...(printRecord.value.cultures || [])],
-    packages: [...(printRecord.value.packages || [])],
-    test_groups: [...(printRecord.value.test_groups || [])],
+    tests: [...(printRecord.value.tests || [])], cultures: [...(printRecord.value.cultures || [])],
+    packages: [...(printRecord.value.packages || [])], test_groups: [...(printRecord.value.test_groups || [])],
+    suppress_report_qr: printRecord.value.suppress_report_qr,
   };
-  printRecord.value.tests = original.tests.filter((_, i) => selection.tests.includes(i));
-  printRecord.value.cultures = original.cultures.filter((_, i) => selection.cultures.includes(i));
-  printRecord.value.packages = original.packages.filter((_, i) => selection.packages.includes(i));
-  printRecord.value.test_groups = original.test_groups.filter((_, i) => selection.testGroups.includes(i));
-
-  await nextTick();
-  await new Promise((r) => setTimeout(r, 200));
-
-  if (selection.mode === "whatsapp" || selection.mode === "whatsapp-bg") {
-    sendWhatsApp(printSelectItem.value, selection.mode === "whatsapp-bg");
-  } else if (selection.mode === "download" || selection.mode === "download-bg") {
-    await downloadAsPdf(selection.mode === "download-bg");
-  } else if (selection.mode === "normal") {
-    const margins = labSettingsStore.settings.print_margins || { top: 20, bottom: 20, left: 15, right: 15 };
-    let css = printStyles.getResultCss() + printStyles.getPatientHeaderCss(labSettingsStore.settings.patient_header_config) + printStyles.getPrintTableCss(labSettingsStore.settings.print_table_config);
-    if (labSettingsStore.settings.print_black_white) css += printStyles.getBlackWhiteCss();
-    css += `
-      body { padding: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm !important; -webkit-box-decoration-break: clone; box-decoration-break: clone; margin: 0 !important; }
-      .pw-cell { padding-left: 0 !important; padding-right: 0 !important; }
-      .pw-cell.pw-top { padding-top: 0 !important; }
-      .pw-cell.pw-bottom { padding-bottom: 0 !important; }
-    `;
-    await printWithIframe("Result", css, "Print Result", 100);
-  } else {
-    await printDirectWithBackground();
+  try {
+    printRecord.value.tests = original.tests.filter((_, i) => selection.tests.includes(i));
+    printRecord.value.cultures = original.cultures.filter((_, i) => selection.cultures.includes(i));
+    printRecord.value.packages = original.packages.filter((_, i) => selection.packages.includes(i));
+    printRecord.value.test_groups = original.test_groups.filter((_, i) => selection.testGroups.includes(i));
+    printRecord.value.suppress_report_qr = ['tests', 'cultures', 'packages', 'test_groups'].some((key, i) =>
+      (selection[['tests', 'cultures', 'packages', 'testGroups'][i]] || []).length !== original[key].length);
+    await nextTick();
+    await new Promise(resolve => setTimeout(resolve, 200));
+    const withBg = selection.withBackground && Boolean(reportBackground.value);
+    if (selection.action === 'download' || selection.action === 'print-download') {
+      if (!await downloadAsPdf(withBg)) return;
+    } else if (selection.action === 'preview' || selection.action === 'whatsapp') {
+      const result = await downloadAsPdf(withBg, 'blob');
+      if (!result) { previewTab?.close(); whatsappTab?.close(); return; }
+      if (selection.action === 'preview') {
+        const url = URL.createObjectURL(result.blob);
+        if (previewTab) previewTab.location.href = url; else window.open(url, '_blank');
+        setTimeout(() => URL.revokeObjectURL(url), 120000);
+      } else if (supportsFileShare) {
+        try { await navigator.share({ files: [new File([result.blob], result.filename, { type: 'application/pdf' })], title: 'التقرير الطبي' }); }
+        catch (error) { if (error.name !== 'AbortError') toast.error('تعذرت مشاركة ملف التقرير.'); }
+      } else {
+        const url = URL.createObjectURL(result.blob);
+        const link = document.createElement('a'); link.href = url; link.download = result.filename; link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 120000);
+        const digits = selection.phone.replace(/[^\d]/g, '');
+        const phone = digits.startsWith('00') ? digits.slice(2) : digits.startsWith('0') ? '964' + digits.slice(1) : digits.startsWith('964') ? digits : '964' + digits;
+        const waUrl = 'https://wa.me/' + phone + '?text=' + encodeURIComponent('تقريرك الطبي جاهز. سوف أرفق ملف PDF في هذه المحادثة.');
+        if (whatsappTab) { whatsappTab.opener = null; whatsappTab.location.href = waUrl; }
+        else window.open(waUrl, '_blank', 'noopener,noreferrer');
+        toast.success('تم تنزيل التقرير؛ أرفق PDF بمحادثة واتساب.');
+      }
+    }
+    if (selection.action === 'print' || selection.action === 'print-download') {
+      if (withBg) await printDirectWithBackground();
+      else {
+        const margins = labSettingsStore.settings.print_margins || { top: 20, bottom: 20, left: 15, right: 15 };
+        let css = printStyles.getResultCss() + printStyles.getPatientHeaderCss(labSettingsStore.settings.patient_header_config) + printStyles.getPrintTableCss(labSettingsStore.settings.print_table_config);
+        if (labSettingsStore.settings.print_black_white) css += printStyles.getBlackWhiteCss();
+        css += `body { padding: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm !important; margin:0 !important; }`;
+        await printWithIframe('Result', css, 'Print Result', 100);
+      }
+    }
+    if (selection.action !== 'preview') printSelectVisible.value = false;
+  } catch (error) {
+    previewTab?.close(); whatsappTab?.close();
+    console.error('Report action failed:', error);
+    toast.error('تعذر تجهيز التقرير. حاول مرة ثانية.');
+  } finally {
+    Object.assign(printRecord.value, original);
+    reportActionBusy.value = false;
   }
-
-  printRecord.value.tests = original.tests;
-  printRecord.value.cultures = original.cultures;
-  printRecord.value.packages = original.packages;
-  printRecord.value.test_groups = original.test_groups;
 };
 </script>
 
