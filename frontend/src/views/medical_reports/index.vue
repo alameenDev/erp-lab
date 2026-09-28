@@ -1,5 +1,4 @@
 <script setup>
-import { sharePatientPortal } from "@/utils/sharePatientPortal";
 import { ref, computed, watch, onMounted, nextTick } from "vue";
 import { storeToRefs } from "pinia";
 import { useRoute, useRouter } from "vue-router";
@@ -74,17 +73,12 @@ const { contracts } = storeToRefs(contractsStore);
 const isLoading = ref(true);
 const patientId = ref(null);
 const marginDialogVisible = ref(false);
-const activeMenuId = ref(null);
 const showFilters = ref(false);
 const reportBackground = computed(() => labSettingsStore.settings.report_background || "");
-const whatsappMenuId = ref(null);
-const printMenuId = ref(null);
-const downloadMenuId = ref(null);
 const downloadInProgress = ref(false);
 const printResultRef = ref(null);
 const printSelectVisible = ref(false);
-const printSelectMode = ref("normal");
-const printSelectItem = ref(null);
+const reportActionBusy = ref(false);
 const printWithBgMode = ref(false);
 
 // Filters
@@ -98,11 +92,6 @@ const filters = ref({
 });
 
 // Computed
-const User = computed(() => {
-  try { return JSON.parse(localStorage.getItem("user")); }
-  catch { return null; }
-});
-
 // Pagination (server-side when !patientId, client-side when patientId)
 const currentPage = ref(1);
 const perPage = ref(25);
@@ -153,8 +142,6 @@ const onPageChange = (page) => {
 };
 
 const toggleFilters = () => { showFilters.value = !showFilters.value; };
-const toggleMenu = (id) => { activeMenuId.value = activeMenuId.value === id ? null : id; };
-const closeMenu = () => { activeMenuId.value = null; whatsappMenuId.value = null; printMenuId.value = null; downloadMenuId.value = null; };
 
 const clearFilters = () => {
   filters.value = { patient_name: "", registration_date: "", from_lab: "", contract_id_fk: "", status: "", signed_status: "" };
@@ -229,10 +216,8 @@ const openJobTemplateAsPDF = (data) => {
 };
 
 const openprintResultTemplate = async (data) => {
-  invoicesStore.changeInvoiceStatus(data.id, false);
+  await labSettingsStore.GetSettings();
   await invoicesStore.GetinvoicesById(data.id);
-  printSelectItem.value = data;
-  printSelectMode.value = "normal";
   printSelectVisible.value = true;
 };
 
@@ -241,40 +226,13 @@ const printParcode = async (data) => {
   printWithIframe("parcode", printStyles.getBarcodeCss(labSettingsStore.settings.barcode_config), "Print Barcode", 100, () => invoicesStore.GetinvoicesById(data.id));
 };
 
-const openprintResultWithBackground = async (data) => {
-  invoicesStore.changeInvoiceStatus(data.id, true);
-  await invoicesStore.GetinvoicesById(data.id);
-  printSelectItem.value = data;
-  printSelectMode.value = "background";
-  printSelectVisible.value = true;
-};
-
-// Download menu — same item-selection flow as Print, but emits "download" /
-// "download-bg" so handlePrintSelection routes to html2pdf instead of window.print.
-const openDownloadResult = async (data) => {
-  await invoicesStore.GetinvoicesById(data.id);
-  printSelectItem.value = data;
-  printSelectMode.value = "download";
-  printSelectVisible.value = true;
-};
-const openDownloadResultWithBackground = async (data) => {
-  await invoicesStore.GetinvoicesById(data.id);
-  printSelectItem.value = data;
-  printSelectMode.value = "download-bg";
-  printSelectVisible.value = true;
-};
-const toggleDownloadMenu = (id) => {
-  downloadMenuId.value = downloadMenuId.value === id ? null : id;
-  printMenuId.value = null;
-  whatsappMenuId.value = null;
-};
 
 // Capture the rendered #Result element to a PDF. Uses the SAME approach as
 // printDirectWithBackground: build a fresh document in an off-screen iframe
 // (same HTML, same CSS) and run html2pdf against THAT — avoiding all the
 // Vue reactivity / hidden-element / id-collision issues you'd hit if you
 // tried to capture the live in-page element.
-const downloadAsPdf = async (withBg) => {
+const downloadAsPdf = async (withBg, output = "download") => {
   if (downloadInProgress.value) return;
   downloadInProgress.value = true;
 
@@ -440,8 +398,11 @@ const downloadAsPdf = async (withBg) => {
           }
         }
       }
-      pdf.save(filename);
-      toast.success(t("download_completed") || "Download completed");
+      if (output === "download") {
+        pdf.save(filename);
+        toast.success(t("download_completed") || "Download completed");
+      }
+      return { blob: pdf.output("blob"), filename };
     } catch (e) {
       console.error("[download] PDF generation failed:", e);
       toast.error((t("download_failed") || "Download failed") + ": " + (e?.message || "unknown"), { duration: 6000 });
@@ -535,30 +496,64 @@ const printDirectWithBackground = async () => {
 
 // Handle print with selected items
 const handlePrintSelection = async (selection) => {
-  await labSettingsStore.GetSettings();
+  if (reportActionBusy.value || !printRecord.value) return;
+  reportActionBusy.value = true;
+  const previewTab = selection.action === "preview" ? window.open("about:blank", "_blank") : null;
+  const supportsFileShare = Boolean(navigator.share && navigator.canShare?.({ files: [new File([""], "report.pdf", { type: "application/pdf" })] }));
+  const whatsappTab = selection.action === "whatsapp" && !supportsFileShare ? window.open("about:blank", "_blank") : null;
   // Save original data (deep copy arrays)
   const original = {
     tests: [...(printRecord.value.tests || [])],
     cultures: [...(printRecord.value.cultures || [])],
     packages: [...(printRecord.value.packages || [])],
     test_groups: [...(printRecord.value.test_groups || [])],
+    suppress_report_qr: printRecord.value.suppress_report_qr,
   };
 
-  // Filter to only selected items
-  printRecord.value.tests = original.tests.filter((_, i) => selection.tests.includes(i));
-  printRecord.value.cultures = original.cultures.filter((_, i) => selection.cultures.includes(i));
-  printRecord.value.packages = original.packages.filter((_, i) => selection.packages.includes(i));
-  printRecord.value.test_groups = original.test_groups.filter((_, i) => selection.testGroups.includes(i));
-
-  // Wait for Vue to re-render the print template with filtered data
-  await nextTick();
-  await new Promise((r) => setTimeout(r, 200));
-
-  if (selection.mode === "whatsapp" || selection.mode === "whatsapp-bg") {
-    sendWhatsApp(printSelectItem.value, selection.mode === "whatsapp-bg");
-  } else if (selection.mode === "download" || selection.mode === "download-bg") {
-    await downloadAsPdf(selection.mode === "download-bg");
-  } else if (selection.mode === "normal") {
+  try {
+    printRecord.value.tests = original.tests.filter((_, i) => selection.tests.includes(i));
+    printRecord.value.cultures = original.cultures.filter((_, i) => selection.cultures.includes(i));
+    printRecord.value.packages = original.packages.filter((_, i) => selection.packages.includes(i));
+    printRecord.value.test_groups = original.test_groups.filter((_, i) => selection.testGroups.includes(i));
+    printRecord.value.suppress_report_qr = ["tests", "cultures", "packages", "test_groups"].some((key, index) =>
+      (selection[["tests", "cultures", "packages", "testGroups"][index]] || []).length !== original[key].length);
+    await nextTick();
+    await new Promise((r) => setTimeout(r, 200));
+    const withBg = selection.withBackground && Boolean(reportBackground.value);
+    if (selection.action === "download" || selection.action === "print-download") {
+      const result = await downloadAsPdf(withBg);
+      if (!result) return;
+    } else if (selection.action === "preview") {
+      const result = await downloadAsPdf(withBg, "blob");
+      if (result) {
+        const url = URL.createObjectURL(result.blob);
+        if (previewTab) previewTab.location.href = url;
+        else window.open(url, "_blank");
+        setTimeout(() => URL.revokeObjectURL(url), 120000);
+      } else previewTab?.close();
+    } else if (selection.action === "whatsapp") {
+      const result = await downloadAsPdf(withBg, "blob");
+      if (!result) { whatsappTab?.close(); return; }
+      const file = new File([result.blob], result.filename, { type: "application/pdf" });
+      if (supportsFileShare) {
+        try { await navigator.share({ files: [file], title: "التقرير الطبي" }); }
+        catch (error) { if (error.name !== "AbortError") toast.error("تعذرت مشاركة الملف؛ احفظ PDF وأرسله من واتساب."); }
+      } else {
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(result.blob);
+        link.href = url; link.download = result.filename; link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 120000);
+        const digits = selection.phone.replace(/[^\d]/g, "");
+        const phone = digits.startsWith("00") ? digits.slice(2) : digits.startsWith("0") ? "964" + digits.slice(1) : digits.startsWith("964") ? digits : "964" + digits;
+        const whatsappUrl = "https://wa.me/" + phone + "?text=" + encodeURIComponent("تقريرك الطبي جاهز. سوف أرفق ملف PDF في هذه المحادثة.");
+        if (whatsappTab) { whatsappTab.opener = null; whatsappTab.location.href = whatsappUrl; }
+        else window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+        toast.success("تم تنزيل التقرير؛ أرفق ملف PDF في محادثة واتساب.");
+      }
+    }
+    if (selection.action === "print" || selection.action === "print-download") {
+      if (withBg) await printDirectWithBackground();
+      else {
     const margins = labSettingsStore.settings.print_margins || { top: 20, bottom: 20, left: 15, right: 15 };
     let css = printStyles.getResultCss() + printStyles.getPatientHeaderCss(labSettingsStore.settings.patient_header_config) + printStyles.getPrintTableCss(labSettingsStore.settings.print_table_config);
     if (labSettingsStore.settings.print_black_white) css += printStyles.getBlackWhiteCss();
@@ -574,42 +569,26 @@ const handlePrintSelection = async (selection) => {
       .pw-cell.pw-bottom { padding-bottom: 0 !important; }
     `;
     await printWithIframe("Result", css, "Print Result", 100);
-  } else {
-    await printDirectWithBackground();
+      }
+    }
+    if (selection.action !== "preview") printSelectVisible.value = false;
+  } catch (error) {
+    previewTab?.close();
+    whatsappTab?.close();
+    console.error("Report action failed:", error);
+    toast.error("تعذر تجهيز التقرير. حاول مرة ثانية.");
+  } finally {
+    printRecord.value.tests = original.tests;
+    printRecord.value.cultures = original.cultures;
+    printRecord.value.packages = original.packages;
+    printRecord.value.test_groups = original.test_groups;
+    printRecord.value.suppress_report_qr = original.suppress_report_qr;
+    reportActionBusy.value = false;
   }
-
-  // Restore original data after print completes
-  printRecord.value.tests = original.tests;
-  printRecord.value.cultures = original.cultures;
-  printRecord.value.packages = original.packages;
-  printRecord.value.test_groups = original.test_groups;
 };
 
 const onBackgroundChange = () => {
   // Background is now managed via lab-settings store, no-op
-};
-
-const togglePrintMenu = (id) => {
-  printMenuId.value = printMenuId.value === id ? null : id;
-  whatsappMenuId.value = null;
-};
-
-const toggleWhatsappMenu = (id) => {
-  whatsappMenuId.value = whatsappMenuId.value === id ? null : id;
-  printMenuId.value = null;
-};
-
-const openWhatsAppSelection = async (data, withBg) => {
-  invoicesStore.changeInvoiceStatus(data.id, withBg);
-  await invoicesStore.GetinvoicesById(data.id);
-  printSelectItem.value = data;
-  printSelectMode.value = withBg ? "whatsapp-bg" : "whatsapp";
-  printSelectVisible.value = true;
-};
-
-const sendWhatsApp = async (rec, withBg = false) => {
-  try { await sharePatientPortal(rec, labSettingsStore.settings, User.value?.name); }
-  catch (error) { toast.error(error.message); }
 };
 
 // Reset background mode when worksheet dialog closes
@@ -996,10 +975,10 @@ onMounted(async () => {
                   <span v-else class="text-slate-400">-</span>
                 </td>
                 <td v-if="!patientId" class="px-5 py-4">
-                  <button @click.stop="printParcode(item)" class="text-center hover:opacity-80 transition-opacity">
+                  <div class="text-center">
                     <span class="text-xs text-slate-500 block mb-1">{{ item.barcode }}</span>
                     <BarcodeComponent :value="item.barcode" />
-                  </button>
+                  </div>
                 </td>
                 <td class="px-5 py-4 text-sm text-slate-600">{{ item.signed_by?.name || '-' }}</td>
                 <td class="px-5 py-4">
@@ -1015,231 +994,10 @@ onMounted(async () => {
                   </span>
                 </td>
                 <td class="px-5 py-4">
-                  <div class="flex items-center gap-1">
-                    <!-- Edit Patient -->
-                    <button
-                      v-if="item.patient?.id"
-                      @click.stop="router.push({ path: '/patients', query: { edit: item.patient.id } })"
-                      class="p-2 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-all"
-                      :title="t('edit_patient')"
-                    >
-                      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
-                    </button>
-
-                    <!-- View Tests -->
-                    <button @click.stop="showTestsList(item)" class="p-2 text-slate-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-all" :title="t('view_tests') || 'عرض الفحوصات'">
-                      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                      </svg>
-                    </button>
-
-                    <!-- Update Result -->
-                    <button v-if="authStore.havePermission('invoices edit') && !patientId" @click.stop="updateResult(item)" class="p-2 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-all" :title="t('updateResult')">
-                      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                    </button>
-
-                    <!-- Print Result Menu -->
-                    <div class="relative">
-                      <button @click.stop="togglePrintMenu(item.id)" class="p-2 text-primary-500 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-all" :title="t('Result')">
-                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                        </svg>
-                      </button>
-                      <Transition
-                        enter-active-class="transition duration-100 ease-out"
-                        enter-from-class="opacity-0 scale-95"
-                        enter-to-class="opacity-100 scale-100"
-                        leave-active-class="transition duration-75 ease-in"
-                        leave-from-class="opacity-100 scale-100"
-                        leave-to-class="opacity-0 scale-95"
-                      >
-                        <div v-if="printMenuId === item.id" class="absolute end-0 z-50 mt-2 w-52 bg-white rounded-xl shadow-xl border border-slate-200 py-2 overflow-hidden">
-                          <button @click.stop="openprintResultTemplate(item); closeMenu()" class="w-full px-4 py-2.5 text-start text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors">
-                            <div class="w-7 h-7 rounded-lg bg-primary-50 flex items-center justify-center">
-                              <svg class="w-4 h-4 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                              </svg>
-                            </div>
-                            {{ t("print_normal") || "Print Normal" }}
-                          </button>
-                          <button v-if="reportBackground" @click.stop="openprintResultWithBackground(item); closeMenu()" class="w-full px-4 py-2.5 text-start text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors">
-                            <div class="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center">
-                              <svg class="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                              </svg>
-                            </div>
-                            {{ t("print_with_background") || "Print with Background" }}
-                          </button>
-                        </div>
-                      </Transition>
-                    </div>
-
-                    <!-- Download Result Menu — same selection flow + same DOM as Print, output via html2pdf -->
-                    <div class="relative">
-                      <button @click.stop="toggleDownloadMenu(item.id)" class="p-2 text-info-500 hover:text-info-700 hover:bg-info-50 rounded-lg transition-all" :title="t('download') || 'Download'">
-                        <svg v-if="!downloadInProgress" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                        </svg>
-                        <svg v-else class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                        </svg>
-                      </button>
-                      <Transition
-                        enter-active-class="transition duration-100 ease-out"
-                        enter-from-class="opacity-0 scale-95"
-                        enter-to-class="opacity-100 scale-100"
-                        leave-active-class="transition duration-75 ease-in"
-                        leave-from-class="opacity-100 scale-100"
-                        leave-to-class="opacity-0 scale-95"
-                      >
-                        <div v-if="downloadMenuId === item.id" class="absolute end-0 z-50 mt-2 w-52 bg-white rounded-xl shadow-xl border border-slate-200 py-2 overflow-hidden">
-                          <button @click.stop="openDownloadResult(item); closeMenu()" class="w-full px-4 py-2.5 text-start text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors">
-                            <div class="w-7 h-7 rounded-lg bg-info-50 flex items-center justify-center">
-                              <svg class="w-4 h-4 text-info-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                              </svg>
-                            </div>
-                            {{ t("download_normal") || "Download Normal" }}
-                          </button>
-                          <button v-if="reportBackground" @click.stop="openDownloadResultWithBackground(item); closeMenu()" class="w-full px-4 py-2.5 text-start text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors">
-                            <div class="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center">
-                              <svg class="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                              </svg>
-                            </div>
-                            {{ t("download_with_background") || "Download with Background" }}
-                          </button>
-                        </div>
-                      </Transition>
-                    </div>
-
-                    <!-- WhatsApp -->
-                    <div v-if="!patientId && authStore.havePermission('invoices send whatsapp')" class="relative">
-                      <button @click.stop="toggleWhatsappMenu(item.id)" class="p-2 text-green-500 hover:text-green-700 hover:bg-green-50 rounded-lg transition-all" :title="t('send_whatsapp')">
-                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                        </svg>
-                      </button>
-                      <Transition
-                        enter-active-class="transition duration-100 ease-out"
-                        enter-from-class="opacity-0 scale-95"
-                        enter-to-class="opacity-100 scale-100"
-                        leave-active-class="transition duration-75 ease-in"
-                        leave-from-class="opacity-100 scale-100"
-                        leave-to-class="opacity-0 scale-95"
-                      >
-                        <div v-if="whatsappMenuId === item.id" class="absolute end-0 z-50 mt-2 w-52 bg-white rounded-xl shadow-xl border border-slate-200 py-2 overflow-hidden">
-                          <button @click.stop="openWhatsAppSelection(item, false); closeMenu()" class="w-full px-4 py-2.5 text-start text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors">
-                            <div class="w-7 h-7 rounded-lg bg-green-50 flex items-center justify-center">
-                              <svg class="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                              </svg>
-                            </div>
-                            {{ t("without_form") }}
-                          </button>
-                          <button v-if="reportBackground" @click.stop="openWhatsAppSelection(item, true); closeMenu()" class="w-full px-4 py-2.5 text-start text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors">
-                            <div class="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center">
-                              <svg class="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                              </svg>
-                            </div>
-                            {{ t("with_form") }}
-                          </button>
-                        </div>
-                      </Transition>
-                    </div>
-
-                    <!-- More Menu -->
-                    <div class="relative">
-                      <button @click.stop="toggleMenu(item.id)" class="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all">
-                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                        </svg>
-                      </button>
-
-                      <Transition
-                        enter-active-class="transition duration-100 ease-out"
-                        enter-from-class="opacity-0 scale-95"
-                        enter-to-class="opacity-100 scale-100"
-                        leave-active-class="transition duration-75 ease-in"
-                        leave-from-class="opacity-100 scale-100"
-                        leave-to-class="opacity-0 scale-95"
-                      >
-                        <div v-if="activeMenuId === item.id" class="absolute end-0 z-50 mt-2 w-52 bg-white rounded-xl shadow-xl border border-slate-200 py-2 overflow-hidden">
-                          <button @click.stop="showPatient_due(item); closeMenu()" class="w-full px-4 py-2.5 text-start text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors">
-                            <div class="w-8 h-8 rounded-lg bg-primary-50 flex items-center justify-center">
-                              <svg class="w-4 h-4 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                              </svg>
-                            </div>
-                            {{ t("the_tests") }}
-                          </button>
-
-                          <button v-if="!patientId" @click.stop="openJobTemplateAsPDF(item); closeMenu()" class="w-full px-4 py-2.5 text-start text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors">
-                            <div class="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
-                              <svg class="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                              </svg>
-                            </div>
-                            {{ t("job_order") }}
-                          </button>
-
-                          <button v-if="!patientId" @click.stop="signInvoice(item.id); closeMenu()" class="w-full px-4 py-2.5 text-start text-sm hover:bg-slate-50 flex items-center gap-3 transition-colors" :class="item.signed_by ? 'text-green-600' : 'text-slate-700'">
-                            <div class="w-8 h-8 rounded-lg flex items-center justify-center" :class="item.signed_by ? 'bg-green-50' : 'bg-slate-50'">
-                              <svg class="w-4 h-4" :class="item.signed_by ? 'text-green-600' : 'text-slate-400'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                              </svg>
-                            </div>
-                            {{ t("Signature") }}
-                          </button>
-
-                          <button @click.stop="PationtHistory(item); closeMenu()" class="w-full px-4 py-2.5 text-start text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors">
-                            <div class="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center">
-                              <svg class="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                              </svg>
-                            </div>
-                            {{ t("pationtHistory") }}
-                          </button>
-
-                          <button @click.stop="showAttach(item.attachments); closeMenu()" class="w-full px-4 py-2.5 text-start text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors">
-                            <div class="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center">
-                              <svg class="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                              </svg>
-                            </div>
-                            {{ t("attachments") }}
-                          </button>
-
-                          <button v-if="!patientId" @click.stop="print_work_sheet(item); closeMenu()" class="w-full px-4 py-2.5 text-start text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors">
-                            <div class="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center">
-                              <svg class="w-4 h-4 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                              </svg>
-                            </div>
-                            {{ t("print_work_sheet") }}
-                          </button>
-
-                          <hr class="my-2 border-slate-100" />
-
-                          <button v-if="reportBackground" @click.stop="openprintResultWithBackground(item); closeMenu()" class="w-full px-4 py-2.5 text-start text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors">
-                            <div class="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center">
-                              <svg class="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                              </svg>
-                            </div>
-                            {{ t("print_with_background") || "Print with Background" }}
-                          </button>
-
-                        </div>
-                      </Transition>
-                    </div>
-                  </div>
+                  <button type="button" @click.stop="openprintResultTemplate(item)" :disabled="reportActionBusy" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50" title="اختيار عناصر التقرير وطباعته">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+                    طباعة التقرير
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -1294,7 +1052,7 @@ onMounted(async () => {
     <parcodModal />
     <workSheetModal :with-background="printWithBgMode" :background-image="reportBackground" />
     <attachment />
-    <printSelectModal v-model="printSelectVisible" :print-mode="printSelectMode" @print="handlePrintSelection" />
+    <printSelectModal v-model="printSelectVisible" :can-share="authStore.havePermission('invoices send whatsapp') && !patientId" :has-background="!!reportBackground" :busy="reportActionBusy" @execute="handlePrintSelection" />
     <TestsListModal v-model="testsListOpen" :invoice="testsListInvoice" :loading="testsListLoading" />
 
   </div>
