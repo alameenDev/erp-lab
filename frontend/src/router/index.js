@@ -277,6 +277,12 @@ const router = createRouter({
                },
           },
           {
+               path: "/referral-report/:patientId",
+               name: "referral-shared-report",
+               component: () => import("@/views/medical_reports/componentes/print_Result.vue"),
+               meta: { title: "التقرير الطبي | مختبر الإحالة" },
+          },
+          {
                path: "/invoice/:invoiceId",
                name: "invoice",
                component: () => import("@/views/invoices/componentes/print_invoice.vue"),

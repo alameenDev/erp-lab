@@ -7,17 +7,22 @@ import QrcodeVue from "qrcode.vue";
 
 const invoicesStore = useinvoicesStore();
 const { printRecord } = storeToRefs(invoicesStore);
+const props = defineProps({ labName: { type: String, default: "" }, labLogo: { type: String, default: "" }, shareUrl: { type: String, default: "" }, isReferral: { type: Boolean, default: false } });
 
 const patientId = computed(() => printRecord.value?.id);
 
 const appBaseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
 
 const getPatientReportLink = () => {
-     return `${appBaseUrl}${printRecord.value?.referral_document ? "/referral-portal/reports/" : "/result/"}${patientId.value}`;
+     return props.shareUrl || `${appBaseUrl}/result/${patientId.value}`;
 };
 </script>
 
 <template>
+     <div v-if="labName" class="rs-brand" style="display:flex; align-items:center; justify-content:center; gap:8px; padding:8px; font-family:Arial,sans-serif;">
+               <img v-if="labLogo" :src="labLogo" alt="" style="max-width:60px; max-height:60px; object-fit:contain;" />
+               <strong>{{ labName }}</strong>
+     </div>
      <div class="rs-header" dir="ltr" style="direction: ltr !important; text-align: left !important; border-bottom: 2px solid #333; padding: 10px 16px; font-family: Arial, sans-serif; display: flex; align-items: flex-start; gap: 16px;">
           <!-- Left: Patient Info -->
           <div class="rs-info" style="flex: 1; font-size: 14px; font-weight: 700; line-height: 1.7;">
@@ -34,7 +39,7 @@ const getPatientReportLink = () => {
           </div>
 
           <!-- Right: QR -->
-          <div class="rs-qr" style="padding-left: 16px; border-left: 1.5px solid #ccc; display: flex; align-items: center;">
+          <div v-if="!isReferral || shareUrl" class="rs-qr" style="padding-left: 16px; border-left: 1.5px solid #ccc; display: flex; align-items: center;">
                <QrcodeVue :value="getPatientReportLink()" :size="60" level="H" render-as="svg" />
           </div>
      </div>

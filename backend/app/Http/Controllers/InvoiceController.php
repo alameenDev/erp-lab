@@ -1804,10 +1804,10 @@ class InvoiceController extends Controller
      * Returns the invoice with all related data.
      */
     /** Shared rendering data; authorization remains at the referral boundary. No staff endpoint is opened. */
-    public function referralDocument(Invoice $invoice, bool $report = false): array
+    public function referralDocument(Invoice $invoice, bool $report = false, ?int $referralId = null): array
     {
         $invoice->refresh();
-        $userId = Auth::id();
+        $userId = $referralId ?? Auth::id();
         abort_unless((int)$invoice->from_lab_id_fk === (int)$userId && \App\Models\Referal::where('referral_id_fk', $userId)->where('lab_id_fk', $invoice->lab_id_fk)->exists(), 403);
         if ($report) abort_unless($invoice->is_done && !$invoice->invoiceTestRels()->where(fn ($q) => $q->where('is_done', false)->orWhereNull('is_done'))->exists(), 409, 'النتائج لم تكتمل بعد');
         $invoice->load($this->invoiceRelations());
