@@ -39,7 +39,7 @@ const getPatientReportLink = () => {
           </div>
 
           <!-- Right: QR -->
-          <div v-if="!isReferral || shareUrl" class="rs-qr" style="padding-left: 16px; border-left: 1.5px solid #ccc; display: flex; align-items: center;">
+          <div v-if="!printRecord?.suppress_report_qr && (!isReferral || shareUrl)" class="rs-qr" style="padding-left: 16px; border-left: 1.5px solid #ccc; display: flex; align-items: center;">
                <QrcodeVue :value="getPatientReportLink()" :size="60" level="H" render-as="svg" />
           </div>
      </div>
