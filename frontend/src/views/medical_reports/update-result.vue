@@ -1403,7 +1403,7 @@
     <!-- Print/Download/WhatsApp modal + hidden print-result template -->
     <printSelectModal
       v-model="printSelectVisible"
-      :can-share="true"
+      :can-share="authStore.havePermission('invoices send whatsapp')"
       :has-background="!!reportBackground"
       :busy="reportActionBusy"
       @execute="handlePrintSelection"
@@ -1423,6 +1423,7 @@ import { useinvoicesStore } from "@/store/modules/invoices";
 import { useresultStatusStore } from "@/store/modules/result-status";
 import { usePatientsStore } from "@/store/modules/patients";
 import { useLabSettingsStore } from "@/store/modules/labSettings";
+import { useAuthStore } from "@/store/modules/auth";
 import { t, sanitizeHtml, showAlertWithConfirm } from "@/utils/helper";
 import { $http } from "@/plugins/axios";
 import { useToast } from "@/composables/useToast";
@@ -1441,6 +1442,7 @@ const invoicesStore = useinvoicesStore();
 const resultStatusStore = useresultStatusStore();
 const patientsStore = usePatientsStore();
 const labSettingsStore = useLabSettingsStore();
+const authStore = useAuthStore();
 
 const { templates } = storeToRefs(templatesStore);
 const { resultStatus } = storeToRefs(resultStatusStore);
@@ -2636,8 +2638,6 @@ const handlePrintSelection = async (selection) => {
   if (reportActionBusy.value || !printRecord.value) return;
   reportActionBusy.value = true;
   const previewTab = selection.action === 'preview' ? window.open('about:blank', '_blank') : null;
-  const supportsFileShare = Boolean(navigator.share && navigator.canShare?.({ files: [new File([''], 'report.pdf', { type: 'application/pdf' })] }));
-  const whatsappTab = selection.action === 'whatsapp' && !supportsFileShare ? window.open('about:blank', '_blank') : null;
   const original = {
     tests: [...(printRecord.value.tests || [])], cultures: [...(printRecord.value.cultures || [])],
     packages: [...(printRecord.value.packages || [])], test_groups: [...(printRecord.value.test_groups || [])],
@@ -2657,24 +2657,17 @@ const handlePrintSelection = async (selection) => {
       if (!await downloadAsPdf(withBg)) return;
     } else if (selection.action === 'preview' || selection.action === 'whatsapp') {
       const result = await downloadAsPdf(withBg, 'blob');
-      if (!result) { previewTab?.close(); whatsappTab?.close(); return; }
+      if (!result) { previewTab?.close(); return; }
       if (selection.action === 'preview') {
         const url = URL.createObjectURL(result.blob);
         if (previewTab) previewTab.location.href = url; else window.open(url, '_blank');
         setTimeout(() => URL.revokeObjectURL(url), 120000);
-      } else if (supportsFileShare) {
-        try { await navigator.share({ files: [new File([result.blob], result.filename, { type: 'application/pdf' })], title: 'التقرير الطبي' }); }
-        catch (error) { if (error.name !== 'AbortError') toast.error('تعذرت مشاركة ملف التقرير.'); }
       } else {
-        const url = URL.createObjectURL(result.blob);
-        const link = document.createElement('a'); link.href = url; link.download = result.filename; link.click();
-        setTimeout(() => URL.revokeObjectURL(url), 120000);
-        const digits = selection.phone.replace(/[^\d]/g, '');
-        const phone = digits.startsWith('00') ? digits.slice(2) : digits.startsWith('0') ? '964' + digits.slice(1) : digits.startsWith('964') ? digits : '964' + digits;
-        const waUrl = 'https://wa.me/' + phone + '?text=' + encodeURIComponent('تقريرك الطبي جاهز. سوف أرفق ملف PDF في هذه المحادثة.');
-        if (whatsappTab) { whatsappTab.opener = null; whatsappTab.location.href = waUrl; }
-        else window.open(waUrl, '_blank', 'noopener,noreferrer');
-        toast.success('تم تنزيل التقرير؛ أرفق PDF بمحادثة واتساب.');
+        const payload = new FormData();
+        payload.append('invoice_id', String(printRecord.value.id));
+        payload.append('report', new File([result.blob], result.filename, { type: 'application/pdf' }));
+        await $http.post('/whatsapp/medical-report', payload);
+        toast.success('تم إرسال ملف التقرير ورابط بوابة المريض إلى الرقم المسجل.');
       }
     }
     if (selection.action === 'print' || selection.action === 'print-download') {
@@ -2689,9 +2682,9 @@ const handlePrintSelection = async (selection) => {
     }
     if (selection.action !== 'preview') printSelectVisible.value = false;
   } catch (error) {
-    previewTab?.close(); whatsappTab?.close();
+    previewTab?.close();
     console.error('Report action failed:', error);
-    toast.error('تعذر تجهيز التقرير. حاول مرة ثانية.');
+    toast.error(error?.response?.data?.message || 'تعذر إرسال التقرير. حاول مرة ثانية.');
   } finally {
     Object.assign(printRecord.value, original);
     reportActionBusy.value = false;
