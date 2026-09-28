@@ -431,7 +431,7 @@ router.beforeEach((to, from, next) => {
      } catch {
           storedUser = null;
      }
-     const referralHome = Number(storedUser?.role_id) === 5 ? "/doctor-portal" : "/referral-portal";
+     const referralHome = storedUser?.is_doctor_portal ? "/doctor-portal" : "/referral-portal";
 
      // Redirect authenticated users away from welcome and login pages
      if (isAuthenticated && (to.name === "welcome" || to.name === "login")) {

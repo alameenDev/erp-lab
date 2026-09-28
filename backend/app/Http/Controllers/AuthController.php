@@ -316,6 +316,8 @@ class AuthController extends Controller
             // send samples here) straight to their own dedicated portal,
             // regardless of their role_id.
             $user->is_referral_partner = $isReferral;
+            $user->is_doctor_portal = (int) $user->role_id === 5 && $user->referral_portal_only
+                && ! \App\Models\ReferralLabProfile::where('user_id_fk', $user->id)->exists();
 
             // log user login activity
             ActivityLogController::loginActivity('تسجيل الدخول');

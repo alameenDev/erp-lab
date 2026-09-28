@@ -12,7 +12,8 @@ class DoctorPortalController extends Controller
 {
     private function doctorLabs()
     {
-        abort_unless((int) Auth::user()?->role_id === 5, 403);
+        abort_unless((int) Auth::user()?->role_id === 5 && Auth::user()->referral_portal_only
+            && ! \App\Models\ReferralLabProfile::where('user_id_fk', Auth::id())->exists(), 403);
         $ids = Referal::where('referral_id_fk', Auth::id())->pluck('lab_id_fk');
         abort_unless($ids->isNotEmpty(), 403);
         return $ids;
@@ -26,7 +27,8 @@ class DoctorPortalController extends Controller
     public function patients(Request $request)
     {
         $labIds = $this->doctorLabs();
-        $search = trim((string) $request->validate(['search' => 'nullable|string|max:100'])['search'] ?? '');
+        $validated = $request->validate(['search' => 'nullable|string|max:100']);
+        $search = trim((string) ($validated['search'] ?? ''));
         $query = Patient::with('user:id,name')->whereIn('id', $this->ownInvoices($labIds)->select('patient_id_fk'));
         if ($search !== '') $query->where(function ($q) use ($search) {
             $q->where('code', 'like', '%'.$search.'%')

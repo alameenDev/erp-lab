@@ -118,7 +118,7 @@ watch(selectedRecord, (v) => {
             <form @submit.prevent="handleSubmit" @click="isShow = false">
               <label v-if="!record.id && Number(record.role_id) !== 5" class="block bg-teal-50 p-3 rounded-lg mb-4 text-sm"><input type="checkbox" v-model="portalAccount" /> إنشاء حساب دخول لبوابة الإحالة فقط (بدون صلاحيات الموظفين)</label>
               <p v-if="!record.id && Number(record.role_id) === 5" class="rounded-lg bg-blue-50 p-3 text-sm text-blue-800 mb-4">سيُنشأ حساب بوابة الطبيب تلقائياً. يستطيع الطبيب عرض نتائج المرضى المحالين باسمه فقط.</p>
-              <label v-if="record.id && Number(record.role_id) === 5" class="block bg-blue-50 p-3 rounded-lg mb-4 text-sm"><input type="checkbox" v-model="portalAccount" /> {{ record.portal_enabled ? 'تغيير بيانات دخول بوابة الطبيب' : 'تفعيل حساب بوابة الطبيب' }}</label>
+              <label v-if="record.id && Number(record.role_id) === 5 && !record.lab_portal_profile" class="block bg-blue-50 p-3 rounded-lg mb-4 text-sm"><input type="checkbox" v-model="portalAccount" /> {{ record.portal_enabled ? 'تغيير بيانات دخول بوابة الطبيب' : 'تفعيل حساب بوابة الطبيب' }}</label>
               <p v-if="portalAccount" class="text-sm mb-3">البريد هو اسم الدخول. حدّد كلمة مرور لا تقل عن 12 حرفاً وشاركها مع الجهة بشكل خاص.<span v-if="Number(record.role_id) === 2"> قائمة الأسعار مطلوبة.</span></p>
               <p v-if="formError" role="alert" class="text-red-700 mb-3">{{ formError }}</p>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">

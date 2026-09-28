@@ -16,6 +16,8 @@ class DoctorPortalTest extends TestCase
         $this->seed(ReferenceDataSeeder::class);
         $lab = User::create(['name' => 'Lab', 'email' => 'lab@example.test', 'password' => 'secret-password-123', 'role_id' => 2]);
         $doctor = User::create(['name' => 'Doctor', 'email' => 'doctor@example.test', 'password' => 'secret-password-123', 'role_id' => 5, 'creator_id' => $lab->id]);
+        $doctor->referral_portal_only = true;
+        $doctor->save();
         $other = User::create(['name' => 'Other doctor', 'email' => 'other-doctor@example.test', 'password' => 'secret-password-123', 'role_id' => 5, 'creator_id' => $lab->id]);
         foreach ([$doctor, $other] as $user) Referal::create(['referral_id_fk' => $user->id, 'lab_id_fk' => $lab->id]);
         $patientUser = User::create(['name' => 'Shared patient', 'email' => 'patient@example.test', 'password' => 'secret-password-123', 'role_id' => 6]);
