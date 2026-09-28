@@ -272,7 +272,7 @@
           <nav aria-label="أقسام النتائج" class="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
             <div class="flex gap-2 overflow-x-auto pb-1">
             <button
-              v-if="updateResultRecord.tests?.length > 0"
+              v-if="allTabTests.length > 0 || updateResultRecord.tests?.length > 0"
               type="button"
               @click="activeSection = 'tests'"
               :class="[
@@ -286,7 +286,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
               </svg>
               {{ t("tests") }}
-              <span class="px-1.5 py-0.5 text-xs rounded-md bg-primary-100 text-primary-600">{{ updateResultRecord.tests?.length || 0 }}</span>
+              <span class="px-1.5 py-0.5 text-xs rounded-md bg-primary-100 text-primary-600">{{ allTabTests.length }}</span>
             </button>
             <button
               v-if="updateResultRecord.packages?.length > 0"
@@ -358,7 +358,7 @@
           </nav>
 
         <!-- ==================== TEST TABS (full width col-12, only when activeSection === 'tests') ==================== -->
-        <div v-if="activeSection === 'tests' && updateResultRecord.tests?.length > 0" class="bg-white rounded-xl border border-slate-200 shadow-sm px-3 py-2">
+        <div v-if="activeSection === 'tests' && (allTabTests.length > 0 || updateResultRecord.tests?.length > 0)" class="bg-white rounded-xl border border-slate-200 shadow-sm px-3 py-2">
           <div class="flex gap-2 overflow-x-auto pb-1">
             <button
               v-if="allTabTests.length"
@@ -427,7 +427,7 @@
           <div class="space-y-4">
 
         <!-- ==================== TESTS SECTION (tabs moved out to full width above) ==================== -->
-        <div v-if="activeSection === 'tests' && updateResultRecord.tests?.length > 0" class="space-y-4">
+        <div v-if="activeSection === 'tests' && (allTabTests.length > 0 || updateResultRecord.tests?.length > 0)" class="space-y-4">
           <!-- Quick entry: one consistent column for every piece of result data -->
           <div v-if="activeTestTab === 'all'" class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4 sm:px-6">
@@ -455,10 +455,11 @@
                     <th scope="row" class="px-4 py-4 text-start">
                       <div class="flex items-center gap-2"><span class="h-2 w-2 shrink-0 rounded-full" :class="item.is_done ? 'bg-emerald-500' : 'bg-slate-300'"></span><span class="break-words font-semibold text-slate-900">{{ item.name }}</span></div>
                       <span v-if="item.shortcut" class="ms-4 text-xs text-slate-500">{{ item.shortcut }}</span>
+                      <span v-if="quickTestSource(item)" class="ms-4 block text-[11px] text-primary-600">{{ quickTestSource(item).label }}</span>
                     </th>
                     <td class="px-4 py-3">
-                      <input v-if="[1, 2, 3].includes(Number(item.result_type_id_fk)) || !item.result_type_id_fk" type="text" :inputmode="[1, 2].includes(Number(item.result_type_id_fk)) ? 'decimal' : 'text'" v-model="item.result" @input="autoDetectStatus(item)" @change="autoDetectStatus(item)" @keydown.enter.prevent="confirmAndNext(item, index)" :data-test-row="index" :aria-label="`نتيجة ${item.name}`" class="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100" />
-                      <select v-else-if="Number(item.result_type_id_fk) === 4" v-model="item.result" @keydown.enter.prevent="confirmAndNext(item, index)" :data-test-row="index" :aria-label="`نتيجة ${item.name}`" class="h-10 w-full rounded-lg border border-slate-300 bg-white px-2 text-sm outline-none focus:border-primary-500"><option value="">{{ t('select') }}</option><option v-for="opt in item.selection_type_options" :key="opt" :value="opt">{{ opt }}</option></select>
+                      <input v-if="[1, 2, 3].includes(Number(item.result_type_id_fk)) || !item.result_type_id_fk" type="text" :inputmode="[1, 2].includes(Number(item.result_type_id_fk)) ? 'decimal' : 'text'" v-model="item.result" @input="quickResultChanged(item)" @change="quickResultChanged(item)" @keydown.enter.prevent="confirmAndNext(item, index)" :data-test-row="index" :aria-label="`نتيجة ${item.name}`" class="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100" />
+                      <select v-else-if="Number(item.result_type_id_fk) === 4" v-model="item.result" @change="quickResultChanged(item)" @keydown.enter.prevent="confirmAndNext(item, index)" :data-test-row="index" :aria-label="`نتيجة ${item.name}`" class="h-10 w-full rounded-lg border border-slate-300 bg-white px-2 text-sm outline-none focus:border-primary-500"><option value="">{{ t('select') }}</option><option v-for="opt in (item.selction_type_options || item.selection_type_options || [])" :key="opt" :value="opt">{{ opt }}</option></select>
                       <select v-if="Number(item.result_type_id_fk) !== 3" v-model="item.result_status_id_fk" :aria-label="`حالة ${item.name}`" class="mt-1 w-full border-0 bg-transparent px-1 text-xs text-slate-500 outline-none focus:text-primary-700"><option value="">تحديد الحالة</option><option v-for="status in resultStatus" :key="status.value" :value="status.value">{{ status.label }}</option></select>
                     </td>
                     <td class="px-4 py-3"><PreviousResult v-bind="previousLabel('test', item)" class="!min-w-0 !max-w-none" /></td>
@@ -467,7 +468,7 @@
                     <td class="px-4 py-3">
                       <div class="flex items-center gap-2">
                         <button type="button" @click="saveTestRow(item)" :disabled="savingTestRow === item" class="inline-flex h-9 flex-1 items-center justify-center rounded-lg bg-primary-600 px-2 text-xs font-semibold text-white hover:bg-primary-700 disabled:opacity-60">{{ savingTestRow === item ? 'جاري الحفظ' : item.is_done ? 'حفظ' : 'حفظ ✓' }}</button>
-                        <button type="button" @click="activeTestTab = updateResultRecord.tests.indexOf(item)" class="inline-flex h-9 flex-1 items-center justify-center rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 hover:bg-slate-50" title="فتح تفاصيل التحليل وتعديل النتيجة">تعديل</button>
+                        <button type="button" @click="openQuickTest(item)" class="inline-flex h-9 flex-1 items-center justify-center rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 hover:bg-slate-50" title="فتح تفاصيل التحليل وتعديل النتيجة">تعديل</button>
                       </div>
                       <details class="mt-1 text-xs text-slate-500"><summary class="cursor-pointer py-1">ملاحظة</summary><input v-model="item.comment" type="text" :placeholder="t('enter_comment')" class="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-xs outline-none focus:border-primary-500" /></details>
                     </td>
@@ -1448,11 +1449,43 @@ const { updateResultRecord, testsComment, cultursComment, printRecord } = storeT
 const { printWithIframe, printStyles } = usePrint();
 const reportBackground = computed(() => labSettingsStore.settings.report_background || "");
 
-// All-tab table excludes special/custom tests ("تحليل مخصص", is_special_test) — they
-// render a custom HTML table, not a single result input, so the row view is meaningless.
-const allTabTests = computed(() =>
-     (updateResultRecord.value?.tests || []).filter((t) => !t.is_special_test)
-);
+// The quick-entry table includes regular tests from invoices, packages and groups.
+// Template tests keep their detailed HTML editors in their respective sections.
+const allTabTests = computed(() => {
+  const record = updateResultRecord.value || {};
+  return [
+    ...(record.tests || []).filter(t => !t.is_special_test && !isCustomTemplateTest(t)),
+    ...(record.packages || []).flatMap((pkg, index) =>
+      packageVisibleTests(pkg).filter(t => !isPkgGroupFormulaTarget(pkg, t, index))),
+    ...(record.test_groups || []).flatMap(group => groupVisibleTests(group)),
+  ];
+});
+const quickTestSource = (item) => {
+  const record = updateResultRecord.value || {};
+  const packageIndex = (record.packages || []).findIndex(pkg => (pkg.tests || []).includes(item));
+  if (packageIndex >= 0) return { section: "packages", index: packageIndex, label: `باقة: ${record.packages[packageIndex].name || record.packages[packageIndex].package_name || "—"}` };
+  const groupIndex = (record.test_groups || []).findIndex(group => (group.tests || []).includes(item));
+  if (groupIndex >= 0) return { section: "test_groups", index: groupIndex, label: `كروب: ${record.test_groups[groupIndex].group_name || "—"}` };
+  return null;
+};
+const quickResultChanged = (item) => {
+  autoDetectStatus(item);
+  const source = quickTestSource(item);
+  if (source?.section === "packages") evalPkgFormulas(updateResultRecord.value.packages[source.index], source.index);
+  if (source?.section === "test_groups") evalFormula(updateResultRecord.value.test_groups[source.index]);
+};
+const openQuickTest = (item) => {
+  const source = quickTestSource(item);
+  if (source?.section === "packages") {
+    activeSection.value = "packages";
+    activePackageTab.value = source.index;
+  } else if (source?.section === "test_groups") {
+    activeSection.value = "test_groups";
+    activeTestGroupTab.value = source.index;
+  } else {
+    activeTestTab.value = updateResultRecord.value.tests.indexOf(item);
+  }
+};
 const testSearch = ref("");
 const filteredAllTabTests = computed(() => allTabTests.value
   .map((item, index) => ({ item, index }))
