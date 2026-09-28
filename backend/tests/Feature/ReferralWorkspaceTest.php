@@ -46,6 +46,34 @@ class ReferralWorkspaceTest extends TestCase
         $this->getJson('/api/referral-portal/workspace/invoices/'.$id)->assertOk()->assertJsonPath('total',7000);
         $this->getJson('/api/referral-portal/workspace/invoices/'.$id.'?document=report')->assertStatus(409);
     }
+    public function test_financial_report_scopes_labs_and_separates_lab_settlements_from_customer_collections(): void
+    {
+        [$lab, $partner, $other, $test] = $this->fixture();
+        $first = $this->postJson('/api/referral-portal/workspace/invoices/create', $this->payload($lab, $test))->assertCreated()->json('id');
+        $labMethod = PaymentMethod::create(['name' => 'Bank transfer', 'lab_id_fk' => $lab->id]);
+        Invoice::findOrFail($first)->paidDetails()->create(['amount' => 2000, 'payment_method_id_fk' => $labMethod->id, 'lab_id_fk' => $lab->id]);
+
+        $secondLab = User::create(['name' => 'Second lab', 'email' => 'second-lab@example.test', 'password' => 'secret-password-123', 'role_id' => 2]);
+        Referal::create(['referral_id_fk' => $partner->id, 'lab_id_fk' => $secondLab->id]);
+        $second = Invoice::create(['lab_id_fk' => $secondLab->id, 'from_lab_id_fk' => $partner->id, 'total' => 5000, 'sub_total' => 5000, 'paid' => 0, 'patient_id_fk' => Invoice::findOrFail($first)->patient_id_fk]);
+        $otherInvoice = Invoice::create(['lab_id_fk' => $lab->id, 'from_lab_id_fk' => $other->id, 'total' => 99999, 'sub_total' => 99999, 'paid' => 0, 'patient_id_fk' => $second->patient_id_fk]);
+
+        $report = $this->getJson('/api/referral-portal/financial-report')->assertOk()->assertJsonPath('invoices.total', 2);
+        $this->assertEqualsCanonicalizing([$first, $second->id], array_column($report->json('invoices.data'), 'id'));
+        $byLab = collect($report->json('labs'))->keyBy('lab_id');
+        $this->assertSame(7200, $byLab[$lab->id]['total_due']);
+        $this->assertSame(2000, $byLab[$lab->id]['total_paid']);
+        $this->assertSame(5200, $byLab[$lab->id]['total_balance']);
+        $firstRow = collect($report->json('invoices.data'))->firstWhere('id', $first);
+        $this->assertSame('partial', $firstRow['payment_status']);
+        $this->assertSame(['total' => 7000, 'collected' => 2000], $firstRow['customer_invoice']);
+        $this->getJson('/api/referral-portal/financial-report?status=unpaid')->assertOk()->assertJsonPath('invoices.total', 1);
+        $this->getJson('/api/referral-portal/financial-report?lab_id='.$secondLab->id)->assertOk()->assertJsonPath('invoices.total', 1);
+
+        $this->actingAs($other);
+        $this->getJson('/api/referral-portal/financial-report?lab_id='.$secondLab->id)->assertForbidden();
+        $this->getJson('/api/referral-portal/financial-report')->assertOk()->assertJsonPath('invoices.total', 1);
+    }
     public function test_report_requires_all_results_and_is_scoped_to_current_partner(): void
     {
         [$lab,,$other,$test]=$this->fixture();

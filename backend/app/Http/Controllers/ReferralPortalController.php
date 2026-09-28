@@ -154,6 +154,92 @@ class ReferralPortalController extends Controller
         return response()->json(['invoices' => $invoices, 'unseen_ready_count' => $unseenReadyCount]);
     }
 
+    /**
+     * Financial position of this referral partner with each connected lab.
+     * The lab invoice and its recorded payment rows are the source of truth
+     * for amounts owed to the performing lab. Customer collections in
+     * referral_invoice_details are shown separately, never counted as lab
+     * settlements.
+     */
+    public function financialReport(Request $request)
+    {
+        $userId = $this->assertReferralPartner();
+        $filters = $request->validate([
+            'lab_id' => 'nullable|integer',
+            'from' => 'nullable|date_format:Y-m-d',
+            'to' => 'nullable|date_format:Y-m-d|after_or_equal:from',
+            'status' => 'nullable|in:unpaid,partial,paid',
+            'page' => 'nullable|integer|min:1',
+        ]);
+        $connections = Referal::with('lab:id,name')->where('referral_id_fk', $userId)->get()->unique('lab_id_fk');
+        $labIds = $connections->pluck('lab_id_fk');
+        if (isset($filters['lab_id'])) abort_unless($labIds->contains((int) $filters['lab_id']), 403);
+
+        $paymentTotals = DB::table('invoice_paid_details')
+            ->select('invoice_id_fk')
+            ->selectRaw('COALESCE(SUM(amount), 0) AS paid_sum')
+            ->groupBy('invoice_id_fk');
+        $paidSql = 'COALESCE(payment_totals.paid_sum, 0)';
+        $balanceSql = "CASE WHEN invoices.total > {$paidSql} THEN invoices.total - {$paidSql} ELSE 0 END";
+        $query = $this->ownInvoices($userId)
+            ->leftJoinSub($paymentTotals, 'payment_totals', 'payment_totals.invoice_id_fk', '=', 'invoices.id');
+        if (isset($filters['lab_id'])) $query->where('invoices.lab_id_fk', $filters['lab_id']);
+        if (isset($filters['from'])) $query->where('invoices.created_at', '>=', $filters['from'].' 00:00:00');
+        if (isset($filters['to'])) $query->where('invoices.created_at', '<=', $filters['to'].' 23:59:59');
+        if (($filters['status'] ?? null) === 'unpaid') $query->whereRaw("{$paidSql} = 0 AND invoices.total > 0");
+        if (($filters['status'] ?? null) === 'partial') $query->whereRaw("{$paidSql} > 0 AND {$paidSql} < invoices.total");
+        if (($filters['status'] ?? null) === 'paid') $query->whereRaw("{$paidSql} >= invoices.total");
+
+        $totals = (clone $query)->select('invoices.lab_id_fk')
+            ->selectRaw("COUNT(*) AS invoice_count, COALESCE(SUM(invoices.total), 0) AS total_due, COALESCE(SUM({$paidSql}), 0) AS total_paid, COALESCE(SUM({$balanceSql}), 0) AS total_balance")
+            ->groupBy('invoices.lab_id_fk')->get()->keyBy('lab_id_fk');
+        $labs = $connections->filter(fn ($connection) => ! isset($filters['lab_id']) || (int) $connection->lab_id_fk === (int) $filters['lab_id'])
+            ->map(function ($connection) use ($totals) {
+                $row = $totals->get($connection->lab_id_fk);
+                return [
+                    'lab_id' => $connection->lab_id_fk,
+                    'lab_name' => $connection->lab?->name ?? 'مختبر',
+                    'invoice_count' => (int) ($row?->invoice_count ?? 0),
+                    'total_due' => (int) ($row?->total_due ?? 0),
+                    'total_paid' => (int) ($row?->total_paid ?? 0),
+                    'total_balance' => (int) ($row?->total_balance ?? 0),
+                ];
+            })->values();
+
+        $invoices = (clone $query)->select('invoices.*')->selectRaw("{$paidSql} AS recorded_paid")
+            ->with(['lab:id,name', 'patient.user:id,name', 'paidDetails.paymentMethod:id,name',
+                'invoiceTestRels.test:id,name', 'invoiceTestRels.culture:id,name',
+                'invoiceTestRels.package:id,name', 'invoiceTestRels.testGroup:id,group_name'])
+            ->orderByDesc('invoices.created_at')->orderByDesc('invoices.id')->paginate(25);
+        $ownFinancials = DB::table('referral_invoice_details')->where('referral_id', $userId)
+            ->whereIn('invoice_id', $invoices->getCollection()->pluck('id'))->get()->keyBy('invoice_id');
+        $invoices->getCollection()->transform(function ($invoice) use ($ownFinancials) {
+            $due = (int) $invoice->total;
+            $paid = (int) $invoice->recorded_paid;
+            $own = $ownFinancials->get($invoice->id);
+            return [
+                'id' => $invoice->id, 'barcode' => $invoice->barcode,
+                'created_at' => $invoice->created_at,
+                'lab_id' => $invoice->lab_id_fk, 'lab_name' => $invoice->lab?->name,
+                'patient_name' => $invoice->patient?->user?->name,
+                'total_due' => $due, 'total_paid' => $paid,
+                'balance' => max(0, $due - $paid),
+                'payment_status' => $paid >= $due ? 'paid' : ($paid > 0 ? 'partial' : 'unpaid'),
+                'payments' => $invoice->paidDetails->map(fn ($payment) => [
+                    'amount' => (int) $payment->amount,
+                    'method' => $payment->paymentMethod?->name,
+                    'date' => $payment->created_at,
+                ])->values(),
+                'items' => $invoice->invoiceTestRels->map(fn ($item) => [
+                    'name' => $item->test?->name ?? $item->culture?->name ?? $item->package?->name ?? $item->testGroup?->group_name ?? 'فحص',
+                    'price' => (int) $item->price,
+                ])->values(),
+                'customer_invoice' => $own ? ['total' => (int) $own->total, 'collected' => (int) $own->paid] : null,
+            ];
+        });
+        return response()->json(['labs' => $labs, 'invoices' => $invoices]);
+    }
+
     public function show($id)
     {
         $userId = $this->assertReferralPartner();

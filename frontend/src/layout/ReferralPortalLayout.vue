@@ -25,9 +25,9 @@ const logout = () => {
 <template>
   <div class="min-h-screen bg-gray-50" dir="rtl">
     <nav class="no-print bg-white border-b border-gray-100 sticky top-0 z-10">
-      <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-        <div class="font-bold text-teal-700">بوابة الإحالة</div>
-        <div class="flex items-center gap-1 text-sm">
+      <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+        <div class="font-bold text-teal-700 whitespace-nowrap">بوابة الإحالة</div>
+        <div class="flex max-w-full items-center gap-1 overflow-x-auto whitespace-nowrap text-sm">
           <router-link
             to="/referral-portal"
             class="px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50"
@@ -42,6 +42,13 @@ const logout = () => {
             active-class="bg-teal-50 text-teal-700 font-bold"
           >
             + فاتورة جديدة
+          </router-link>
+          <router-link
+            to="/referral-portal/financial-report"
+            class="px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50"
+            active-class="bg-teal-50 text-teal-700 font-bold"
+          >
+            التقارير المالية
           </router-link>
           <router-link
             to="/referral-portal/profile"
