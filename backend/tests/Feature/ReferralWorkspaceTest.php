@@ -70,7 +70,6 @@ class ReferralWorkspaceTest extends TestCase
         $this->assertNotEmpty($query);
         $this->actingAs($other);
         $this->postJson('/api/referral-portal/workspace/invoices/'.$id.'/share-report')->assertNotFound();
-        \Illuminate\Support\Facades\Auth::logout();
         $this->getJson('/api/referral-report/'.$id.'?'.$query)->assertOk()
             ->assertJsonPath('report.tests.0.result','19')
             ->assertJsonMissingPath('report.total');
