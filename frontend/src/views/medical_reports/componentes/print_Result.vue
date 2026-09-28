@@ -15,6 +15,8 @@ import { usePrint } from "@/composables/usePrint";
 import { useLabSettingsStore } from "@/store/modules/labSettings";
 
 const route = useRoute();
+const referralReport = computed(() => route.name === "referral-portal-report");
+const sharedReferralReport = computed(() => route.name === "referral-shared-report");
 const templatesStore = useTemplatesStore();
 const invoicesStore = useinvoicesStore();
 const resultStatusStore = useresultStatusStore();
@@ -53,6 +55,15 @@ const _defaultMargins = { top: 20, bottom: 20, left: 15, right: 15 };
 const labSettingsStore = useLabSettingsStore();
 const publicLabSettings = ref(null);
 const reportSettings = computed(() => publicLabSettings.value || labSettingsStore.settings);
+const reportBrand = computed(() => referralReport.value || sharedReferralReport.value ? reportSettings.value : null);
+const reportShareUrl = ref("");
+const shareError = ref("");
+const sharing = ref(false);
+const imageBaseUrl = import.meta.env.VITE_IMAGE_URL || window.location.origin + "/storage";
+const referralLogo = computed(() => {
+  const logo = reportBrand.value?.logo;
+  return logo ? (logo.startsWith("http") ? logo : `${imageBaseUrl}/${logo}`) : "";
+});
 const serverMargins = ref(
   localStorage.getItem("token")
     ? (labSettingsStore.settings.print_margins || { ..._defaultMargins })
@@ -326,10 +337,10 @@ onMounted(() => {
   const day = String(todayDate.getDate()).padStart(2, "0");
   today.value = `${year}-${month}-${day}`;
 
-  showWithForm.value = route.query.form === "1";
+  showWithForm.value = route.query.form === "1" || sharedReferralReport.value || referralReport.value;
 
   // Only fetch auth-required data for logged-in users
-  if (hasToken && !route.path.startsWith("/referral-portal")) {
+  if (hasToken && !referralReport.value && !sharedReferralReport.value) {
     GetTemplates();
   }
   if (!resultStatus.value?.length) {
@@ -540,6 +551,7 @@ const templateChunks = (data) => {
 };
 
 const hasToken = !!localStorage.getItem("token");
+const authenticatedReport = hasToken && !sharedReferralReport.value;
 
 // Print settings — defaults until API/store loads
 const showCategories = ref(true);
@@ -768,7 +780,15 @@ const computeAllFormulas = () => { /* no-op, computed inline */ };
 
 const getData = async () => {
   try {
-    if (hasToken) {
+    if (referralReport.value) {
+      const { data } = await $http.get(`/referral-portal/workspace/invoices/${patientId.value}`, { params: { document: "report" } });
+      printRecord.value = data;
+    } else if (sharedReferralReport.value) {
+      const { data } = await $http.get(`/referral-report/${patientId.value}`, { params: route.query });
+      printRecord.value = data.report;
+      publicLabSettings.value = data.settings || {};
+      reportShareUrl.value = data.report.report_share_url;
+    } else if (hasToken) {
       await GetinvoicesById(patientId.value);
     } else {
       // Public access (e.g. WhatsApp link) — use unauthenticated endpoint
@@ -777,7 +797,7 @@ const getData = async () => {
     }
     computeAllFormulas();
   } catch (err) {
-    if ((!hasToken && err?.response?.status === 403) || (route.path.startsWith("/referral-portal") && err?.response?.status === 409)) {
+    if ((sharedReferralReport.value && [403, 404, 409].includes(err?.response?.status)) || (!hasToken && err?.response?.status === 403) || (referralReport.value && err?.response?.status === 409)) {
       reportNotReady.value = true;
     }
     console.error("Failed to fetch invoice data:", err);
@@ -785,7 +805,29 @@ const getData = async () => {
   }
 
   if (printRecord.value?.lab_id_fk) {
-    if (hasToken) {
+    try {
+    if (referralReport.value) {
+      const { data: s } = await $http.get('/referral-portal/workspace/lab-settings');
+      publicLabSettings.value = s;
+      serverMargins.value = s.print_margins || _defaultMargins;
+      backgroundUrl.value = s.report_background || null;
+      showCategories.value = s.show_categories !== false;
+      showTestName.value = s.show_test_names !== false;
+      printBlackWhite.value = s.print_black_white === true;
+      showStatus.value = s.show_status !== false;
+      showLastResult.value = s.show_last_result === true;
+      applyPatientHeaderCss(s.patient_header_config);
+    } else if (sharedReferralReport.value) {
+      const s = publicLabSettings.value;
+      serverMargins.value = s.print_margins || _defaultMargins;
+      backgroundUrl.value = s.report_background || null;
+      showCategories.value = s.show_categories !== false;
+      showTestName.value = s.show_test_names !== false;
+      printBlackWhite.value = s.print_black_white === true;
+      showStatus.value = s.show_status !== false;
+      showLastResult.value = s.show_last_result === true;
+      applyPatientHeaderCss(s.patient_header_config);
+    } else if (hasToken) {
       // Staff: read from Pinia store (already fetched on login)
       const s = labSettingsStore.settings;
       serverMargins.value = s.print_margins || _defaultMargins;
@@ -810,10 +852,23 @@ const getData = async () => {
         console.error("Failed to fetch lab settings:", err);
       }
     }
+    } catch (error) {
+      console.error("Failed to load report settings", error);
+      if (referralReport.value || sharedReferralReport.value) shareError.value = "تعذر تحميل هوية مختبر الإحالة";
+    }
+  }
+
+  if (referralReport.value) {
+    try {
+      const { data } = await $http.post(`/referral-portal/workspace/invoices/${patientId.value}/share-report`);
+      reportShareUrl.value = data.url;
+    } catch (error) {
+      console.error("Failed to prepare referral report QR", error);
+    }
   }
 
   // Public access: show hidden content for PDF capture, then auto-download
-  if (!hasToken) {
+  if (!authenticatedReport) {
     showDirectView.value = true;
     nextTick(() => setTimeout(() => { computePageLayout(); fitToWidth(); }, 800));
     return;
@@ -825,7 +880,29 @@ const getData = async () => {
 const appBaseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
 
 const getPatientReportLink = () => {
-  return `${appBaseUrl}${printRecord.value?.referral_document ? "/referral-portal/reports/" : "/result/"}${patientId.value}`;
+  return reportShareUrl.value || `${appBaseUrl}/result/${patientId.value}`;
+};
+
+const printReferralReport = () => window.print();
+const shareReferralReport = async () => {
+  if (sharing.value) return;
+  sharing.value = true;
+  shareError.value = "";
+  const whatsappTab = window.open("about:blank", "_blank");
+  try {
+    const { data } = await $http.post(`/referral-portal/workspace/invoices/${patientId.value}/share-report`);
+    reportShareUrl.value = data.url;
+    const name = reportBrand.value?.lab_display_name || "مختبر الإحالة";
+    const message = `التقرير الطبي من ${name}\n${data.url}`;
+    const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    if (whatsappTab) { whatsappTab.opener = null; whatsappTab.location.href = url; }
+    else { await navigator.clipboard.writeText(message); shareError.value = "تم نسخ الرابط؛ افتح واتساب وألصقه في المحادثة"; }
+  } catch (error) {
+    whatsappTab?.close();
+    shareError.value = error.response?.data?.message || "تعذر إنشاء رابط التقرير";
+  } finally {
+    sharing.value = false;
+  }
 };
 
 const generatePDF = async () => {
@@ -1084,7 +1161,13 @@ const generateBarcodeImage = (value) => {
 
   <template v-else>
     <!-- ===== AUTHENTICATED VIEW (staff) — PDF iframe ===== -->
-    <div v-if="hasToken && !showDirectView && pdfUrl">
+    <div v-if="referralReport && printRecord?.id" class="referral-actions" dir="rtl">
+      <strong>تقرير {{ reportBrand?.lab_display_name || 'مختبر الإحالة' }}</strong>
+      <button type="button" @click="printReferralReport">طباعة التقرير</button>
+      <button type="button" :disabled="sharing" @click="shareReferralReport">{{ sharing ? 'جاري تجهيز الرابط...' : 'إرسال عبر واتساب' }}</button>
+      <span v-if="shareError" role="alert">{{ shareError }}</span>
+    </div>
+    <div v-if="authenticatedReport && !showDirectView && pdfUrl">
       <iframe :src="pdfUrl" width="100%" :height="documentHeight" style="border: 1px solid #ccc"></iframe>
     </div>
     <!-- Result div: visible for direct view (public + staff ?form=1), hidden for PDF generation -->
@@ -1127,7 +1210,7 @@ const generateBarcodeImage = (value) => {
             class="print-wrapper"
             :style="(tIdx > 0 || cIdx > 0) ? 'page-break-before: always; break-before: page;' : ''"
           >
-            <thead><tr><td class="pw-cell pw-top"><result_section /></td></tr></thead>
+            <thead><tr><td class="pw-cell pw-top"><result_section :lab-name="reportBrand?.lab_display_name" :lab-logo="showBackground && backgroundUrl ? '' : referralLogo" :share-url="reportShareUrl" :is-referral="referralReport || sharedReferralReport" /></td></tr></thead>
             <tfoot><tr><td class="pw-cell pw-bottom"></td></tr></tfoot>
             <tbody><tr><td class="pw-cell">
               <section class="template-section"><div v-html="chunk"></div></section>
@@ -1145,7 +1228,7 @@ const generateBarcodeImage = (value) => {
         class="print-wrapper"
         :style="hasTemplateTest ? 'page-break-before: always; break-before: page;' : ''"
       >
-        <thead><tr><td class="pw-cell pw-top"><result_section /></td></tr></thead>
+        <thead><tr><td class="pw-cell pw-top"><result_section :lab-name="reportBrand?.lab_display_name" :lab-logo="showBackground && backgroundUrl ? '' : referralLogo" :share-url="reportShareUrl" :is-referral="referralReport || sharedReferralReport" /></td></tr></thead>
         <tfoot><tr><td class="pw-cell pw-bottom"></td></tr></tfoot>
         <tbody><tr><td class="pw-cell">
 
@@ -1452,6 +1535,11 @@ const generateBarcodeImage = (value) => {
 
 <!-- Non-scoped: match print output font/weight/size, scoped to #Result -->
 <style>
+.referral-actions { display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding:14px 20px; background:white; border-bottom:1px solid #ddd; }
+.referral-actions button { background:#0f766e; color:white; padding:9px 16px; border-radius:8px; cursor:pointer; }
+.referral-actions button:disabled { opacity:.55; cursor:wait; }
+.referral-actions [role="alert"] { color:#b91c1c; }
+@media print { .referral-actions { display:none !important; } }
 /* ===== Font & weight — match print output (Arial, bold) ===== */
 #Result.direct-view-page {
   font-family: Arial, sans-serif;

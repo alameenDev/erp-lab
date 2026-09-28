@@ -70,6 +70,10 @@ Route::post('user/forget_password', [AuthController::class, 'forgetPassword'])
 Route::post('user/reset_password', [AuthController::class, 'resetPassword'])
     ->middleware('throttle:password-reset');
 
+// Expiring, signed referral report link shared with the patient.
+Route::get('referral-report/{id}', [\App\Http\Controllers\ReferralWorkspaceController::class, 'publicReport'])
+    ->name('referral-report.show')->middleware('throttle:30,1');
+
 Route::get('lab-background/{labId}', [UserController::class, 'getBackground']);
 Route::get('lab-margins/{labId}', [UserController::class, 'getMargins']);
 Route::get('lab-settings/{labId}', [LabSettingController::class, 'showPublic']);
@@ -174,6 +178,7 @@ Route::group(['middleware' => ['auth:sanctum', \App\Http\Middleware\RestrictRefe
         Route::delete('lab-settings/background', [$settings, 'removeBackground']);
         Route::post('invoices/create', [$workspace, 'store']);
         Route::get('invoices/{id}', [$workspace, 'show'])->whereNumber('id');
+        Route::post('invoices/{id}/share-report', [$workspace, 'shareReport'])->whereNumber('id');
         Route::post('patients/search-name', [$workspace, 'patients']);
         Route::post('tests/questions', [$workspace, 'questions']);
         Route::get('{resource}', [$workspace, 'lookup'])->whereIn('resource', ['tests','cultures','packages','genders','age-units','titles','nationalities','payment-methods','result-status','labs','collectors','contracts','referrals','templates']);

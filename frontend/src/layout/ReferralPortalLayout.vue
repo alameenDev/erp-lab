@@ -24,7 +24,7 @@ const logout = () => {
 
 <template>
   <div class="min-h-screen bg-gray-50" dir="rtl">
-    <nav class="bg-white border-b border-gray-100 sticky top-0 z-10">
+    <nav class="no-print bg-white border-b border-gray-100 sticky top-0 z-10">
       <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
         <div class="font-bold text-teal-700">بوابة الإحالة</div>
         <div class="flex items-center gap-1 text-sm">

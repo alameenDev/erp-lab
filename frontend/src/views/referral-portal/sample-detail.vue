@@ -1,12 +1,12 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useinvoicesStore } from '@/store/modules/invoices';
 import { referralWorkspace } from '@/utils/referralWorkspace';
 import { $http } from '@/plugins/axios';
 import PrintInvoice from '@/views/invoices/componentes/printInvoice_modal.vue';
-const route = useRoute(), store = useinvoicesStore();
-const invoice = ref(null), error = ref(''), loading = ref(false);
+const route = useRoute(), router = useRouter(), store = useinvoicesStore();
+const invoice = ref(null), error = ref(''), loading = ref(false), sharing = ref(false);
 let timer;
 async function load() {
  if(loading.value) return; loading.value = true;
@@ -15,6 +15,20 @@ async function load() {
  finally { loading.value = false; }
 }
 function print() { store.printRecord = invoice.value; store.printInvoiceDialog = true; }
+function printReport() { router.push(`/referral-portal/reports/${invoice.value.id}?form=1`); }
+async function shareReport() {
+ if(sharing.value) return; sharing.value = true; error.value = '';
+ const whatsappTab = window.open('about:blank', '_blank');
+ try {
+  const {data} = await $http.post(`/referral-portal/workspace/invoices/${invoice.value.id}/share-report`);
+  const {data: settings} = await $http.get('/referral-portal/workspace/lab-settings');
+  const message = `التقرير الطبي من ${settings.lab_display_name || 'مختبر الإحالة'}\n${data.url}`;
+  const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
+  if (whatsappTab) { whatsappTab.opener = null; whatsappTab.location.href = url; }
+  else { await navigator.clipboard.writeText(message); error.value = 'تم نسخ الرابط؛ افتح واتساب وألصقه في المحادثة'; }
+ } catch(e) { whatsappTab?.close(); error.value = e.response?.data?.message || 'تعذر مشاركة التقرير'; }
+ finally { sharing.value = false; }
+}
 onMounted(() => { load(); timer = setInterval(() => { if(!document.hidden && !store.printInvoiceDialog) load(); },30000); });
 onBeforeUnmount(() => { clearInterval(timer); store.printInvoiceDialog = false; store.printRecord = []; });
 </script>
@@ -27,7 +41,7 @@ onBeforeUnmount(() => { clearInterval(timer); store.printInvoiceDialog = false; 
    <p>{{invoice.is_done ? 'النتائج مكتملة' : 'الفحوصات قيد الإجراء'}} · آخر تحديث: {{new Date(invoice.updated_at).toLocaleString('ar-IQ')}}</p>
    <p v-if="invoice.financials_unavailable" class="text-amber-800">فاتورة قديمة: تفاصيل مبلغ الزبون غير محفوظة بهذه البوابة، ويظل التقرير الطبي متاحاً بعد اكتماله.</p>
    <p v-else>المجموع: {{invoice.total}} · المدفوع: {{invoice.paid}} · المتبقي: {{Number(invoice.total)-Number(invoice.paid)}}</p>
-   <div class="flex gap-3 flex-wrap"><button v-if="!invoice.financials_unavailable" @click="print" class="px-5 py-3 rounded-xl bg-teal-700 text-white">الفاتورة والوصل الحراري والباركود</button><router-link v-if="invoice.is_done" :to="`/referral-portal/reports/${invoice.id}?form=1`" class="px-5 py-3 rounded-xl border border-teal-700 text-teal-700">التقرير الطبي والطباعة</router-link></div>
+   <div class="flex gap-3 flex-wrap"><button v-if="!invoice.financials_unavailable" @click="print" class="px-5 py-3 rounded-xl bg-teal-700 text-white">الفاتورة والوصل الحراري والباركود</button><button v-if="invoice.is_done" @click="printReport" class="px-5 py-3 rounded-xl border border-teal-700 text-teal-700">عرض التقرير الطبي وطباعته</button><button v-if="invoice.is_done" @click="shareReport" :disabled="sharing" class="px-5 py-3 rounded-xl bg-emerald-700 text-white disabled:opacity-50">{{ sharing ? 'جاري تجهيز الرابط...' : 'إرسال التقرير عبر واتساب' }}</button></div>
    <table class="w-full text-right"><thead><tr><th class="p-3">الفحص</th><th class="p-3">الحالة</th></tr></thead><tbody><tr v-for="(item,index) in [...invoice.tests,...invoice.cultures,...invoice.packages,...invoice.test_groups]" :key="index" class="border-t"><td class="p-3">{{item.name || item.group_name}}</td><td class="p-3">{{item.is_done ? 'مكتمل' : 'قيد الإجراء'}}</td></tr></tbody></table>
   </div>
   <PrintInvoice />

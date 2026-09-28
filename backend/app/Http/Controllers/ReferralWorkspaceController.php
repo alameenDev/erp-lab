@@ -89,6 +89,25 @@ class ReferralWorkspaceController extends Controller {
   if($report && !$i->referral_seen_at) $i->update(['referral_seen_at'=>now()]);
   return response()->json($document);
  }
+ public function shareReport($id) {
+  $invoice=$this->ownInvoice($id);
+  app(InvoiceController::class)->referralDocument($invoice,true);
+  $signed=\Illuminate\Support\Facades\URL::temporarySignedRoute('referral-report.show',now()->addDays(7),['id'=>$invoice->id,'referral'=>$invoice->from_lab_id_fk],false);
+  $query=parse_url($signed,PHP_URL_QUERY);
+  $frontend=rtrim(config('app.frontend_url',env('FRONTEND_URL',config('app.url'))),'/');
+  return response()->json(['url'=>$frontend.'/referral-report/'.$invoice->id.'?'.$query]);
+ }
+ public function publicReport(Request $request, $id) {
+  abort_unless($request->hasValidSignature(false),403,'رابط التقرير غير صالح أو منتهي الصلاحية');
+  $referralId=(int)$request->query('referral');
+  $invoice=Invoice::where('from_lab_id_fk',$referralId)->findOrFail($id);
+  $data=app(InvoiceController::class)->referralDocument($invoice,true,$referralId);
+  foreach(['sub_total','total','paid','discount','paidDetails','payments','contract','prices'] as $key) unset($data[$key]);
+  $settings=\App\Models\ReferralPrintSetting::where('lab_id_fk',$referralId)->first();
+  $data['referral_document']=true;
+  $data['report_share_url']=rtrim(config('app.frontend_url',env('FRONTEND_URL',config('app.url'))),'/').'/referral-report/'.$id.'?'.$request->getQueryString();
+  return response()->json(['report'=>$data,'settings'=>$settings?->only(['lab_display_name','logo','report_background','print_margins','show_categories','show_test_names','show_status','show_last_result','print_black_white','patient_header_config','print_table_config','primary_color','secondary_color'])]);
+ }
  private function document(Invoice $i, bool $report=false): array {
   $data=app(InvoiceController::class)->referralDocument($i,$report);
   $own=DB::table('referral_invoice_details')->where('invoice_id',$i->id)->where('referral_id',Auth::id())->first();
@@ -164,4 +183,3 @@ class ReferralWorkspaceController extends Controller {
   } catch (\Throwable $e) { if($uploaded) \Illuminate\Support\Facades\Storage::disk('public')->delete($uploaded); throw $e; }
  }
 }
-
