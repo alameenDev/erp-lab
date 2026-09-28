@@ -74,6 +74,7 @@ const isLoading = ref(true);
 const patientId = ref(null);
 const marginDialogVisible = ref(false);
 const showFilters = ref(false);
+const activeMenuId = ref(null);
 const reportBackground = computed(() => labSettingsStore.settings.report_background || "");
 const downloadInProgress = ref(false);
 const printResultRef = ref(null);
@@ -142,6 +143,8 @@ const onPageChange = (page) => {
 };
 
 const toggleFilters = () => { showFilters.value = !showFilters.value; };
+const toggleMenu = (id) => { activeMenuId.value = activeMenuId.value === id ? null : id; };
+const closeMenu = () => { activeMenuId.value = null; };
 
 const clearFilters = () => {
   filters.value = { patient_name: "", registration_date: "", from_lab: "", contract_id_fk: "", status: "", signed_status: "" };
@@ -975,10 +978,10 @@ onMounted(async () => {
                   <span v-else class="text-slate-400">-</span>
                 </td>
                 <td v-if="!patientId" class="px-5 py-4">
-                  <div class="text-center">
+                  <button @click.stop="printParcode(item)" class="text-center hover:opacity-80 transition-opacity">
                     <span class="text-xs text-slate-500 block mb-1">{{ item.barcode }}</span>
                     <BarcodeComponent :value="item.barcode" />
-                  </div>
+                  </button>
                 </td>
                 <td class="px-5 py-4 text-sm text-slate-600">{{ item.signed_by?.name || '-' }}</td>
                 <td class="px-5 py-4">
@@ -994,10 +997,112 @@ onMounted(async () => {
                   </span>
                 </td>
                 <td class="px-5 py-4">
+                  <div class="flex items-center gap-1">
+                    <!-- Edit Patient -->
+                    <button
+                      v-if="item.patient?.id"
+                      @click.stop="router.push({ path: '/patients', query: { edit: item.patient.id } })"
+                      class="p-2 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-all"
+                      :title="t('edit_patient')"
+                    >
+                      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    </button>
+
+                    <!-- View Tests -->
+                    <button @click.stop="showTestsList(item)" class="p-2 text-slate-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-all" :title="t('view_tests') || 'عرض الفحوصات'">
+                      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                      </svg>
+                    </button>
+
+                    <!-- Update Result -->
+                    <button v-if="authStore.havePermission('invoices edit') && !patientId" @click.stop="updateResult(item)" class="p-2 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-all" :title="t('updateResult')">
+                      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+
                   <button type="button" @click.stop="openprintResultTemplate(item)" :disabled="reportActionBusy" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50" title="اختيار عناصر التقرير وطباعته">
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
                     طباعة التقرير
                   </button>
+                    <!-- More Menu -->
+                    <div class="relative">
+                      <button @click.stop="toggleMenu(item.id)" class="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                        </svg>
+                      </button>
+
+                      <Transition
+                        enter-active-class="transition duration-100 ease-out"
+                        enter-from-class="opacity-0 scale-95"
+                        enter-to-class="opacity-100 scale-100"
+                        leave-active-class="transition duration-75 ease-in"
+                        leave-from-class="opacity-100 scale-100"
+                        leave-to-class="opacity-0 scale-95"
+                      >
+                        <div v-if="activeMenuId === item.id" class="absolute end-0 z-50 mt-2 w-52 bg-white rounded-xl shadow-xl border border-slate-200 py-2 overflow-hidden">
+                          <button @click.stop="showPatient_due(item); closeMenu()" class="w-full px-4 py-2.5 text-start text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors">
+                            <div class="w-8 h-8 rounded-lg bg-primary-50 flex items-center justify-center">
+                              <svg class="w-4 h-4 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                              </svg>
+                            </div>
+                            {{ t("the_tests") }}
+                          </button>
+
+                          <button v-if="!patientId" @click.stop="openJobTemplateAsPDF(item); closeMenu()" class="w-full px-4 py-2.5 text-start text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors">
+                            <div class="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                              <svg class="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                              </svg>
+                            </div>
+                            {{ t("job_order") }}
+                          </button>
+
+                          <button v-if="!patientId" @click.stop="signInvoice(item.id); closeMenu()" class="w-full px-4 py-2.5 text-start text-sm hover:bg-slate-50 flex items-center gap-3 transition-colors" :class="item.signed_by ? 'text-green-600' : 'text-slate-700'">
+                            <div class="w-8 h-8 rounded-lg flex items-center justify-center" :class="item.signed_by ? 'bg-green-50' : 'bg-slate-50'">
+                              <svg class="w-4 h-4" :class="item.signed_by ? 'text-green-600' : 'text-slate-400'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                              </svg>
+                            </div>
+                            {{ t("Signature") }}
+                          </button>
+
+                          <button @click.stop="PationtHistory(item); closeMenu()" class="w-full px-4 py-2.5 text-start text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors">
+                            <div class="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center">
+                              <svg class="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                            </div>
+                            {{ t("pationtHistory") }}
+                          </button>
+
+                          <button @click.stop="showAttach(item.attachments); closeMenu()" class="w-full px-4 py-2.5 text-start text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors">
+                            <div class="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center">
+                              <svg class="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                              </svg>
+                            </div>
+                            {{ t("attachments") }}
+                          </button>
+
+                          <button v-if="!patientId" @click.stop="print_work_sheet(item); closeMenu()" class="w-full px-4 py-2.5 text-start text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors">
+                            <div class="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center">
+                              <svg class="w-4 h-4 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                              </svg>
+                            </div>
+                            {{ t("print_work_sheet") }}
+                          </button>
+
+                        </div>
+                      </Transition>
+                    </div>
+                  </div>
                 </td>
               </tr>
             </tbody>
