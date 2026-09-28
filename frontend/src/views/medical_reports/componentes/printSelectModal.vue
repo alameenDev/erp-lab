@@ -102,14 +102,14 @@ function execute(nextAction = action.value) {
           </div>
           <h3 class="mb-3 mt-5 text-sm font-bold text-slate-800">طريقة الإخراج</h3>
           <div class="grid gap-2 sm:grid-cols-4">
-            <label v-for="option in [{ key:'print', title:'طباعة مباشرة', hint:'إرسال التقرير للطابعة' }, { key:'download', title:'حفظ PDF', hint:'تنزيل التقرير كملف' }, { key:'whatsapp', title:'إرسال واتساب', hint:'إرسال PDF ورابط بوابة المريض' }, { key:'print-download', title:'طباعة + حفظ', hint:'طباعة وتنزيل PDF' }]" :key="option.key" class="cursor-pointer rounded-xl border p-3 text-sm" :class="[action === option.key ? 'border-blue-600 bg-blue-50' : 'border-slate-200', option.key === 'whatsapp' && !canShare ? 'opacity-50' : '']">
+            <label v-for="option in [{ key:'print', title:'طباعة مباشرة', hint:'إرسال التقرير للطابعة' }, { key:'download', title:'حفظ PDF', hint:'تنزيل التقرير كملف' }, { key:'whatsapp', title:'إرسال واتساب', hint:'رابط البوابة وملف PDF للإرفاق' }, { key:'print-download', title:'طباعة + حفظ', hint:'طباعة وتنزيل PDF' }]" :key="option.key" class="cursor-pointer rounded-xl border p-3 text-sm" :class="[action === option.key ? 'border-blue-600 bg-blue-50' : 'border-slate-200', option.key === 'whatsapp' && !canShare ? 'opacity-50' : '']">
               <input v-model="action" type="radio" name="report-action" :value="option.key" :disabled="option.key === 'whatsapp' && !canShare" class="accent-blue-600" /><strong class="ms-1">{{ option.title }}</strong><small class="mt-1 block text-slate-500">{{ option.hint }}</small>
             </label>
           </div>
           <div class="mt-4 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
             <label v-if="action === 'whatsapp'" class="text-sm font-medium text-slate-700">رقم هاتف المريض المسجل<input :value="phone" type="tel" dir="ltr" readonly class="mt-1 block w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2" /></label>
             <label v-if="hasBackground" class="flex items-center gap-2 text-sm text-slate-700"><input v-model="withBackground" type="checkbox" class="accent-blue-600" /> الطباعة على فورمة المختبر</label>
-            <p v-if="action === 'whatsapp'" class="text-xs text-slate-500 sm:col-span-2">يُرسل ملف PDF والعنوان الخاص ببوابة المريض برسالة واحدة إلى الرقم المسجل. لتغيير الرقم حدّث بيانات المريض.</p>
+            <p v-if="action === 'whatsapp'" class="text-xs text-slate-500 sm:col-span-2">تُفتح محادثة الرقم المسجل برسالة تحتوي رابط بوابة المريض ويُنزل ملف PDF. أرفق الملف بالمحادثة واضغط إرسال؛ واتساب لا يرفق الملفات تلقائياً من رابط wa.me.</p>
           </div>
         </div>
         <div class="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-white px-5 py-4 sm:px-7">
