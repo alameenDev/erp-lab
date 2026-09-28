@@ -387,6 +387,7 @@ Route::group(['middleware' => ['auth:sanctum', \App\Http\Middleware\RestrictRefe
      */
     Route::get('invoices/patient-medical-records/{id}', [InvoiceController::class, 'patientMedicalRecords'])->middleware('throttle:30,1');
     Route::get('invoices/patient-history/{id}', [InvoiceController::class, 'patientInvoicesHistory'])->middleware('throttle:30,1');
+    Route::get('invoices/{id}/previous-results', [InvoiceController::class, 'previousResults'])->middleware('throttle:30,1');
     Route::get('invoices/{id}', [InvoiceController::class, 'show']);
 
     /**

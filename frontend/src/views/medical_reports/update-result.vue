@@ -599,6 +599,7 @@
                           <option value="">{{ t("select") }}</option>
                           <option v-for="opt in item.selection_type_options" :key="opt" :value="opt">{{ opt }}</option>
                         </select>
+                        <PreviousResult v-bind="previousLabel('test', item)" class="mt-2" />
                       </td>
                       <td class="px-3 py-2.5 align-top text-xs text-slate-600">{{ item.unit ?? "—" }}</td>
                       <td class="px-3 py-2.5 align-top text-xs text-blue-600">
@@ -680,7 +681,8 @@
               <!-- Dynamic Template -->
               <div v-if="item.sub_tests?.length > 0 && selectedTemplate" class="p-6" style="direction: ltr;">
                 <!-- Template already sanitized in loadTemplate() with input/select allowlist -->
-                <div v-html="selectedTemplate" class="dynamic-template"></div>
+                <div class="mb-4 flex flex-wrap gap-2" dir="rtl"><div v-for="field in previousTemplateFields(item)" :key="field.name" class="space-y-1"><span class="block text-xs font-medium text-slate-600">{{ field.name }}</span><PreviousResult v-bind="field" :field="field.name" kind="sub_test" /></div></div>
+                  <div v-html="selectedTemplate" class="dynamic-template"></div>
               </div>
 
               <!-- Regular Form -->
@@ -711,7 +713,7 @@
                     <label class="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">{{ t("status") || t("Result_Type") }}</label>
                     <select
                       v-model="item.result_status_id_fk"
-                      class="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none bg-white transition-all"
+                      class="min-w-[180px] flex-1 px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none bg-white transition-all"
                     >
                       <option value="">{{ t("select") }}</option>
                       <option v-for="status in resultStatus" :key="status.value" :value="status.value">
@@ -719,8 +721,9 @@
                       </option>
                     </select>
                   </div>
-                  <div>
+                  <div class="rounded-xl border border-slate-200 bg-slate-50/50 p-3">
                     <label class="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">{{ t("Result") }}</label>
+                    <div class="flex flex-wrap items-start gap-2">
                     <input
                       v-if="item.result_type_id_fk === 1 || item.result_type_id_fk === 2"
                       type="text"
@@ -729,7 +732,7 @@
                       v-model="item.result"
                       @input="autoDetectStatus(item)"
                       @keydown.enter="item.is_done = true"
-                      class="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all"
+                      class="min-w-[180px] flex-1 px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all"
                     />
                     <input
                       v-else-if="item.result_type_id_fk === 3 || !item.result_type_id_fk"
@@ -737,16 +740,18 @@
                       v-model="item.result"
                       @input="autoDetectStatus(item)"
                       @keydown.enter="item.is_done = true"
-                      class="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all"
+                      class="min-w-[180px] flex-1 px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all"
                     />
                     <select
                       v-else-if="item.result_type_id_fk === 4"
                       v-model="item.result"
-                      class="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none bg-white transition-all"
+                      class="min-w-[180px] flex-1 px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none bg-white transition-all"
                     >
                       <option value="">{{ t("select") }}</option>
                       <option v-for="opt in item.selection_type_options" :key="opt" :value="opt">{{ opt }}</option>
                     </select>
+                    <PreviousResult v-bind="previousLabel('test', item)" />
+                    </div>
                   </div>
                 </div>
 
@@ -857,6 +862,7 @@
                   </label>
                 </div>
                 <div class="p-6" style="direction: ltr;">
+                  <div class="mb-4 flex flex-wrap gap-2" dir="rtl"><div v-for="field in previousTemplateFields(test)" :key="field.name" class="space-y-1"><span class="block text-xs font-medium text-slate-600">{{ field.name }}</span><PreviousResult v-bind="field" :field="field.name" kind="sub_test" /></div></div>
                   <div v-html="getGroupTemplateHtml(test, pIndex, tIndex, 'packages')" class="dynamic-template"></div>
                 </div>
               </div>
@@ -947,6 +953,7 @@
                       class="w-28 px-2.5 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                       :placeholder="t('Result')"
                     />
+                    <PreviousResult v-bind="previousLabel('test', test)" />
                     <select
                       v-if="Number(test.result_type_id_fk) !== 3"
                       v-model="test.result_status_id_fk"
@@ -985,6 +992,7 @@
                       class="w-28 px-2.5 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                       :placeholder="t('Result')"
                     />
+                    <PreviousResult v-bind="previousLabel('culture', culture)" />
                     <label class="flex items-center gap-1.5 px-2.5 py-2 bg-slate-50 rounded-lg cursor-pointer">
                       <input type="checkbox" v-model="culture.is_done" class="w-3.5 h-3.5 text-primary-600 rounded border-slate-300" />
                       <span class="text-xs text-slate-500">{{ t("done") }}</span>
@@ -1060,6 +1068,7 @@
                   </div>
                 </div>
                 <div class="p-6" style="direction: ltr;">
+                  <div class="mb-4 flex flex-wrap gap-2" dir="rtl"><div v-for="field in previousTemplateFields(test)" :key="field.name" class="space-y-1"><span class="block text-xs font-medium text-slate-600">{{ field.name }}</span><PreviousResult v-bind="field" :field="field.name" kind="sub_test" /></div></div>
                   <div v-html="getGroupTemplateHtml(test, gIndex, tIndex)" class="dynamic-template"></div>
                 </div>
               </div>
@@ -1133,6 +1142,7 @@
                       class="w-28 px-2.5 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                       :placeholder="t('Result')"
                     />
+                    <PreviousResult v-bind="previousLabel('test', test)" />
                     <select
                       v-if="Number(test.result_type_id_fk) !== 3"
                       v-model="test.result_status_id_fk"
@@ -1214,20 +1224,23 @@
                     <label class="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">{{ t("Result_Type") }}</label>
                     <select
                       v-model="culture.result_status_id_fk"
-                      class="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none bg-white transition-all"
+                      class="min-w-[180px] flex-1 px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none bg-white transition-all"
                     >
                       <option value="">{{ t("select") }}</option>
                       <option v-for="status in resultStatus" :key="status.value" :value="status.value">{{ status.label }}</option>
                     </select>
                   </div>
-                  <div>
+                  <div class="rounded-xl border border-slate-200 bg-slate-50/50 p-3">
                     <label class="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">{{ t("Result") }}</label>
+                    <div class="flex flex-wrap items-start gap-2">
                     <input
                       type="text"
                       v-model="culture.result"
                       @keydown.enter="culture.is_done = true"
-                      class="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition-all"
+                      class="min-w-[180px] flex-1 px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition-all"
                     />
+                    <PreviousResult v-bind="previousLabel('culture', culture)" />
+                    </div>
                   </div>
                 </div>
 
@@ -1281,6 +1294,7 @@
                         class="w-36 px-2.5 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none"
                         :placeholder="t('Result')"
                       />
+                      <PreviousResult v-bind="previousLabel('culture', culture)" :field="attribute.name || attribute.attribute_name" kind="attribute" />
                     </div>
                   </div>
                 </div>
@@ -1585,6 +1599,7 @@ import { usePrint } from "@/composables/usePrint";
 import printResult from "./componentes/print_Result.vue";
 import printSelectModal from "./componentes/printSelectModal.vue";
 import pationtHistoryModal from "./componentes/pationtHistory_modal.vue";
+import PreviousResult from "./componentes/PreviousResult.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -1608,6 +1623,28 @@ const reportBackground = computed(() => labSettingsStore.settings.report_backgro
 const allTabTests = computed(() =>
      (updateResultRecord.value?.tests || []).filter((t) => !t.is_special_test)
 );
+const previousResults = ref({});
+const previousLoading = ref(false);
+const previousError = ref(false);
+const previousEntry = (type, item) => {
+  const id = item?.[type === 'test' ? 'test_id_fk' : 'culture_id_fk'] || item?.id;
+  const key = `${type}_${id || String(item?.name || '').trim().toLowerCase()}`;
+  return previousResults.value[key] || null;
+};
+const previousLabel = (type, item) => ({ entry: previousEntry(type, item), loading: previousLoading.value, error: previousError.value });
+const previousTemplateFields = (test) => (test?.sub_tests || []).map(sub => ({ name: sub.name, ...previousLabel('test', test) }));
+const loadPreviousResults = async (invoiceId) => {
+  previousLoading.value = true;
+  previousError.value = false;
+  try {
+    const { data } = await $http.get(`/invoices/${invoiceId}/previous-results`);
+    previousResults.value = data || {};
+  } catch {
+    previousError.value = true;
+  } finally {
+    previousLoading.value = false;
+  }
+};
 
 // Print/Download/WhatsApp state — mirrors medical_reports/index.vue
 const printResultRef = ref(null);
@@ -2536,6 +2573,7 @@ onMounted(async () => {
   activeTestTab.value = allTabTests.value.length ? "all" : 0;
 
   isLoading.value = false;
+  if (invoiceId) loadPreviousResults(invoiceId);
 
   nextTick(() => {
     if (updateResultRecord.value.tests?.length > 0) {

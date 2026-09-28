@@ -389,6 +389,80 @@ class InvoiceController extends Controller
         ]);
     }
 
+    /** Last saved values for every test and culture on the result entry screen. */
+    public function previousResults($id)
+    {
+        $invoice = Invoice::findOrFail($id);
+        $authUser = Auth::user();
+        $tenantIds = $authUser && $authUser->role_id != 1 ? $this->getTenantUserIds() : null;
+        if ($tenantIds !== null && ! in_array($invoice->lab_id_fk, $tenantIds)) {
+            abort(403);
+        }
+
+        $query = Invoice::where('patient_id_fk', $invoice->patient_id_fk)
+            ->where('id', '!=', $invoice->id)
+            ->where('created_at', '<=', $invoice->created_at);
+        if ($tenantIds !== null) {
+            $query->whereIn('lab_id_fk', $tenantIds);
+        }
+
+        $history = [];
+        $decode = static function ($value): array {
+            for ($i = 0; $i < 2 && is_string($value); $i++) {
+                $value = json_decode($value, true);
+            }
+            return is_array($value) ? $value : [];
+        };
+        // Compare actual result dates, and use invoice creation time when no result date exists.
+        $invoices = $query->with(['invoiceTestRels.test:id,name', 'invoiceTestRels.culture:id,name'])
+            ->orderByRaw('COALESCE(result_date, created_at) DESC')->orderByDesc('id')->get();
+        foreach ($invoices as $previousInvoice) {
+            $date = $previousInvoice->result_date ?: $previousInvoice->created_at;
+            foreach ($previousInvoice->invoiceTestRels as $rel) {
+                $add = static function ($type, $id, $name, $item) use (&$history, $date, $previousInvoice, $decode): void {
+                    if (! $id && ! $name) return;
+                    $key = $type.'_'.($id ?: mb_strtolower(trim((string) $name)));
+                    $result = $item['result'] ?? null;
+                    $attributes = $decode($item['attribute'] ?? []);
+                    $subTests = $decode($item['sub_tests'] ?? []);
+                    $hasValue = $result !== null && $result !== '' && $result !== 'null';
+                    $hasValue = $hasValue || collect($attributes)->contains(fn ($a) => isset($a['result']) && $a['result'] !== '')
+                        || collect($subTests)->contains(fn ($s) => isset($s['value']) && $s['value'] !== '');
+                    if (! $hasValue) return;
+                    if (! isset($history[$key])) {
+                        $history[$key] = ['result' => $result, 'date' => $date, 'invoice_id' => $previousInvoice->id,
+                            'attributes' => [], 'sub_tests' => []];
+                    } elseif (($history[$key]['result'] === null || $history[$key]['result'] === '') && $hasValue) {
+                        $history[$key]['result'] = $result;
+                        $history[$key]['date'] = $date;
+                    }
+                    foreach (['attributes' => [$attributes, 'result'], 'sub_tests' => [$subTests, 'value']] as $target => [$items, $field]) {
+                        foreach ($items as $nested) {
+                            if (! is_array($nested) || ! isset($nested[$field]) || $nested[$field] === '') continue;
+                            $nestedKey = mb_strtolower(trim((string) ($nested['name'] ?? $nested['attribute_name'] ?? '')));
+                            if ($nestedKey === '' || isset($history[$key][$target][$nestedKey])) continue;
+                            $history[$key][$target][$nestedKey] = $nested + ['date' => $date];
+                        }
+                    }
+                };
+
+                if ($rel->test_id_fk && $rel->is_done) {
+                    $add('test', $rel->test_id_fk, $rel->test?->name, ['result' => $rel->result, 'sub_tests' => $rel->sub_tests]);
+                } elseif ($rel->culture_id_fk && $rel->is_done) {
+                    $add('culture', $rel->culture_id_fk, $rel->culture?->name, ['result' => $rel->result, 'attribute' => $rel->attribute]);
+                }
+                foreach (['package_tests' => 'test', 'test_group_tests' => 'test', 'package_cultures' => 'culture', 'test_group_cultures' => 'culture'] as $column => $type) {
+                    foreach ($decode($rel->{$column}) as $item) {
+                        if (! is_array($item) || (array_key_exists('is_done', $item) && ! filter_var($item['is_done'], FILTER_VALIDATE_BOOLEAN))) continue;
+                        $add($type, $item['id'] ?? $item[$type.'_id_fk'] ?? null, $item['name'] ?? null, $item);
+                    }
+                }
+            }
+        }
+
+        return response()->json($history);
+    }
+
     /**
      * Define the relations to be loaded with invoices.
      *
