@@ -26,7 +26,10 @@ const password = ref('');
 const passwordConfirmation = ref('');
 const saving = ref(false);
 const formError = ref('');
-watch(dialog, () => { password.value = ''; passwordConfirmation.value = ''; portalAccount.value = false; formError.value = ''; });
+watch(dialog, open => { password.value = ''; passwordConfirmation.value = ''; portalAccount.value = Boolean(open && !record.value.id && Number(record.value.role_id) === 5); formError.value = ''; });
+watch(() => record.value.role_id, role => {
+  if (!record.value.id && Number(role) === 5) portalAccount.value = true;
+});
 const isShow = ref(false);
 const selectedRecord = ref("");
 const showPassword = ref(false);
@@ -42,9 +45,17 @@ const handleSubmit = async () => {
     if (portalAccount.value && !record.value.id) {
       await $http.post('/referrals/portal-account', { name: record.value.name, email: record.value.email,
         phone_number: record.value.phone_number, address: record.value.address,
+        role_id: Number(record.value.role_id), commission: record.value.commission,
         price_list_id_fk: record.value.price_list_id_fk, password: password.value, password_confirmation: passwordConfirmation.value });
       await referralsStore.GetRecords();
-    } else if (record.value.id) await UpdateReferral();
+    } else if (record.value.id) {
+      if (Number(record.value.role_id) === 5 && portalAccount.value) {
+        await $http.post(`/referrals/${record.value.id}/doctor-portal`, {
+          email: record.value.email, password: password.value, password_confirmation: passwordConfirmation.value,
+        });
+      }
+      await UpdateReferral();
+    }
     else await AddReferral();
     alertSuccess(t("alertSuccess")); clearObjectValues(record.value); dialog.value = false;
     password.value = ''; passwordConfirmation.value = '';
@@ -105,8 +116,10 @@ watch(selectedRecord, (v) => {
           <!-- Body -->
           <div class="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
             <form @submit.prevent="handleSubmit" @click="isShow = false">
-              <label v-if="!record.id" class="block bg-teal-50 p-3 rounded-lg mb-4 text-sm"><input type="checkbox" v-model="portalAccount" /> إنشاء حساب دخول لبوابة الإحالة فقط (بدون صلاحيات الموظفين)</label>
-              <p v-if="portalAccount" class="text-sm mb-3">البريد هو اسم الدخول. حدّد كلمة مرور لا تقل عن 12 حرفاً وشاركها مع الجهة بشكل خاص. قائمة الأسعار مطلوبة.</p>
+              <label v-if="!record.id && Number(record.role_id) !== 5" class="block bg-teal-50 p-3 rounded-lg mb-4 text-sm"><input type="checkbox" v-model="portalAccount" /> إنشاء حساب دخول لبوابة الإحالة فقط (بدون صلاحيات الموظفين)</label>
+              <p v-if="!record.id && Number(record.role_id) === 5" class="rounded-lg bg-blue-50 p-3 text-sm text-blue-800 mb-4">سيُنشأ حساب بوابة الطبيب تلقائياً. يستطيع الطبيب عرض نتائج المرضى المحالين باسمه فقط.</p>
+              <label v-if="record.id && Number(record.role_id) === 5" class="block bg-blue-50 p-3 rounded-lg mb-4 text-sm"><input type="checkbox" v-model="portalAccount" /> {{ record.portal_enabled ? 'تغيير بيانات دخول بوابة الطبيب' : 'تفعيل حساب بوابة الطبيب' }}</label>
+              <p v-if="portalAccount" class="text-sm mb-3">البريد هو اسم الدخول. حدّد كلمة مرور لا تقل عن 12 حرفاً وشاركها مع الجهة بشكل خاص.<span v-if="Number(record.role_id) === 2"> قائمة الأسعار مطلوبة.</span></p>
               <p v-if="formError" role="alert" class="text-red-700 mb-3">{{ formError }}</p>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <!-- Name with Search -->
@@ -181,7 +194,7 @@ watch(selectedRecord, (v) => {
                 </div>
 
                 <!-- User Role -->
-                <div v-if="!portalAccount">
+                <div v-if="!portalAccount || !record.id">
                   <label class="block text-sm font-medium text-gray-700 mb-1">{{ t("userRole") }} <span class="text-red-500">*</span></label>
                   <select
                     v-model="record.role_id"
@@ -196,7 +209,7 @@ watch(selectedRecord, (v) => {
                 </div>
 
                 <!-- Price List (for Lab role) -->
-                <div v-if="portalAccount || record.role_id === 2">
+                <div v-if="Number(record.role_id) === 2">
                   <label class="block text-sm font-medium text-gray-700 mb-1">{{ t("priceList") }} <span class="text-red-500">*</span></label>
                   <select
                     v-model="record.price_list_id_fk"
@@ -238,4 +251,3 @@ watch(selectedRecord, (v) => {
     </Transition>
   </Teleport>
 </template>
-
