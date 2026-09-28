@@ -58,6 +58,26 @@ class ReferralWorkspaceTest extends TestCase
         $this->getJson('/api/referral-portal/workspace/invoices/'.$id.'?document=report')->assertNotFound();
         $this->postJson('/api/referral-portal/workspace/patients/search-name',['destination_lab_id'=>$lab->id,'name'=>'Patient'])->assertOk()->assertJsonCount(0);
     }
+    public function test_shared_report_requires_a_valid_signature_and_only_exposes_completed_results(): void
+    {
+        [$lab,,$other,$test]=$this->fixture();
+        $id=$this->postJson('/api/referral-portal/workspace/invoices/create',$this->payload($lab,$test))->assertCreated()->json('id');
+        $this->postJson('/api/referral-portal/workspace/invoices/'.$id.'/share-report')->assertStatus(409);
+        InvoiceTestRel::where('invoice_id_fk',$id)->firstOrFail()->update(['result'=>'19','is_done'=>true]);
+        Invoice::whereKey($id)->update(['is_done'=>true]);
+        $url=$this->postJson('/api/referral-portal/workspace/invoices/'.$id.'/share-report')->assertOk()->json('url');
+        $query=parse_url($url,PHP_URL_QUERY);
+        $this->assertNotEmpty($query);
+        $this->actingAs($other);
+        $this->postJson('/api/referral-portal/workspace/invoices/'.$id.'/share-report')->assertNotFound();
+        \Illuminate\Support\Facades\Auth::logout();
+        $this->getJson('/api/referral-report/'.$id.'?'.$query)->assertOk()
+            ->assertJsonPath('report.tests.0.result','19')
+            ->assertJsonMissingPath('report.total');
+        $this->getJson('/api/referral-report/'.($id+1).'?'.$query)->assertForbidden();
+        $this->travel(8)->days();
+        $this->getJson('/api/referral-report/'.$id.'?'.$query)->assertForbidden();
+    }
     public function test_print_settings_are_private_to_partner_and_do_not_change_destination_lab(): void
     {
         [$lab,,$other]=$this->fixture();
