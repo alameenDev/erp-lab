@@ -114,6 +114,11 @@ Route::get('cultures/download-template', [CultureController::class, 'downloadTem
 Route::get('tests-questions/download-template', [PatientQuestionController::class, 'downloadTemplate']);
 Route::get('antibiotics/download-template', [AntibioticsController::class, 'downloadTemplate']);
 
+Route::post('device/bridge/heartbeat', [\App\Http\Controllers\BridgeResultController::class, 'check'])
+    ->middleware('throttle:120,1');
+Route::post('device/bridge/results', [\App\Http\Controllers\BridgeResultController::class, 'receive'])
+    ->middleware('throttle:60,1');
+
 // Device Agent Routes (api_token auth via X-Device-Token header)
 Route::post('device/results', [DeviceResultController::class, 'receiveResults'])
     ->middleware('throttle:60,1');

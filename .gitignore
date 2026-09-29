@@ -18,3 +18,12 @@ __MACOSX/
 
 # Private deployment backups
 .deployment-backups/
+
+# Local instrument bridge data and builds
+bridge/settings.json
+bridge/data/
+__pycache__/
+*.pyc
+*.sqlite3*
+bridge/build/
+*.spec

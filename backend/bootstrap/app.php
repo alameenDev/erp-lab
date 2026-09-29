@@ -12,6 +12,13 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // ASTM hashes and non-numeric result strings must retain their exact bytes.
+        $middleware->trimStrings(except: [
+            fn (\Illuminate\Http\Request $request) => $request->is('api/device/bridge/results'),
+        ]);
+        $middleware->convertEmptyStringsToNull(except: [
+            fn (\Illuminate\Http\Request $request) => $request->is('api/device/bridge/results'),
+        ]);
         $middleware->append([
             \App\Http\Middleware\SecurityHeaders::class,
             \App\Http\Middleware\CorsMiddleware::class,

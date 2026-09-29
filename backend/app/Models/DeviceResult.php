@@ -9,6 +9,9 @@ class DeviceResult extends Model
     protected $table = 'device_results';
 
     protected $fillable = [
+        'delivery_id',
+        'delivery_hash',
+        'instrument_metadata',
         'device_id_fk',
         'invoice_id_fk',
         'specimen_barcode',
@@ -23,6 +26,7 @@ class DeviceResult extends Model
     protected function casts(): array
     {
         return [
+            'instrument_metadata' => 'json',
             'parsed_results' => 'json',
             'matched_at' => 'datetime',
             'applied_at' => 'datetime',
