@@ -20,11 +20,13 @@ class ResultTrendsTest extends TestCase
         $patient = Patient::create(['user_id'=>$person->id,'creator_id'=>$lab->id,'code'=>'P-1']);
         LabSetting::create(['lab_id_fk'=>$lab->id,'loyalty_config'=>['require_otp'=>true]]);
         $test = LabTest::create(['name'=>'Glucose','unit'=>'mg/dL','lab_id_fk'=>$lab->id]);
+        \App\Models\TestReferenceRange::create(['test_id'=>$test->id,'lab_id_fk'=>$lab->id,'gender_id_fk'=>1,'age_unit_id_fk'=>1,'age_from'=>0,'age_to'=>100,'from'=>70,'to'=>110]);
+        \App\Models\TestReferenceRange::create(['test_id'=>$test->id,'lab_id_fk'=>$other->id,'gender_id_fk'=>1,'age_unit_id_fk'=>1,'from'=>999,'to'=>1000]);
         $first = Invoice::create(['lab_id_fk'=>$lab->id,'patient_id_fk'=>$patient->id,'is_done'=>true,'result_date'=>'2026-01-01']);
         InvoiceTestRel::create(['invoice_id_fk'=>$first->id,'test_id_fk'=>$test->id,'result'=>'0','is_done'=>true]);
         $second = Invoice::create(['lab_id_fk'=>$lab->id,'patient_id_fk'=>$patient->id,'is_done'=>true,'result_date'=>'2026-02-01']);
         InvoiceTestRel::create(['invoice_id_fk'=>$second->id,'is_done'=>true,'package_tests'=>[
-            ['id'=>$test->id,'name'=>'Glucose','unit'=>'mg/dL','result'=>'١٢٫٥'],
+            ['id'=>$test->id,'name'=>'Glucose','unit'=>'mg/dL','result'=>'١٢٫٥','test_reference_ranges'=>[['from'=>65,'to'=>105,'notes'=>'Stored range']]],
             ['id'=>$test->id,'name'=>'Glucose','unit'=>'mmol/L','result'=>'<5'],
             ['id'=>$test->id,'name'=>'Glucose','unit'=>'mg/dL','result'=>'999','is_done'=>false],
         ]]);
@@ -39,6 +41,8 @@ class ResultTrendsTest extends TestCase
         $r = $this->getJson($url)->assertOk()->assertJsonCount(2,'series')->assertJsonCount(2,'series.0.points')
             ->assertJsonPath('series.0.points.0.value','0')->assertJsonPath('series.0.points.1.number',12.5)
             ->assertJsonPath('series.1.points.0.number',null)->assertJsonMissing(['value'=>'888'])->assertJsonMissing(['value'=>'999'])->assertJsonMissing(['value'=>'70']);
+        $r->assertJsonCount(1, 'series.0.points.0.ranges')->assertJsonPath('series.0.points.0.range_source', 'current')
+            ->assertJsonPath('series.0.points.1.ranges.0.notes', 'Stored range')->assertJsonPath('series.0.points.1.range_source', 'stored');
         $this->actingAs($lab);
         $this->getJson('/api/invoices/'.$first->id.'/result-trends')->assertForbidden();
         $lab->givePermissionTo('invoices edit');
