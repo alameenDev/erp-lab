@@ -990,7 +990,7 @@ class InvoiceController extends Controller
             'category' => $referenceData['categories']->where('id', $rel->test?->category_id_fk)->first()?->name,
             'category_id_fk' => $rel->test?->category_id_fk,
             'is_special_test' => $rel->test?->is_special_test == 1,
-            'content' => $rel->content ?? $rel->test?->content,
+            'content' => \App\Services\BridgeCbcService::displayContent($rel->content ?? $rel->test?->content),
             'sub_tests' => $rel->sub_tests ?? $rel->test?->sub_tests,
             'result' => $rel->result,
             'is_done' => $rel->is_done == 1,
@@ -1099,6 +1099,7 @@ class InvoiceController extends Controller
                 $item['result_comments'] = $item['result_comments'] ?? $fresh['result_comments'] ?? null;
             }
 
+            $item['content'] = \App\Services\BridgeCbcService::displayContent($item['content'] ?? null);
             return $item;
         })->values()->all();
     }
