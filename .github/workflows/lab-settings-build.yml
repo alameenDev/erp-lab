@@ -2,6 +2,10 @@ name: Lab settings verification
 on:
   push:
     branches: [feature/lab-settings-upgrade]
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/lab-settings-build.yml'
   workflow_dispatch:
 permissions:
   contents: read

@@ -91,7 +91,7 @@ export const useDevicesStore = defineStore("devices", {
           async ApplyResult(resultId) {
                try {
                     const { data } = await $http.post(`/device-results/${resultId}/apply`);
-                    await this.GetDeviceResults({ status: "matched" });
+                    await this.GetDeviceResults({ status: "pending,matched,applied" });
                     await this.GetDevices();
                     return data;
                } catch (error) {
@@ -113,7 +113,7 @@ export const useDevicesStore = defineStore("devices", {
                this.stopPolling();
                this.pollingInterval = setInterval(() => {
                     this.GetDevices();
-                    this.GetDeviceResults({ status: "pending,matched" });
+                    this.GetDeviceResults({ status: "pending,matched,applied" });
                }, intervalMs);
           },
           stopPolling() {

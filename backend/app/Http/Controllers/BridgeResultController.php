@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/** Durable inbox for the DxH bridge. Never releases or overwrites invoice results. */
+/** Durable inbox for the DxH bridge; CBC drafts never release or overwrite existing results. */
 class BridgeResultController extends DeviceResultController
 {
     public function check(Request $request)
@@ -26,7 +26,7 @@ class BridgeResultController extends DeviceResultController
         return response()->json([
             'protocol' => 'labbridge-v1', 'device_id' => $device->id,
             'device_name' => $device->name, 'idempotency' => true,
-            'storage' => 'device_results', 'automatic_invoice_apply' => false,
+            'storage' => 'device_results', 'automatic_invoice_apply' => true, 'cbc_interface_code' => '12345678',
         ]);
     }
 
@@ -104,6 +104,8 @@ class BridgeResultController extends DeviceResultController
                 'delivery_id' => $data['delivery_id'], 'delivery_hash' => $hash,
                 'status' => $invoice ? 'matched' : 'pending', 'matched_at' => $invoice ? now() : null,
             ]);
+            app(\App\Services\BridgeCbcService::class)->apply($result);
+            $result->refresh();
             $locked->update(['last_seen_at' => now(), 'status' => 'online']);
 
             return $this->receipt($result, false);
