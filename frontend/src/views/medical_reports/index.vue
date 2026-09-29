@@ -535,12 +535,13 @@ const handlePrintSelection = async (selection) => {
         setTimeout(() => URL.revokeObjectURL(url), 120000);
       } else previewTab?.close();
     } else if (selection.action === "whatsapp") {
-      const share = await prepareMedicalReportWhatsApp(printRecord.value, labSettingsStore.settings, User.value?.name);
+      const share = await prepareMedicalReportWhatsApp(printRecord.value, labSettingsStore.settings, printRecord.value?.lab?.name);
       const result = await downloadAsPdf(withBg, "blob");
       if (!result) { whatsappTab?.close(); return; }
       const url = URL.createObjectURL(result.blob);
       const link = document.createElement("a");
-      link.href = url; link.download = result.filename; link.click();
+      link.href = url; link.download = result.filename;
+      document.body.appendChild(link); link.click(); link.remove();
       setTimeout(() => URL.revokeObjectURL(url), 120000);
       if (whatsappTab) { whatsappTab.opener = null; whatsappTab.location.href = share.whatsappUrl; }
       else if (!window.open(share.whatsappUrl, "_blank")) throw new Error("اسمح بالنوافذ المنبثقة ثم أعد المحاولة.");
