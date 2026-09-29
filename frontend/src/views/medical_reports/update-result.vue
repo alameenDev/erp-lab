@@ -14,6 +14,7 @@
           </div>
         </div>
         <div class="flex items-center gap-2">
+          <ResultTrends :endpoint="`/invoices/${route.params.id}/result-trends`" :disabled="isLoading" staff />
           <span v-if="autoSaveReady" class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs" :class="autoSaveState === 'error' ? 'bg-red-50 text-red-700' : autoSaveState === 'saving' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'">
             <span class="h-2 w-2 rounded-full" :class="autoSaveState === 'saving' ? 'animate-pulse bg-amber-500' : autoSaveState === 'error' ? 'bg-red-500' : 'bg-emerald-500'"></span>
             {{ autoSaveState === 'saving' ? 'جاري الحفظ' : autoSaveState === 'error' ? 'تعذر الحفظ' : 'حفظ تلقائي' }}
@@ -1433,6 +1434,7 @@ import printResult from "./componentes/print_Result.vue";
 import printSelectModal from "./componentes/printSelectModal.vue";
 import pationtHistoryModal from "./componentes/pationtHistory_modal.vue";
 import PreviousResult from "./componentes/PreviousResult.vue";
+import ResultTrends from '@/components/ResultTrends.vue';
 
 const route = useRoute();
 const router = useRouter();

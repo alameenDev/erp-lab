@@ -417,6 +417,18 @@ class InvoiceController extends Controller
     }
 
     /** Last saved values for every test and culture on the result entry screen. */
+    public function resultTrends($id)
+    {
+        $user = Auth::user();
+        abort_unless($user->hasPermissionTo('invoices edit') || $user->hasPermissionTo('invoices view'), 403);
+        $invoice = Invoice::findOrFail($id);
+        $ids = (int) $user->role_id === 1 ? null : $this->getTenantUserIds();
+        abort_if($ids !== null && ! in_array($invoice->lab_id_fk, $ids), 403);
+        $query = Invoice::where('patient_id_fk', $invoice->patient_id_fk);
+        if ($ids !== null) $query->whereIn('lab_id_fk', $ids);
+        return response()->json(['series' => app(\App\Services\ResultTrendService::class)->series($query)]);
+    }
+
     public function previousResults($id)
     {
         $invoice = Invoice::findOrFail($id);

@@ -86,6 +86,7 @@ Route::post('portal/{token}/otp/verify', [PatientPortalController::class, 'verif
 Route::post('portal/{token}/redeem', [PatientPortalController::class, 'redeem']);
 Route::post('portal/{token}/book-doctor', [PatientPortalController::class, 'bookDoctor']);
 Route::get('portal/{token}/catalog', [PatientPortalController::class, 'catalog']);
+Route::get('portal/{token}/result-trends', [PatientPortalController::class, 'resultTrends'])->middleware('throttle:30,1');
 Route::post('portal/{token}/ai-chat', [PatientPortalController::class, 'aiChat'])->middleware('throttle:15,1');
 
 /**
@@ -393,6 +394,7 @@ Route::group(['middleware' => ['auth:sanctum', \App\Http\Middleware\RestrictRefe
     Route::get('invoices/patient-history/{id}', [InvoiceController::class, 'patientInvoicesHistory'])->middleware('throttle:30,1');
     Route::get('invoices/patient-latest/{id}', [InvoiceController::class, 'latestPatientInvoice'])->whereNumber('id')->middleware('throttle:30,1');
     Route::get('invoices/{id}/previous-results', [InvoiceController::class, 'previousResults'])->middleware('throttle:30,1');
+    Route::get('invoices/{id}/result-trends', [InvoiceController::class, 'resultTrends'])->whereNumber('id')->middleware('throttle:30,1');
     Route::get('invoices/{id}', [InvoiceController::class, 'show']);
 
     /**
