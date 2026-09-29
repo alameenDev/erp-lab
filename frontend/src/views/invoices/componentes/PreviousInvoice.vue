@@ -44,7 +44,7 @@ async function load() {
   finally { if (ticket === request) loading.value = false; }
 }
 function add(items) {
-  for (const item of items) emit('add', item.type, JSON.parse(JSON.stringify(item.current)));
+  emit('add', items.map(item => ({ type: item.type, item: JSON.parse(JSON.stringify(item.current)) })));
   checked.value = [];
 }
 watch(() => props.patientId, load, { immediate: true });
