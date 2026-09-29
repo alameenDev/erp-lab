@@ -17,6 +17,7 @@ const { GetDevices, GetDeviceResults, RemoveDevice, ApplyResult, RegenerateToken
 
 const isLoading = ref(true);
 const activeTab = ref("devices");
+const detailResult = ref(null);
 const lang = computed(() => localStorage.getItem("locale") || "ar");
 const onlineCount = computed(() => devices.value.filter((d) => d.status === "online").length);
 
@@ -264,11 +265,13 @@ const timeAgo = (dateStr) => {
                               </td>
                               <td class="px-5 py-4 text-center text-xs text-slate-500">{{ timeAgo(result.created_at) }}</td>
                               <td class="px-5 py-4 text-center">
-                                   <button v-if="result.status === 'matched'" @click="applyResult(result)" class="px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors">
+                                   <button v-if="result.status === 'matched' && !result.delivery_id" @click="applyResult(result)" class="px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors">
                                         {{ t("apply_results") }}
                                    </button>
+                                   <span v-else-if="result.delivery_id" class="text-xs text-amber-700">محفوظة للمراجعة والمطابقة</span>
                                    <span v-else-if="result.status === 'pending'" class="text-xs text-amber-600">{{ t("no_match") }}</span>
                                    <span v-else-if="result.status === 'applied'" class="text-xs text-green-600">{{ t("done") }}</span>
+                                   <button @click="detailResult = result" class="px-3 py-1.5 text-xs text-blue-700 border rounded-lg mx-2">التفاصيل</button>
                               </td>
                          </tr>
                          <tr v-if="!deviceResults.length">
@@ -282,6 +285,23 @@ const timeAgo = (dateStr) => {
                     </tbody>
                </table>
           </div>
+
+          <Teleport to="body">
+               <div v-if="detailResult" class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" @click.self="detailResult = null">
+                    <section class="bg-white rounded-xl p-6 w-full max-w-5xl max-h-[90vh] overflow-auto" dir="rtl" role="dialog" aria-modal="true" aria-label="تفاصيل نتائج الجهاز">
+                         <div class="flex justify-between items-center mb-4"><h2 class="text-lg font-bold">نتائج الجهاز — {{ detailResult.specimen_barcode }}</h2><button @click="detailResult = null" class="border rounded-lg px-3 py-2">إغلاق</button></div>
+                         <p v-if="detailResult.delivery_id" class="bg-blue-50 p-3 rounded-lg mb-3">تم حفظ الرسالة في قاعدة البيانات. طابق باركود العينة وخريطة التحاليل قبل نقلها إلى نتائج الفاتورة. الفحوصات التي تبدأ بـ @ بحثية فقط.</p>
+                         <p class="mb-3">حالة المطابقة: {{ detailResult.invoice_id_fk ? 'مرتبطة بالفاتورة #' + detailResult.invoice_id_fk : 'لا توجد فاتورة مطابقة؛ راجع باركود العينة' }}</p>
+                         <div v-for="(warning, index) in detailResult.instrument_metadata?.warnings || []" :key="'w'+index" class="bg-amber-50 text-amber-900 rounded-lg p-3 mb-2">{{ warning }}</div>
+                         <div v-for="(comment, index) in detailResult.instrument_metadata?.comments || []" :key="'c'+index" class="border rounded-lg p-3 mb-2">{{ comment.code || 'العينة' }}: {{ comment.text }}</div>
+                         <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr><th class="p-2 text-start">الرمز</th><th>القيمة</th><th>الوحدة</th><th>المدى من الجهاز</th><th>العلامة</th><th>الحالة</th></tr></thead><tbody>
+                              <tr v-for="(item,index) in detailResult.parsed_results || []" :key="index" class="border-t"><td class="p-2">{{ item.test_code }} <span v-if="item.research_only || item.test_code?.startsWith('@')" class="text-amber-700">بحثي</span></td><td class="p-2 text-center" dir="ltr">{{ item.value }}</td><td class="p-2 text-center" dir="ltr">{{ item.unit }}</td><td class="p-2 text-center" dir="ltr">{{ item.reference_range }}</td><td class="p-2 text-center">{{ item.flags }}</td><td class="p-2 text-center">{{ item.result_status }}</td></tr>
+                         </tbody></table></div>
+                         <details class="mt-4"><summary class="cursor-pointer">معرّفات العينة كما وصلت</summary><pre class="text-xs whitespace-pre-wrap p-3" dir="ltr">{{ JSON.stringify(detailResult.instrument_metadata?.orders || [], null, 2) }}</pre></details>
+                         <details class="mt-4"><summary class="cursor-pointer">الرسالة الأصلية</summary><pre class="text-xs whitespace-pre-wrap p-3" dir="ltr">{{ detailResult.raw_message }}</pre></details>
+                    </section>
+               </div>
+          </Teleport>
 
           <!-- Device Modal -->
           <DeviceModal />

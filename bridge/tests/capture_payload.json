@@ -1,0 +1,389 @@
+{
+  "delivery_id": "f9d481353576672d3f29568ad087904d6032e89ee46619282795458fc8f5066a",
+  "device_id": 7,
+  "specimen_barcode": "TEST-SAMPLE",
+  "raw_message": "H|\\!~|||DxH 500!01|||||||P|LIS2-A2|20000101120000\rP|1||!||!!!!||!!!!|U!||||||||||||||||||||||||||\rO|1|TEST-SAMPLE!|TEST-RUN!OV|!!!CD|||||||||||WB|!!!!||||||||||||||\rC|1|I|Lyse Expired|I!Y\rC|2|I|Suspect Diff|I!U\rR|1|!!!WBC|8.52  ! R |x10e3/uL||3.71 to 10.67|A||||DXH500||20000101115900|01\rR|2|!!!RBC|4.61  ! R |x10e6/uL||3.99 to 5.2|A||||DXH500||20000101115900|01\rR|3|!!!HGB|11.57  ! Rl |g/dL||12 to 16.5|A||||DXH500||20000101115900|01\rR|4|!!!HCT|37.0  ! R |%||35.1 to 49.9|A||||DXH500||20000101115900|01\rR|5|!!!MCV|80.2  ! R |fL||78.4 to 97.6|A||||DXH500||20000101115900|01\rR|6|!!!MCH|25.1  ! Rl |pg||26.5 to 33.5|A||||DXH500||20000101115900|01\rR|7|!!!MCHC|31.3  ! Rl |g/dL||32.9 to 35.4|A||||DXH500||20000101115900|01\rR|8|!!!RDW|17.3  ! Rh |%||10 to 14.6|A||||DXH500||20000101115900|01\rR|9|!!!RDW-SD|46.1  ! R |fL||38.9 to 49|A||||DXH500||20000101115900|01\rR|10|!!!PLT|275.9  ! R |x10e3/uL||150 to 400|A||||DXH500||20000101115900|01\rR|11|!!!MPV|7.43  ! R |fL||7.42 to 10|A||||DXH500||20000101115900|01\rR|12|!!!@PCT|0.205  ! R |%||0 to 9.999|A||||DXH500||20000101115900|01\rC|1|I|Test names beginning with @ are for research use only. Not for use in diagnostics procedures|G!\rR|13|!!!@PDW|23.8  ! R |||0 to 99.9|A||||DXH500||20000101115900|01\rC|1|I|Test names beginning with @ are for research use only. Not for use in diagnostics procedures|G!\rR|14|!!!@LHD|30.4  ! R |%||0 to 100|A||||DXH500||20000101115900|01\rC|1|I|Test names beginning with @ are for research use only. Not for use in diagnostics procedures|G!\rR|15|!!!@MAF|9.3  ! R |||0 to 99.9|A||||DXH500||20000101115900|01\rC|1|I|Test names beginning with @ are for research use only. Not for use in diagnostics procedures|G!\rR|16|!!!LY|34.33  ! R |%||20 to 38|A||||DXH500||20000101115900|01\rR|17|!!!MO|7.97  ! R |%||2 to 20|A||||DXH500||20000101115900|01\rR|18|!!!NE|56.57  ! R |%||40 to 80|A||||DXH500||20000101115900|01\rR|19|!!!EO|0.92  ! Rl |%||2 to 7.5|A||||DXH500||20000101115900|01\rR|20|!!!BA|0.21  ! R |%||0 to 1|A||||DXH500||20000101115900|01\rR|21|!!!LY#|2.92  ! R |x10e3/uL||1 to 3|A||||DXH500||20000101115900|01\rR|22|!!!MO#|0.68  ! R |x10e3/uL||0.25 to 0.99|A||||DXH500||20000101115900|01\rR|23|!!!NE#|4.82  ! R |x10e3/uL||3 to 7|A||||DXH500||20000101115900|01\rR|24|!!!EO#|0.08  ! R |x10e3/uL||0.04 to 0.48|A||||DXH500||20000101115900|01\rR|25|!!!BA#|0.02  ! R |x10e3/uL||0 to 0.03|A||||DXH500||20000101115900|01\rR|26|!!!@IMM|0.94  ! R |%||0 to 100|A||||DXH500||20000101115900|01\rC|1|I|Test names beginning with @ are for research use only. Not for use in diagnostics procedures|G!\rR|27|!!!@IMM#|0.08  ! R |x10e3/uL||0 to 150|A||||DXH500||20000101115900|01\rC|1|I|Test names beginning with @ are for research use only. Not for use in diagnostics procedures|G!\rL|1|N\r",
+  "parsed_results": [
+    {
+      "test_code": "WBC",
+      "test_name": "WBC",
+      "value": "8.52",
+      "unit": "x10e3/uL",
+      "flags": "R",
+      "reference_range": "3.71 to 10.67",
+      "result_status": "A",
+      "research_only": false,
+      "raw_value": "8.52  ! R "
+    },
+    {
+      "test_code": "RBC",
+      "test_name": "RBC",
+      "value": "4.61",
+      "unit": "x10e6/uL",
+      "flags": "R",
+      "reference_range": "3.99 to 5.2",
+      "result_status": "A",
+      "research_only": false,
+      "raw_value": "4.61  ! R "
+    },
+    {
+      "test_code": "HGB",
+      "test_name": "HGB",
+      "value": "11.57",
+      "unit": "g/dL",
+      "flags": "Rl",
+      "reference_range": "12 to 16.5",
+      "result_status": "A",
+      "research_only": false,
+      "raw_value": "11.57  ! Rl "
+    },
+    {
+      "test_code": "HCT",
+      "test_name": "HCT",
+      "value": "37.0",
+      "unit": "%",
+      "flags": "R",
+      "reference_range": "35.1 to 49.9",
+      "result_status": "A",
+      "research_only": false,
+      "raw_value": "37.0  ! R "
+    },
+    {
+      "test_code": "MCV",
+      "test_name": "MCV",
+      "value": "80.2",
+      "unit": "fL",
+      "flags": "R",
+      "reference_range": "78.4 to 97.6",
+      "result_status": "A",
+      "research_only": false,
+      "raw_value": "80.2  ! R "
+    },
+    {
+      "test_code": "MCH",
+      "test_name": "MCH",
+      "value": "25.1",
+      "unit": "pg",
+      "flags": "Rl",
+      "reference_range": "26.5 to 33.5",
+      "result_status": "A",
+      "research_only": false,
+      "raw_value": "25.1  ! Rl "
+    },
+    {
+      "test_code": "MCHC",
+      "test_name": "MCHC",
+      "value": "31.3",
+      "unit": "g/dL",
+      "flags": "Rl",
+      "reference_range": "32.9 to 35.4",
+      "result_status": "A",
+      "research_only": false,
+      "raw_value": "31.3  ! Rl "
+    },
+    {
+      "test_code": "RDW",
+      "test_name": "RDW",
+      "value": "17.3",
+      "unit": "%",
+      "flags": "Rh",
+      "reference_range": "10 to 14.6",
+      "result_status": "A",
+      "research_only": false,
+      "raw_value": "17.3  ! Rh "
+    },
+    {
+      "test_code": "RDW-SD",
+      "test_name": "RDW-SD",
+      "value": "46.1",
+      "unit": "fL",
+      "flags": "R",
+      "reference_range": "38.9 to 49",
+      "result_status": "A",
+      "research_only": false,
+      "raw_value": "46.1  ! R "
+    },
+    {
+      "test_code": "PLT",
+      "test_name": "PLT",
+      "value": "275.9",
+      "unit": "x10e3/uL",
+      "flags": "R",
+      "reference_range": "150 to 400",
+      "result_status": "A",
+      "research_only": false,
+      "raw_value": "275.9  ! R "
+    },
+    {
+      "test_code": "MPV",
+      "test_name": "MPV",
+      "value": "7.43",
+      "unit": "fL",
+      "flags": "R",
+      "reference_range": "7.42 to 10",
+      "result_status": "A",
+      "research_only": false,
+      "raw_value": "7.43  ! R "
+    },
+    {
+      "test_code": "@PCT",
+      "test_name": "@PCT",
+      "value": "0.205",
+      "unit": "%",
+      "flags": "R",
+      "reference_range": "0 to 9.999",
+      "result_status": "A",
+      "research_only": true,
+      "raw_value": "0.205  ! R "
+    },
+    {
+      "test_code": "@PDW",
+      "test_name": "@PDW",
+      "value": "23.8",
+      "unit": "",
+      "flags": "R",
+      "reference_range": "0 to 99.9",
+      "result_status": "A",
+      "research_only": true,
+      "raw_value": "23.8  ! R "
+    },
+    {
+      "test_code": "@LHD",
+      "test_name": "@LHD",
+      "value": "30.4",
+      "unit": "%",
+      "flags": "R",
+      "reference_range": "0 to 100",
+      "result_status": "A",
+      "research_only": true,
+      "raw_value": "30.4  ! R "
+    },
+    {
+      "test_code": "@MAF",
+      "test_name": "@MAF",
+      "value": "9.3",
+      "unit": "",
+      "flags": "R",
+      "reference_range": "0 to 99.9",
+      "result_status": "A",
+      "research_only": true,
+      "raw_value": "9.3  ! R "
+    },
+    {
+      "test_code": "LY",
+      "test_name": "LY",
+      "value": "34.33",
+      "unit": "%",
+      "flags": "R",
+      "reference_range": "20 to 38",
+      "result_status": "A",
+      "research_only": false,
+      "raw_value": "34.33  ! R "
+    },
+    {
+      "test_code": "MO",
+      "test_name": "MO",
+      "value": "7.97",
+      "unit": "%",
+      "flags": "R",
+      "reference_range": "2 to 20",
+      "result_status": "A",
+      "research_only": false,
+      "raw_value": "7.97  ! R "
+    },
+    {
+      "test_code": "NE",
+      "test_name": "NE",
+      "value": "56.57",
+      "unit": "%",
+      "flags": "R",
+      "reference_range": "40 to 80",
+      "result_status": "A",
+      "research_only": false,
+      "raw_value": "56.57  ! R "
+    },
+    {
+      "test_code": "EO",
+      "test_name": "EO",
+      "value": "0.92",
+      "unit": "%",
+      "flags": "Rl",
+      "reference_range": "2 to 7.5",
+      "result_status": "A",
+      "research_only": false,
+      "raw_value": "0.92  ! Rl "
+    },
+    {
+      "test_code": "BA",
+      "test_name": "BA",
+      "value": "0.21",
+      "unit": "%",
+      "flags": "R",
+      "reference_range": "0 to 1",
+      "result_status": "A",
+      "research_only": false,
+      "raw_value": "0.21  ! R "
+    },
+    {
+      "test_code": "LY#",
+      "test_name": "LY#",
+      "value": "2.92",
+      "unit": "x10e3/uL",
+      "flags": "R",
+      "reference_range": "1 to 3",
+      "result_status": "A",
+      "research_only": false,
+      "raw_value": "2.92  ! R "
+    },
+    {
+      "test_code": "MO#",
+      "test_name": "MO#",
+      "value": "0.68",
+      "unit": "x10e3/uL",
+      "flags": "R",
+      "reference_range": "0.25 to 0.99",
+      "result_status": "A",
+      "research_only": false,
+      "raw_value": "0.68  ! R "
+    },
+    {
+      "test_code": "NE#",
+      "test_name": "NE#",
+      "value": "4.82",
+      "unit": "x10e3/uL",
+      "flags": "R",
+      "reference_range": "3 to 7",
+      "result_status": "A",
+      "research_only": false,
+      "raw_value": "4.82  ! R "
+    },
+    {
+      "test_code": "EO#",
+      "test_name": "EO#",
+      "value": "0.08",
+      "unit": "x10e3/uL",
+      "flags": "R",
+      "reference_range": "0.04 to 0.48",
+      "result_status": "A",
+      "research_only": false,
+      "raw_value": "0.08  ! R "
+    },
+    {
+      "test_code": "BA#",
+      "test_name": "BA#",
+      "value": "0.02",
+      "unit": "x10e3/uL",
+      "flags": "R",
+      "reference_range": "0 to 0.03",
+      "result_status": "A",
+      "research_only": false,
+      "raw_value": "0.02  ! R "
+    },
+    {
+      "test_code": "@IMM",
+      "test_name": "@IMM",
+      "value": "0.94",
+      "unit": "%",
+      "flags": "R",
+      "reference_range": "0 to 100",
+      "result_status": "A",
+      "research_only": true,
+      "raw_value": "0.94  ! R "
+    },
+    {
+      "test_code": "@IMM#",
+      "test_name": "@IMM#",
+      "value": "0.08",
+      "unit": "x10e3/uL",
+      "flags": "R",
+      "reference_range": "0 to 150",
+      "result_status": "A",
+      "research_only": true,
+      "raw_value": "0.08  ! R "
+    }
+  ],
+  "instrument_metadata": {
+    "adapter": "dxh500",
+    "warnings": [
+      "نسخة اختبار DxH 500: طابق هوية العينة والنتائج مع الجهاز قبل الاعتماد.",
+      "معرّف المريض غير متوفر؛ لا تربط النتائج تلقائياً بمريض.",
+      "Lyse Expired",
+      "Suspect Diff",
+      "الفحوصات التي تبدأ بـ @ بحثية فقط حسب رسالة الجهاز."
+    ],
+    "comments": [
+      {
+        "text": "Lyse Expired",
+        "type": "I!Y",
+        "scope": "sample",
+        "code": "",
+        "accession": "TEST-SAMPLE",
+        "raw_record": "C|1|I|Lyse Expired|I!Y"
+      },
+      {
+        "text": "Suspect Diff",
+        "type": "I!U",
+        "scope": "sample",
+        "code": "",
+        "accession": "TEST-SAMPLE",
+        "raw_record": "C|2|I|Suspect Diff|I!U"
+      },
+      {
+        "text": "Test names beginning with @ are for research use only. Not for use in diagnostics procedures",
+        "type": "G!",
+        "scope": "result",
+        "code": "@PCT",
+        "accession": "TEST-SAMPLE",
+        "raw_record": "C|1|I|Test names beginning with @ are for research use only. Not for use in diagnostics procedures|G!"
+      },
+      {
+        "text": "Test names beginning with @ are for research use only. Not for use in diagnostics procedures",
+        "type": "G!",
+        "scope": "result",
+        "code": "@PDW",
+        "accession": "TEST-SAMPLE",
+        "raw_record": "C|1|I|Test names beginning with @ are for research use only. Not for use in diagnostics procedures|G!"
+      },
+      {
+        "text": "Test names beginning with @ are for research use only. Not for use in diagnostics procedures",
+        "type": "G!",
+        "scope": "result",
+        "code": "@LHD",
+        "accession": "TEST-SAMPLE",
+        "raw_record": "C|1|I|Test names beginning with @ are for research use only. Not for use in diagnostics procedures|G!"
+      },
+      {
+        "text": "Test names beginning with @ are for research use only. Not for use in diagnostics procedures",
+        "type": "G!",
+        "scope": "result",
+        "code": "@MAF",
+        "accession": "TEST-SAMPLE",
+        "raw_record": "C|1|I|Test names beginning with @ are for research use only. Not for use in diagnostics procedures|G!"
+      },
+      {
+        "text": "Test names beginning with @ are for research use only. Not for use in diagnostics procedures",
+        "type": "G!",
+        "scope": "result",
+        "code": "@IMM",
+        "accession": "TEST-SAMPLE",
+        "raw_record": "C|1|I|Test names beginning with @ are for research use only. Not for use in diagnostics procedures|G!"
+      },
+      {
+        "text": "Test names beginning with @ are for research use only. Not for use in diagnostics procedures",
+        "type": "G!",
+        "scope": "result",
+        "code": "@IMM#",
+        "accession": "TEST-SAMPLE",
+        "raw_record": "C|1|I|Test names beginning with @ are for research use only. Not for use in diagnostics procedures|G!"
+      }
+    ],
+    "orders": [
+      {
+        "sample_field_2": "TEST-SAMPLE!",
+        "instrument_field_3": "TEST-RUN!OV",
+        "selected_accession": "TEST-SAMPLE",
+        "raw_record": "O|1|TEST-SAMPLE!|TEST-RUN!OV|!!!CD|||||||||||WB|!!!!||||||||||||||"
+      }
+    ]
+  }
+}

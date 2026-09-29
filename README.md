@@ -52,3 +52,7 @@ installer and Hostinger deployment patches are retained. See
 
 The existing database, administrator, `APP_KEY` and uploaded files are reused.
 Do not rerun installation, regenerate the app key or reset migrations for this update.
+
+## DxH 500 receiver
+
+The optional `bridge/` desktop application receives DxH 500 Ethernet messages and delivers them to the device inbox through HTTPS. See [Arabic setup](bridge/README_AR.md) and [server deployment](docs/DXH_BRIDGE_DEPLOYMENT.md). Invoice application remains disabled until sample identifiers and test mappings are verified.

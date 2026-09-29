@@ -189,6 +189,10 @@ class DeviceResultController extends Controller
             }
         }
 
+        if ($result->delivery_id) {
+            return response()->json(['message' => 'Bridge results are stored for review. Verify sample identity and test mapping before enabling invoice application.'], 422);
+        }
+
         if ($result->status !== 'matched' || ! $result->invoice_id_fk) {
             return response()->json(['message' => 'Result must be matched to an invoice before applying'], 422);
         }
@@ -350,7 +354,7 @@ class DeviceResultController extends Controller
      * Authenticate device via X-Device-Token header.
      * Uses hash_equals for timing-safe comparison.
      */
-    private function authenticateDevice(Request $request): ?LabDevice
+    protected function authenticateDevice(Request $request): ?LabDevice
     {
         $token = $request->header('X-Device-Token');
         if (! $token || strlen($token) !== 64) {
@@ -375,7 +379,7 @@ class DeviceResultController extends Controller
     /**
      * Get tenant user IDs for a device's lab.
      */
-    private function getDeviceTenantIds(LabDevice $device): array
+    protected function getDeviceTenantIds(LabDevice $device): array
     {
         $labId = $device->lab_id_fk;
         $tenantIds = User::where('creator_id', $labId)->pluck('id')->toArray();
