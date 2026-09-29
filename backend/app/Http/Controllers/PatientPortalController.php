@@ -150,6 +150,20 @@ class PatientPortalController extends Controller
      * patient can check pricing/offers before booking. Lazy-loaded
      * separately from show() since it can be a long list.
      */
+    public function resultTrends(string $token)
+    {
+        $access = PortalAccessToken::where('token', $token)->first();
+        abort_if(! $access || $access->isExpired(), 404, 'الرابط غير صالح أو منتهي الصلاحية');
+        $patient = Patient::findOrFail($access->patient_id_fk);
+        $lab = $this->patientLab($patient);
+        abort_unless($lab, 404);
+        $config = $this->loyalty->config($lab);
+        abort_if(($config['require_otp'] ?? false) && ! $access->isOtpVerified(), 403, 'يرجى التحقق من رمز الدخول أولاً');
+        $ids = \App\Models\User::where('creator_id', $lab->id)->pluck('id')->push($lab->id);
+        $query = Invoice::where('patient_id_fk', $patient->id)->whereIn('lab_id_fk', $ids)->where('is_done', true);
+        return response()->json(['series' => app(\App\Services\ResultTrendService::class)->series($query)]);
+    }
+
     public function catalog(string $token)
     {
         $access = PortalAccessToken::where('token', $token)->first();

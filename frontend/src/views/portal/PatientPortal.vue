@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import { $http } from "@/plugins/axios";
+import ResultTrends from '@/components/ResultTrends.vue';
 
 const route = useRoute();
 const token = route.params.token;
@@ -341,6 +342,7 @@ onMounted(load);
 
         <!-- Reports tab -->
         <div v-if="activeTab === 'reports'" class="space-y-3">
+          <ResultTrends :endpoint="`/portal/${token}/result-trends`" />
           <div v-if="!reports.length" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center text-gray-400">
             لا توجد فحوصات مسجلة حتى الآن
           </div>
