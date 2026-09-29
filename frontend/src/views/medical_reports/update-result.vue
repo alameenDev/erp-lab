@@ -2659,7 +2659,7 @@ const handlePrintSelection = async (selection) => {
       if (!await downloadAsPdf(withBg)) return;
     } else if (selection.action === 'preview' || selection.action === 'whatsapp') {
       const result = await downloadAsPdf(withBg, 'blob');
-      if (!result) { previewTab?.close(); return; }
+      if (!result) { previewTab?.close(); whatsappTab?.close(); return; }
       if (selection.action === 'preview') {
         const url = URL.createObjectURL(result.blob);
         if (previewTab) previewTab.location.href = url; else window.open(url, '_blank');
@@ -2667,7 +2667,8 @@ const handlePrintSelection = async (selection) => {
       } else {
         const share = await prepareMedicalReportWhatsApp(printRecord.value, labSettingsStore.settings, printRecord.value?.lab?.name);
         const url = URL.createObjectURL(result.blob);
-        const link = document.createElement('a'); link.href = url; link.download = result.filename; link.click();
+        const link = document.createElement('a'); link.href = url; link.download = result.filename;
+        document.body.appendChild(link); link.click(); link.remove();
         setTimeout(() => URL.revokeObjectURL(url), 120000);
         if (whatsappTab) { whatsappTab.opener = null; whatsappTab.location.href = share.whatsappUrl; }
         else if (!window.open(share.whatsappUrl, '_blank')) throw new Error('اسمح بالنوافذ المنبثقة ثم أعد المحاولة.');
