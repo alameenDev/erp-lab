@@ -513,6 +513,7 @@
               <div v-if="item.sub_tests?.length > 0 && selectedTemplate" class="p-6" style="direction: ltr;">
                 <!-- Template already sanitized in loadTemplate() with input/select allowlist -->
                 <div class="mb-4 flex flex-wrap gap-2" dir="rtl"><div v-for="field in previousTemplateFields(item)" :key="field.name" class="space-y-1"><span class="block text-xs font-medium text-slate-600">{{ field.name }}</span><PreviousResult v-bind="field" :field="field.name" kind="sub_test" /></div></div>
+                  <div v-if="item.content?.bridge_cbc" class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 print:hidden" dir="rtl"><p v-for="(message, messageIndex) in item.content.review_messages" :key="messageIndex">{{ message }}</p></div>
                   <div v-html="selectedTemplate" class="dynamic-template"></div>
               </div>
 
@@ -694,6 +695,7 @@
                 </div>
                 <div class="p-6" style="direction: ltr;">
                   <div class="mb-4 flex flex-wrap gap-2" dir="rtl"><div v-for="field in previousTemplateFields(test)" :key="field.name" class="space-y-1"><span class="block text-xs font-medium text-slate-600">{{ field.name }}</span><PreviousResult v-bind="field" :field="field.name" kind="sub_test" /></div></div>
+                  <div v-if="test.content?.bridge_cbc" class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 print:hidden" dir="rtl"><p v-for="(message, messageIndex) in test.content.review_messages" :key="messageIndex">{{ message }}</p></div>
                   <div v-html="getGroupTemplateHtml(test, pIndex, tIndex, 'packages')" class="dynamic-template"></div>
                 </div>
               </div>
@@ -900,6 +902,7 @@
                 </div>
                 <div class="p-6" style="direction: ltr;">
                   <div class="mb-4 flex flex-wrap gap-2" dir="rtl"><div v-for="field in previousTemplateFields(test)" :key="field.name" class="space-y-1"><span class="block text-xs font-medium text-slate-600">{{ field.name }}</span><PreviousResult v-bind="field" :field="field.name" kind="sub_test" /></div></div>
+                  <div v-if="test.content?.bridge_cbc" class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 print:hidden" dir="rtl"><p v-for="(message, messageIndex) in test.content.review_messages" :key="messageIndex">{{ message }}</p></div>
                   <div v-html="getGroupTemplateHtml(test, gIndex, tIndex)" class="dynamic-template"></div>
                 </div>
               </div>

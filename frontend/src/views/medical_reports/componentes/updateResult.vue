@@ -297,7 +297,8 @@ onMounted(() => {
                 <div v-for="(item, index) in updateResultRecord.tests" :key="index" v-show="activeTestTab === index">
                   <!-- Dynamic Template -->
                   <div v-if="item.sub_tests?.length > 0 && selectedTemplate" class="mb-4" style="direction: ltr;">
-                    <div v-html="sanitizeHtml(selectedTemplate)" class="dynamic-template"></div>
+                    <div v-if="item.content?.bridge_cbc" class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 print:hidden" dir="rtl"><p v-for="(message, messageIndex) in item.content.review_messages" :key="messageIndex">{{ message }}</p></div>
+                  <div v-html="sanitizeHtml(selectedTemplate)" class="dynamic-template"></div>
                   </div>
 
                   <!-- Regular Table -->

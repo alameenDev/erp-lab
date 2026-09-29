@@ -24,7 +24,7 @@ const onlineCount = computed(() => devices.value.filter((d) => d.status === "onl
 onMounted(async () => {
      try {
           await GetDevices();
-          await GetDeviceResults({ status: "pending,matched" });
+          await GetDeviceResults({ status: "pending,matched,applied" });
           startPolling(30000);
      } finally {
           isLoading.value = false;
@@ -166,7 +166,7 @@ const timeAgo = (dateStr) => {
                     <button @click="activeTab = 'devices'" :class="['px-4 py-2 text-sm font-medium rounded-xl transition-colors', activeTab === 'devices' ? 'bg-primary-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50']">
                          {{ t("devices") }} ({{ totalCount }})
                     </button>
-                    <button @click="activeTab = 'results'; GetDeviceResults({ status: 'pending,matched' })" :class="['px-4 py-2 text-sm font-medium rounded-xl transition-colors', activeTab === 'results' ? 'bg-amber-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50']">
+                    <button @click="activeTab = 'results'; GetDeviceResults({ status: 'pending,matched,applied' })" :class="['px-4 py-2 text-sm font-medium rounded-xl transition-colors', activeTab === 'results' ? 'bg-amber-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50']">
                          {{ t("pending_results") }} ({{ pendingCount }})
                     </button>
                </div>
@@ -265,10 +265,10 @@ const timeAgo = (dateStr) => {
                               </td>
                               <td class="px-5 py-4 text-center text-xs text-slate-500">{{ timeAgo(result.created_at) }}</td>
                               <td class="px-5 py-4 text-center">
-                                   <button v-if="result.status === 'matched' && !result.delivery_id" @click="applyResult(result)" class="px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors">
+                                   <button v-if="result.status === 'matched' || (result.delivery_id && result.status === 'pending')" @click="applyResult(result)" class="px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors">
                                         {{ t("apply_results") }}
                                    </button>
-                                   <span v-else-if="result.delivery_id" class="text-xs text-amber-700">محفوظة للمراجعة والمطابقة</span>
+                                   <span v-else-if="result.delivery_id" class="text-xs text-amber-700">{{ result.status === 'applied' ? 'نُقلت إلى CBC بالفاتورة — تحتاج اعتماد' : 'محفوظة للمراجعة والمطابقة' }}</span>
                                    <span v-else-if="result.status === 'pending'" class="text-xs text-amber-600">{{ t("no_match") }}</span>
                                    <span v-else-if="result.status === 'applied'" class="text-xs text-green-600">{{ t("done") }}</span>
                                    <button @click="detailResult = result" class="px-3 py-1.5 text-xs text-blue-700 border rounded-lg mx-2">التفاصيل</button>
@@ -290,7 +290,8 @@ const timeAgo = (dateStr) => {
                <div v-if="detailResult" class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" @click.self="detailResult = null">
                     <section class="bg-white rounded-xl p-6 w-full max-w-5xl max-h-[90vh] overflow-auto" dir="rtl" role="dialog" aria-modal="true" aria-label="تفاصيل نتائج الجهاز">
                          <div class="flex justify-between items-center mb-4"><h2 class="text-lg font-bold">نتائج الجهاز — {{ detailResult.specimen_barcode }}</h2><button @click="detailResult = null" class="border rounded-lg px-3 py-2">إغلاق</button></div>
-                         <p v-if="detailResult.delivery_id" class="bg-blue-50 p-3 rounded-lg mb-3">تم حفظ الرسالة في قاعدة البيانات. طابق باركود العينة وخريطة التحاليل قبل نقلها إلى نتائج الفاتورة. الفحوصات التي تبدأ بـ @ بحثية فقط.</p>
+                         <p v-if="detailResult.error_message" class="bg-amber-50 p-3 rounded-lg mb-3">{{ detailResult.error_message }}</p>
+                         <p v-if="detailResult.delivery_id" class="bg-blue-50 p-3 rounded-lg mb-3">تُنقل نتائج CBC إلى الفاتورة المطابقة للباركود عندما يكون كود ربط التحليل 12345678. النقل لا يعتمد التقرير ولا يستبدل نتيجة سابقة. الفحوصات التي تبدأ بـ @ تبقى هنا لأنها بحثية فقط.</p>
                          <p class="mb-3">حالة المطابقة: {{ detailResult.invoice_id_fk ? 'مرتبطة بالفاتورة #' + detailResult.invoice_id_fk : 'لا توجد فاتورة مطابقة؛ راجع باركود العينة' }}</p>
                          <div v-for="(warning, index) in detailResult.instrument_metadata?.warnings || []" :key="'w'+index" class="bg-amber-50 text-amber-900 rounded-lg p-3 mb-2">{{ warning }}</div>
                          <div v-for="(comment, index) in detailResult.instrument_metadata?.comments || []" :key="'c'+index" class="border rounded-lg p-3 mb-2">{{ comment.code || 'العينة' }}: {{ comment.text }}</div>

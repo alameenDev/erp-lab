@@ -190,7 +190,9 @@ class DeviceResultController extends Controller
         }
 
         if ($result->delivery_id) {
-            return response()->json(['message' => 'Bridge results are stored for review. Verify sample identity and test mapping before enabling invoice application.'], 422);
+            $outcome = app(\App\Services\BridgeCbcService::class)->apply($result);
+            return response()->json($outcome + ['total_results' => count($result->parsed_results ?? [])],
+                $outcome['applied'] ? 200 : 422);
         }
 
         if ($result->status !== 'matched' || ! $result->invoice_id_fk) {
