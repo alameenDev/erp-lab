@@ -190,6 +190,7 @@
           </div>
 
           <!-- 3-col row: Tests / Cultures / Packages -->
+          <PreviousInvoice v-if="!isEditMode && !isReferralMode" :patient-id="responseData?.id" :selected="previousInvoiceSelections" @add="addPreviousInvoiceItems" />
           <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           <!-- ==================== TESTS & GROUPS SECTION ==================== -->
@@ -772,6 +773,7 @@ import { usePackagesStore } from "@/store/modules/packages";
 import { usepaymentMethodstore } from "@/store/modules/payment-methods";
 import { useresultStatusStore } from "@/store/modules/result-status";
 import { usePatientsStore } from "@/store/modules/patients";
+import PreviousInvoice from './PreviousInvoice.vue';
 import { showAlertWithConfirm } from "@/utils/helper";
 import printInvoiceModal from "./printInvoice_modal.vue";
 import { $http } from "@/plugins/axios";
@@ -822,6 +824,7 @@ export default {
     };
   },
   components: {
+    PreviousInvoice,
     printInvoiceModal,
     Dialog,
   },
@@ -860,6 +863,10 @@ export default {
     ...mapWritableState(usePatientsStore, ["responseData"]),
     patientStore() {
       return usePatientsStore();
+    },
+    previousInvoiceSelections() {
+      return [['test', this.selectedTests], ['culture', this.selectedCultures], ['package', this.selectedPackages], ['testGroup', this.selectedtestGroups]]
+        .flatMap(([type, items]) => (items || []).map(item => ({ type, id: item.id })));
     },
     isEditMode() {
       return !!(this.$route?.params?.id) || !!this.record?.id;
@@ -1363,7 +1370,12 @@ export default {
       const sum = (arr) => arr.reduce((acc, c) => acc + this.resolveItemPrice(c), 0);
       return sum(tests) + sum(cultures);
     },
-    addSelection(type, item) {
+    addPreviousInvoiceItems(items) {
+      const count = this.selectedTests.length;
+      for (const entry of items) this.addSelection(entry.type, entry.item, false);
+      if (this.selectedTests.length !== count) this.show_Questions();
+    },
+    addSelection(type, item, loadQuestions = true) {
       if (item) {
         const selectedItem = {
           ...item,
@@ -1378,7 +1390,7 @@ export default {
             const exists = this.selectedTests.find((test) => test.id === item.id);
             if (!exists) {
               this.selectedTests.push(selectedItem);
-              this.show_Questions();
+              if (loadQuestions) this.show_Questions();
             }
           }
         } else if (type === "package") {

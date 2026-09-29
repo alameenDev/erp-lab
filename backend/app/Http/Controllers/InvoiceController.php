@@ -352,6 +352,33 @@ class InvoiceController extends Controller
      * @param  int  $id
      * @return JsonResponse
      */
+    public function latestPatientInvoice($id)
+    {
+        $user = Auth::user();
+        abort_unless($user->hasPermissionTo('invoices create') || $user->hasPermissionTo('invoices view'), 403);
+        $query = Invoice::where('patient_id_fk', $id);
+        if ((int) $user->role_id !== 1) $query->whereIn('lab_id_fk', $this->getTenantUserIds());
+        $invoice = $query->with(['invoiceTestRels.test', 'invoiceTestRels.culture', 'invoiceTestRels.package', 'invoiceTestRels.testGroup'])
+            ->orderByDesc('created_at')->orderByDesc('id')->first();
+        if (! $invoice) return response()->json(['invoice' => null]);
+        $items = [];
+        foreach ($invoice->invoiceTestRels as $rel) {
+            foreach (['test' => 'test_id_fk', 'culture' => 'culture_id_fk', 'package' => 'package_id_fk', 'testGroup' => 'test_group_id_fk'] as $type => $key) {
+                if (! $rel->$key) continue;
+                $model = $rel->$type;
+                $items[] = ['id' => (int) $rel->$key, 'type' => $type,
+                    'name' => $model?->name ?? $model?->group_name ?? 'فحص غير متاح',
+                    'price' => $rel->price, 'deleted' => ! $model || $model->trashed()];
+            }
+        }
+        return response()->json(['invoice' => [
+            'id' => $invoice->id, 'barcode' => $invoice->barcode,
+            'date' => $invoice->registration_date ?: $invoice->created_at,
+            'is_done' => (bool) $invoice->is_done, 'total' => $invoice->total,
+            'paid' => $invoice->paidDetails()->sum('amount'), 'items' => $items,
+        ]]);
+    }
+
     public function patientInvoicesHistory($id)
     {
         // Fetch invoices for the patient and order by creation date
