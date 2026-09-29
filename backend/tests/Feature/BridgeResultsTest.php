@@ -169,7 +169,9 @@ class BridgeResultsTest extends TestCase
         $source = DeviceResult::find($response->json('id'));
         $this->assertNull($rel->fresh()->sub_tests);
         $second->delete();
-        InvoiceTestRel::create(['invoice_id_fk'=>$invoice->id,'test_id_fk'=>$test->id]);
+        $duplicatePanel = LabTest::create(['lab_id_fk'=>$device->lab_id_fk,'name'=>'CBC duplicate mapping',
+            'interface_code'=>'12345678','price'=>0]);
+        InvoiceTestRel::create(['invoice_id_fk'=>$invoice->id,'test_id_fk'=>$duplicatePanel->id]);
         $outcome = app(\App\Services\BridgeCbcService::class)->apply($source);
         $this->assertFalse($outcome['applied']);
         $this->assertNull($rel->fresh()->sub_tests);
