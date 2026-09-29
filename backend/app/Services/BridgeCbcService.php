@@ -178,11 +178,25 @@ class BridgeCbcService
         return false;
     }
 
+    /** Normalize headings in previously saved CBC snapshots without changing results. */
+    public static function displayContent($content)
+    {
+        if (! is_array($content) || empty($content['bridge_cbc']) || ! is_string($content['html'] ?? null)) {
+            return $content;
+        }
+        $content['html'] = str_replace(
+            ['>اسم الفحص</th>', '>النتيجة</th>', '>الوحدة</th>', '>المعدل الطبيعي</th>'],
+            ['>Test</th>', '>Result</th>', '>Unit</th>', '>Reference Range</th>'],
+            $content['html']
+        );
+        return $content;
+    }
+
     private function table(array $rows): string
     {
         $escape = static fn ($s) => htmlspecialchars((string) $s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
         $html = '<table dir="ltr" style="width:100%;border-collapse:collapse;text-align:left"><thead><tr>';
-        foreach (['اسم الفحص', 'النتيجة', 'الوحدة', 'المعدل الطبيعي'] as $heading) {
+        foreach (['Test', 'Result', 'Unit', 'Reference Range'] as $heading) {
             $html .= '<th style="border:1px solid #cbd5e1;padding:8px">'.$heading.'</th>';
         }
         $html .= '</tr></thead><tbody>';
