@@ -1,4 +1,6 @@
 <script setup>
+import { createMedicalReportPdf, reportPageCss, waitForReportAssets } from "@/utils/medicalReportPages";
+
 import { ref, computed, watch, onMounted, nextTick } from "vue";
 import { storeToRefs } from "pinia";
 import { useRoute, useRouter } from "vue-router";
@@ -12,8 +14,6 @@ import { useLabSettingsStore } from "@/store/modules/labSettings";
 import { t, dateTimeFormat } from "@/utils/helper";
 import { useToast } from "@/composables/useToast";
 import { prepareMedicalReportWhatsApp } from "@/utils/sharePatientPortal";
-import html2canvas from "html2canvas-pro";
-import jsPDF from "jspdf";
 import * as XLSX from "xlsx";
 import BarcodeComponent from "@/components/BarcodeComponent.vue";
 import pationtHistoryModal from "./componentes/pationtHistory_modal.vue";
@@ -239,183 +239,24 @@ const printParcode = async (data) => {
 const downloadAsPdf = async (withBg, output = "download") => {
   if (downloadInProgress.value) return;
   downloadInProgress.value = true;
-
-  // Flip on capture mode so the source element exists in the live DOM, then
-  // we'll clone its innerHTML into the iframe.
   printResultRef.value?.beginCapture?.();
-  await nextTick();
-  await new Promise((r) => setTimeout(r, 300));
-
-  let iframe = null;
   try {
-    const sourceEl = document.getElementById("Result");
-    if (!sourceEl) {
-      console.error("[download] #Result element not found");
-      toast.error(t("download_failed") || "Download failed");
-      return;
-    }
-
-    const content = sourceEl.outerHTML;
-    if (!content || !content.trim()) {
-      console.error("[download] #Result is empty");
-      toast.error(t("download_failed") || "Download failed");
-      return;
-    }
-
-    // Read margins from lab_settings (jsonb). Stored as strings (e.g. "20")
-    // by the settings UI — Number() handles both number and string inputs.
-    const rawMargins = labSettingsStore.settings.print_margins || {};
-    const margins = {
-      top: Number(rawMargins.top ?? 20),
-      bottom: Number(rawMargins.bottom ?? 20),
-      left: Number(rawMargins.left ?? 15),
-      right: Number(rawMargins.right ?? 15),
-    };
-    const bgImage = withBg ? reportBackground.value : null;
-
-    // Body padding is NO LONGER applied here — margins are baked into the
-    // jsPDF image placement below. Otherwise we'd double-apply (once via
-    // body padding visible in the captured canvas, then again in jsPDF).
+    await nextTick();
     let css = printStyles.getResultCss() + printStyles.getPatientHeaderCss(labSettingsStore.settings.patient_header_config) + printStyles.getPrintTableCss(labSettingsStore.settings.print_table_config);
     if (labSettingsStore.settings.print_black_white) css += printStyles.getBlackWhiteCss();
-    css += `
-      body {
-        padding: 0 !important;
-        margin: 0 !important;
-        background: #fff;
-      }
-      .pw-cell { padding-left: 0 !important; padding-right: 0 !important; }
-      .pw-cell.pw-top { padding-top: 0 !important; }
-      .pw-cell.pw-bottom { padding-bottom: 0 !important; }
-      .print-bg {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 210mm;
-        height: 297mm;
-        z-index: -1;
-      }
-      .print-bg img { width: 100%; height: 100%; display: block; }
-    `;
-
-    // Build the off-screen iframe (visible to html2canvas, hidden to user)
-    iframe = document.createElement("iframe");
-    iframe.style.cssText = "position: fixed; top: 0; left: -10000px; width: 210mm; height: auto; border: 0; visibility: hidden;";
-    document.body.appendChild(iframe);
-
-    const doc = iframe.contentDocument;
-    doc.open();
-    doc.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Report</title><style>${css}</style></head><body>${bgImage ? `<div class="print-bg"><img src="${bgImage}" /></div>` : ""}${content}</body></html>`);
-    doc.close();
-
-    // Wait for fonts + images to load inside the iframe
-    await new Promise((r) => setTimeout(r, 800));
-    if (bgImage) {
-      // Wait for the bg image specifically
-      const bgImg = doc.querySelector(".print-bg img");
-      if (bgImg && !bgImg.complete) {
-        await new Promise((r) => { bgImg.onload = bgImg.onerror = r; });
-      }
-    }
-
-    // Inline any remaining external images via fetch → data URL (avoids CORS taint)
-    const images = doc.querySelectorAll("img");
-    for (const img of images) {
-      if (img.src && !img.src.startsWith("data:")) {
-        try {
-          const response = await fetch(img.src);
-          const blob = await response.blob();
-          img.src = await new Promise((res) => {
-            const reader = new FileReader();
-            reader.onloadend = () => res(reader.result);
-            reader.readAsDataURL(blob);
-          });
-        } catch {
-          img.remove();
-        }
-      }
-    }
-
-    const code = printRecord.value?.code || printRecord.value?.barcode || Date.now();
-    const patientName = printRecord.value?.patient?.name || "";
-    const safeName = patientName.replace(/[^\w؀-ۿ\s-]/g, "").trim();
-    const filename = safeName ? `${safeName}-${code}.pdf` : `lab-report-${code}.pdf`;
-
-    try {
-      // ──────────────────────────────────────────────────────────────────
-      // Per-section capture so each <table class="print-wrapper"> becomes
-      // its own A4 page in the PDF (matches the print pipeline, where
-      // each section gets its own page via page-break-before).
-      //
-      // If we captured the whole iframe body in one shot, html2canvas would
-      // produce a single tall image that jsPDF slices at fixed pixel
-      // intervals — sections would bleed across page boundaries and the
-      // patient header would repeat inline mid-page.
-      // ──────────────────────────────────────────────────────────────────
-      const sections = Array.from(doc.querySelectorAll(".print-wrapper"));
-      const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
-      const pageW = pdf.internal.pageSize.getWidth();   // 210mm
-      const pageH = pdf.internal.pageSize.getHeight();  // 297mm
-
-      // Apply lab-settings margins via jsPDF placement so each captured
-      // section sits inside the configured margin box on every A4 page.
-      // With-background mode skips margins because the bg image fills the
-      // full page and the letterhead has its own designed margins.
-      const m = withBg
-        ? { top: 0, bottom: 0, left: 0, right: 0 }
-        : margins;
-      const contentW = pageW - m.left - m.right;
-      const contentH = pageH - m.top - m.bottom;
-
-      const renderTo = sections.length > 0 ? sections : [doc.body];
-
-      for (let i = 0; i < renderTo.length; i++) {
-        const el = renderTo[i];
-        const canvas = await html2canvas(el, {
-          scale: 2,
-          useCORS: true,
-          allowTaint: false,
-          logging: false,
-          backgroundColor: "#ffffff",
-          windowWidth: 794, // 210mm at 96dpi
-        });
-        const imgData = canvas.toDataURL("image/jpeg", 0.98);
-        const imgW = contentW;
-        const imgH = (canvas.height * imgW) / canvas.width;
-
-        if (i > 0) pdf.addPage();
-
-        if (imgH <= contentH) {
-          pdf.addImage(imgData, "JPEG", m.left, m.top, imgW, imgH, undefined, "FAST");
-        } else {
-          // Section taller than one page — slice across pages, keeping
-          // top/bottom margins on every page.
-          let heightLeft = imgH;
-          let position = m.top;
-          pdf.addImage(imgData, "JPEG", m.left, position, imgW, imgH, undefined, "FAST");
-          heightLeft -= contentH;
-          while (heightLeft > 0) {
-            position = m.top + (heightLeft - imgH);
-            pdf.addPage();
-            pdf.addImage(imgData, "JPEG", m.left, position, imgW, imgH, undefined, "FAST");
-            heightLeft -= contentH;
-          }
-        }
-      }
-      if (output === "download") {
-        pdf.save(filename);
-        toast.success(t("download_completed") || "Download completed");
-      }
-      return { blob: pdf.output("blob"), filename };
-    } catch (e) {
-      console.error("[download] PDF generation failed:", e);
-      toast.error((t("download_failed") || "Download failed") + ": " + (e?.message || "unknown"), { duration: 6000 });
-    }
-  } catch (outer) {
-    console.error("[download] outer error:", outer);
-    toast.error(t("download_failed") || "Download failed");
+    const pdf = await createMedicalReportPdf({
+      element: document.getElementById("Result"), css,
+      margins: labSettingsStore.settings.print_margins,
+      background: withBg ? reportBackground.value : null,
+    });
+    const safeName = (printRecord.value?.patient?.name || "patient").replace(/[^\p{L}\p{N}\s_-]/gu, "");
+    const filename = `${safeName}-${printRecord.value?.barcode || ""}.pdf`;
+    if (output === "download") pdf.save(filename);
+    return { blob: pdf.output("blob"), filename };
+  } catch (error) {
+    console.error("[download]", error);
+    toast.error(error?.message || t("download_failed") || "Download failed");
   } finally {
-    if (iframe?.parentNode) iframe.parentNode.removeChild(iframe);
     printResultRef.value?.endCapture?.();
     downloadInProgress.value = false;
   }
@@ -423,80 +264,28 @@ const downloadAsPdf = async (withBg, output = "download") => {
 
 const printDirectWithBackground = async () => {
   await nextTick();
-  await new Promise((r) => setTimeout(r, 150));
-
   const content = document.getElementById("Result")?.outerHTML;
   if (!content) return;
-
   const printWindow = window.open("", "_blank");
-  if (!printWindow) return;
-
-  const margins = labSettingsStore.settings.print_margins || { top: 20, bottom: 20, left: 15, right: 15 };
-  const bgImage = reportBackground.value;
-
-  // Strategy (from Chrome print CSS best practices):
-  // 1. @page margin:0 — so position:fixed background covers full physical page
-  // 2. body padding + box-decoration-break:clone — padding applies on EVERY page fragment
-  // 3. position:fixed background — repeats on every page at full page size
-  // box-decoration-break:clone is the KEY — it makes body padding repeat on each printed page.
+  if (!printWindow) throw new Error('اسمح بالنوافذ المنبثقة للطباعة.');
   let css = printStyles.getResultCss() + printStyles.getPatientHeaderCss(labSettingsStore.settings.patient_header_config) + printStyles.getPrintTableCss(labSettingsStore.settings.print_table_config);
-    if (labSettingsStore.settings.print_black_white) css += printStyles.getBlackWhiteCss();
-  css += `
-    /* Body padding creates content margins; box-decoration-break:clone repeats on EVERY page */
-    body {
-      padding: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm !important;
-      -webkit-box-decoration-break: clone;
-      box-decoration-break: clone;
-      margin: 0 !important;
-    }
-    /* Zero pw-cell padding — body padding handles all margins now */
-    .pw-cell { padding-left: 0 !important; padding-right: 0 !important; }
-    .pw-cell.pw-top { padding-top: 0 !important; }
-    .pw-cell.pw-bottom { padding-bottom: 0 !important; }
-
-    /* Background: full page on every page via position:fixed (unaffected by body padding) */
-    .print-bg {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 210mm;
-      height: 297mm;
-      z-index: -1;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-    .print-bg img {
-      width: 100%;
-      height: 100%;
-      display: block;
-    }
-  `;
-
-  printWindow.document.write(`<!DOCTYPE html>
-<html>
-<head><title>Print Result</title><style>${css}</style></head>
-<body>
-  ${bgImage ? `<div class="print-bg"><img src="${bgImage}" /></div>` : ""}
-  ${content}
-</body>
-</html>`);
+  if (labSettingsStore.settings.print_black_white) css += printStyles.getBlackWhiteCss();
+  css += reportPageCss(labSettingsStore.settings.print_margins);
+  printWindow.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Print Result</title><style>${css}</style></head><body>${content}</body></html>`);
   printWindow.document.close();
-
-  // Wait for background image to load, then print
-  const img = new Image();
-  img.onload = img.onerror = () => {
-    setTimeout(() => {
-      printWindow.focus();
-      printWindow.print();
-    }, 200);
-  };
-  if (bgImage) {
-    img.src = bgImage;
-  } else {
-    img.onload();
+  if (reportBackground.value) {
+    printWindow.document.querySelectorAll('.print-bg').forEach(node => node.remove());
+    const background = printWindow.document.createElement('div');
+    background.className = 'print-bg';
+    const image = printWindow.document.createElement('img');
+    image.src = reportBackground.value;
+    background.appendChild(image);
+    printWindow.document.body.prepend(background);
   }
+  await waitForReportAssets(printWindow.document);
+  printWindow.focus();
+  printWindow.print();
 };
-
 
 // Handle print with selected items
 const handlePrintSelection = async (selection) => {
@@ -553,17 +342,7 @@ const handlePrintSelection = async (selection) => {
     const margins = labSettingsStore.settings.print_margins || { top: 20, bottom: 20, left: 15, right: 15 };
     let css = printStyles.getResultCss() + printStyles.getPatientHeaderCss(labSettingsStore.settings.patient_header_config) + printStyles.getPrintTableCss(labSettingsStore.settings.print_table_config);
     if (labSettingsStore.settings.print_black_white) css += printStyles.getBlackWhiteCss();
-    css += `
-      body {
-        padding: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm !important;
-        -webkit-box-decoration-break: clone;
-        box-decoration-break: clone;
-        margin: 0 !important;
-      }
-      .pw-cell { padding-left: 0 !important; padding-right: 0 !important; }
-      .pw-cell.pw-top { padding-top: 0 !important; }
-      .pw-cell.pw-bottom { padding-bottom: 0 !important; }
-    `;
+    css += reportPageCss(margins);
     await printWithIframe("Result", css, "Print Result", 100);
       }
     }
@@ -1155,3 +934,4 @@ onMounted(async () => {
 
   </div>
 </template>
+
