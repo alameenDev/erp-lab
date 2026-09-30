@@ -4,10 +4,11 @@ import { storeToRefs } from "pinia";
 import { useinvoicesStore } from "@/store/modules/invoices";
 import { dateTimeFormat } from "@/utils/helper";
 import QrcodeVue from "qrcode.vue";
+import ModernPatientHeader from "./ModernPatientHeader.vue";
 
 const invoicesStore = useinvoicesStore();
 const { printRecord } = storeToRefs(invoicesStore);
-const props = defineProps({ labName: { type: String, default: "" }, labLogo: { type: String, default: "" }, shareUrl: { type: String, default: "" }, isReferral: { type: Boolean, default: false } });
+const props = defineProps({ modern: { type: Boolean, default: false }, labName: { type: String, default: "" }, labLogo: { type: String, default: "" }, shareUrl: { type: String, default: "" }, isReferral: { type: Boolean, default: false } });
 
 const patientId = computed(() => printRecord.value?.id);
 
@@ -23,7 +24,8 @@ const getPatientReportLink = () => {
                <img v-if="labLogo" :src="labLogo" alt="" style="max-width:60px; max-height:60px; object-fit:contain;" />
                <strong>{{ labName }}</strong>
      </div>
-     <div class="rs-header" dir="ltr" style="direction: ltr !important; text-align: left !important; border-bottom: 2px solid #333; padding: 10px 16px; font-family: Arial, sans-serif; display: flex; align-items: flex-start; gap: 16px;">
+     <ModernPatientHeader v-if="modern" :record="printRecord" :report-url="getPatientReportLink()" :show-qr="!printRecord?.suppress_report_qr && (!isReferral || !!shareUrl)" />
+     <div v-else class="rs-header" dir="ltr" style="direction: ltr !important; text-align: left !important; border-bottom: 2px solid #333; padding: 10px 16px; font-family: Arial, sans-serif; display: flex; align-items: flex-start; gap: 16px;">
           <!-- Left: Patient Info -->
           <div class="rs-info" style="flex: 1; font-size: 14px; font-weight: 700; line-height: 1.7;">
                <div><span style="color: #444;">Patient Name</span> : {{ printRecord?.patient?.name }}</div>

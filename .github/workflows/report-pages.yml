@@ -3,9 +3,12 @@ on:
   pull_request:
     paths:
       - 'frontend/src/utils/medicalReportPages.js'
+      - 'frontend/src/utils/medicalReportTemplate.js'
+      - 'frontend/src/views/lab-settings/**'
       - 'frontend/src/views/medical_reports/**'
       - 'frontend/src/composables/usePrint.js'
       - 'frontend/tests/*report*'
+      - 'frontend/tests/ReportTemplateFixture.vue'
       - '.github/workflows/report-pages.yml'
 permissions:
   contents: read
@@ -37,6 +40,7 @@ jobs:
             sleep 1
           done
           node tests/report-background.browser.mjs
+          node tests/report-template.browser.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

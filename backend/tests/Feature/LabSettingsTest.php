@@ -52,10 +52,39 @@ class LabSettingsTest extends TestCase
     public function test_print_reset_preserves_branding_and_clears_print_configs(): void
     {
         $owner=$this->owner();
-        LabSetting::create(['lab_id_fk'=>$owner->id,'lab_display_name'=>'Keep name','document_config'=>['thermal'=>['width'=>58]],'print_table_config'=>['body_font_size'=>20]]);
+        LabSetting::create(['lab_id_fk'=>$owner->id,'lab_display_name'=>'Keep name','report_template'=>'modern','document_config'=>['thermal'=>['width'=>58]],'print_table_config'=>['body_font_size'=>20]]);
         $this->actingAs($owner)->postJson('/api/lab-settings/reset',['section'=>'print'])
             ->assertOk()->assertJsonPath('setting.lab_display_name','Keep name')
+            ->assertJsonPath('setting.report_template','classic')
             ->assertJsonPath('setting.document_config',null)
             ->assertJsonPath('setting.print_table_config',null);
+    }
+
+    public function test_template_defaults_to_classic_and_owner_can_switch_both_ways(): void
+    {
+        $owner = $this->owner();
+        $other = User::create(['name'=>'Other Lab','email'=>'other-settings@example.test','password'=>'Test-password-123','role_id'=>2]);
+        LabSetting::create(['lab_id_fk'=>$other->id]);
+        $this->getJson('/api/lab-settings/'.$owner->id)->assertOk()->assertJsonPath('report_template','classic');
+        $this->actingAs($owner)->getJson('/api/lab-settings')->assertOk()->assertJsonPath('report_template','classic');
+        $this->postJson('/api/lab-settings', ['report_template'=>'modern'])->assertOk()->assertJsonPath('setting.report_template','modern');
+        $this->getJson('/api/lab-settings/'.$owner->id)->assertOk()->assertJsonPath('report_template','modern');
+        $this->assertSame('classic', LabSetting::where('lab_id_fk',$other->id)->value('report_template'));
+        // Partial saves and a branding reset must not discard the selection.
+        $this->postJson('/api/lab-settings', ['lab_display_name'=>'Updated'])->assertOk()->assertJsonPath('setting.report_template','modern');
+        $this->postJson('/api/lab-settings/reset', ['section'=>'branding'])->assertOk()->assertJsonPath('setting.report_template','modern');
+        $this->postJson('/api/lab-settings', ['report_template'=>'classic'])->assertOk()->assertJsonPath('setting.report_template','classic');
+    }
+
+    public function test_template_validation_and_staff_permissions(): void
+    {
+        $owner = $this->owner();
+        LabSetting::create(['lab_id_fk'=>$owner->id,'report_template'=>'modern']);
+        $this->actingAs($owner)->postJson('/api/lab-settings', ['report_template'=>'unknown'])->assertUnprocessable();
+        $this->postJson('/api/lab-settings', ['report_template'=>null])->assertUnprocessable();
+        $staff = User::create(['name'=>'Template Staff','email'=>'template-staff@example.test','password'=>'Test-password-123','role_id'=>7,'creator_id'=>$owner->id]);
+        $this->actingAs($staff)->getJson('/api/lab-settings')->assertOk()->assertJsonPath('report_template','modern');
+        $this->postJson('/api/lab-settings', ['report_template'=>'classic'])->assertForbidden();
+        $this->assertSame('modern', LabSetting::where('lab_id_fk',$owner->id)->value('report_template'));
     }
 }

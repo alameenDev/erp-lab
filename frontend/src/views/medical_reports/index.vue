@@ -239,7 +239,7 @@ const downloadAsPdf = async (withBg, output = "download") => {
   printResultRef.value?.beginCapture?.();
   try {
     await nextTick();
-    let css = printStyles.getResultCss() + printStyles.getPatientHeaderCss(labSettingsStore.settings.patient_header_config) + printStyles.getPrintTableCss(labSettingsStore.settings.print_table_config);
+    let css = printStyles.getResultCss() + printStyles.getPatientHeaderCss(labSettingsStore.settings.patient_header_config) + printStyles.getPrintTableCss(labSettingsStore.settings.print_table_config) + printStyles.getReportTemplateCss(labSettingsStore.settings);
     if (labSettingsStore.settings.print_black_white) css += printStyles.getBlackWhiteCss();
     const pages = await renderMedicalReportPages({
       element: document.getElementById("Result"), css,

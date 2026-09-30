@@ -1,0 +1,14 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Report template verification</title></head>
+<body><div id="app"></div><script type="module">
+import {createApp} from 'vue';
+import {createPinia} from 'pinia';
+import {createRouter, createMemoryHistory} from 'vue-router';
+import Fixture from './ReportTemplateFixture.vue';
+import '/src/assets/main.css';
+localStorage.setItem('token', 'synthetic-report-fixture');
+const app=createApp(Fixture);
+const router=createRouter({history:createMemoryHistory(),routes:[{path:'/',component:{template:'<div />'}}]});
+app.use(createPinia()).use(router);
+await router.isReady();app.mount('#app');
+</script></body></html>
