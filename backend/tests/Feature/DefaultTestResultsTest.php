@@ -34,7 +34,9 @@ class DefaultTestResultsTest extends TestCase
         [$lab, , $test] = $this->fixture();
         $input = ['name' => 'Choice', 'category_id_fk' => $test->category_id_fk, 'result_type_id_fk' => 4,
             'selection_type_options' => ['True', 'False'], 'default_result' => 'True'];
-        $id = $this->postJson('/api/tests/create', $input)->assertCreated()->json('test.id');
+        $response = $this->postJson('/api/tests/create', $input);
+        $this->assertSame(201, $response->status(), $response->getContent());
+        $id = $response->json('test.id');
         $this->assertDatabaseHas('tests', ['id' => $id, 'default_result' => 'True']);
         $input['id'] = $id;
         $input['default_result'] = 'False';
@@ -65,11 +67,14 @@ class DefaultTestResultsTest extends TestCase
         $package = Package::create(['name' => 'Package', 'lab_id_fk' => $lab->id]);
         $group->tests()->attach($test->id);
         $package->tests()->attach($test->id);
+        $snapshot = (new \App\Http\Resources\TestResource($test))->resolve();
         $input = ['patient_id_fk' => $patient->id, 'total' => 0, 'sub_total' => 0,
             'tests' => [['test_id_fk' => $test->id, 'result' => null]],
-            'packages' => [['package_id_fk' => $package->id, 'package_tests' => [['id' => $test->id, 'result' => 'False']]]],
-            'test_groups' => [['test_group_id_fk' => $group->id, 'test_group_tests' => json_encode([['id' => $test->id]])]]];
-        $id = $this->postJson('/api/invoices/create', $input)->assertOk()->json('id');
+            'packages' => [['package_id_fk' => $package->id, 'package_tests' => [array_merge($snapshot, ['result' => 'False'])]]],
+            'test_groups' => [['test_group_id_fk' => $group->id, 'test_group_tests' => json_encode([$snapshot])]]];
+        $response = $this->postJson('/api/invoices/create', $input);
+        $this->assertSame(200, $response->status(), $response->getContent());
+        $id = $response->json('id');
         $rel = InvoiceTestRel::where('invoice_id_fk', $id)->where('test_id_fk', $test->id)->firstOrFail();
         $this->assertSame('True', $rel->result);
         $this->assertFalse($rel->is_done);

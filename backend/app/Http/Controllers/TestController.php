@@ -371,7 +371,7 @@ class TestController extends Controller
                 'unit' => $request->unit,
                 'is_contain_status' => $request->is_contain_status,
                 'is_print_alone' => $request->is_print_alone,
-                'is_special_test' => $request->is_special_test,
+                'is_special_test' => $request->is_special_test ?? false,
                 'content' => $request->input('content'),
                 'sub_tests' => $request->input('sub_tests'),
                 'lab_id_fk' => Auth::user()->id,
