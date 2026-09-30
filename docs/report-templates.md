@@ -4,6 +4,8 @@ Lab owners select **Original template** or **New template** in **Lab Settings â†
 
 `lab_settings.report_template` accepts `classic` or `modern`; the migration defaults existing and new rows to `classic`. Print settings reset restores `classic`, while branding reset and partial updates preserve the selection.
 
+Referral accounts store the same option independently in `referral_print_settings`. Their workspace and signed shared report use their selection, without changing the destination laboratory's template.
+
 The modern layout adds a patient information card and a Flag column immediately after Result. It uses the same invoice results, reference ranges, formulas and custom test content as the original. It does not reinterpret medical results. Existing status IDs supply badges (1 high, 2 normal, 4 low); other stored labels are displayed neutrally and unknown status is a dash.
 
 Both layouts use `medicalReportPages.js` for the A4 sheets. `getReportTemplateCss` is included by the report list, result editor and public/referral report page, so their preview, PDF, printing and WhatsApp attachments share the chosen style. Letterhead remains fixed to the full A4 sheet; margins affect content only.

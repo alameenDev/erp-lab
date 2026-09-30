@@ -8,15 +8,19 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('lab_settings', function (Blueprint $table) {
-            $table->string('report_template', 20)->default('classic');
-        });
+        foreach (['lab_settings', 'referral_print_settings'] as $name) {
+            Schema::table($name, function (Blueprint $table) {
+                $table->string('report_template', 20)->default('classic');
+            });
+        }
     }
 
     public function down(): void
     {
-        Schema::table('lab_settings', function (Blueprint $table) {
-            $table->dropColumn('report_template');
-        });
+        foreach (['lab_settings', 'referral_print_settings'] as $name) {
+            Schema::table($name, function (Blueprint $table) {
+                $table->dropColumn('report_template');
+            });
+        }
     }
 };
