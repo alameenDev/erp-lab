@@ -1,4 +1,9 @@
 {
+  "set_default_result": "Set as default",
+  "default_result_selected": "Default ✓",
+  "clear_default_result": "Clear default",
+  "default_result_hint": "Choose an optional default for new patient analyses. The result remains editable.",
+
   "appName": "Digital Lab",
   "login_brand_subtitle": "Laboratory Information Management System",
   "back_to_home": "Back to Home",

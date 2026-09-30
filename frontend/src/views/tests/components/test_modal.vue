@@ -201,7 +201,7 @@
                     </div>
                     <div>
                       <h3 class="text-lg font-semibold text-slate-800">{{ t("Selection_Type_Options") }}</h3>
-                      <p class="text-sm text-slate-500">{{ t("selection_options_desc") || "Define selection options for this test" }}</p>
+                      <p class="text-sm text-slate-500">{{ t("default_result_hint") }}</p>
                     </div>
                   </div>
                   <button
@@ -221,15 +221,24 @@
                   <div
                     v-for="(opt, index) in record.selection_type_options"
                     :key="index"
-                    class="flex items-center gap-2 p-3 bg-slate-50 rounded-xl group"
+                    class="flex flex-wrap items-center gap-2 p-3 bg-slate-50 rounded-xl group"
                   >
                     <span class="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center text-purple-700 text-sm font-medium shrink-0">
                       {{ index + 1 }}
                     </span>
-                    <InputText class="flex-1" type="text" v-model="record.selection_type_options[index]" maxlength="255" />
+                    <InputText class="flex-1 min-w-[8rem]" type="text" :modelValue="opt" @update:modelValue="renameResultOption(record, index, $event)" maxlength="255" />
                     <button
                       type="button"
-                      @click="removeOption(record.selection_type_options, index)"
+                      :disabled="!opt?.trim()"
+                      :aria-pressed="!!opt && record.default_result === opt"
+                      :aria-label="`${record.default_result === opt ? t('clear_default_result') : t('set_default_result')}: ${opt}`"
+                      @click="record.default_result = record.default_result === opt ? null : opt"
+                      class="shrink-0 px-3 py-2 rounded-lg text-sm font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-purple-600"
+                      :class="record.default_result === opt && opt ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-purple-700 border-purple-200 hover:bg-purple-50'"
+                    >{{ record.default_result === opt && opt ? t('default_result_selected') : t('set_default_result') }}</button>
+                    <button
+                      type="button"
+                      @click="removeResultOption(record, index)"
                       class="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
                     >
                       <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -766,6 +775,7 @@
 </template>
 
 <script>
+import { renameResultOption, removeResultOption } from "@/utils/defaultTestResults";
 import { mapActions, mapGetters, mapWritableState } from "pinia";
 import { usetestGroupsStore } from "@/store/modules/testGroups";
 import { useResultTypesStore } from "@/store/modules/resultTypes";
@@ -910,6 +920,9 @@ export default {
     ...mapGetters(useCategoriesStore, ["categories"]),
   },
   watch: {
+    "record.result_type_id_fk"(value) {
+      if (Number(value) !== 4) this.record.default_result = null;
+    },
     dialog(visible) {
       if (visible && this.record?.id && this.record.content?.html) {
         // Migrate templates saved with an earlier build where TipTap stripped
@@ -979,6 +992,8 @@ export default {
     document.addEventListener("keydown", this._escKey);
   },
   methods: {
+    renameResultOption,
+    removeResultOption,
     ...mapActions(useDurationUnitsStore, ["GetdurationUnits"]),
     ...mapActions(usetestGroupsStore, ["GettestGroups"]),
     ...mapActions(useResultTypesStore, ["GetresultTypes"]),
@@ -1012,6 +1027,7 @@ export default {
           },
         ];
         this.record.selection_type_options = [""];
+        this.record.default_result = null;
         this.record.result_comments = [""];
         this.dialog = false;
       });
@@ -1245,6 +1261,7 @@ export default {
         this.alertSuccess(this.t("alertSuccess"));
         this.clearObjectValues(this.record);
         this.record.selection_type_options = [""];
+        this.record.default_result = null;
         this.record.result_comments = [""];
         this.record.test_reference_ranges = [
           {
@@ -1381,6 +1398,7 @@ export default {
         },
       ];
       this.record.selection_type_options = [""];
+      this.record.default_result = null;
       this.record.result_comments = [""];
       this.dialog = false;
     },

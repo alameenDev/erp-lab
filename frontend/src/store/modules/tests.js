@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { $http } from "@/plugins/axios";
+import { configuredDefaultResult } from "@/utils/defaultTestResults";
 import { checkObjectParams } from "@/utils/helper";
 export const usetestsStore = defineStore("tests", {
      state: () => ({
@@ -12,6 +13,7 @@ export const usetestsStore = defineStore("tests", {
                name: "",
                category_id_fk: "", // "required|string",
                interface_code: "", // "required|string",
+               default_result: null,
                selection_type_options: [""], // "json|string",
                shortcut: "", // "required|string",
                report_name: "", // "required|string",
@@ -89,13 +91,13 @@ export const usetestsStore = defineStore("tests", {
           },
           async Addtests() {
                const payload = JSON.parse(JSON.stringify(this.record));
-               const params = checkObjectParams(payload);
+               const params = { ...checkObjectParams(payload), default_result: configuredDefaultResult(payload) };
                await $http.post(`/tests/create`, params);
                this.GetTests();
           },
           async Updatetests() {
                const payload = JSON.parse(JSON.stringify(this.record));
-               const params = checkObjectParams(payload);
+               const params = { ...checkObjectParams(payload), default_result: configuredDefaultResult(payload) };
                await $http.put(`/tests/update`, params);
                this.GetTests();
           },

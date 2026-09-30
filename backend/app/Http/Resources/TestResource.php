@@ -55,6 +55,7 @@ class TestResource extends JsonResource
             'result_type_name' => $this->resultType?->result_type_name,
             'result_type_id_fk' => $this->result_type_id_fk,
             'selction_type_options' => $this->selection_type_options,
+            'default_result' => $this->configuredDefaultResult(),
             'test_reference_ranges' => $this->testReferenceRanges->map(function ($testReferenceRange) {
                 return [
                     'test_reference_range_id' => $testReferenceRange?->id,

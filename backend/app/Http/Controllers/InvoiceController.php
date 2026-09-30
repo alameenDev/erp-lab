@@ -1389,6 +1389,7 @@ class InvoiceController extends Controller
         ]);
         try {
             DB::beginTransaction();
+            app(\App\Services\DefaultTestResults::class)->prepare($request, $user->role_id == 1 ? null : $this->getTenantUserIds());
             $invoice = new Invoice;
             // Frontend dropdown now sends users.id directly (optionValue="user_id").
             // referral_id_fk column is FK → users.id, so no remap needed.
@@ -1529,7 +1530,7 @@ class InvoiceController extends Controller
                 foreach ($test_groups as $test_group) {
                     // Safely access arrays with null coalescing operator
                     $test_group_tests = empty($test_group['tests']) ? null : $test_group['tests'];
-                    $test_group_cultures = empty($test_group['culture']) ? null : $test_group['culture'];
+                    $test_group_cultures = $test_group['cultures'] ?? $test_group['culture'] ?? $test_group['test_group_cultures'] ?? null;
 
                     // Convert to array if string
                     if (is_string($test_group_tests)) {
@@ -2528,6 +2529,8 @@ class InvoiceController extends Controller
             $invoice->show_patient_card_id = $request->show_patient_card_id ?? false;
             $invoice->show_patient_pic = $request->show_patient_pic ?? false;
             $invoice->save();
+
+            app(\App\Services\DefaultTestResults::class)->prepare($request, $user->role_id == 1 ? null : $this->getTenantUserIds(), $invoice);
 
             // Delete existing invoice test relations and recreate
             $invoice->invoiceTestRels()->delete();
