@@ -42,6 +42,14 @@ async function render(){busy.value=true;status.value='Rendering';checks.value=[]
  assert(tables.every(t=>[...t.querySelectorAll('tbody > tr')].every(tr=>tr.children.length===t.querySelector('thead tr').children.length)),'all standard, group, package, formula and culture rows align');
  if(mode.value==='all'){assert(source.textContent.includes('Standalone zero')&&source.textContent.includes('Package culture')&&source.textContent.includes('Formula target'),'all result scenarios render');const row=[...source.querySelectorAll('tr')].find(r=>r.children[0]?.textContent==='Standalone zero');assert(row.children[1].textContent==='0','zero result preserved');}
  pages.value=await renderMedicalReportPages({element:source,css:css(),margins:store.settings.print_margins});
+ if(store.settings.print_black_white){
+   const img=new Image();img.src=pages.value[0];await img.decode();
+   const canvas=document.createElement('canvas');canvas.width=img.width;canvas.height=img.height;
+   const context=canvas.getContext('2d');context.drawImage(img,0,0);
+   const pixels=context.getImageData(0,0,canvas.width,canvas.height).data;
+   let neutral=true;for(let i=0;i<pixels.length;i+=4){if(pixels[i]!==pixels[i+1]||pixels[i+1]!==pixels[i+2]){neutral=false;break;}}
+   assert(neutral,'monochrome removes all badge and row tint');
+ }
  const pdf=await createMedicalReportPdf({pages:pages.value});assert(pdf.getNumberOfPages()===pages.value.length,'PDF uses the exact preview sheets');
  if(mode.value==='long')assert(pages.value.length>1,'long reports paginate');
  status.value='PASS';

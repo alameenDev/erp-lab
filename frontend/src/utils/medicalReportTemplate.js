@@ -65,6 +65,7 @@ export function getReportTemplateCss(settings = {}) {
     ${s} .mr-flag-low { background: #fff4d9; color: #846000; border-color: #ecd69a; }
     ${s} .mr-empty-flag { color: #738591; }
     ${s}.report-monochrome, ${s}.report-monochrome * { color: #000 !important; background-color: transparent !important; background-image: none !important; border-color: #000 !important; }
+    ${s}.report-monochrome .report-results-table > tbody > tr:nth-child(even) > td { background-image: none !important; }
     ${s}.report-monochrome img { filter: grayscale(1) !important; }
   `;
 }
