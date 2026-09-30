@@ -106,7 +106,7 @@ class ReferralWorkspaceController extends Controller {
   $settings=\App\Models\ReferralPrintSetting::where('lab_id_fk',$referralId)->first();
   $data['referral_document']=true;
   $data['report_share_url']=rtrim(config('app.frontend_url',env('FRONTEND_URL',config('app.url'))),'/').'/referral-report/'.$id.'?'.$request->getQueryString();
-  return response()->json(['report'=>$data,'settings'=>$settings?->only(['lab_display_name','logo','report_background','print_margins','show_categories','show_test_names','show_status','show_last_result','print_black_white','patient_header_config','print_table_config','primary_color','secondary_color'])]);
+  return response()->json(['report'=>$data,'settings'=>$settings?->only(['lab_display_name','logo','report_background','report_template','print_margins','show_categories','show_test_names','show_status','show_last_result','print_black_white','patient_header_config','print_table_config','primary_color','secondary_color'])]);
  }
  private function document(Invoice $i, bool $report=false): array {
   $data=app(InvoiceController::class)->referralDocument($i,$report);

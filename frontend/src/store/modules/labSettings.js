@@ -4,6 +4,7 @@ import { applyBranding } from "@/utils/branding";
 
 const normalizeSettings = (data = {}) => ({
  ...data,
+ report_template: data?.report_template === "modern" ? "modern" : "classic",
  print_margins: {top:20,bottom:20,left:15,right:15,...data?.print_margins},
  barcode_config: {label_width:3,label_height:1.5,name_size:9,info_size:7,number_size:6,barcode_height:40,sample_size:8,tests_size:7,...data?.barcode_config},
  patient_header_config: {name_size:20,info_size:13,barcode_height:35,qr_size:90,line_height:1.7,...data?.patient_header_config},
@@ -12,6 +13,7 @@ const normalizeSettings = (data = {}) => ({
 export const useLabSettingsStore = defineStore("labSettings", {
      state: () => ({
           settings: {
+               report_template: "classic",
                logo: null,
                primary_color: "#0d9488",
                secondary_color: "#14b8a6",

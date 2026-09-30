@@ -8,6 +8,8 @@ class LabSetting extends Model
 {
     protected $table = 'lab_settings';
 
+    protected $attributes = ['report_template' => 'classic'];
+
     protected $fillable = [
         'lab_id_fk',
         'document_config',
@@ -22,6 +24,7 @@ class LabSetting extends Model
         'font_family',
         'lab_display_name',
         'tagline',
+        'report_template',
         'print_margins',
         'show_categories',
         'show_tests_on_barcode',

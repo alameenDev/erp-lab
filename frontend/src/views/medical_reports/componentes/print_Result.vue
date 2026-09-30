@@ -8,6 +8,7 @@ import { useTemplatesStore } from "@/store/modules/template";
 import { useinvoicesStore } from "@/store/modules/invoices";
 import { useresultStatusStore } from "@/store/modules/result-status";
 import result_section from "./result_section.vue";
+import ReportResultFlag from "./ReportResultFlag.vue";
 import result_footer_section from "./result_footer_section.vue";
 import { sanitizeHtml } from "@/utils/helper";
 import { $http } from "@/plugins/axios";
@@ -50,6 +51,7 @@ const _defaultMargins = { top: 20, bottom: 20, left: 15, right: 15 };
 const labSettingsStore = useLabSettingsStore();
 const publicLabSettings = ref(null);
 const reportSettings = computed(() => publicLabSettings.value || labSettingsStore.settings);
+const modernReport = computed(() => reportSettings.value.report_template === "modern");
 const reportBrand = computed(() => referralReport.value || sharedReferralReport.value ? reportSettings.value : null);
 const reportShareUrl = ref("");
 const shareError = ref("");
@@ -379,7 +381,7 @@ const applyPatientHeaderCss = (config) => {
     el.id = "patient-header-dynamic";
     document.head.appendChild(el);
   }
-  el.textContent = printStyles.getPatientHeaderCss(config) + printStyles.getPrintTableCss(reportSettings.value.print_table_config);
+  el.textContent = printStyles.getPatientHeaderCss(config) + printStyles.getPrintTableCss(reportSettings.value.print_table_config) + printStyles.getReportTemplateCss(reportSettings.value);
 };
 if (hasToken) {
   applyPatientHeaderCss(labSettingsStore.settings.patient_header_config);
@@ -704,7 +706,7 @@ const buildReportPages = async () => {
   renderForCapture.value = true;
   try {
     await nextTick();
-    let css = printStyles.getResultCss() + printStyles.getPatientHeaderCss(reportSettings.value.patient_header_config) + printStyles.getPrintTableCss(reportSettings.value.print_table_config);
+    let css = printStyles.getResultCss() + printStyles.getPatientHeaderCss(reportSettings.value.patient_header_config) + printStyles.getPrintTableCss(reportSettings.value.print_table_config) + printStyles.getReportTemplateCss(reportSettings.value);
     if (printBlackWhite.value) css += printStyles.getBlackWhiteCss();
     return await renderMedicalReportPages({ element: contentToConvert.value, css,
       margins: serverMargins.value, background: showBackground.value ? backgroundUrl.value : null });
@@ -857,7 +859,7 @@ const generateBarcodeImage = (value) => {
       </div>
     </div>
     <!-- Source DOM is separate from the A4 sheets and never carries a letterhead. -->
-    <div id="Result" ref="contentToConvert" class="report-capture-source" role="region" aria-label="نتائج التحاليل"
+    <div id="Result" ref="contentToConvert" :class="{ 'report-modern': modernReport, 'report-monochrome': printBlackWhite }" class="report-capture-source" role="region" aria-label="نتائج التحاليل"
       :style="{ direction: 'ltr', display: showDirectView || renderForCapture ? 'block' : 'none' }">
 
     <!-- ======== MAIN RESULT CONTENT ======== -->
@@ -875,7 +877,7 @@ const generateBarcodeImage = (value) => {
             class="print-wrapper"
             :style="(tIdx > 0 || cIdx > 0) ? 'page-break-before: always; break-before: page;' : ''"
           >
-            <thead><tr><td class="pw-cell pw-top"><result_section :lab-name="reportBrand?.lab_display_name" :lab-logo="showBackground && backgroundUrl ? '' : referralLogo" :share-url="reportShareUrl" :is-referral="referralReport || sharedReferralReport" /></td></tr></thead>
+            <thead><tr><td class="pw-cell pw-top"><result_section :modern="modernReport" :lab-name="reportBrand?.lab_display_name" :lab-logo="showBackground && backgroundUrl ? '' : referralLogo" :share-url="reportShareUrl" :is-referral="referralReport || sharedReferralReport" /></td></tr></thead>
             <tfoot><tr><td class="pw-cell pw-bottom"></td></tr></tfoot>
             <tbody><tr><td class="pw-cell">
               <section class="template-section"><div v-html="chunk"></div></section>
@@ -893,29 +895,31 @@ const generateBarcodeImage = (value) => {
         class="print-wrapper"
         :style="hasTemplateTest ? 'page-break-before: always; break-before: page;' : ''"
       >
-        <thead><tr><td class="pw-cell pw-top"><result_section :lab-name="reportBrand?.lab_display_name" :lab-logo="showBackground && backgroundUrl ? '' : referralLogo" :share-url="reportShareUrl" :is-referral="referralReport || sharedReferralReport" /></td></tr></thead>
+        <thead><tr><td class="pw-cell pw-top"><result_section :modern="modernReport" :lab-name="reportBrand?.lab_display_name" :lab-logo="showBackground && backgroundUrl ? '' : referralLogo" :share-url="reportShareUrl" :is-referral="referralReport || sharedReferralReport" /></td></tr></thead>
         <tfoot><tr><td class="pw-cell pw-bottom"></td></tr></tfoot>
         <tbody><tr><td class="pw-cell">
 
         <!-- ===== MERGED TABLE (when showTestName is off) ===== -->
         <template v-if="!showTestName && allTestsMerged.length > 0">
           <section v-for="(section, sIdx) in allTestsMerged" :key="'merged-s-' + sIdx" :style="{ marginTop: sIdx === 0 ? '16px' : '24px', marginBottom: '16px' }">
-            <div v-if="section.category" class="section-header w-full font-bold border border-black p-1 text-center text-black bg-gray-300" style="margin-bottom: 10px;">{{ section.category }}</div>
-            <table class="w-full" style="border-collapse: collapse; table-layout: fixed;">
+            <div v-if="section.category" class="section-header w-full font-bold border border-black p-1 text-center text-black bg-gray-300" style="margin-bottom: 10px;"><i v-if="modernReport" class="pi pi-filter mr-section-icon" aria-hidden="true"></i><span>{{ section.category }}</span><small v-if="modernReport" class="mr-section-caption">TEST RESULTS</small></div>
+            <table class="report-results-table w-full" style="border-collapse: collapse; table-layout: fixed;">
               <thead>
                 <tr>
                   <th class="border border-black/15 p-0.5 text-center">Test</th>
                   <th class="border border-black/15 p-0.5 text-center">Result</th>
+                  <th v-if="showStatus && modernReport" class="report-flag-heading">Flag</th>
                   <th class="border border-black/15 p-0.5 text-center">Unit</th>
                   <th class="border border-black/15 p-0.5 text-center">Reference Ranges</th>
                   <th v-if="showLastResult" class="border border-black/15 p-0.5 text-center">Last Result</th>
-                  <th v-if="showStatus" class="border border-black/15 p-0.5 text-center">Status</th>
+                  <th v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">Status</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="(item, idx) in section.tests" :key="'merged-' + idx">
                   <td class="border border-black/15 p-0.5 text-center">{{ item.report_name || item.name }}</td>
                   <td class="border border-black/15 p-0.5 text-center" :style="getResultColorStyle(item.result_status_id_fk)">{{ item.result ?? "" }}</td>
+                  <td v-if="showStatus && modernReport" class="report-flag-cell"><ReportResultFlag :status-id="item.result_status_id_fk" :label="getStatusLabel(item.result_status_id_fk)" /></td>
                   <td class="border border-black/15 p-0.5 text-center">{{ item.unit }}</td>
                   <td class="border border-black/15 p-0.5 text-center">
                     <span v-for="range in getFilteredRanges(item?.test_reference_ranges)" :key="range.test_reference_range_id || range.id">
@@ -925,7 +929,7 @@ const generateBarcodeImage = (value) => {
                     </span>
                   </td>
                   <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center">{{ lastResultMap[item.name] || '' }}</td>
-                  <td v-if="showStatus" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(item.result_status_id_fk) }}</td>
+                  <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(item.result_status_id_fk) }}</td>
                 </tr>
               </tbody>
             </table>
@@ -935,24 +939,26 @@ const generateBarcodeImage = (value) => {
         <!-- ===== STANDALONE TESTS (grouped by test_group name / category) ===== -->
         <template v-if="showTestName && groupedTests.length > 0">
           <section v-for="(group, index) in groupedTests" :key="'st-' + index" class="test-group-section">
-            <div v-if="group.showCategory && showCategories" class="section-header w-full font-bold border border-black p-1 text-center text-black bg-gray-300">{{ group.category }}</div>
-            <div v-if="group.name && showTestName" class="section-header w-full font-bold border border-black p-1 text-center text-black bg-gray-300" :style="group.showCategory && showCategories ? 'margin-top: 4px' : ''">{{ group.name }}</div>
+            <div v-if="group.showCategory && showCategories && (!modernReport || group.category)" class="section-header w-full font-bold border border-black p-1 text-center text-black bg-gray-300"><i v-if="modernReport" class="pi pi-filter mr-section-icon" aria-hidden="true"></i><span>{{ group.category }}</span><small v-if="modernReport" class="mr-section-caption">TEST RESULTS</small></div>
+            <div v-if="group.name && showTestName" class="section-header w-full font-bold border border-black p-1 text-center text-black bg-gray-300" :style="group.showCategory && showCategories ? 'margin-top: 4px' : ''"><i v-if="modernReport" class="pi pi-filter mr-section-icon" aria-hidden="true"></i><span>{{ group.name }}</span><small v-if="modernReport" class="mr-section-caption">TEST RESULTS</small></div>
 
-            <table v-if="group.tests.length > 0" class="w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
+            <table v-if="group.tests.length > 0" class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
               <thead>
                 <tr>
                   <th class="border border-black/15 p-0.5 text-center">Test</th>
                   <th class="border border-black/15 p-0.5 text-center">Result</th>
+                  <th v-if="showStatus && modernReport" class="report-flag-heading">Flag</th>
                   <th class="border border-black/15 p-0.5 text-center">Unit</th>
                   <th class="border border-black/15 p-0.5 text-center">Reference Ranges</th>
                   <th v-if="showLastResult" class="border border-black/15 p-0.5 text-center">Last Result</th>
-                  <th v-if="showStatus" class="border border-black/15 p-0.5 text-center">Status</th>
+                  <th v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">Status</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="(item, idx) in group.tests" :key="idx">
                   <td class="border border-black/15 p-0.5 text-center">{{ item.report_name || item.name }}</td>
                   <td class="border border-black/15 p-0.5 text-center" :style="getResultColorStyle(item.result_status_id_fk)">{{ item.result ?? "" }}</td>
+                  <td v-if="showStatus && modernReport" class="report-flag-cell"><ReportResultFlag :status-id="item.result_status_id_fk" :label="getStatusLabel(item.result_status_id_fk)" /></td>
                   <td class="border border-black/15 p-0.5 text-center">{{ item.unit }}</td>
                   <td class="border border-black/15 p-0.5 text-center">
                     <span v-for="range in getFilteredRanges(item?.test_reference_ranges)" :key="range.test_reference_range_id">
@@ -962,7 +968,7 @@ const generateBarcodeImage = (value) => {
                     </span>
                   </td>
                   <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center">{{ lastResultMap[item.name] || '' }}</td>
-                  <td v-if="showStatus" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(item.result_status_id_fk) }}</td>
+                  <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(item.result_status_id_fk) }}</td>
                 </tr>
               </tbody>
             </table>
@@ -972,24 +978,26 @@ const generateBarcodeImage = (value) => {
         <!-- ===== TEST GROUPS (with nested tests and cultures) ===== -->
         <template v-if="showTestName && printRecord?.test_groups?.length > 0">
           <section v-for="(group, gIndex) in printRecord.test_groups" :key="'tg-' + gIndex" class="test-group-section" :style="(group.is_print_alone == 1 || group.is_print_alone === true) ? 'page-break-before: always; break-before: page;' : ''">
-            <div class="section-header w-full font-bold border border-black p-1 text-center text-black bg-gray-300">{{ group.group_name }}</div>
+            <div class="section-header w-full font-bold border border-black p-1 text-center text-black bg-gray-300"><i v-if="modernReport" class="pi pi-filter mr-section-icon" aria-hidden="true"></i><span>{{ group.group_name }}</span><small v-if="modernReport" class="mr-section-caption">TEST RESULTS</small></div>
 
             <!-- Test Group Tests -->
-            <table v-if="group.tests?.length > 0" class="w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
+            <table v-if="group.tests?.length > 0" class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
               <thead>
                 <tr>
                   <th class="border border-black/15 p-0.5 text-center">Test</th>
                   <th class="border border-black/15 p-0.5 text-center">Result</th>
+                  <th v-if="showStatus && modernReport" class="report-flag-heading">Flag</th>
                   <th class="border border-black/15 p-0.5 text-center">Unit</th>
                   <th class="border border-black/15 p-0.5 text-center">Reference Ranges</th>
                   <th v-if="showLastResult" class="border border-black/15 p-0.5 text-center">Last Result</th>
-                  <th v-if="showStatus" class="border border-black/15 p-0.5 text-center">Status</th>
+                  <th v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">Status</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="(item, idx) in group.tests.filter(t => !isFormulaTarget(group, t))" :key="'tgt-' + idx">
                   <td class="border border-black/15 p-0.5 text-center">{{ item.report_name || item.name }}</td>
                   <td class="border border-black/15 p-0.5 text-center" :style="getResultColorStyle(item.result_status_id_fk)">{{ item.result ?? "" }}</td>
+                  <td v-if="showStatus && modernReport" class="report-flag-cell"><ReportResultFlag :status-id="item.result_status_id_fk" :label="getStatusLabel(item.result_status_id_fk)" /></td>
                   <td class="border border-black/15 p-0.5 text-center">{{ item.unit }}</td>
                   <td class="border border-black/15 p-0.5 text-center">
                     <span v-for="range in getFilteredRanges(item?.test_reference_ranges)" :key="range.test_reference_range_id || range.id">
@@ -999,11 +1007,12 @@ const generateBarcodeImage = (value) => {
                     </span>
                   </td>
                   <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center">{{ lastResultMap[item.name] || '' }}</td>
-                  <td v-if="showStatus" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(item.result_status_id_fk) }}</td>
+                  <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(item.result_status_id_fk) }}</td>
                 </tr>
                 <tr v-for="(f, fi) in (Array.isArray(group.formula) ? group.formula : [])" :key="'gf-' + fi">
                   <td class="border border-black/15 p-0.5 text-center font-bold">{{ getTestLabel(group, f.name) }}</td>
-                  <td class="border border-black/15 p-0.5 text-center font-bold">{{ evalFormulaValue(group, f) }}</td>
+                  <td class="border border-black/15 p-0.5 text-center font-bold" :style="modernReport ? getResultColorStyle(getFormulaStatusId(group, f)) : ''">{{ evalFormulaValue(group, f) }}</td>
+                  <td v-if="showStatus && modernReport" class="report-flag-cell"><ReportResultFlag :status-id="getFormulaStatusId(group, f)" :label="getStatusLabel(getFormulaStatusId(group, f))" /></td>
                   <td class="border border-black/15 p-0.5 text-center">{{ getTestUnit(group, f.name) }}</td>
                   <td class="border border-black/15 p-0.5 text-center">
                     <span v-for="range in getTestRanges(group, f.name)" :key="range.test_reference_range_id || range.id">
@@ -1013,28 +1022,30 @@ const generateBarcodeImage = (value) => {
                     </span>
                   </td>
                   <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center">{{ lastResultMap[getTestLabel(group, f.name)] || '' }}</td>
-                  <td v-if="showStatus" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(getFormulaStatusId(group, f)) }}</td>
+                  <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(getFormulaStatusId(group, f)) }}</td>
                 </tr>
               </tbody>
             </table>
 
             <!-- Test Group Cultures -->
             <template v-if="group.cultures?.length > 0">
-              <table class="w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
+              <table class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
                 <thead>
                   <tr>
                     <th class="border border-black/15 p-0.5 text-center">Culture</th>
                     <th class="border border-black/15 p-0.5 text-center">Result</th>
+                  <th v-if="showStatus && modernReport" class="report-flag-heading">Flag</th>
                     <th class="border border-black/15 p-0.5 text-center">Unit</th>
                     <th class="border border-black/15 p-0.5 text-center">Reference Ranges</th>
                     <th v-if="showLastResult" class="border border-black/15 p-0.5 text-center">Last Result</th>
-                    <th v-if="showStatus" class="border border-black/15 p-0.5 text-center">Status</th>
+                    <th v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-for="(item, idx) in group.cultures" :key="'tgc-' + idx">
                     <td class="border border-black/15 p-0.5 text-center">{{ item.name }}</td>
                     <td class="border border-black/15 p-0.5 text-center" :style="getResultColorStyle(item.result_status_id_fk)">{{ item.result ?? "" }}</td>
+                  <td v-if="showStatus && modernReport" class="report-flag-cell"><ReportResultFlag :status-id="item.result_status_id_fk" :label="getStatusLabel(item.result_status_id_fk)" /></td>
                     <td class="border border-black/15 p-0.5 text-center">{{ item.unit }}</td>
                     <td class="border border-black/15 p-0.5 text-center">
                       <span v-for="range in getFilteredRanges(item?.test_reference_ranges)" :key="range.id">
@@ -1043,7 +1054,7 @@ const generateBarcodeImage = (value) => {
                       </span>
                     </td>
                     <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center">{{ lastResultMap[item.name] || '' }}</td>
-                    <td v-if="showStatus" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(item.result_status_id_fk) }}</td>
+                    <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(item.result_status_id_fk) }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -1057,23 +1068,25 @@ const generateBarcodeImage = (value) => {
              tests so entered results are included. -->
         <template v-if="showTestName && packageGroupSections.length > 0">
           <section v-for="(group, gpIndex) in packageGroupSections" :key="'pkg-tg-' + gpIndex" class="test-group-section">
-            <div class="section-header w-full font-bold border border-black p-1 text-center text-black bg-gray-300">{{ group.group_name }}</div>
+            <div class="section-header w-full font-bold border border-black p-1 text-center text-black bg-gray-300"><i v-if="modernReport" class="pi pi-filter mr-section-icon" aria-hidden="true"></i><span>{{ group.group_name }}</span><small v-if="modernReport" class="mr-section-caption">TEST RESULTS</small></div>
 
-            <table v-if="group.rows.filter(t => !isFormulaTarget(group, t)).length || group.formula.length" class="w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
+            <table v-if="group.rows.filter(t => !isFormulaTarget(group, t)).length || group.formula.length" class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
               <thead>
                 <tr>
                   <th class="border border-black/15 p-0.5 text-center">Test</th>
                   <th class="border border-black/15 p-0.5 text-center">Result</th>
+                  <th v-if="showStatus && modernReport" class="report-flag-heading">Flag</th>
                   <th class="border border-black/15 p-0.5 text-center">Unit</th>
                   <th class="border border-black/15 p-0.5 text-center">Reference Ranges</th>
                   <th v-if="showLastResult" class="border border-black/15 p-0.5 text-center">Last Result</th>
-                  <th v-if="showStatus" class="border border-black/15 p-0.5 text-center">Status</th>
+                  <th v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">Status</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="(item, idx) in group.rows.filter(t => !isFormulaTarget(group, t))" :key="'ptgt-' + idx">
                   <td class="border border-black/15 p-0.5 text-center">{{ item.report_name || item.name }}</td>
                   <td class="border border-black/15 p-0.5 text-center" :style="getResultColorStyle(item.result_status_id_fk)">{{ item.result ?? "" }}</td>
+                  <td v-if="showStatus && modernReport" class="report-flag-cell"><ReportResultFlag :status-id="item.result_status_id_fk" :label="getStatusLabel(item.result_status_id_fk)" /></td>
                   <td class="border border-black/15 p-0.5 text-center">{{ item.unit }}</td>
                   <td class="border border-black/15 p-0.5 text-center">
                     <span v-for="range in getFilteredRanges(item?.test_reference_ranges)" :key="range.test_reference_range_id || range.id">
@@ -1083,11 +1096,12 @@ const generateBarcodeImage = (value) => {
                     </span>
                   </td>
                   <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center">{{ lastResultMap[item.name] || '' }}</td>
-                  <td v-if="showStatus" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(item.result_status_id_fk) }}</td>
+                  <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(item.result_status_id_fk) }}</td>
                 </tr>
                 <tr v-for="(f, fi) in group.formula" :key="'ptgf-' + fi">
                   <td class="border border-black/15 p-0.5 text-center font-bold">{{ getTestLabel(group, f.name) }}</td>
-                  <td class="border border-black/15 p-0.5 text-center font-bold">{{ evalFormulaValue(group, f) }}</td>
+                  <td class="border border-black/15 p-0.5 text-center font-bold" :style="modernReport ? getResultColorStyle(getFormulaStatusId(group, f)) : ''">{{ evalFormulaValue(group, f) }}</td>
+                  <td v-if="showStatus && modernReport" class="report-flag-cell"><ReportResultFlag :status-id="getFormulaStatusId(group, f)" :label="getStatusLabel(getFormulaStatusId(group, f))" /></td>
                   <td class="border border-black/15 p-0.5 text-center">{{ getTestUnit(group, f.name) }}</td>
                   <td class="border border-black/15 p-0.5 text-center">
                     <span v-for="range in getTestRanges(group, f.name)" :key="range.test_reference_range_id || range.id">
@@ -1097,7 +1111,7 @@ const generateBarcodeImage = (value) => {
                     </span>
                   </td>
                   <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center">{{ lastResultMap[getTestLabel(group, f.name)] || '' }}</td>
-                  <td v-if="showStatus" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(getFormulaStatusId(group, f)) }}</td>
+                  <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(getFormulaStatusId(group, f)) }}</td>
                 </tr>
               </tbody>
             </table>
@@ -1107,22 +1121,24 @@ const generateBarcodeImage = (value) => {
         <!-- ===== STANDALONE CULTURES ===== -->
         <template v-if="printRecord?.cultures?.length > 0">
           <section v-for="(culture, cIndex) in printRecord.cultures" :key="'sc-' + cIndex" class="test-group-section">
-            <div v-if="culture.category && showCategories && !printRecord.cultures.slice(0, cIndex).some(c => c.category === culture.category)" class="section-header w-full font-bold border border-black p-1 text-center text-black bg-gray-300">{{ culture.category }}</div>
-            <table class="w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
+            <div v-if="culture.category && showCategories && !printRecord.cultures.slice(0, cIndex).some(c => c.category === culture.category)" class="section-header w-full font-bold border border-black p-1 text-center text-black bg-gray-300"><i v-if="modernReport" class="pi pi-filter mr-section-icon" aria-hidden="true"></i><span>{{ culture.category }}</span><small v-if="modernReport" class="mr-section-caption">TEST RESULTS</small></div>
+            <table class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
               <thead>
                 <tr>
                   <th class="border border-black/15 p-0.5 text-center">Culture</th>
                   <th class="border border-black/15 p-0.5 text-center">Result</th>
+                  <th v-if="showStatus && modernReport" class="report-flag-heading">Flag</th>
                   <th class="border border-black/15 p-0.5 text-center">Unit</th>
                   <th class="border border-black/15 p-0.5 text-center">Reference Ranges</th>
                   <th v-if="showLastResult" class="border border-black/15 p-0.5 text-center">Last Result</th>
-                  <th v-if="showStatus" class="border border-black/15 p-0.5 text-center">Status</th>
+                  <th v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">Status</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
                   <td class="border border-black/15 p-0.5 text-center">{{ culture.name }}</td>
                   <td class="border border-black/15 p-0.5 text-center" :style="getResultColorStyle(culture.result_status_id_fk)">{{ culture.result ?? "" }}</td>
+                  <td v-if="showStatus && modernReport" class="report-flag-cell"><ReportResultFlag :status-id="culture.result_status_id_fk" :label="getStatusLabel(culture.result_status_id_fk)" /></td>
                   <td class="border border-black/15 p-0.5 text-center">{{ culture.unit }}</td>
                   <td class="border border-black/15 p-0.5 text-center">
                     <span v-for="range in getFilteredRanges(culture?.test_reference_ranges)" :key="range.id">
@@ -1131,7 +1147,7 @@ const generateBarcodeImage = (value) => {
                     </span>
                   </td>
                   <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center">{{ lastResultMap[culture.name] || '' }}</td>
-                  <td v-if="showStatus" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(culture.result_status_id_fk) }}</td>
+                  <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(culture.result_status_id_fk) }}</td>
                 </tr>
               </tbody>
             </table>
@@ -1143,23 +1159,25 @@ const generateBarcodeImage = (value) => {
              The package section remains only for cultures + formula rows. -->
         <template v-if="showTestName && printRecord?.packages?.length > 0">
           <section v-for="(pkg, pIndex) in printRecord.packages.filter(p => p.cultures?.length > 0 || (Array.isArray(p.formula) && p.formula.length > 0))" :key="'pkg-' + pIndex" class="test-group-section">
-            <div class="section-header w-full font-bold border border-black p-1 text-center text-black bg-gray-300">{{ pkg.name }}</div>
+            <div class="section-header w-full font-bold border border-black p-1 text-center text-black bg-gray-300"><i v-if="modernReport" class="pi pi-filter mr-section-icon" aria-hidden="true"></i><span>{{ pkg.name }}</span><small v-if="modernReport" class="mr-section-caption">TEST RESULTS</small></div>
 
-            <table class="w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
+            <table class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
               <thead>
                 <tr>
                   <th class="border border-black/15 p-0.5 text-center">Test</th>
                   <th class="border border-black/15 p-0.5 text-center">Result</th>
+                  <th v-if="showStatus && modernReport" class="report-flag-heading">Flag</th>
                   <th class="border border-black/15 p-0.5 text-center">Unit</th>
                   <th class="border border-black/15 p-0.5 text-center">Reference Ranges</th>
                   <th v-if="showLastResult" class="border border-black/15 p-0.5 text-center">Last Result</th>
-                  <th v-if="showStatus" class="border border-black/15 p-0.5 text-center">Status</th>
+                  <th v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">Status</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="(item, idx) in pkg.cultures" :key="'pc-' + idx">
                   <td class="border border-black/15 p-0.5 text-center">{{ item.name }}</td>
                   <td class="border border-black/15 p-0.5 text-center" :style="getResultColorStyle(item.result_status_id_fk)">{{ item.result ?? "" }}</td>
+                  <td v-if="showStatus && modernReport" class="report-flag-cell"><ReportResultFlag :status-id="item.result_status_id_fk" :label="getStatusLabel(item.result_status_id_fk)" /></td>
                   <td class="border border-black/15 p-0.5 text-center">{{ item.unit }}</td>
                   <td class="border border-black/15 p-0.5 text-center">
                     <span v-for="range in item?.test_reference_ranges" :key="range">
@@ -1167,11 +1185,12 @@ const generateBarcodeImage = (value) => {
                     </span>
                   </td>
                   <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center">{{ lastResultMap[item.name] || '' }}</td>
-                  <td v-if="showStatus" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(item.result_status_id_fk) }}</td>
+                  <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(item.result_status_id_fk) }}</td>
                 </tr>
                 <tr v-for="(f, fi) in (Array.isArray(pkg.formula) ? pkg.formula : [])" :key="'pf-' + fi">
                   <td class="border border-black/15 p-0.5 text-center font-bold">{{ getTestLabel(pkg, f.name) }}</td>
-                  <td class="border border-black/15 p-0.5 text-center font-bold">{{ evalFormulaValue(pkg, f) }}</td>
+                  <td class="border border-black/15 p-0.5 text-center font-bold" :style="modernReport ? getResultColorStyle(getFormulaStatusId(pkg, f)) : ''">{{ evalFormulaValue(pkg, f) }}</td>
+                  <td v-if="showStatus && modernReport" class="report-flag-cell"><ReportResultFlag :status-id="getFormulaStatusId(pkg, f)" :label="getStatusLabel(getFormulaStatusId(pkg, f))" /></td>
                   <td class="border border-black/15 p-0.5 text-center">{{ getTestUnit(pkg, f.name) }}</td>
                   <td class="border border-black/15 p-0.5 text-center">
                     <span v-for="range in getTestRanges(pkg, f.name)" :key="range.test_reference_range_id || range.id">
@@ -1181,7 +1200,7 @@ const generateBarcodeImage = (value) => {
                     </span>
                   </td>
                   <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center">{{ lastResultMap[getTestLabel(pkg, f.name)] || '' }}</td>
-                  <td v-if="showStatus" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(getFormulaStatusId(pkg, f)) }}</td>
+                  <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(getFormulaStatusId(pkg, f)) }}</td>
                 </tr>
               </tbody>
             </table>

@@ -1,3 +1,4 @@
+import { getReportTemplateCss } from "../utils/medicalReportTemplate.js";
 import { nextTick, onScopeDispose } from "vue";
 
 /**
@@ -288,6 +289,7 @@ export function usePrint() {
 
     // Print-table CSS overrides — applied on top of getResultCss() so the
     // result tables honour lab_settings.print_table_config.
+    getReportTemplateCss,
     getPrintTableCss: (config) => {
       const c = config || {};
       // Printers converting to black & white map colour to luminance

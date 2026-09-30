@@ -31,6 +31,7 @@ class LabSettingController extends Controller
                 'secondary_color' => '#14b8a6',
                 'font_family' => 'Tajawal',
                 'print_margins' => ['top' => 20, 'bottom' => 20, 'left' => 15, 'right' => 15],
+                'report_template' => 'classic',
                 'show_categories' => true,
                 'show_tests_on_barcode' => true,
                 'show_test_names' => true,
@@ -130,6 +131,7 @@ class LabSettingController extends Controller
             'tagline' => 'nullable|string|max:255',
             'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
             // Print settings
+            'report_template' => 'sometimes|required|in:classic,modern',
             'print_margins' => 'nullable|array',
             'print_margins.top' => 'nullable|numeric|min:0|max:100',
             'print_margins.bottom' => 'nullable|numeric|min:0|max:100',
@@ -208,6 +210,9 @@ class LabSettingController extends Controller
         }
 
         // Update print settings
+        if (array_key_exists('report_template', $validated)) {
+            $setting->report_template = $validated['report_template'];
+        }
         if (isset($validated['print_margins'])) {
             $setting->print_margins = $validated['print_margins'];
         }
@@ -292,6 +297,7 @@ class LabSettingController extends Controller
                 'lab_display_name' => null,
                 'tagline' => null,
                 'print_margins' => ['top' => 20, 'bottom' => 20, 'left' => 15, 'right' => 15],
+                'report_template' => 'classic',
                 'show_categories' => true,
                 'show_tests_on_barcode' => true,
                 'show_test_names' => true,
@@ -393,6 +399,7 @@ class LabSettingController extends Controller
             }
             $setting->update([
                 'print_margins' => null,
+                'report_template' => 'classic',
                 'show_categories' => true,
                 'show_tests_on_barcode' => true,
                 'show_test_names' => true,

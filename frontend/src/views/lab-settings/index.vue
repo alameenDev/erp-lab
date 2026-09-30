@@ -7,6 +7,8 @@ import { t, showAlertWithConfirm } from "@/utils/helper";
 import { useToast } from "@/composables/useToast";
 import { applyBranding } from "@/utils/branding";
 import DocumentPreview from "./DocumentPreview.vue";
+import ReportTemplatePicker from "./ReportTemplatePicker.vue";
+import ReportTemplatePreview from "./ReportTemplatePreview.vue";
 import LoyaltySettings from "./LoyaltySettings.vue";
 import AiAssistantSettings from "./AiAssistantSettings.vue";
 
@@ -142,6 +144,7 @@ const save = async () => {
           formData.append("font_family", settings.value.font_family || "Tajawal");
           formData.append("lab_display_name", settings.value.lab_display_name || "");
           formData.append("tagline", settings.value.tagline || "");
+          formData.append("report_template", settings.value.report_template || "classic");
           formData.append("print_margins[top]", settings.value.print_margins?.top ?? 20);
           formData.append("print_margins[bottom]", settings.value.print_margins?.bottom ?? 20);
           formData.append("print_margins[left]", settings.value.print_margins?.left ?? 15);
@@ -319,6 +322,7 @@ const resetBranding = async () => {
 <nav aria-label="Print settings sections" class="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-3">
 <button v-for="section in sections" :key="section.id" @click="printSection = section.id" :aria-pressed="printSection === section.id" :class="['rounded-xl px-3 py-2 text-sm transition-colors', printSection === section.id ? 'bg-primary-600 text-white' : 'text-slate-600 hover:bg-slate-100']">{{ section.label }}</button>
 </nav>
+                         <ReportTemplatePicker v-show="printSection === 'layout'" v-model="settings.report_template" :lang="lang" />
                          <!-- Margins -->
                          <div v-show="printSection === 'layout'" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
                               <h3 class="text-base font-semibold text-slate-800 mb-4">{{ t("print_margins") || "هوامش الطباعة" }}</h3>
@@ -646,7 +650,8 @@ const resetBranding = async () => {
 <DocumentPreview v-if="activeTab === 'print' && previewKind !== 'report'" :settings="settings" :documents="documents" :kind="previewKind" />
 <section v-if="activeTab === 'print' && previewKind === 'report'" class="overflow-auto rounded-xl border border-slate-200 bg-slate-100 p-4">
 <p class="mb-3 text-xs text-slate-500">{{ lang === 'en' ? 'Illustrative preview · sample data, not a clinical report' : 'معاينة توضيحية ببيانات تجريبية — ليست تقريراً طبياً' }}</p>
-<div class="min-w-[300px] bg-white p-4 shadow-sm" :style="{fontFamily: settings.font_family || 'Tajawal', filter: settings.print_black_white ? 'grayscale(1)' : 'none'}">
+<ReportTemplatePreview v-if="settings.report_template === 'modern'" :settings="settings" />
+<div v-else class="min-w-[300px] bg-white p-4 shadow-sm" :style="{fontFamily: settings.font_family || 'Tajawal', filter: settings.print_black_white ? 'grayscale(1)' : 'none'}">
 <h4 class="mb-3 text-center font-bold" :style="{color: settings.primary_color}">{{ settings.lab_display_name || 'Digital Lab' }}</h4>
 <p :style="{fontSize:(settings.patient_header_config?.name_size ?? 20)+'px',lineHeight:settings.patient_header_config?.line_height ?? 1.7}">{{ lang === 'en' ? 'Sample patient' : 'مريض تجريبي' }}</p>
 <p class="mb-4 text-slate-500" :style="{fontSize:(settings.patient_header_config?.info_size ?? 13)+'px'}">LAB-0001</p>
