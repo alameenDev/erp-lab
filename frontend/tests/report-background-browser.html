@@ -20,7 +20,7 @@ document.querySelector('#run').onclick=async()=>{document.querySelector('#checks
  const a=await renderMedicalReportPages({element:source,css,margins:{top:45,right:7,bottom:25,left:5},background:bg.toDataURL()});
  document.querySelector('#status').textContent='Rendering large margins';
  const b=await renderMedicalReportPages({element:source,css,margins:{top:62,right:25,bottom:38,left:22},background:bg.toDataURL()});
- check(a.length>=3 && b.length>=3,'long reports paginate and separate templates start a new sheet');
+ check(a.length>=3 && b.length>=3 && a.length<=8 && b.length<=8,`80-row reports paginate without one-row sheets (${a.length}/${b.length})`);
  const p=await pixels(a[0]),q=await pixels(b[0]);
  check(p.img.width===q.img.width && p.img.height===q.img.height,'sheet dimensions independent of margin settings');
  const sample=(ctx,x,y)=>Array.from(ctx.getImageData(x,y,1,1).data).join(',');

@@ -66,8 +66,10 @@ export function reportSlices(height, capacity, intervals = [], forcedBreaks = []
     let previous;
     do {
       previous = end;
+      // Adjacent rasterized rows can overlap by one rounded pixel. Do not
+      // cascade backwards through every row for that shared border.
       for (const [top, bottom] of intervals) {
-        if (top > start + 1 && top < end && bottom > end && bottom - top <= capacity) end = top;
+        if (top > start + 1 && top < end && bottom > end + 1 && bottom - top <= capacity) end = top;
       }
     } while (previous !== end);
     end = Math.max(start + 1, Math.floor(end));
@@ -137,7 +139,7 @@ export async function renderMedicalReportPages({ element, css, margins, backgrou
       if (available <= 0) throw new Error('بيانات رأس التقرير تتجاوز المساحة المتاحة. قلّل الهوامش أو حجم الخط.');
       const intervals = Array.from(target.querySelectorAll('tr,p,img,.sign,.section-header'), node => {
         const r = node.getBoundingClientRect();
-        return [Math.floor((r.top - rect.top) * scale) - headerPixels, Math.ceil((r.bottom - rect.top) * scale) - headerPixels];
+        return [Math.floor((r.top - rect.top) * scale) - headerPixels, Math.floor((r.bottom - rect.top) * scale) - headerPixels];
       }).filter(([top, bottom]) => top >= 0 && bottom > top);
       const breaks = Array.from(target.querySelectorAll('*')).filter(node => {
         const style = doc.defaultView.getComputedStyle(node);

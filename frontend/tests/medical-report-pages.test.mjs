@@ -47,3 +47,11 @@ test('a row larger than the page cannot hang pagination or discard results', () 
   assert.deepEqual(reportSlices(1600, 700, [[0, 1600]]), [[0, 700], [700, 1400], [1400, 1600]]);
   assert.throws(() => reportSlices(100, 0));
 });
+
+test('shared rounded row borders do not collapse every sheet to a single row', () => {
+  const rows = Array.from({ length: 80 }, (_, i) => [i * 61, (i + 1) * 61 + 1]);
+  const slices = reportSlices(4880, 1350, rows);
+  assert.equal(slices.length, 4);
+  assert.ok(slices.slice(0, -1).every(([a, b]) => b - a >= 1200));
+  assert.equal(slices.at(-1)[1], 4880);
+});
