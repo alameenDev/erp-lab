@@ -16,7 +16,9 @@ let current=[];
 const check=(condition,message)=>{if(!condition)throw new Error(message);document.querySelector('#checks').textContent+='PASS '+message+'\n';};
 const pixels=async(url)=>{const img=new Image();img.src=url;await img.decode();const cv=document.createElement('canvas');cv.width=img.width;cv.height=img.height;const ctx=cv.getContext('2d');ctx.drawImage(img,0,0);return {img,cv,ctx};};
 document.querySelector('#run').onclick=async()=>{document.querySelector('#checks').textContent='';document.querySelector('#status').textContent='Running';try{
+ document.querySelector('#status').textContent='Rendering small margins';
  const a=await renderMedicalReportPages({element:source,css,margins:{top:45,right:7,bottom:25,left:5},background:bg.toDataURL()});
+ document.querySelector('#status').textContent='Rendering large margins';
  const b=await renderMedicalReportPages({element:source,css,margins:{top:62,right:25,bottom:38,left:22},background:bg.toDataURL()});
  check(a.length>=3 && b.length>=3,'long reports paginate and separate templates start a new sheet');
  const p=await pixels(a[0]),q=await pixels(b[0]);
@@ -32,4 +34,5 @@ document.querySelector('#run').onclick=async()=>{document.querySelector('#checks
  current=b;document.querySelector('#pages').replaceChildren(...b.map((src)=>Object.assign(document.createElement('img'),{src,alt:'Verified sheet'})));document.querySelector('#status').textContent=`PASS — ${a.length} pages at small margins, ${b.length} at larger margins`;document.querySelector('#print').disabled=false;
  }catch(e){document.querySelector('#status').textContent='FAIL '+e.message;console.error(e)}};
 document.querySelector('#print').onclick=()=>printMedicalReportPages(current,window.open('about:blank','_blank'));
+document.querySelector('#status').textContent='Ready to run';
 </script></body></html>
