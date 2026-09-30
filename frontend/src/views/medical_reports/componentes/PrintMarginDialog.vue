@@ -1,104 +1,95 @@
 <script setup>
-import { ref, computed, onMounted } from "vue";
-import { $http } from "@/plugins/axios";
+import { ref, computed, watch } from "vue";
+import { useLabSettingsStore } from "@/store/modules/labSettings";
+import { reportMargins } from "@/utils/medicalReportPages";
 
 const visible = defineModel("visible");
-const props = defineProps({
-  background: { type: String, default: "" },
-});
+const props = defineProps({ background: { type: String, default: "" } });
 const emit = defineEmits(["preview", "background-change"]);
-
-const margins = ref({
-  top: 20,
-  bottom: 20,
-  left: 15,
-  right: 15,
-});
-
+const store = useLabSettingsStore();
+const margins = ref({ top: 20, bottom: 20, left: 15, right: 15, ...store.settings.print_margins });
 const showCategories = ref(true);
 const showTestsOnBarcode = ref(true);
 const showPatientName = ref(true);
-
 const bgPreview = ref(props.background || "");
 const bgInput = ref(null);
 const uploading = ref(false);
+const saving = ref(false);
+const loading = ref(false);
+const error = ref("");
 const lang = computed(() => localStorage.getItem("locale") || "ar");
 
-onMounted(async () => {
-  // Try to load from server first, fallback to localStorage
+watch(visible, async (open) => {
+  if (!open) return;
+  loading.value = true;
+  error.value = "";
   try {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    if (user?.id) {
-      const { data } = await $http.get(`/lab-margins/${user.id}`);
-      if (data?.margins) {
-        margins.value = data.margins;
-        localStorage.setItem("bgPrintMargins", JSON.stringify(data.margins));
-      } else {
-        const saved = localStorage.getItem("bgPrintMargins");
-        if (saved) margins.value = JSON.parse(saved);
-      }
-    } else {
-      const saved = localStorage.getItem("bgPrintMargins");
-      if (saved) margins.value = JSON.parse(saved);
-    }
-  } catch {
-    const saved = localStorage.getItem("bgPrintMargins");
-    if (saved) margins.value = JSON.parse(saved);
+    await store.GetSettings();
+    const s = store.settings;
+    margins.value = reportMargins(s.print_margins);
+    showCategories.value = s.show_categories !== false;
+    showTestsOnBarcode.value = s.show_tests_on_barcode !== false;
+    showPatientName.value = s.show_test_names !== false;
+    bgPreview.value = s.report_background || "";
+  } catch (err) {
+    error.value = err?.message || "تعذر تحميل إعدادات المختبر";
+  } finally {
+    loading.value = false;
   }
-  bgPreview.value = localStorage.getItem("reportBackground") || "";
-  const savedShowCat = localStorage.getItem("printShowCategories");
-  if (savedShowCat !== null) showCategories.value = savedShowCat === "true";
-  const savedShowTests = localStorage.getItem("printShowTestsOnBarcode");
-  if (savedShowTests !== null) showTestsOnBarcode.value = savedShowTests === "true";
-  const savedShowName = localStorage.getItem("printShowPatientName");
-  if (savedShowName !== null) showPatientName.value = savedShowName === "true";
-});
+}, { immediate: true });
 
 async function saveMargins() {
-  localStorage.setItem("bgPrintMargins", JSON.stringify(margins.value));
-  localStorage.setItem("printShowCategories", showCategories.value.toString());
-  localStorage.setItem("printShowTestsOnBarcode", showTestsOnBarcode.value.toString());
-  localStorage.setItem("printShowPatientName", showPatientName.value.toString());
+  if (saving.value || uploading.value || loading.value) return;
+  saving.value = true;
+  error.value = "";
   try {
-    await $http.post("/lab-margins", margins.value);
+    const normalized = reportMargins(margins.value);
+    const data = new FormData();
+    for (const [key, value] of Object.entries(normalized)) data.append(`print_margins[${key}]`, value);
+    data.append("show_categories", showCategories.value ? "1" : "0");
+    data.append("show_tests_on_barcode", showTestsOnBarcode.value ? "1" : "0");
+    data.append("show_test_names", showPatientName.value ? "1" : "0");
+    await store.UpdateSettings(data);
+    visible.value = false;
   } catch (err) {
-    console.error("Failed to save margins to server:", err);
+    error.value = err?.response?.data?.message || err?.message || "تعذر حفظ الإعدادات";
+  } finally {
+    saving.value = false;
   }
-  visible.value = false;
 }
 
 async function uploadBackground(e) {
   const file = e.target.files[0];
   if (!file) return;
-
-  // Preview locally
-  const reader = new FileReader();
-  reader.onload = (ev) => {
-    bgPreview.value = ev.target.result;
-    localStorage.setItem("reportBackground", ev.target.result);
-    emit("background-change", ev.target.result);
-  };
-  reader.readAsDataURL(file);
-
-  // Upload to server
   uploading.value = true;
+  error.value = "";
   try {
-    const formData = new FormData();
-    formData.append("background", file);
-    await $http.post("/lab-background", formData, { headers: { "Content-Type": "multipart/form-data" } });
+    const data = new FormData();
+    data.append("report_background", file);
+    await store.UpdateSettings(data);
+    bgPreview.value = store.settings.report_background || "";
+    emit("background-change", bgPreview.value);
   } catch (err) {
-    console.error("Failed to upload background to server:", err);
+    error.value = err?.response?.data?.message || "تعذر رفع الخلفية";
+  } finally {
+    uploading.value = false;
+    e.target.value = "";
+  }
+}
+
+async function removeBackground() {
+  if (uploading.value) return;
+  uploading.value = true;
+  error.value = "";
+  try {
+    await store.RemoveBackground();
+    bgPreview.value = "";
+    emit("background-change", "");
+  } catch (err) {
+    error.value = err?.response?.data?.message || "تعذر حذف الخلفية";
   } finally {
     uploading.value = false;
   }
-
-  e.target.value = "";
-}
-
-function removeBackground() {
-  bgPreview.value = "";
-  localStorage.removeItem("reportBackground");
-  emit("background-change", "");
 }
 </script>
 
@@ -126,6 +117,9 @@ function removeBackground() {
 
           <!-- Content -->
           <div class="p-6 space-y-6">
+            <p class="text-sm text-gray-600">الخلفية ثابتة بحجم A4. الهوامش تحرّك محتوى التقرير داخل كل ورقة، وتُطبّق على المعاينة والطباعة وملف PDF والواتساب.</p>
+            <p v-if="loading" role="status">جاري تحميل الإعدادات...</p>
+            <p v-if="error" role="alert" class="text-sm text-red-600">{{ error }}</p>
             <!-- Margins -->
             <div class="grid grid-cols-2 gap-4">
               <div>
@@ -219,7 +213,7 @@ function removeBackground() {
               </div>
               <button
                 @click="bgInput?.click()"
-                :disabled="uploading"
+                :disabled="uploading || saving || loading"
                 class="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-600 hover:border-primary-400 hover:text-primary-600 hover:bg-primary-50/50 transition-all disabled:opacity-50"
               >
                 <svg v-if="!uploading" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -240,12 +234,13 @@ function removeBackground() {
           <div class="flex justify-end gap-2 p-4 border-t border-gray-200">
             <button
               @click="saveMargins"
+              :disabled="saving || uploading || loading"
               class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center gap-2"
             >
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
               </svg>
-              حفظ
+              {{ saving ? 'جاري الحفظ...' : 'حفظ' }}
             </button>
           </div>
         </div>

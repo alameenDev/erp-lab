@@ -1,0 +1,45 @@
+name: Report page rendering
+on:
+  pull_request:
+    paths:
+      - 'frontend/src/utils/medicalReportPages.js'
+      - 'frontend/src/views/medical_reports/**'
+      - 'frontend/src/composables/usePrint.js'
+      - 'frontend/tests/*report*'
+      - '.github/workflows/report-pages.yml'
+permissions:
+  contents: read
+jobs:
+  report-pages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npm install --no-save --package-lock=false playwright@1.55.1
+        working-directory: frontend
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - run: node --test tests/medical-report-pages.test.mjs tests/print-lifecycle.test.mjs
+        working-directory: frontend
+      - name: Verify rendered sheets and native print
+        working-directory: frontend
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 5173 > /tmp/report-vite.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:5173/tests/report-background-browser.html > /dev/null && break
+            sleep 1
+          done
+          node tests/report-background.browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: report-page-rendering
+          path: frontend/test-results/report-pages
+          retention-days: 7

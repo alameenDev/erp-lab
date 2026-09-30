@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { reportMargins, reportPageCss, reportSlices } from '../src/utils/medicalReportPages.js';
+import { reportMargins, reportGeometry, reportSheetCss, reportSlices } from '../src/utils/medicalReportPages.js';
 
 test('asymmetric saved margins and zero remain unchanged; invalid values fall back', () => {
   assert.deepEqual(reportMargins({ top: '38', bottom: 27, left: 0, right: '12' }), { top: 38, right: 12, bottom: 27, left: 0 });
@@ -8,12 +8,18 @@ test('asymmetric saved margins and zero remain unchanged; invalid values fall ba
   assert.throws(() => reportMargins({ top: 160, bottom: 150 }));
 });
 
-test('native printing reserves margins on every sheet instead of the document body', () => {
-  const css = reportPageCss({ top: 38, right: 12, bottom: 27, left: 0 });
-  assert.match(css, /@page[^}]*margin: 38mm 12mm 27mm 0mm/);
-  assert.match(css, /top: -38mm/);
-  assert.match(css, /table-header-group/);
-  assert.doesNotMatch(css, /box-decoration-break/);
+test('margins move content while the A4 sheet geometry stays fixed', () => {
+  const a = reportGeometry({ top: 45, right: 7, bottom: 25, left: 5 });
+  const b = reportGeometry({ top: 62, right: 25, bottom: 38, left: 22 });
+  assert.deepEqual(a.paper, b.paper);
+  assert.ok(b.content.x > a.content.x && b.content.y > a.content.y);
+  assert.ok(b.content.width < a.content.width && b.content.height < a.content.height);
+  for (const g of [a, b]) {
+    assert.ok(g.content.x + g.content.width <= g.paper.width);
+    assert.ok(g.content.y + g.content.height <= g.paper.height);
+  }
+  assert.match(reportSheetCss, /@page[^}]*margin: 0/);
+  assert.doesNotMatch(reportSheetCss, /position:fixed|top: -|left: -/);
 });
 
 test('continuation pages cover all pixels exactly once and stay within the printable height', () => {
@@ -40,4 +46,12 @@ test('explicit page breaks and print-alone groups remain on new pages', () => {
 test('a row larger than the page cannot hang pagination or discard results', () => {
   assert.deepEqual(reportSlices(1600, 700, [[0, 1600]]), [[0, 700], [700, 1400], [1400, 1600]]);
   assert.throws(() => reportSlices(100, 0));
+});
+
+test('shared rounded row borders do not collapse every sheet to a single row', () => {
+  const rows = Array.from({ length: 80 }, (_, i) => [i * 61, (i + 1) * 61 + 1]);
+  const slices = reportSlices(4880, 1350, rows);
+  assert.equal(slices.length, 4);
+  assert.ok(slices.slice(0, -1).every(([a, b]) => b - a >= 1200));
+  assert.equal(slices.at(-1)[1], 4880);
 });
