@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useRoute } from "vue-router";
-import html2pdf from "html2pdf.js";
+import { createMedicalReportPdf, reportPageCss, waitForReportAssets } from "@/utils/medicalReportPages";
 import JsBarcode from "jsbarcode";
 import { useTemplatesStore } from "@/store/modules/template";
 import { useinvoicesStore } from "@/store/modules/invoices";
@@ -883,7 +883,7 @@ const getPatientReportLink = () => {
   return reportShareUrl.value || `${appBaseUrl}/result/${patientId.value}`;
 };
 
-const printReferralReport = () => window.print();
+const printReferralReport = () => printFromQR();
 const shareReferralReport = async () => {
   if (sharing.value) return;
   sharing.value = true;
@@ -906,34 +906,26 @@ const shareReferralReport = async () => {
 };
 
 const generatePDF = async () => {
-  const m = serverMargins.value;
   if (showWithForm.value) {
-    // Show content directly — same as print view
     showDirectView.value = true;
     nextTick(() => setTimeout(() => { computePageLayout(); fitToWidth(); }, 800));
     return;
   }
+  renderForCapture.value = true;
+  try {
+    await nextTick();
+    const pdf = await buildReportPdf();
+    pdfUrl.value = pdf.output("datauristring");
+  } finally {
+    renderForCapture.value = false;
+  }
+};
 
-  // Make the Result element visible so html2pdf can capture it
-  const element = contentToConvert.value;
-  if (element) element.style.display = "block";
-
-  const opt = {
-    margin: [m.top, m.right, m.bottom, m.left],
-    filename: "medical-report.pdf",
-    image: { type: "jpeg", quality: 0.98 },
-    html2canvas: { scale: 2 },
-    jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-  };
-
-  await html2pdf()
-    .set(opt)
-    .from(element)
-    .outputPdf("datauristring")
-    .then((pdfDataUri) => {
-      pdfUrl.value = pdfDataUri;
-      if (element) element.style.display = "none";
-    });
+const buildReportPdf = () => {
+  let css = printStyles.getResultCss() + printStyles.getPatientHeaderCss(reportSettings.value.patient_header_config) + printStyles.getPrintTableCss(reportSettings.value.print_table_config);
+  if (printBlackWhite.value) css += printStyles.getBlackWhiteCss();
+  return createMedicalReportPdf({ element: document.getElementById("Result"), css,
+    margins: serverMargins.value, background: showBackground.value ? backgroundUrl.value : null });
 };
 
 const getFilteredRanges = (referenceRanges) => {
@@ -983,7 +975,7 @@ const getResultColorStyle = (statusId) => {
 };
 
 // Print from QR page — opens new window with same technique as staff "Print with Background"
-const printFromQR = () => {
+const printFromQR = async () => {
   const printWindow = window.open("", "_blank");
   if (!printWindow) return;
 
@@ -996,29 +988,9 @@ const printFromQR = () => {
   const m = serverMargins.value;
   const bgImage = showBackground.value ? backgroundUrl.value : null;
 
-  // Same CSS as staff print flow: getResultCss() + body padding + fixed background
   let css = printStyles.getResultCss() + printStyles.getPatientHeaderCss(reportSettings.value.patient_header_config) + printStyles.getPrintTableCss(reportSettings.value.print_table_config);
   if (printBlackWhite.value) css += printStyles.getBlackWhiteCss();
-  css += `
-    body {
-      padding: ${m.top}mm ${m.right}mm ${m.bottom}mm ${m.left}mm !important;
-      -webkit-box-decoration-break: clone;
-      box-decoration-break: clone;
-      margin: 0 !important;
-    }
-    .pw-cell { padding-left: 0 !important; padding-right: 0 !important; }
-    .pw-cell.pw-top { padding-top: 0 !important; }
-    .pw-cell.pw-bottom { padding-bottom: 0 !important; }
-    .print-bg {
-      position: fixed;
-      top: 0; left: 0;
-      width: 210mm; height: 297mm;
-      z-index: -1;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-    .print-bg img { width: 100%; height: 100%; display: block; }
-  `;
+  css += reportPageCss(m);
 
   printWindow.document.write(`<!DOCTYPE html>
 <html><head><title>Print Result</title><style>${css}</style></head>
@@ -1028,106 +1000,26 @@ const printFromQR = () => {
 </body></html>`);
   printWindow.document.close();
 
-  const img = new Image();
-  img.onload = img.onerror = () => {
-    setTimeout(() => {
-      printWindow.focus();
-      printWindow.print();
-    }, 200);
-  };
-  if (bgImage) {
-    img.src = bgImage;
-  } else {
-    img.onload();
-  }
+  await waitForReportAssets(printWindow.document);
+  printWindow.focus();
+  printWindow.print();
 };
 
-// Download PDF — generates a high-quality A4 PDF matching the print layout
+// Share the same pagination, margins and letterhead with staff PDF exports.
 const downloadPDF = async () => {
   if (pdfGenerating.value) return;
   pdfGenerating.value = true;
-
-  // 1. Show the Result div on screen
   renderForCapture.value = true;
-  await nextTick();
-  window.scrollTo(0, 0);
-  await nextTick();
-
-  // 2. Wait for Vue to render child components
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-
-  const element = document.getElementById("Result");
-  if (!element) {
-    pdfGenerating.value = false;
-    renderForCapture.value = false;
-    return;
-  }
-
-  // 3. Remove all cross-origin images that can block html2canvas
-  //    Convert external <img> to data URLs, skip ones that fail
-  const images = element.querySelectorAll("img");
-  for (const img of images) {
-    if (img.src && !img.src.startsWith("data:")) {
-      try {
-        const response = await fetch(img.src);
-        const blob = await response.blob();
-        const dataUrl = await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result);
-          reader.readAsDataURL(blob);
-        });
-        img.src = dataUrl;
-      } catch {
-        // Remove images that can't be fetched — they'd block html2canvas
-        img.remove();
-      }
-    }
-  }
-
-  await nextTick();
-
-  // 4. Hide print-bg overlay
-  const printBgEl = element.querySelector(".print-bg");
-  if (printBgEl) printBgEl.style.display = "none";
-
-  // 5. Hide the fixed overlay so html2canvas doesn't try to render it
-  const overlay = document.querySelector(".pdf-capture-overlay");
-  if (overlay) overlay.style.display = "none";
-
-  const code = printRecord.value?.code || printRecord.value?.barcode || "";
-  const patientName = printRecord.value?.patient?.name || "";
-  const safeName = patientName.replace(/[^\w\u0600-\u06FF\s-]/g, "").trim();
-  const filename = safeName ? `${safeName}-${code}.pdf` : `lab-report-${code}.pdf`;
-
-  const opt = {
-    margin: 0,
-    filename,
-    image: { type: "jpeg", quality: 0.98 },
-    html2canvas: {
-      scale: 2,
-      useCORS: true,
-      allowTaint: false,
-      logging: false,
-      removeContainer: true,
-      imageTimeout: 5000,
-    },
-    jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-  };
-
   try {
-    // Generate PDF as blob and show it in browser
-    const pdfBlob = await html2pdf().set(opt).from(element).outputPdf("blob");
-    const url = URL.createObjectURL(pdfBlob);
-    pdfBlobUrl.value = url;
-
-    if (!hasToken) {
-      pdfDownloaded.value = true;
-    }
-  } catch (err) {
-    console.error("PDF generation failed:", err);
+    await nextTick();
+    const pdf = await buildReportPdf();
+    if (pdfBlobUrl.value) URL.revokeObjectURL(pdfBlobUrl.value);
+    pdfBlobUrl.value = URL.createObjectURL(pdf.output("blob"));
+    if (!hasToken) pdfDownloaded.value = true;
+  } catch (error) {
+    console.error("PDF generation failed:", error);
+    shareError.value = error?.message || "تعذر تجهيز التقرير";
   } finally {
-    if (printBgEl) printBgEl.style.display = "";
-    if (overlay) overlay.style.display = "";
     renderForCapture.value = false;
     pdfGenerating.value = false;
   }

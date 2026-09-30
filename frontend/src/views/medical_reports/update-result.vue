@@ -1418,6 +1418,8 @@
 </template>
 
 <script setup>
+import { createMedicalReportPdf, reportPageCss, waitForReportAssets } from "@/utils/medicalReportPages";
+
 import { messageTemplate } from '@/utils/labDocuments';
 import { prepareMedicalReportWhatsApp } from '@/utils/sharePatientPortal';
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
@@ -2541,68 +2543,23 @@ const downloadAsPdf = async (withBg, output = "download") => {
   if (downloadInProgress.value) return;
   downloadInProgress.value = true;
   printResultRef.value?.beginCapture?.();
-  await nextTick();
-  await new Promise((r) => setTimeout(r, 300));
-
-  let iframe = null;
   try {
-    const sourceEl = document.getElementById("Result");
-    if (!sourceEl) { toast.error(t("download_failed") || "Download failed"); return; }
-    const content = sourceEl.innerHTML;
-    if (!content?.trim()) { toast.error(t("download_failed") || "Download failed"); return; }
-
-    const rawMargins = labSettingsStore.settings.print_margins || {};
-    const margins = {
-      top: Number(rawMargins.top ?? 20),
-      bottom: Number(rawMargins.bottom ?? 20),
-      left: Number(rawMargins.left ?? 15),
-      right: Number(rawMargins.right ?? 15),
-    };
-    const bgImage = withBg ? reportBackground.value : null;
-
+    await nextTick();
     let css = printStyles.getResultCss() + printStyles.getPatientHeaderCss(labSettingsStore.settings.patient_header_config) + printStyles.getPrintTableCss(labSettingsStore.settings.print_table_config);
     if (labSettingsStore.settings.print_black_white) css += printStyles.getBlackWhiteCss();
-    css += `
-      body { padding: 0 !important; margin: 0 !important; background: #fff; }
-      .pw-cell { padding-left: 0 !important; padding-right: 0 !important; }
-      .pw-cell.pw-top { padding-top: 0 !important; }
-      .pw-cell.pw-bottom { padding-bottom: 0 !important; }
-      .print-bg { position: absolute; top: 0; left: 0; width: 210mm; height: 297mm; z-index: -1; }
-      .print-bg img { width: 100%; height: 100%; display: block; }
-    `;
-
-    iframe = document.createElement("iframe");
-    iframe.style.cssText = "position:fixed;left:-10000px;top:0;width:210mm;height:297mm;border:0;";
-    document.body.appendChild(iframe);
-    iframe.contentDocument.write(`<!DOCTYPE html><html><head><style>${css}</style></head><body>${bgImage ? `<div class="print-bg"><img src="${bgImage}" /></div>` : ""}${content}</body></html>`);
-    iframe.contentDocument.close();
-    await new Promise((r) => setTimeout(r, 500));
-
-    const html2canvas = (await import("html2canvas-pro")).default;
-    const { jsPDF } = await import("jspdf");
-    const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-    const pageW = 210, pageH = 297;
-    const wrappers = iframe.contentDocument.querySelectorAll("table.print-wrapper, .print-wrapper");
-    const targets = wrappers.length ? Array.from(wrappers) : [iframe.contentDocument.body];
-
-    for (let i = 0; i < targets.length; i++) {
-      const canvas = await html2canvas(targets[i], { scale: 2, useCORS: true, backgroundColor: null });
-      const imgData = canvas.toDataURL("image/jpeg", 0.95);
-      const imgW = pageW - margins.left - margins.right;
-      const imgH = (canvas.height * imgW) / canvas.width;
-      if (i > 0) pdf.addPage();
-      pdf.addImage(imgData, "JPEG", margins.left, margins.top, imgW, imgH);
-    }
-
+    const pdf = await createMedicalReportPdf({
+      element: document.getElementById("Result"), css,
+      margins: labSettingsStore.settings.print_margins,
+      background: withBg ? reportBackground.value : null,
+    });
     const safeName = (printRecord.value?.patient?.name || "patient").replace(/[^\p{L}\p{N}\s_-]/gu, "");
     const filename = `${safeName}-${printRecord.value?.barcode || ""}.pdf`;
     if (output === "download") pdf.save(filename);
     return { blob: pdf.output("blob"), filename };
-  } catch (e) {
-    console.error("[download]", e);
-    toast.error(t("download_failed") || "Download failed");
+  } catch (error) {
+    console.error("[download]", error);
+    toast.error(error?.message || t("download_failed") || "Download failed");
   } finally {
-    if (iframe?.parentNode) iframe.parentNode.removeChild(iframe);
     printResultRef.value?.endCapture?.();
     downloadInProgress.value = false;
   }
@@ -2610,34 +2567,27 @@ const downloadAsPdf = async (withBg, output = "download") => {
 
 const printDirectWithBackground = async () => {
   await nextTick();
-  await new Promise((r) => setTimeout(r, 150));
-  const content = document.getElementById("Result")?.innerHTML;
+  const content = document.getElementById("Result")?.outerHTML;
   if (!content) return;
   const printWindow = window.open("", "_blank");
-  if (!printWindow) return;
-
-  const margins = labSettingsStore.settings.print_margins || { top: 20, bottom: 20, left: 15, right: 15 };
-  const bgImage = reportBackground.value;
-
+  if (!printWindow) throw new Error('اسمح بالنوافذ المنبثقة للطباعة.');
   let css = printStyles.getResultCss() + printStyles.getPatientHeaderCss(labSettingsStore.settings.patient_header_config) + printStyles.getPrintTableCss(labSettingsStore.settings.print_table_config);
-    if (labSettingsStore.settings.print_black_white) css += printStyles.getBlackWhiteCss();
-  css += `
-    body { padding: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm !important; -webkit-box-decoration-break: clone; box-decoration-break: clone; margin: 0 !important; }
-    .pw-cell { padding-left: 0 !important; padding-right: 0 !important; }
-    .pw-cell.pw-top { padding-top: 0 !important; }
-    .pw-cell.pw-bottom { padding-bottom: 0 !important; }
-    .print-bg { position: fixed; top: 0; left: 0; width: 210mm; height: 297mm; z-index: -1; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .print-bg img { width: 100%; height: 100%; display: block; }
-  `;
-
-  printWindow.document.write(`<!DOCTYPE html><html><head><title>Print Result</title><style>${css}</style></head><body>${bgImage ? `<div class="print-bg"><img src="${bgImage}" /></div>` : ""}${content}</body></html>`);
+  if (labSettingsStore.settings.print_black_white) css += printStyles.getBlackWhiteCss();
+  css += reportPageCss(labSettingsStore.settings.print_margins);
+  printWindow.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Print Result</title><style>${css}</style></head><body>${content}</body></html>`);
   printWindow.document.close();
-
-  const img = new Image();
-  img.onload = img.onerror = () => {
-    setTimeout(() => { printWindow.focus(); printWindow.print(); }, 200);
-  };
-  if (bgImage) img.src = bgImage; else img.onload();
+  if (reportBackground.value) {
+    printWindow.document.querySelectorAll('.print-bg').forEach(node => node.remove());
+    const background = printWindow.document.createElement('div');
+    background.className = 'print-bg';
+    const image = printWindow.document.createElement('img');
+    image.src = reportBackground.value;
+    background.appendChild(image);
+    printWindow.document.body.prepend(background);
+  }
+  await waitForReportAssets(printWindow.document);
+  printWindow.focus();
+  printWindow.print();
 };
 
 const handlePrintSelection = async (selection) => {
@@ -2686,7 +2636,7 @@ const handlePrintSelection = async (selection) => {
         const margins = labSettingsStore.settings.print_margins || { top: 20, bottom: 20, left: 15, right: 15 };
         let css = printStyles.getResultCss() + printStyles.getPatientHeaderCss(labSettingsStore.settings.patient_header_config) + printStyles.getPrintTableCss(labSettingsStore.settings.print_table_config);
         if (labSettingsStore.settings.print_black_white) css += printStyles.getBlackWhiteCss();
-        css += `body { padding: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm !important; margin:0 !important; }`;
+        css += reportPageCss(margins);
         await printWithIframe('Result', css, 'Print Result', 100);
       }
     }
@@ -2786,3 +2736,4 @@ button[type="button"] {
   transition-duration: 200ms;
 }
 </style>
+
