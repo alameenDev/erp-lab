@@ -10,22 +10,47 @@ export function reportMargins(raw = {}) {
   return m;
 }
 
-// Body padding only protects the first/last fragment. @page reserves space
-// on EVERY physical sheet, including continuation pages within a long table.
-export function reportPageCss(raw) {
+// Every output uses complete A4 page images, already composed with margins.
+// Browser page margins therefore stay zero; the letterhead never compensates
+// for content margins with negative offsets.
+export const reportSheetCss = `
+  @page { size: A4 portrait; margin: 0 !important; }
+  html, body { margin: 0 !important; padding: 0 !important; }
+  .report-sheet { display:block; width:210mm; height:297mm; margin:0; padding:0;
+    overflow:hidden; break-inside:avoid; page-break-inside:avoid; }
+  .report-sheet + .report-sheet { break-before:page; page-break-before:always; }
+  .report-sheet img { display:block; width:100%; height:100%; }
+`;
+
+export function reportGeometry(raw, pixelsPerMm = 96 / 25.4 * 2) {
   const m = reportMargins(raw);
-  return `
-    @page { size: A4 portrait; margin: ${m.top}mm ${m.right}mm ${m.bottom}mm ${m.left}mm !important; }
-    html, body { margin: 0 !important; padding: 0 !important; }
-    #Result, .print-result-container { width: 100% !important; min-height: 0 !important; padding: 0 !important; margin: 0 !important; zoom: 1 !important; background: none !important; }
-    .print-wrapper { height: auto !important; min-height: 0 !important; }
-    .pw-cell, .pw-cell.pw-top, .pw-cell.pw-bottom { padding: 0 !important; }
-    .page-margin-spacer { display: none !important; }
-    .print-wrapper > thead { display: table-header-group; }
-    .print-wrapper > tfoot { display: table-footer-group; }
-    .print-bg { display: block !important; position: fixed !important; top: -${m.top}mm !important; left: -${m.left}mm !important; width: 210mm !important; height: 297mm !important; z-index: -1; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-    .print-bg img { display: block; width: 100%; height: 100%; }
-  `;
+  const paper = { width: Math.round(210 * pixelsPerMm), height: Math.round(297 * pixelsPerMm) };
+  return { paper, content: {
+    x: Math.round(m.left * pixelsPerMm), y: Math.round(m.top * pixelsPerMm),
+    width: Math.floor((210 - m.left - m.right) * pixelsPerMm),
+    height: Math.floor((297 - m.top - m.bottom) * pixelsPerMm),
+  } };
+}
+
+export async function printMedicalReportPages(pages, printWindow) {
+  if (!printWindow || printWindow.closed) throw new Error('اسمح بالنوافذ المنبثقة للطباعة.');
+  if (!pages?.length) throw new Error('التقرير غير جاهز للطباعة.');
+  const doc = printWindow.document;
+  doc.open();
+  doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>Medical report</title><style>${reportSheetCss}</style></head><body></body></html>`);
+  doc.close();
+  for (const source of pages) {
+    const sheet = doc.createElement('div');
+    sheet.className = 'report-sheet';
+    const img = doc.createElement('img');
+    img.src = source;
+    img.alt = 'Medical report';
+    sheet.appendChild(img);
+    doc.body.appendChild(sheet);
+  }
+  await waitForReportAssets(doc);
+  printWindow.focus();
+  printWindow.print();
 }
 
 // Return disjoint pixel ranges: never re-draw an entire tall image at negative
@@ -60,11 +85,10 @@ export async function waitForReportAssets(doc) {
   })));
 }
 
-export async function createMedicalReportPdf({ element, css, margins, background }) {
+export async function renderMedicalReportPages({ element, css, margins, background }) {
   if (!element) throw new Error('تعذر العثور على محتوى التقرير.');
   const m = reportMargins(margins);
   const width = 210 - m.left - m.right;
-  const height = 297 - m.top - m.bottom;
   const frame = document.createElement('iframe');
   frame.setAttribute('aria-hidden', 'true');
   frame.style.cssText = `position:fixed;left:-10000px;top:0;width:${width}mm;height:297mm;border:0;`;
@@ -74,7 +98,7 @@ export async function createMedicalReportPdf({ element, css, margins, background
     doc.open();
     doc.write(`<!doctype html><html><head><meta charset="utf-8"><style>${css}
       html,body { margin:0!important; padding:0!important; width:${width}mm!important; background:transparent!important; }
-      #Result { display:block!important; width:100%!important; padding:0!important; margin:0!important; min-height:0!important; zoom:1!important; background:none!important; }
+      #Result { display:block!important; position:static!important; left:auto!important; top:auto!important; width:100%!important; padding:0!important; margin:0!important; min-height:0!important; zoom:1!important; background:none!important; }
       .print-wrapper { width:100%!important; height:auto!important; min-height:0!important; margin:0!important; background:none!important; }
       .pw-cell,.pw-cell.pw-top,.pw-cell.pw-bottom { padding:0!important; }
       .print-bg,.page-margin-spacer { display:none!important; }
@@ -84,8 +108,8 @@ export async function createMedicalReportPdf({ element, css, margins, background
     clone.querySelectorAll('.page-margin-spacer,.print-bg').forEach(node => node.remove());
     doc.body.appendChild(clone);
     await waitForReportAssets(doc);
-    const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas-pro'), import('jspdf')]);
-    const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+    const { default: html2canvas } = await import('html2canvas-pro');
+    const pages = [];
     let letterhead;
     if (background) {
       const img = doc.createElement('img');
@@ -96,23 +120,20 @@ export async function createMedicalReportPdf({ element, css, margins, background
       });
       img.src = background;
       await loaded;
-      const canvas = doc.createElement('canvas');
-      canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
-      canvas.getContext('2d').drawImage(img, 0, 0);
-      letterhead = canvas.toDataURL('image/png');
+      letterhead = img;
     }
     const wrappers = Array.from(clone.querySelectorAll('table.print-wrapper'));
     const targets = wrappers.length ? wrappers : [clone];
-    let pageNumber = 0;
     for (const target of targets) {
       const rect = target.getBoundingClientRect();
       const canvas = await html2canvas(target, { scale: 2, useCORS: true, allowTaint: false, logging: false, backgroundColor: null });
       if (!rect.width || !canvas.width || !canvas.height) throw new Error('التقرير فارغ أو غير جاهز للطباعة.');
       const scale = canvas.height / rect.height;
-      const pixelsPerMm = canvas.width / width;
+      const pixelsPerMm = 96 / 25.4 * 2;
       const header = target.querySelector(':scope > thead');
       const headerPixels = header ? Math.ceil((header.getBoundingClientRect().bottom - rect.top) * scale) : 0;
-      const available = Math.floor(height * pixelsPerMm) - headerPixels;
+      const geometry = reportGeometry(m, pixelsPerMm);
+      const available = geometry.content.height - headerPixels;
       if (available <= 0) throw new Error('بيانات رأس التقرير تتجاوز المساحة المتاحة. قلّل الهوامش أو حجم الخط.');
       const intervals = Array.from(target.querySelectorAll('tr,p,img,.sign,.section-header'), node => {
         const r = node.getBoundingClientRect();
@@ -125,18 +146,36 @@ export async function createMedicalReportPdf({ element, css, margins, background
       const slices = reportSlices(canvas.height - headerPixels, available, intervals, breaks);
       // A header-only report still produces one page.
       for (const [start, end] of slices.length ? slices : [[0, 0]]) {
-        if (pageNumber++) pdf.addPage();
-        if (letterhead) pdf.addImage(letterhead, 'PNG', 0, 0, 210, 297, 'letterhead', 'FAST');
         const page = doc.createElement('canvas');
-        page.width = canvas.width; page.height = headerPixels + end - start;
+        page.width = geometry.paper.width; page.height = geometry.paper.height;
         const ctx = page.getContext('2d');
-        if (headerPixels) ctx.drawImage(canvas, 0, 0, canvas.width, headerPixels, 0, 0, canvas.width, headerPixels);
-        if (end > start) ctx.drawImage(canvas, 0, headerPixels + start, canvas.width, end - start, 0, headerPixels, canvas.width, end - start);
-        pdf.addImage(page.toDataURL('image/png'), 'PNG', m.left, m.top, width, page.height / pixelsPerMm, undefined, 'FAST');
+        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, page.width, page.height);
+        // Background coordinates depend only on the sheet, NEVER on margins.
+        if (letterhead) ctx.drawImage(letterhead, 0, 0, page.width, page.height);
+        const { x, y, width: contentWidth, height: contentHeight } = geometry.content;
+        ctx.save();
+        ctx.beginPath(); ctx.rect(x, y, contentWidth, contentHeight); ctx.clip();
+        if (headerPixels) ctx.drawImage(canvas, 0, 0, canvas.width, headerPixels, x, y, canvas.width, headerPixels);
+        if (end > start) ctx.drawImage(canvas, 0, headerPixels + start, canvas.width, end - start, x, y + headerPixels, canvas.width, end - start);
+        ctx.restore();
+        pages.push(page.toDataURL('image/png'));
       }
     }
-    return pdf;
+    return pages;
   } finally {
     frame.remove();
   }
+}
+
+// Preview, download, print and WhatsApp consume the same complete sheets.
+export async function createMedicalReportPdf(options) {
+  const pages = options.pages || await renderMedicalReportPages(options);
+  if (!pages.length) throw new Error('التقرير غير جاهز.');
+  const { jsPDF } = await import('jspdf');
+  const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+  pages.forEach((page, index) => {
+    if (index) pdf.addPage();
+    pdf.addImage(page, 'PNG', 0, 0, 210, 297, undefined, 'FAST');
+  });
+  return pdf;
 }

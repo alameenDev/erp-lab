@@ -1,5 +1,5 @@
 <script setup>
-import { createMedicalReportPdf, reportPageCss, waitForReportAssets } from "@/utils/medicalReportPages";
+import { createMedicalReportPdf, renderMedicalReportPages, printMedicalReportPages } from "@/utils/medicalReportPages";
 
 import { ref, computed, watch, onMounted, nextTick } from "vue";
 import { storeToRefs } from "pinia";
@@ -232,10 +232,7 @@ const printParcode = async (data) => {
 
 
 // Capture the rendered #Result element to a PDF. Uses the SAME approach as
-// printDirectWithBackground: build a fresh document in an off-screen iframe
-// (same HTML, same CSS) and run html2pdf against THAT — avoiding all the
-// Vue reactivity / hidden-element / id-collision issues you'd hit if you
-// tried to capture the live in-page element.
+// Prepare complete A4 sheets once for every report action.
 const downloadAsPdf = async (withBg, output = "download") => {
   if (downloadInProgress.value) return;
   downloadInProgress.value = true;
@@ -244,15 +241,16 @@ const downloadAsPdf = async (withBg, output = "download") => {
     await nextTick();
     let css = printStyles.getResultCss() + printStyles.getPatientHeaderCss(labSettingsStore.settings.patient_header_config) + printStyles.getPrintTableCss(labSettingsStore.settings.print_table_config);
     if (labSettingsStore.settings.print_black_white) css += printStyles.getBlackWhiteCss();
-    const pdf = await createMedicalReportPdf({
+    const pages = await renderMedicalReportPages({
       element: document.getElementById("Result"), css,
       margins: labSettingsStore.settings.print_margins,
       background: withBg ? reportBackground.value : null,
     });
+    const pdf = await createMedicalReportPdf({ pages });
     const safeName = (printRecord.value?.patient?.name || "patient").replace(/[^\p{L}\p{N}\s_-]/gu, "");
     const filename = `${safeName}-${printRecord.value?.barcode || ""}.pdf`;
     if (output === "download") pdf.save(filename);
-    return { blob: pdf.output("blob"), filename };
+    return { blob: pdf.output("blob"), filename, pages };
   } catch (error) {
     console.error("[download]", error);
     toast.error(error?.message || t("download_failed") || "Download failed");
@@ -262,38 +260,13 @@ const downloadAsPdf = async (withBg, output = "download") => {
   }
 };
 
-const printDirectWithBackground = async () => {
-  await nextTick();
-  const content = document.getElementById("Result")?.outerHTML;
-  if (!content) return;
-  const printWindow = window.open("", "_blank");
-  if (!printWindow) throw new Error('اسمح بالنوافذ المنبثقة للطباعة.');
-  let css = printStyles.getResultCss() + printStyles.getPatientHeaderCss(labSettingsStore.settings.patient_header_config) + printStyles.getPrintTableCss(labSettingsStore.settings.print_table_config);
-  if (labSettingsStore.settings.print_black_white) css += printStyles.getBlackWhiteCss();
-  css += reportPageCss(labSettingsStore.settings.print_margins);
-  printWindow.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Print Result</title><style>${css}</style></head><body>${content}</body></html>`);
-  printWindow.document.close();
-  if (reportBackground.value) {
-    printWindow.document.querySelectorAll('.print-bg').forEach(node => node.remove());
-    const background = printWindow.document.createElement('div');
-    background.className = 'print-bg';
-    const image = printWindow.document.createElement('img');
-    image.src = reportBackground.value;
-    background.appendChild(image);
-    printWindow.document.body.prepend(background);
-  }
-  await waitForReportAssets(printWindow.document);
-  printWindow.focus();
-  printWindow.print();
-};
-
-// Handle print with selected items
 const handlePrintSelection = async (selection) => {
   if (reportActionBusy.value || !printRecord.value) return;
   reportActionBusy.value = true;
   const previewTab = selection.action === "preview" ? window.open("about:blank", "_blank") : null;
   const whatsappTab = selection.action === "whatsapp" ? window.open("about:blank", "_blank") : null;
   // Save original data (deep copy arrays)
+  const printTab = ["print", "print-download"].includes(selection.action) ? window.open("about:blank", "_blank") : null;
   const original = {
     tests: [...(printRecord.value.tests || [])],
     cultures: [...(printRecord.value.cultures || [])],
@@ -312,11 +285,11 @@ const handlePrintSelection = async (selection) => {
     await nextTick();
     await new Promise((r) => setTimeout(r, 200));
     const withBg = selection.withBackground && Boolean(reportBackground.value);
-    if (selection.action === "download" || selection.action === "print-download") {
-      const result = await downloadAsPdf(withBg);
-      if (!result) return;
-    } else if (selection.action === "preview") {
-      const result = await downloadAsPdf(withBg, "blob");
+    if (["print", "print-download"].includes(selection.action) && !printTab) throw new Error('اسمح بالنوافذ المنبثقة للطباعة.');
+    const result = await downloadAsPdf(withBg, ["download", "print-download"].includes(selection.action) ? "download" : "blob");
+    if (!result) { printTab?.close(); previewTab?.close(); whatsappTab?.close(); return; }
+
+    if (selection.action === "preview") {
       if (result) {
         const url = URL.createObjectURL(result.blob);
         if (previewTab) previewTab.location.href = url;
@@ -325,7 +298,6 @@ const handlePrintSelection = async (selection) => {
       } else previewTab?.close();
     } else if (selection.action === "whatsapp") {
       const share = await prepareMedicalReportWhatsApp(printRecord.value, labSettingsStore.settings, printRecord.value?.lab?.name);
-      const result = await downloadAsPdf(withBg, "blob");
       if (!result) { whatsappTab?.close(); return; }
       const url = URL.createObjectURL(result.blob);
       const link = document.createElement("a");
@@ -337,17 +309,12 @@ const handlePrintSelection = async (selection) => {
       toast.success("نُزّل PDF وفُتحت محادثة المريض مع رابط البوابة. أرفق الملف ثم أرسل الرسالة.");
     }
     if (selection.action === "print" || selection.action === "print-download") {
-      if (withBg) await printDirectWithBackground();
-      else {
-    const margins = labSettingsStore.settings.print_margins || { top: 20, bottom: 20, left: 15, right: 15 };
-    let css = printStyles.getResultCss() + printStyles.getPatientHeaderCss(labSettingsStore.settings.patient_header_config) + printStyles.getPrintTableCss(labSettingsStore.settings.print_table_config);
-    if (labSettingsStore.settings.print_black_white) css += printStyles.getBlackWhiteCss();
-    css += reportPageCss(margins);
-    await printWithIframe("Result", css, "Print Result", 100);
-      }
+      await printMedicalReportPages(result.pages, printTab);
     }
+
     if (selection.action !== "preview") printSelectVisible.value = false;
   } catch (error) {
+    printTab?.close();
     previewTab?.close();
     whatsappTab?.close();
     console.error("Report action failed:", error);

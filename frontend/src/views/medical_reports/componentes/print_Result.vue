@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useRoute } from "vue-router";
-import { createMedicalReportPdf, reportPageCss, waitForReportAssets } from "@/utils/medicalReportPages";
+import { createMedicalReportPdf, renderMedicalReportPages, printMedicalReportPages } from "@/utils/medicalReportPages";
 import JsBarcode from "jsbarcode";
 import { useTemplatesStore } from "@/store/modules/template";
 import { useinvoicesStore } from "@/store/modules/invoices";
@@ -30,8 +30,8 @@ const { GetinvoicesById } = invoicesStore;
 const { printStyles } = usePrint();
 
 const today = ref("");
-const pdfUrl = ref(null);
-const documentHeight = ref(0);
+const reportPages = ref([]);
+const reportLoaded = ref(false);
 const patientId = ref(null);
 const template = ref({});
 const contentToConvert = ref(null);
@@ -40,13 +40,8 @@ const backgroundUrl = ref(null);
 const showDirectView = ref(false);
 const reportNotReady = ref(false);
 const pdfGenerating = ref(false);
-const pdfDownloaded = ref(false);
 const renderForCapture = ref(false);
-const pdfBlobUrl = ref(null);
-// Exposed so the parent (e.g. /medical_reports list) can flip the
-// #Result element on for an html2pdf capture and off after — the
-// element's display is bound to (showDirectView || renderForCapture)
-// in the template, so imperative style writes get overridden otherwise.
+// Parents expose the source only while preparing a report.
 defineExpose({
   beginCapture: () => { renderForCapture.value = true; },
   endCapture: () => { renderForCapture.value = false; },
@@ -69,190 +64,10 @@ const serverMargins = ref(
     ? (labSettingsStore.settings.print_margins || { ..._defaultMargins })
     : { ..._defaultMargins }
 );
-const bgPageHeight = ref(null); // computed page height in px from background image ratio
-
-// Background: controlled by ?form=1 query param for both public and staff
-const showBackground = computed(() => {
-  return showWithForm.value;
-});
-
-// Lay the form-mode (?form=1) report out as discrete A4 pages: insert margin
-// spacers at each page boundary and publish --page-height for the page-break
-// overlay. onePageHeight is the on-screen px height of one A4 page — derived
-// from the letterhead image ratio when a background exists, otherwise from the
-// plain A4 ratio (297/210). This is what makes page start/end visible.
-const applyPageLayout = (onePageHeight) => {
-  nextTick(() => {
-    const el = document.getElementById("Result");
-    if (!el || !onePageHeight) return;
-    bgPageHeight.value = onePageHeight;
-
-    const containerWidth = el.offsetWidth;
-    // Convert mm margins to px (containerWidth = 210mm equivalent)
-    const pxPerMm = containerWidth / 210;
-    const topMarginPx = serverMargins.value.top * pxPerMm;
-    const bottomMarginPx = serverMargins.value.bottom * pxPerMm;
-    // Space to insert at each page break = footer margin + header margin of next page
-    const breakSpacerHeight = bottomMarginPx + topMarginPx;
-
-    // Find all section-level elements inside the content cell
-    const contentCell = el.querySelector(".print-wrapper tbody .pw-cell");
-    if (!contentCell) {
-      el.style.minHeight = `${onePageHeight}px`;
-      el.style.setProperty("--page-height", `${onePageHeight}px`);
-      return;
-    }
-
-    // Usable content area per page (between header margin and footer margin)
-    const thead = el.querySelector(".print-wrapper thead");
-    const theadHeight = thead ? thead.offsetHeight : 0;
-    const firstPageStart = topMarginPx + theadHeight;
-    const usableFirstPage = onePageHeight - firstPageStart - bottomMarginPx;
-    const usableNextPage = onePageHeight - topMarginPx - bottomMarginPx;
-
-    // Remove previously inserted spacers before recalculating
-    contentCell.querySelectorAll(".page-margin-spacer").forEach((s) => s.remove());
-
-    // Walk through sections and insert spacers at page boundaries
-    const sections = Array.from(contentCell.querySelectorAll(":scope > section, :scope > table, :scope > div:not(.print-bg):not(.page-margin-spacer)"));
-    let accHeight = 0;
-    let currentPageRemaining = usableFirstPage;
-    let pageIndex = 1;
-
-    for (const section of sections) {
-      const sectionHeight = section.offsetHeight;
-
-      if (accHeight + sectionHeight > currentPageRemaining && accHeight > 0) {
-        const spacer = document.createElement("div");
-        spacer.className = "page-margin-spacer";
-        const remainingOnPage = currentPageRemaining - accHeight;
-        const spacerH = remainingOnPage + breakSpacerHeight;
-        spacer.style.height = `${spacerH}px`;
-        section.parentNode.insertBefore(spacer, section);
-
-        accHeight = 0;
-        currentPageRemaining = usableNextPage;
-        pageIndex++;
-      }
-
-      accHeight += sectionHeight;
-    }
-
-    // Size the container to a WHOLE number of pages so the last page footer band
-    // aligns to a page bottom and the page-break overlay tiles evenly.
-    el.style.minHeight = `${pageIndex * onePageHeight}px`;
-    el.style.setProperty("--page-height", `${onePageHeight}px`);
-  });
-};
-
-const computePageLayout = () => {
-  void applyPageLayout; // legacy continuous-mode paginator, no longer invoked
-  // Card mode (?form=1): every <table class="print-wrapper"> is its own A4
-  // card. A card longer than one page (the wrapper holding all non-template
-  // tests) spans several letterhead tiles, so per card: insert margin spacers
-  // at each in-card page boundary (content steps over the letterhead
-  // header/footer bands) and round the card height up to whole pages so the
-  // last letterhead tile isn't cut mid-image.
-  if (!showBackground.value) return;
-  nextTick(() => {
-    const el = document.getElementById("Result");
-    if (!el) return;
-    el.querySelectorAll("table.print-wrapper").forEach((wrap) => {
-      if (!wrap.offsetWidth) return;
-      // CSS reference px per mm (96dpi) — MUST match the CSS 297mm letterhead
-      // tile. Deriving pageH from the card width was wrong: .paged adds 6px
-      // side padding, so width < 210mm → pageH < the 297mm tile → ceil()
-      // over-counted pages (one empty page per card) and spacers drifted.
-      const pxPerMm = 96 / 25.4;
-      const pageH = 297 * pxPerMm;
-      const topPx = (Number(serverMargins.value.top) || 0) * pxPerMm;
-      const botPx = (Number(serverMargins.value.bottom) || 0) * pxPerMm;
-      const cell = wrap.querySelector("tbody .pw-cell");
-      if (!cell) return;
-      // Clear previous spacers before recalculating (resize / re-render)
-      cell.querySelectorAll(".page-margin-spacer").forEach((s) => s.remove());
-      const thead = wrap.querySelector("thead");
-      const theadH = thead ? thead.offsetHeight : 0; // includes top-margin padding
-      const usableFirst = pageH - theadH - botPx;
-      const usableNext = pageH - topPx - botPx;
-      // Reset explicit heights / shaved padding from a previous run.
-      wrap.style.height = "";
-      wrap.style.minHeight = "";
-      cell.style.removeProperty("padding-bottom");
-      const sections = Array.from(
-        cell.querySelectorAll(":scope > section, :scope > table, :scope > div:not(.page-margin-spacer)")
-      );
-      let acc = 0;
-      let remaining = usableFirst;
-      for (const section of sections) {
-        // offsetHeight excludes margins (.my-5 etc.) — include them or page
-        // boundaries drift further off on every page of a long card.
-        const cs = window.getComputedStyle(section);
-        const h = section.offsetHeight + (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0);
-        if (acc + h > remaining && acc > 0) {
-          const spacer = document.createElement("div");
-          spacer.className = "page-margin-spacer";
-          // leftover on this page + bottom margin + next page's top margin
-          spacer.style.height = `${remaining - acc + botPx + topPx}px`;
-          section.parentNode.insertBefore(spacer, section);
-          acc = 0;
-          remaining = usableNext;
-        }
-        acc += h;
-      }
-      // If the card spills past the last page edge by no more than the bottom
-      // margin, shave this card's bottom padding so it fits — otherwise the
-      // whole-page rounding below would add an empty letterhead-only page for
-      // a few overflowing pixels. (setProperty important: the CSS padding rule
-      // is !important, plain inline style would lose.)
-      let fullH = wrap.offsetHeight;
-      const pastEdge = fullH % pageH;
-      if (pastEdge > 1 && pastEdge <= botPx) {
-        cell.style.setProperty("padding-bottom", `${Math.max(0, botPx - pastEdge - 2)}px`, "important");
-        fullH = wrap.offsetHeight;
-      }
-      // Round the card up to WHOLE pages from its real rendered height — a
-      // single section taller than one page grows the table past the page
-      // edge without a spacer, which left a cut-off letterhead tile peeking
-      // at the card bottom. Ceil of the actual height fixes that.
-      // Small tolerance so a card that's a few px over (borders/rounding)
-      // doesn't get a whole extra empty page.
-      const totalPages = Math.max(1, Math.ceil(fullH / pageH - 0.02));
-      wrap.style.height = `${totalPages * pageH}px`;
-      wrap.style.minHeight = `${totalPages * pageH}px`;
-    });
-  });
-};
-
-// Mobile fit-to-width: the report is a fixed 210mm "paper". On narrow screens
-// it overflows and the user must pinch-zoom out to read it. CSS media queries
-// are unreliable here (in-app / iOS browsers use a wider layout viewport), so
-// scale the whole #Result uniformly with `zoom` based on the REAL viewport
-// width. zoom reflows (no leftover scroll space) and scales content + bg +
-// page-height math together, so background-mode alignment is preserved.
-// Reset to print before printing (handled by @media print + printFromQR window).
-let fitTimer = null;
-const fitToWidth = () => {
-  const el = document.getElementById("Result");
-  if (!el || !(showDirectView.value || renderForCapture.value)) return;
-  if (renderForCapture.value) { el.style.zoom = ""; return; } // never scale during PDF capture
-  el.style.zoom = ""; // reset to measure natural (210mm) width
-  // Plain (non-form) short reports: don't keep a full 297mm blank tail.
-  // Form mode (?form=1) keeps its paginated min-height from applyPageLayout.
-  if (!showBackground.value) el.style.minHeight = "auto";
-  const natural = el.offsetWidth;
-  if (!natural) return;
-  const avail = (window.visualViewport && window.visualViewport.width) || window.innerWidth || natural;
-  el.style.zoom = natural > avail ? String(avail / natural) : "";
-};
-
-const onViewportResize = () => {
-  clearTimeout(fitTimer);
-  fitTimer = setTimeout(() => {
-    computePageLayout();
-    fitToWidth();
-  }, 150);
-};
+// Background selection is independent of the content margins.
+const showBackground = computed(() => showWithForm.value);
+let previewTimer;
+onUnmounted(() => clearTimeout(previewTimer));
 
 // Check if there's any data to print
 const hasAnyData = computed(() => {
@@ -348,7 +163,6 @@ onMounted(() => {
   }
   patientId.value = route?.params?.patientId;
   if (patientId.value) {
-    documentHeight.value = document.documentElement?.scrollHeight;
     getData();
   }
 
@@ -360,20 +174,6 @@ onMounted(() => {
     document.body.style.padding = "16px 0";
   }
 
-  // Re-fit on viewport changes (rotation, in-app browser chrome resize).
-  window.addEventListener("resize", onViewportResize);
-  window.addEventListener("orientationchange", onViewportResize);
-  if (window.visualViewport) window.visualViewport.addEventListener("resize", onViewportResize);
-  // Reset scaling right before a browser print so the printed page is 1:1.
-  window.addEventListener("beforeprint", () => { const el = document.getElementById("Result"); if (el) el.style.zoom = ""; });
-  window.addEventListener("afterprint", () => fitToWidth());
-});
-
-onUnmounted(() => {
-  clearTimeout(fitTimer);
-  window.removeEventListener("resize", onViewportResize);
-  window.removeEventListener("orientationchange", onViewportResize);
-  if (window.visualViewport) window.visualViewport.removeEventListener("resize", onViewportResize);
 });
 
 const fetchTemplates = () => {
@@ -551,7 +351,6 @@ const templateChunks = (data) => {
 };
 
 const hasToken = !!localStorage.getItem("token");
-const authenticatedReport = hasToken && !sharedReferralReport.value;
 
 // Print settings — defaults until API/store loads
 const showCategories = ref(true);
@@ -588,14 +387,19 @@ if (hasToken) {
 
 // Re-read from store when settings change (e.g. user saves settings in another tab)
 watch(() => labSettingsStore.settings, (s) => {
-  if (!hasToken) return;
+  if (!hasToken || publicLabSettings.value) return;
   showCategories.value = s.show_categories !== false;
   showTestName.value = s.show_test_names !== false;
   printBlackWhite.value = s.print_black_white === true;
   showStatus.value = s.show_status !== false;
   showLastResult.value = s.show_last_result === true;
   serverMargins.value = s.print_margins || { ..._defaultMargins };
+  backgroundUrl.value = s.report_background || null;
   applyPatientHeaderCss(s.patient_header_config);
+  if (reportLoaded.value) {
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(generatePDF, 100);
+  }
 }, { deep: true });
 
 // Build a map of last results keyed by test name for quick lookup
@@ -831,10 +635,7 @@ const getData = async () => {
       // Staff: read from Pinia store (already fetched on login)
       const s = labSettingsStore.settings;
       serverMargins.value = s.print_margins || _defaultMargins;
-      // Background only for ?form=1
-      if (showWithForm.value && s.report_background) {
-        backgroundUrl.value = s.report_background;
-      }
+      backgroundUrl.value = s.report_background || null;
     } else {
       // Public: fetch from API
       try {
@@ -867,14 +668,8 @@ const getData = async () => {
     }
   }
 
-  // Public access: show hidden content for PDF capture, then auto-download
-  if (!authenticatedReport) {
-    showDirectView.value = true;
-    nextTick(() => setTimeout(() => { computePageLayout(); fitToWidth(); }, 800));
-    return;
-  }
-
-  generatePDF();
+  reportLoaded.value = true;
+  await generatePDF();
 };
 
 const appBaseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
@@ -905,27 +700,33 @@ const shareReferralReport = async () => {
   }
 };
 
-const generatePDF = async () => {
-  if (showWithForm.value) {
-    showDirectView.value = true;
-    nextTick(() => setTimeout(() => { computePageLayout(); fitToWidth(); }, 800));
-    return;
-  }
+const buildReportPages = async () => {
   renderForCapture.value = true;
   try {
     await nextTick();
-    const pdf = await buildReportPdf();
-    pdfUrl.value = pdf.output("datauristring");
+    let css = printStyles.getResultCss() + printStyles.getPatientHeaderCss(reportSettings.value.patient_header_config) + printStyles.getPrintTableCss(reportSettings.value.print_table_config);
+    if (printBlackWhite.value) css += printStyles.getBlackWhiteCss();
+    return await renderMedicalReportPages({ element: contentToConvert.value, css,
+      margins: serverMargins.value, background: showBackground.value ? backgroundUrl.value : null });
   } finally {
     renderForCapture.value = false;
   }
 };
 
-const buildReportPdf = () => {
-  let css = printStyles.getResultCss() + printStyles.getPatientHeaderCss(reportSettings.value.patient_header_config) + printStyles.getPrintTableCss(reportSettings.value.print_table_config);
-  if (printBlackWhite.value) css += printStyles.getBlackWhiteCss();
-  return createMedicalReportPdf({ element: document.getElementById("Result"), css,
-    margins: serverMargins.value, background: showBackground.value ? backgroundUrl.value : null });
+let previewVersion = 0;
+const generatePDF = async () => {
+  const version = ++previewVersion;
+  showDirectView.value = true;
+  shareError.value = '';
+  pdfGenerating.value = true;
+  try {
+    const pages = await buildReportPages();
+    if (version === previewVersion) reportPages.value = pages;
+  } catch (error) {
+    if (version === previewVersion) shareError.value = error?.message || 'تعذر تجهيز التقرير';
+  } finally {
+    if (version === previewVersion) pdfGenerating.value = false;
+  }
 };
 
 const getFilteredRanges = (referenceRanges) => {
@@ -974,53 +775,38 @@ const getResultColorStyle = (statusId) => {
   return "";
 };
 
-// Print from QR page — opens new window with same technique as staff "Print with Background"
+// Both actions consume the same complete sheets as the on-screen report.
 const printFromQR = async () => {
-  const printWindow = window.open("", "_blank");
-  if (!printWindow) return;
-
-  const content = document.getElementById("Result")?.outerHTML;
-  if (!content) {
-    printWindow.close();
-    return;
+  if (pdfGenerating.value) return;
+  const printWindow = window.open('about:blank', '_blank');
+  pdfGenerating.value = true;
+  shareError.value = '';
+  try {
+    if (!printWindow) throw new Error('اسمح بالنوافذ المنبثقة للطباعة.');
+    const pages = await buildReportPages();
+    reportPages.value = pages;
+    await printMedicalReportPages(pages, printWindow);
+  } catch (error) {
+    printWindow?.close();
+    shareError.value = error?.message || 'تعذر تجهيز التقرير';
+  } finally {
+    pdfGenerating.value = false;
   }
-
-  const m = serverMargins.value;
-  const bgImage = showBackground.value ? backgroundUrl.value : null;
-
-  let css = printStyles.getResultCss() + printStyles.getPatientHeaderCss(reportSettings.value.patient_header_config) + printStyles.getPrintTableCss(reportSettings.value.print_table_config);
-  if (printBlackWhite.value) css += printStyles.getBlackWhiteCss();
-  css += reportPageCss(m);
-
-  printWindow.document.write(`<!DOCTYPE html>
-<html><head><title>Print Result</title><style>${css}</style></head>
-<body>
-  ${bgImage ? `<div class="print-bg"><img src="${bgImage}" /></div>` : ""}
-  ${content}
-</body></html>`);
-  printWindow.document.close();
-
-  await waitForReportAssets(printWindow.document);
-  printWindow.focus();
-  printWindow.print();
 };
 
-// Share the same pagination, margins and letterhead with staff PDF exports.
 const downloadPDF = async () => {
   if (pdfGenerating.value) return;
   pdfGenerating.value = true;
-  renderForCapture.value = true;
+  shareError.value = '';
   try {
-    await nextTick();
-    const pdf = await buildReportPdf();
-    if (pdfBlobUrl.value) URL.revokeObjectURL(pdfBlobUrl.value);
-    pdfBlobUrl.value = URL.createObjectURL(pdf.output("blob"));
-    if (!hasToken) pdfDownloaded.value = true;
+    const pages = await buildReportPages();
+    reportPages.value = pages;
+    const pdf = await createMedicalReportPdf({ pages });
+    const name = (printRecord.value?.patient?.name || 'report').replace(/[^\p{L}\p{N}\s_-]/gu, '');
+    pdf.save(`${name}-${printRecord.value?.barcode || ''}.pdf`);
   } catch (error) {
-    console.error("PDF generation failed:", error);
-    shareError.value = error?.message || "تعذر تجهيز التقرير";
+    shareError.value = error?.message || 'تعذر تجهيز التقرير';
   } finally {
-    renderForCapture.value = false;
     pdfGenerating.value = false;
   }
 };
@@ -1059,33 +845,20 @@ const generateBarcodeImage = (value) => {
       <button type="button" :disabled="sharing" @click="shareReferralReport">{{ sharing ? 'جاري تجهيز الرابط...' : 'إرسال عبر واتساب' }}</button>
       <span v-if="shareError" role="alert">{{ shareError }}</span>
     </div>
-    <div v-if="authenticatedReport && !showDirectView && pdfUrl">
-      <iframe :src="pdfUrl" width="100%" :height="documentHeight" style="border: 1px solid #ccc"></iframe>
+    <div v-if="showDirectView" class="report-page-preview">
+      <div class="report-preview-actions" dir="rtl">
+        <button type="button" :disabled="pdfGenerating" @click="printFromQR">طباعة</button>
+        <button type="button" :disabled="pdfGenerating" @click="downloadPDF">تحميل PDF</button>
+        <span v-if="pdfGenerating" role="status">جاري تجهيز التقرير...</span>
+        <span v-if="shareError" role="alert">{{ shareError }}</span>
+      </div>
+      <div v-for="(page, index) in reportPages" :key="index" class="report-preview-sheet">
+        <img :src="page" :alt="`صفحة التقرير ${index + 1}`" />
+      </div>
     </div>
-    <!-- Result div: visible for direct view (public + staff ?form=1), hidden for PDF generation -->
-    <div
-      id="Result"
-      ref="contentToConvert"
-      :class="[showDirectView || renderForCapture ? 'direct-view-page' : '', { 'has-bg': showDirectView && showBackground && backgroundUrl, 'paged': showDirectView && showBackground }]"
-      :style="{
-        direction: 'ltr',
-        display: showDirectView || renderForCapture ? 'block' : 'none',
-        padding: `${serverMargins.top}mm ${serverMargins.right}mm ${serverMargins.bottom}mm ${serverMargins.left}mm`,
-        backgroundImage: showBackground && backgroundUrl ? `url(${backgroundUrl})` : 'none',
-        backgroundSize: '210mm 297mm',
-        backgroundRepeat: showBackground ? 'repeat-y' : 'no-repeat',
-        backgroundPosition: 'top center',
-        '--lh': showBackground && backgroundUrl ? `url(${backgroundUrl})` : 'none',
-        '--mt': `${serverMargins.top}mm`,
-        '--mb': `${serverMargins.bottom}mm`,
-        '--ml': `${serverMargins.left}mm`,
-        '--mr': `${serverMargins.right}mm`,
-      }"
-    >
-    <!-- Print-only background: hidden on screen, appears on every printed page via position:fixed -->
-    <div v-if="showBackground && backgroundUrl" class="print-bg">
-      <img :src="backgroundUrl" alt="" />
-    </div>
+    <!-- Source DOM is separate from the A4 sheets and never carries a letterhead. -->
+    <div id="Result" ref="contentToConvert" class="report-capture-source"
+      :style="{ direction: 'ltr', display: renderForCapture ? 'block' : 'none' }">
 
     <!-- ======== MAIN RESULT CONTENT ======== -->
     <template v-if="hasAnyData || hasTemplateTest">
@@ -1661,56 +1434,22 @@ const generateBarcodeImage = (value) => {
   print-color-adjust: exact;
 }
 
-/* ===== On-screen "separate page cards" for the ?form=1 view =====
-   Special-test reports split into several <table class="print-wrapper">, each
-   with its own patient-header thead. On print they land on separate pages; on
-   screen they used to stack (duplicate header + one long sheet). Here each
-   print-wrapper becomes its own A4 card — gray gutter between, drop shadow, and
-   its own letterhead — so every section reads as a distinct page.
-   Scoped (data-v) → the print/PDF iframe (which only loads getResultCss) is
-   unaffected. */
-.direct-view-page.paged {
-  background: #e5e7eb !important;       /* page-gray gutter behind the cards */
-  background-image: none !important;    /* drop the continuous letterhead */
-  padding: 14px 6px !important;
-  min-height: 100vh;
-}
-.direct-view-page.paged .print-wrapper {
-  width: 100%;
-  max-width: 210mm;
-  min-height: 297mm;                    /* full A4 sheet even when short */
-  margin: 0 auto 18px auto;
-  background-color: #fff;
-  /* Letterhead = one tile per A4 page. A card taller than one page (e.g. the
-     wrapper holding all non-template tests) repeats the letterhead at each
-     page boundary instead of stretching one image over the whole card. */
-  background-image: var(--lh, none);
-  background-size: 100% 297mm;
-  background-repeat: repeat-y;
-  background-position: top center;
-  box-shadow: 0 3px 16px rgba(0, 0, 0, 0.22);
-  border-radius: 2px;
-}
-.direct-view-page.paged .print-wrapper:last-child {
-  margin-bottom: 0;
-}
-/* Keep content inside the letterhead's safe area (clear the logo top + footer).
-   Prefixed with #Result so these beat the id-specificity rule
-   `#Result .pw-cell { padding: 0 !important }` — without the id prefix the
-   class selector loses the !important tie-break and the configured margins are
-   forced to 0 (i.e. lab print-margin settings stop applying). */
-#Result.direct-view-page.paged .pw-cell {
-  padding-left: var(--ml, 15mm) !important;
-  padding-right: var(--mr, 15mm) !important;
-}
-#Result.direct-view-page.paged thead .pw-cell {
-  padding-top: var(--mt, 20mm) !important;
-}
-#Result.direct-view-page.paged tbody .pw-cell {
-  padding-bottom: var(--mb, 20mm) !important;
-}
+/* Complete sheets share their pixels with PDF and native print. */
+.report-capture-source { position:fixed; left:-10000px; top:0; width:210mm; }
+.report-page-preview { background:#e5e7eb; padding:16px 0; }
+.report-preview-actions { display:flex; flex-wrap:wrap; align-items:center; gap:12px; max-width:210mm; margin:0 auto 16px; }
+.report-preview-actions button { background:#0f766e; color:white; padding:9px 16px; border-radius:8px; }
+.report-preview-actions button:disabled { opacity:.5; cursor:wait; }
+.report-preview-actions [role="alert"] { color:#b91c1c; }
+.report-preview-sheet { width:210mm; max-width:100%; aspect-ratio:210 / 297; margin:0 auto 16px; background:white; box-shadow:0 3px 16px #0003; }
+.report-preview-sheet img { display:block; width:100%; height:100%; }
 
 @media print {
+  .report-preview-actions, #Result.report-capture-source { display:none !important; }
+  .report-page-preview { background:none; padding:0; }
+  .report-preview-sheet { width:210mm; height:297mm; max-width:none; margin:0; box-shadow:none; overflow:hidden; break-inside:avoid; }
+  .report-preview-sheet + .report-preview-sheet { break-before:page; }
+
   @page {
     size: A4;
     margin: 0 !important;

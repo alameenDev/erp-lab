@@ -1,0 +1,35 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Report page regression fixture</title><style>body{font-family:Arial;background:#e5e7eb;margin:20px}button{padding:12px;margin-right:8px}#source{position:absolute;left:-10000px}#pages{display:flex;flex-wrap:wrap;gap:12px}#pages img{width:300px;border:1px solid #aaa}pre{white-space:pre-wrap}#status{font-weight:bold}</style></head><body>
+<h1>Report background and margin regression</h1>
+<p>Synthetic data only. Orange frame and teal letterhead must remain fixed.</p>
+<button id="run">Run regression</button><button id="print" disabled>Print verified sheets</button>
+<p id="status">Ready</p><pre id="checks"></pre><div id="pages"></div><div id="source"><div id="Result"></div></div>
+<script type="module">
+import { renderMedicalReportPages, createMedicalReportPdf, printMedicalReportPages } from '/src/utils/medicalReportPages.js';
+import { usePrint } from '/src/composables/usePrint.js';
+import { effectScope } from 'vue';
+const scope=effectScope(); const {printStyles}=scope.run(()=>usePrint());
+const source=document.getElementById('Result');
+source.innerHTML=`<table class="print-wrapper"><thead><tr><td class="pw-cell pw-top"><div class="patient-header" style="display:block;background:#ffddee!important">Sample patient — مريض تجريبي<br>LAB-0001 • 30/09/2026</div></td></tr></thead><tbody><tr><td class="pw-cell"><section class="test-group-section"><div class="section-header">Synthetic results</div><table><thead><tr><th>Test</th><th>Result</th><th>Unit</th><th>Normal range</th></tr></thead><tbody>${Array.from({length:80},(_,i)=>`<tr><td>Test ${i+1}</td><td>${i+3}</td><td>mg/dL</td><td>1–100</td></tr>`).join('')}</tbody></table></section></td></tr></tbody></table><table class="print-wrapper"><thead><tr><td class="pw-cell pw-top"><div class="patient-header">Sample patient — page break</div></td></tr></thead><tbody><tr><td class="pw-cell"><section><h2>Separate test template</h2><p>Final result: 42</p></section></td></tr></tbody></table>`;
+const bg=document.createElement('canvas');bg.width=794;bg.height=1123;const c=bg.getContext('2d');c.fillStyle='#fff';c.fillRect(0,0,bg.width,bg.height);c.strokeStyle='#f60';c.lineWidth=8;c.strokeRect(4,4,786,1115);c.fillStyle='#008080';c.fillRect(20,20,754,100);c.fillRect(20,1080,754,20);c.fillStyle='#fff';c.font='bold 32px Arial';c.fillText('FIXED A4 LETTERHEAD',80,80);
+const css=printStyles.getResultCss()+printStyles.getPatientHeaderCss({name_size:18,info_size:14})+printStyles.getPrintTableCss({header_color:'#005555',header_font_size:16,body_font_size:14,cell_padding:7});
+let current=[];
+const check=(condition,message)=>{if(!condition)throw new Error(message);document.querySelector('#checks').textContent+='PASS '+message+'\n';};
+const pixels=async(url)=>{const img=new Image();img.src=url;await img.decode();const cv=document.createElement('canvas');cv.width=img.width;cv.height=img.height;const ctx=cv.getContext('2d');ctx.drawImage(img,0,0);return {img,cv,ctx};};
+document.querySelector('#run').onclick=async()=>{document.querySelector('#checks').textContent='';document.querySelector('#status').textContent='Running';try{
+ const a=await renderMedicalReportPages({element:source,css,margins:{top:45,right:7,bottom:25,left:5},background:bg.toDataURL()});
+ const b=await renderMedicalReportPages({element:source,css,margins:{top:62,right:25,bottom:38,left:22},background:bg.toDataURL()});
+ check(a.length>=3 && b.length>=3,'long reports paginate and separate templates start a new sheet');
+ const p=await pixels(a[0]),q=await pixels(b[0]);
+ check(p.img.width===q.img.width && p.img.height===q.img.height,'sheet dimensions independent of margin settings');
+ const sample=(ctx,x,y)=>Array.from(ctx.getImageData(x,y,1,1).data).join(',');
+ check(a.concat(b).length>0,'generated both margin scenarios');
+ for(const [i,url] of [...a,...b].entries()){const r=await pixels(url);check(sample(r.ctx,100,80)==='0,128,128,255' && sample(r.ctx,100,r.img.height-65)==='0,128,128,255',`sheet ${i+1}: header and footer background stay fixed`);}
+ check(sample(p.ctx,120,390)!==sample(q.ctx,120,390),'changing margins moves report content');
+ const pdf=await createMedicalReportPdf({pages:b});
+ check(pdf.getNumberOfPages()===b.length,'PDF uses exactly the same sheets as preview and print');
+ const plain=await renderMedicalReportPages({element:source,css,margins:{top:62,right:25,bottom:38,left:22}});
+ const plainPixels=await pixels(plain[0]);check(sample(plainPixels.ctx,100,80)==='255,255,255,255','without-background option preserves white margins');
+ current=b;document.querySelector('#pages').replaceChildren(...b.map((src)=>Object.assign(document.createElement('img'),{src,alt:'Verified sheet'})));document.querySelector('#status').textContent=`PASS — ${a.length} pages at small margins, ${b.length} at larger margins`;document.querySelector('#print').disabled=false;
+ }catch(e){document.querySelector('#status').textContent='FAIL '+e.message;console.error(e)}};
+document.querySelector('#print').onclick=()=>printMedicalReportPages(current,window.open('about:blank','_blank'));
+</script></body></html>
