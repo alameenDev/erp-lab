@@ -189,7 +189,16 @@ class BridgeCbcService
             ['>Test</th>', '>Result</th>', '>Unit</th>', '>Reference Range</th>'],
             $content['html']
         );
+        $content['html'] = self::withTitle($content['html']);
         return $content;
+    }
+
+    private static function withTitle(string $html): string
+    {
+        if (str_contains($html, '>Complete Blood Count (CBC)</h3>')) {
+            return $html;
+        }
+        return '<h3 dir="ltr" style="margin:0 0 12px;font-size:18px;font-weight:700;text-align:left;break-after:avoid;page-break-after:avoid">Complete Blood Count (CBC)</h3>'.$html;
     }
 
     private function table(array $rows): string
@@ -207,6 +216,6 @@ class BridgeCbcService
             }
             $html .= '</tr>';
         }
-        return $html.'</tbody></table>';
+        return self::withTitle($html.'</tbody></table>');
     }
 }
