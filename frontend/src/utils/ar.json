@@ -1,4 +1,9 @@
 {
+  "set_default_result": "تعيين كافتراضي",
+  "default_result_selected": "الافتراضي ✓",
+  "clear_default_result": "إلغاء الافتراضي",
+  "default_result_hint": "اختر نتيجة افتراضية للتحاليل الجديدة للمريض. يمكن تعديل النتيجة لاحقاً.",
+
   "appName": "المختبر الرقمي",
   "login_brand_subtitle": "نظام إدارة معلومات المختبر",
   "back_to_home": "العودة للرئيسية",

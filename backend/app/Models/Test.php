@@ -27,6 +27,7 @@ class Test extends Model
         'unit',
         'result_type_id_fk',
         'selection_type_options',
+        'default_result',
         'is_contain_status',
         'is_print_alone',
         'for_customer_price',
@@ -45,6 +46,14 @@ class Test extends Model
         'is_print_alone' => 'boolean',
         'is_special_test' => 'boolean',
     ];
+
+    public function configuredDefaultResult(): ?string
+    {
+        $value = $this->default_result;
+        return (int) $this->result_type_id_fk === 4 && ! $this->is_special_test
+            && is_string($value) && trim($value) !== ''
+            && in_array($value, $this->selection_type_options ?? [], true) ? $value : null;
+    }
 
     public function testGroup()
     {

@@ -761,6 +761,7 @@
 </template>
 
 <script>
+import { withDefaultResults } from "@/utils/defaultTestResults";
 import { mapActions, mapWritableState, mapGetters } from "pinia";
 import { useinvoicesStore } from "@/store/modules/invoices";
 import { uselabsStore } from "@/store/modules/labs";
@@ -1378,7 +1379,7 @@ export default {
     addSelection(type, item, loadQuestions = true) {
       if (item) {
         const selectedItem = {
-          ...item,
+          ...withDefaultResults(JSON.parse(JSON.stringify(item))),
           thePrice: this.resolveItemPrice(item),
         };
         if (type === "test") {

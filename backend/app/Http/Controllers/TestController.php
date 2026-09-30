@@ -316,6 +316,11 @@ class TestController extends Controller
             'interface_code' => 'nullable|string',
             'test_group_id_fk' => 'nullable|integer|exists:test_groups,id',
             'selection_type_options' => 'nullable|array',
+            'default_result' => ['nullable', 'string', 'max:255', function ($attribute, $value, $fail) use ($request) {
+                if ((int) $request->result_type_id_fk !== 4 || ! in_array($value, (array) $request->input('selection_type_options', []), true)) {
+                    $fail('The default result must be one of the selection options.');
+                }
+            }],
             'category_id_fk' => 'required|integer|exists:categories,id',
             'shortcut' => 'nullable|string',
             'report_name' => 'nullable|string',
@@ -355,6 +360,7 @@ class TestController extends Controller
                 'category_id_fk' => $request->category_id_fk,
                 'test_group_id_fk' => $request->test_group_id_fk,
                 'selection_type_options' => $request->input('selection_type_options'),
+                'default_result' => $request->input('default_result'),
                 'shortcut' => $request->shortcut,
                 'report_name' => $request->report_name,
                 'result_comments' => $request->input('result_comments'),
@@ -365,7 +371,7 @@ class TestController extends Controller
                 'unit' => $request->unit,
                 'is_contain_status' => $request->is_contain_status,
                 'is_print_alone' => $request->is_print_alone,
-                'is_special_test' => $request->is_special_test,
+                'is_special_test' => $request->is_special_test ?? false,
                 'content' => $request->input('content'),
                 'sub_tests' => $request->input('sub_tests'),
                 'lab_id_fk' => Auth::user()->id,
@@ -442,6 +448,11 @@ class TestController extends Controller
             'question_ids_fk' => 'nullable|array',
             'question_ids_fk.*id' => 'nullable|integer|exists:patient_questions,id',
             'selection_type_options' => 'nullable|array',
+            'default_result' => ['nullable', 'string', 'max:255', function ($attribute, $value, $fail) use ($request) {
+                if ((int) $request->result_type_id_fk !== 4 || ! in_array($value, (array) $request->input('selection_type_options', []), true)) {
+                    $fail('The default result must be one of the selection options.');
+                }
+            }],
             'sample_id_fk' => 'nullable|integer',
             'price' => 'nullable|integer',
             'for_customer_price' => 'nullable|integer',
@@ -497,6 +508,8 @@ class TestController extends Controller
             $test->is_special_test = $request->is_special_test ?? $test->is_special_test;
             $test->content = $request->input('content') ?? $test->content;
             $test->sub_tests = $request->input('sub_tests') ?? $test->sub_tests;
+            if ($request->exists('default_result')) $test->default_result = $request->input('default_result');
+            $test->default_result = $test->configuredDefaultResult();
             $test->save();
 
             if (! $test) {

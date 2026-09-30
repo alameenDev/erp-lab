@@ -184,6 +184,7 @@ const addRecord = () => {
 
 const editRecord = (data) => {
   Object.assign(record.value, { ...data });
+  record.value.default_result = data.default_result ?? null;
   record.value.question_ids_fk = data.questions?.map((q) => q.id) || [];
   record.value.is_contain_status = data.is_contain_status == 1;
   record.value.is_print_alone = data.is_print_alone == 1;
