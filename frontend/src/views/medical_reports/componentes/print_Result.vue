@@ -857,8 +857,8 @@ const generateBarcodeImage = (value) => {
       </div>
     </div>
     <!-- Source DOM is separate from the A4 sheets and never carries a letterhead. -->
-    <div id="Result" ref="contentToConvert" class="report-capture-source"
-      :style="{ direction: 'ltr', display: renderForCapture ? 'block' : 'none' }">
+    <div id="Result" ref="contentToConvert" class="report-capture-source" role="region" aria-label="نتائج التحاليل"
+      :style="{ direction: 'ltr', display: showDirectView || renderForCapture ? 'block' : 'none' }">
 
     <!-- ======== MAIN RESULT CONTENT ======== -->
     <template v-if="hasAnyData || hasTemplateTest">
