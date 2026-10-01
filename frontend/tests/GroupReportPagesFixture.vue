@@ -100,7 +100,8 @@ async function render() {
       const order = membership.filter((label, i) => i === 0 || label !== membership[i - 1]);
       assert(JSON.stringify(order) === JSON.stringify(expected[mode.value]), 'group order and both page boundaries are preserved');
     }
-    if (mode.value === 'only' || mode.value === 'off') assert(pages.value.length === 1, 'single group or disabled isolation uses one sheet');
+    if (mode.value === 'only') assert(pages.value.length === 1, 'single isolated group uses one sheet');
+    if (mode.value === 'off') assert(pages.value.length < 5 && membership.length > pages.value.length, 'disabled isolation lets groups share sheets with normal pagination');
     if (mode.value === 'long') assert(membership.filter(label => label === 'A').length > 1, 'long group continues on dedicated sheets');
     const pdf = await createMedicalReportPdf({ pages: pages.value });
     assert(pdf.getNumberOfPages() === pages.value.length, 'download PDF uses the same sheets');
@@ -114,8 +115,8 @@ const print = () => printMedicalReportPages(pages.value, window.open('about:blan
 <template>
   <main>
     <h1>طباعة الكروب في صفحة منفصلة</h1><p>بيانات تجريبية للتحقق من فصل الصفحات</p>
-    <label>النموذج <select v-model="store.settings.report_template"><option value="modern">الجديد</option><option value="classic">القديم</option></select></label>
-    <label>الحالة <select v-model="mode"><option v-for="name in ['mixed','first','last','adjacent','only','long','off','culture','history']" :key="name">{{ name }}</option></select></label>
+    <label>النموذج <select aria-label="النموذج" v-model="store.settings.report_template"><option value="modern">الجديد</option><option value="classic">القديم</option></select></label>
+    <label>الحالة <select aria-label="الحالة" v-model="mode"><option v-for="name in ['mixed','first','last','adjacent','only','long','off','culture','history']" :key="name">{{ name }}</option></select></label>
     <label><input type="checkbox" v-model="store.settings.show_test_names" /> إظهار أسماء التحاليل</label>
     <button :disabled="busy" @click="render">تحديث المعاينة</button><button :disabled="busy || !pages.length" @click="print">طباعة المعاينة</button>
     <p id="status" role="status">{{ status }}</p><pre id="checks">{{ checks.join('\n') }}</pre>
