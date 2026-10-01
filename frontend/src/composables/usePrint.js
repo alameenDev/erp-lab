@@ -1,3 +1,4 @@
+import { reportColumnCss } from "../utils/medicalReportColumns.js";
 import { getReportTemplateCss } from "../utils/medicalReportTemplate.js";
 import { nextTick, onScopeDispose } from "vue";
 
@@ -330,7 +331,7 @@ export function usePrint() {
       //   - Header row uses <thead> > <tr> > <th>
       //   - Body rows use <tbody> > <tr> > <td>
       //   - Also catches the raw test/culture/package/test_group tables in print_Result.vue
-      return `
+      return `${reportColumnCss}
         #Result .test-group-section table thead th,
         #Result table thead.result-header th,
         .test-group-section table thead th,

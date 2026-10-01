@@ -9,6 +9,8 @@ import { applyBranding } from "@/utils/branding";
 import DocumentPreview from "./DocumentPreview.vue";
 import ReportTemplatePicker from "./ReportTemplatePicker.vue";
 import ReportTemplatePreview from "./ReportTemplatePreview.vue";
+import ReportColumnWidths from "./ReportColumnWidths.vue";
+import { customReportColumns, reportColumnDefaults } from "@/utils/medicalReportColumns";
 import LoyaltySettings from "./LoyaltySettings.vue";
 import AiAssistantSettings from "./AiAssistantSettings.vue";
 
@@ -26,21 +28,6 @@ const previewKind = ref("report");
 const sections = computed(() => lang.value === "en"
  ? [{id:"layout",label:"Paper & visibility"},{id:"barcode",label:"Barcode labels"},{id:"header",label:"Patient header"},{id:"table",label:"Result tables"},{id:"background",label:"Report background"}]
  : [{id:"layout",label:"الورق وإظهار الحقول"},{id:"barcode",label:"ملصقات الباركود"},{id:"header",label:"رأس التقرير"},{id:"table",label:"جداول النتائج"},{id:"background",label:"خلفية التقرير"}]);
-const previewCell = computed(() => ({
- fontSize: (settings.value.print_table_config?.body_font_size ?? 13) + "px",
- color: settings.value.print_table_config?.body_color || "#1e293b",
- backgroundColor: settings.value.print_table_config?.body_bg_color || "#ffffff",
- padding: (settings.value.print_table_config?.cell_padding ?? 6) + "px",
- border: "1px solid " + (settings.value.print_table_config?.border_color || "#e2e8f0"),
-}));
-const previewHeading = computed(() => ({
- ...previewCell.value,
- fontSize: (settings.value.print_table_config?.header_font_size ?? 13) + "px",
- color: settings.value.print_table_config?.header_color || "#0f172a",
- backgroundColor: settings.value.print_table_config?.header_bg_color || "#f1f5f9",
- fontWeight: settings.value.print_table_config?.header_font_weight || "bold",
-}));
-
 const logoInput = ref(null);
 const bgInput = ref(null);
 const logoPreview = ref(null);
@@ -173,6 +160,10 @@ const save = async () => {
           formData.append("patient_header_config[line_height]", ph.line_height ?? 1.7);
 
           const pt = settings.value.print_table_config || {};
+          formData.append("print_table_config[custom_column_widths]", customReportColumns(pt) ? "1" : "0");
+          for (const [key, fallback] of Object.entries(reportColumnDefaults)) {
+               formData.append(`print_table_config[column_widths][${key}]`, pt.column_widths?.[key] ?? fallback);
+          }
           formData.append("print_table_config[header_font_size]", pt.header_font_size ?? 13);
           formData.append("print_table_config[header_font_family]", pt.header_font_family || "inherit");
           formData.append("print_table_config[header_color]", pt.header_color || "#0f172a");
@@ -467,6 +458,7 @@ const resetBranding = async () => {
                               <h3 class="text-base font-semibold text-slate-800 mb-1">{{ t("print_table_config") || "إعدادات جدول التحاليل في الطباعة / PDF / WhatsApp" }}</h3>
                               <p class="text-xs text-slate-500 mb-4">{{ t("print_table_hint") || "تخصيص خط ولون وحدود وتباعد جدول النتائج (Test | Result | Unit | Reference Range)" }}</p>
                               <div class="space-y-5">
+                                   <ReportColumnWidths :settings="settings" :lang="lang" @update:config="settings.print_table_config = $event" />
                                    <!-- Header row -->
                                    <div>
                                         <p class="text-sm font-semibold text-slate-700 mb-2">{{ t("table_header") || "رأس الجدول" }}</p>
@@ -650,15 +642,8 @@ const resetBranding = async () => {
 <DocumentPreview v-if="activeTab === 'print' && previewKind !== 'report'" :settings="settings" :documents="documents" :kind="previewKind" />
 <section v-if="activeTab === 'print' && previewKind === 'report'" class="overflow-auto rounded-xl border border-slate-200 bg-slate-100 p-4">
 <p class="mb-3 text-xs text-slate-500">{{ lang === 'en' ? 'Illustrative preview · sample data, not a clinical report' : 'معاينة توضيحية ببيانات تجريبية — ليست تقريراً طبياً' }}</p>
-<ReportTemplatePreview v-if="settings.report_template === 'modern'" :settings="settings" />
-<div v-else class="min-w-[300px] bg-white p-4 shadow-sm" :style="{fontFamily: settings.font_family || 'Tajawal', filter: settings.print_black_white ? 'grayscale(1)' : 'none'}">
-<h4 class="mb-3 text-center font-bold" :style="{color: settings.primary_color}">{{ settings.lab_display_name || 'Digital Lab' }}</h4>
-<p :style="{fontSize:(settings.patient_header_config?.name_size ?? 20)+'px',lineHeight:settings.patient_header_config?.line_height ?? 1.7}">{{ lang === 'en' ? 'Sample patient' : 'مريض تجريبي' }}</p>
-<p class="mb-4 text-slate-500" :style="{fontSize:(settings.patient_header_config?.info_size ?? 13)+'px'}">LAB-0001</p>
-<table class="w-full border-collapse" dir="ltr">
-<thead><tr><th v-if="settings.show_test_names" :style="previewHeading">Test</th><th :style="previewHeading">Result</th><th :style="previewHeading">Unit</th><th v-if="settings.show_status" :style="previewHeading">Flag</th></tr></thead>
-<tbody><tr><td v-if="settings.show_test_names" :style="previewCell">Example test</td><td :style="previewCell">—</td><td :style="previewCell">—</td><td v-if="settings.show_status" :style="previewCell">—</td></tr></tbody>
-</table></div></section>
+<ReportTemplatePreview :settings="settings" />
+</section>
 <p class="text-xs text-slate-400 mt-3 text-center">{{ t("preview_desc") }}</p>
                               </div>
                          </div>

@@ -171,6 +171,9 @@ class LabSettingController extends Controller
             'print_table_config.border_color' => 'nullable|string|max:20|regex:/^#[0-9a-fA-F]{3,8}$/',
             'print_table_config.cell_padding' => 'nullable|integer|min:0|max:40',
             'print_table_config.section_spacing' => 'nullable|integer|min:0|max:80',
+            'print_table_config.custom_column_widths' => 'sometimes|required|boolean',
+            'print_table_config.column_widths' => 'sometimes|required|array:test,result,unit,reference,last_result,status',
+            'print_table_config.column_widths.*' => 'required|integer|min:5|max:85',
             'report_background' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:10240',
         ]);
 
@@ -234,7 +237,9 @@ class LabSettingController extends Controller
 
         // Update print-table config (font/colors/padding for the result tables)
         if (isset($validated['print_table_config'])) {
-            $setting->print_table_config = $validated['print_table_config'];
+            $setting->print_table_config = array_replace_recursive(
+                $setting->print_table_config ?? [], $validated['print_table_config']
+            );
         }
 
         foreach (['whatsapp_invoice_message', 'whatsapp_result_message'] as $field) {

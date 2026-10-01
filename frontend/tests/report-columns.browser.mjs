@@ -1,0 +1,60 @@
+// CI-only browser check of the real settings page and canonical report renderer.
+import { chromium } from 'playwright';
+import { mkdir } from 'node:fs/promises';
+import assert from 'node:assert/strict';
+const out = 'test-results/report-pages';
+await mkdir(out, { recursive: true });
+const browser = await chromium.launch();
+const page = await browser.newPage({ viewport: { width: 1440, height: 1100 } });
+const errors = [];
+page.on('pageerror', error => errors.push(error.message));
+page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
+const tableSection = () => page.getByRole('button', { name: 'جداول النتائج', exact: true }).click();
+const layoutSection = () => page.getByRole('button', { name: 'الورق وإظهار الحقول', exact: true }).click();
+const verify = async label => {
+  await page.getByRole('button', { name: 'فحص التقرير المحفوظ', exact: true }).click();
+  await page.waitForFunction(() => /^(PASS|FAIL)/.test(document.getElementById('status')?.textContent || ''), null, { timeout: 120000 });
+  assert.equal(await page.locator('#status').innerText(), 'PASS', await page.locator('#checks').textContent());
+  console.log('PASS ' + label);
+};
+try {
+  await page.goto('http://127.0.0.1:5173/tests/report-columns-browser.html');
+  await page.getByRole('button', { name: 'إعدادات الطباعة', exact: true }).click();
+  await tableSection();
+  await page.getByRole('checkbox', { name: 'تخصيص العرض', exact: true }).check();
+  const reference = page.getByRole('spinbutton', { name: 'المدى الطبيعي Reference range', exact: true });
+  await reference.fill('40'); await reference.press('Tab');
+  assert.equal(await reference.inputValue(), '40');
+  assert.equal(await page.locator('.column-width-editor input[type="number"]').evaluateAll(nodes => nodes.reduce((sum, node) => sum + Number(node.value), 0)), 100);
+  await page.getByRole('button', { name: 'حفظ', exact: true }).click();
+  await page.waitForFunction(() => document.getElementById('save-count').textContent === '1');
+  await page.reload();
+  await page.getByRole('button', { name: 'إعدادات الطباعة', exact: true }).click(); await tableSection();
+  assert.equal(await reference.inputValue(), '40', 'saved reference width survives reload');
+  await verify('classic: persisted 40% reference width, all table types, wrapping and shared PDF');
+  await layoutSection(); await page.getByRole('radio', { name: /النموذج الجديد/ }).check();
+  await verify('modern: same semantic widths despite different Flag position');
+  await tableSection();
+  await page.locator('.column-width-editor').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${out}/column-width-settings.png` });
+  await layoutSection();
+  await page.getByRole('checkbox', { name: 'إظهار الحالة في الطباعة', exact: true }).uncheck();
+  await verify('hidden status reserves no column space');
+  await page.getByRole('checkbox', { name: 'إظهار النتيجة السابقة في الطباعة', exact: true }).uncheck();
+  await verify('four visible columns use the entire table');
+  await page.getByRole('checkbox', { name: 'إظهار اسم التحليل في الطباعة', exact: true }).uncheck();
+  await verify('merged groups and packages retain semantic column widths');
+  await tableSection();
+  await page.getByRole('button', { name: 'إعادة ضبط القياسات', exact: true }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator('.column-width-editor').scrollIntoViewIfNeeded();
+  assert.ok(await page.locator('.column-width-editor').evaluate(el => el.scrollWidth <= el.clientWidth + 1), 'mobile width controls do not overflow');
+  await page.screenshot({ path: `${out}/column-width-settings-mobile.png` });
+  await page.getByRole('checkbox', { name: 'تخصيص العرض', exact: true }).uncheck();
+  await verify('disabling custom widths restores original template layout');
+  assert.deepEqual(errors, []);
+} catch (error) {
+  console.log(await page.locator('#checks').textContent());
+  await page.screenshot({ path: `${out}/column-width-failure.png`, fullPage: true });
+  throw error;
+} finally { await browser.close(); }

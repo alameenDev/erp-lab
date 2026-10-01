@@ -87,4 +87,37 @@ class LabSettingsTest extends TestCase
         $this->postJson('/api/lab-settings', ['report_template'=>'classic'])->assertForbidden();
         $this->assertSame('modern', LabSetting::where('lab_id_fk',$owner->id)->value('report_template'));
     }
+
+    public function test_column_widths_persist_for_the_owner_and_public_reports_without_losing_other_settings(): void
+    {
+        $owner = $this->owner();
+        $other = User::create(['name'=>'Other','email'=>'columns-other@example.test','password'=>'Test-password-123','role_id'=>2]);
+        LabSetting::create(['lab_id_fk'=>$owner->id,'print_table_config'=>['body_font_size'=>16,'border_color'=>'#123456']]);
+        LabSetting::create(['lab_id_fk'=>$other->id]);
+        $widths = ['test'=>30,'result'=>15,'unit'=>12,'reference'=>25,'last_result'=>10,'status'=>8];
+        $this->actingAs($owner)->postJson('/api/lab-settings', ['print_table_config'=>['custom_column_widths'=>true,'column_widths'=>$widths]])
+            ->assertOk()->assertJsonPath('setting.print_table_config.column_widths', $widths)
+            ->assertJsonPath('setting.print_table_config.body_font_size',16);
+        $this->postJson('/api/lab-settings', ['print_table_config'=>['column_widths'=>['reference'=>40]]])
+            ->assertOk()->assertJsonPath('setting.print_table_config.column_widths.test',30);
+        $this->getJson('/api/lab-settings/'.$owner->id)->assertOk()
+            ->assertJsonPath('print_table_config.custom_column_widths',true)
+            ->assertJsonPath('print_table_config.column_widths.reference',40);
+        $this->postJson('/api/lab-settings', ['print_table_config'=>['custom_column_widths'=>false,'body_font_size'=>14]])
+            ->assertOk()->assertJsonPath('setting.print_table_config.column_widths.reference',40);
+        $this->assertNull(LabSetting::where('lab_id_fk',$other->id)->value('print_table_config'));
+        $staff = User::create(['name'=>'Staff','email'=>'columns-staff@example.test','password'=>'Test-password-123','role_id'=>7,'creator_id'=>$owner->id]);
+        $this->actingAs($staff)->postJson('/api/lab-settings', ['print_table_config'=>['custom_column_widths'=>true]])->assertForbidden();
+    }
+
+    public function test_column_width_validation_rejects_unknown_columns_and_unsafe_dimensions(): void
+    {
+        $owner = $this->owner();
+        foreach ([0, -1, 86, 12.5, '40%;color:red', null] as $invalid) {
+            $this->actingAs($owner)->postJson('/api/lab-settings', ['print_table_config'=>['column_widths'=>['reference'=>$invalid]]])
+                ->assertUnprocessable()->assertJsonValidationErrors('print_table_config.column_widths.reference');
+        }
+        $this->postJson('/api/lab-settings', ['print_table_config'=>['column_widths'=>['unknown'=>20]]])->assertUnprocessable();
+        $this->postJson('/api/lab-settings', ['print_table_config'=>['custom_column_widths'=>'yes']])->assertUnprocessable();
+    }
 }
