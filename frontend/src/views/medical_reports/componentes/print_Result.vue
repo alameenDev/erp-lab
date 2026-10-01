@@ -10,6 +10,8 @@ import { useinvoicesStore } from "@/store/modules/invoices";
 import { useresultStatusStore } from "@/store/modules/result-status";
 import result_section from "./result_section.vue";
 import ReportResultFlag from "./ReportResultFlag.vue";
+import ReportTableColumns from "./ReportTableColumns.vue";
+import { customReportColumns } from "@/utils/medicalReportColumns";
 import result_footer_section from "./result_footer_section.vue";
 import { sanitizeHtml } from "@/utils/helper";
 import { $http } from "@/plugins/axios";
@@ -876,7 +878,8 @@ const generateBarcodeImage = (value) => {
         <template v-if="!showTestName && allTestsMerged.length > 0">
           <section v-for="(section, sIdx) in allTestsMerged" :key="'merged-s-' + sIdx" data-report-section :data-report-isolated="section.is_print_alone" :style="{ marginTop: sIdx === 0 ? '16px' : '24px', marginBottom: '16px' }">
             <div v-if="section.category" class="section-header w-full font-bold border border-black p-1 text-center text-black bg-gray-300" style="margin-bottom: 10px;"><i v-if="modernReport" class="pi pi-filter mr-section-icon" aria-hidden="true"></i><span>{{ section.category }}</span><small v-if="modernReport" class="mr-section-caption">TEST RESULTS</small></div>
-            <table class="report-results-table w-full" style="border-collapse: collapse; table-layout: fixed;">
+            <table :class="{ 'report-column-widths': customReportColumns(reportSettings.print_table_config) }" class="report-results-table w-full" style="border-collapse: collapse; table-layout: fixed;">
+              <ReportTableColumns :settings="reportSettings" />
               <thead>
                 <tr>
                   <th class="border border-black/15 p-0.5 text-center">Test</th>
@@ -915,7 +918,8 @@ const generateBarcodeImage = (value) => {
             <div v-if="group.showCategory && showCategories && (!modernReport || group.category)" class="section-header w-full font-bold border border-black p-1 text-center text-black bg-gray-300"><i v-if="modernReport" class="pi pi-filter mr-section-icon" aria-hidden="true"></i><span>{{ group.category }}</span><small v-if="modernReport" class="mr-section-caption">TEST RESULTS</small></div>
             <div v-if="group.name && showTestName" class="section-header w-full font-bold border border-black p-1 text-center text-black bg-gray-300" :style="group.showCategory && showCategories ? 'margin-top: 4px' : ''"><i v-if="modernReport" class="pi pi-filter mr-section-icon" aria-hidden="true"></i><span>{{ group.name }}</span><small v-if="modernReport" class="mr-section-caption">TEST RESULTS</small></div>
 
-            <table v-if="group.tests.length > 0" class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
+            <table v-if="group.tests.length > 0" :class="{ 'report-column-widths': customReportColumns(reportSettings.print_table_config) }" class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
+              <ReportTableColumns :settings="reportSettings" />
               <thead>
                 <tr>
                   <th class="border border-black/15 p-0.5 text-center">Test</th>
@@ -954,7 +958,8 @@ const generateBarcodeImage = (value) => {
             <div class="section-header w-full font-bold border border-black p-1 text-center text-black bg-gray-300"><i v-if="modernReport" class="pi pi-filter mr-section-icon" aria-hidden="true"></i><span>{{ group.group_name }}</span><small v-if="modernReport" class="mr-section-caption">TEST RESULTS</small></div>
 
             <!-- Test Group Tests -->
-            <table v-if="group.tests?.length > 0" class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
+            <table v-if="group.tests?.length > 0" :class="{ 'report-column-widths': customReportColumns(reportSettings.print_table_config) }" class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
+              <ReportTableColumns :settings="reportSettings" />
               <thead>
                 <tr>
                   <th class="border border-black/15 p-0.5 text-center">Test</th>
@@ -1002,7 +1007,8 @@ const generateBarcodeImage = (value) => {
 
             <!-- Test Group Cultures -->
             <template v-if="group.cultures?.length > 0">
-              <table class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
+              <table :class="{ 'report-column-widths': customReportColumns(reportSettings.print_table_config) }" class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
+                <ReportTableColumns :settings="reportSettings" />
                 <thead>
                   <tr>
                     <th class="border border-black/15 p-0.5 text-center">Culture</th>
@@ -1043,7 +1049,8 @@ const generateBarcodeImage = (value) => {
           <section v-for="(group, gpIndex) in packageGroupSections" :key="'pkg-tg-' + gpIndex" class="test-group-section" data-report-section :data-report-isolated="group.is_print_alone" :data-report-bundle="group.bundle">
             <div class="section-header w-full font-bold border border-black p-1 text-center text-black bg-gray-300"><i v-if="modernReport" class="pi pi-filter mr-section-icon" aria-hidden="true"></i><span>{{ group.group_name }}</span><small v-if="modernReport" class="mr-section-caption">TEST RESULTS</small></div>
 
-            <table v-if="group.rows.filter(t => !isFormulaTarget(group, t)).length || group.formula.length" class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
+            <table v-if="group.rows.filter(t => !isFormulaTarget(group, t)).length || group.formula.length" :class="{ 'report-column-widths': customReportColumns(reportSettings.print_table_config) }" class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
+              <ReportTableColumns :settings="reportSettings" />
               <thead>
                 <tr>
                   <th class="border border-black/15 p-0.5 text-center">Test</th>
@@ -1095,7 +1102,8 @@ const generateBarcodeImage = (value) => {
         <template v-if="printRecord?.cultures?.length > 0">
           <section v-for="(culture, cIndex) in printRecord.cultures" :key="'sc-' + cIndex" class="test-group-section" data-report-section>
             <div v-if="culture.category && showCategories && !printRecord.cultures.slice(0, cIndex).some(c => c.category === culture.category)" class="section-header w-full font-bold border border-black p-1 text-center text-black bg-gray-300"><i v-if="modernReport" class="pi pi-filter mr-section-icon" aria-hidden="true"></i><span>{{ culture.category }}</span><small v-if="modernReport" class="mr-section-caption">TEST RESULTS</small></div>
-            <table class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
+            <table :class="{ 'report-column-widths': customReportColumns(reportSettings.print_table_config) }" class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
+              <ReportTableColumns :settings="reportSettings" />
               <thead>
                 <tr>
                   <th class="border border-black/15 p-0.5 text-center">Culture</th>
@@ -1134,7 +1142,8 @@ const generateBarcodeImage = (value) => {
           <section v-for="(pkg, pIndex) in printRecord.packages.filter(p => p.cultures?.length > 0 || (Array.isArray(p.formula) && p.formula.length > 0))" :key="'pkg-' + pIndex" class="test-group-section" data-report-section :data-report-bundle="'package:' + printRecord.packages.indexOf(pkg)">
             <div class="section-header w-full font-bold border border-black p-1 text-center text-black bg-gray-300"><i v-if="modernReport" class="pi pi-filter mr-section-icon" aria-hidden="true"></i><span>{{ pkg.name }}</span><small v-if="modernReport" class="mr-section-caption">TEST RESULTS</small></div>
 
-            <table class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
+            <table :class="{ 'report-column-widths': customReportColumns(reportSettings.print_table_config) }" class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
+              <ReportTableColumns :settings="reportSettings" />
               <thead>
                 <tr>
                   <th class="border border-black/15 p-0.5 text-center">Test</th>
