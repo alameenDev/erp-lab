@@ -146,9 +146,9 @@ export function reportKeepIntervals(target, rect, scale, headerPixels) {
 // extends beyond it. Trailing white/transparent pixels must not create another
 // sheet containing only the repeated patient header. Inspect the source, before
 // adding the letterhead, and retain every actually painted content pixel.
-function reportPaintedHeight(canvas, headerPixels) {
+function reportPaintedHeight(canvas, headerPixels, limit = canvas.height) {
   const ctx = canvas.getContext('2d');
-  for (let end = canvas.height; end > headerPixels;) {
+  for (let end = limit; end > headerPixels;) {
     const top = Math.max(headerPixels, end - 128);
     const pixels = ctx.getImageData(0, top, canvas.width, end - top).data;
     for (let i = pixels.length - 4; i >= 0; i -= 4) {
@@ -227,7 +227,10 @@ export async function renderMedicalReportPages({ element, css, margins, backgrou
           breaks.push(Math.floor((section.getBoundingClientRect().top - rect.top) * scale) - headerPixels);
         }
       });
-      const slices = reportSlices(reportPaintedHeight(canvas, headerPixels) - headerPixels, available, intervals, breaks);
+      const slices = reportSlices(reportPaintedHeight(canvas, headerPixels) - headerPixels, available, intervals, breaks)
+        // A near-page-sized first block can move past its leading CSS margin.
+        // Skip that empty range instead of printing a patient-header-only page.
+        .filter(([start, end]) => reportPaintedHeight(canvas, headerPixels + start, headerPixels + end) > headerPixels + start);
       // A header-only report still produces one page.
       for (const [start, end] of slices.length ? slices : [[0, 0]]) {
         const page = doc.createElement('canvas');

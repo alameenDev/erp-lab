@@ -11,7 +11,7 @@ const errors = [];
 page.on('pageerror', error => errors.push(error.message));
 page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
 try {
-  for (const template of ['classic', 'modern']) for (const mode of ['analysis', 'group', 'package', 'merged', 'long', 'template']) {
+  for (const template of ['classic', 'modern']) for (const mode of ['analysis', 'group', 'package', 'merged', 'long', 'template', 'first']) {
     await page.goto(`http://127.0.0.1:5173/tests/report-keep-together-browser.html?template=${template}&mode=${mode}`);
     await page.waitForFunction(() => /^(PASS|FAIL)/i.test(document.getElementById('status')?.textContent || ''), null, { timeout: 120000 });
     assert.equal((await page.locator('#status').innerText()).toUpperCase(), 'PASS', await page.locator('#checks').textContent());

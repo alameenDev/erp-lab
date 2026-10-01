@@ -24,6 +24,7 @@ const virology = ['Human Immunodeficiency Virus (HIV)', 'Hepatitis B Virus (HBs 
 const record = { id: 1, patient: { name: 'مريض تجريبي', age: 35, age_unit: 'Years', gender: 'Male', code: 'SYNTHETIC-1' },
   registration_date: '2026-10-01T09:00:00', tests: [test('Previous analysis')], test_groups: [], packages: [], cultures: [], tests_last_results: [] };
 if (['group', 'merged', 'long'].includes(mode)) record.test_groups = [{ group_name: 'Virology', tests: mode === 'long' ? Array.from({ length: 45 }, (_, i) => test('Virology result ' + (i + 1))) : virology }];
+if (mode === 'first') { record.tests = []; record.test_groups = [{ group_name: 'Virology', tests: virology }]; }
 if (mode === 'analysis') record.tests.push(test('Human Immunodeficiency Virus (HIV) — Full analysis name', { category: 'Virology' }));
 if (mode === 'package') record.packages = [{ name: 'Virology package', tests: [virology[0], test('Package group input', { test_group_name: 'Package group', test_group_id_fk: 5, shortcut: 'X', result: 4 }), test('Calculated result', { shortcut: 'Y' })],
   test_groups: [{ test_group_id_fk: 5, group_name: 'Package group', formula: [] }], cultures: [test('Package culture')], formula: [{ name: 'Y', tokens: ['X', '*', '2'] }] }];
@@ -52,6 +53,12 @@ onMounted(async () => {
   filler = mode === 'merged' ? source.querySelector('[data-report-block="merged:0"]') : mode === 'template' ? source.querySelector('.template-section p') : source.querySelector('[data-report-section]');
   // Put the real section at the bottom of page one: its title fits, its data
   // does not. This recreates the reported Virology orphan deterministically.
+  if (mode === 'first') {
+    anchor.style.marginTop = '24px';
+    const row = anchor.querySelector('table > tbody > tr');
+    row.style.height = (row.getBoundingClientRect().height + capacity - anchor.getBoundingClientRect().height - 4) + 'px';
+    check(anchor.getBoundingClientRect().top > header.getBoundingClientRect().bottom + 1, 'first block has leading white space');
+  } else {
   const remaining = mode === 'merged' ? 14 : 34;
   const bodyTop = header.getBoundingClientRect().bottom;
   const delta = capacity - remaining - (anchor.getBoundingClientRect().top - bodyTop);
@@ -67,6 +74,7 @@ onMounted(async () => {
     else filler.style.paddingBottom = (parseFloat(filler.style.paddingBottom) + correction) + 'px';
   }
   check(Math.abs(capacity - (anchor.getBoundingClientRect().top - header.getBoundingClientRect().bottom) - remaining) < 3, 'block begins just before the page boundary');
+  }
   if (mode !== 'long') check(targets.at(-1).getBoundingClientRect().bottom - anchor.getBoundingClientRect().top < capacity, 'complete target fits on an empty report page');
   const elements = new Set();
   targets.forEach(target => {
@@ -92,8 +100,10 @@ onMounted(async () => {
   }
   check(markers.length >= 2, 'heading and detailed results are measured');
   markers.forEach(marker => check(marker.pages.length === 1, `complete row/title appears once: ${marker.label}`));
-  check(markers[0].pages[0] === 1, 'the block moves from page one to page two');
-  if (mode !== 'long') check(markers.every(marker => marker.pages[0] === 1), 'all titles, results, ranges, cultures and formulas stay on the same sheet');
+  const expectedPage = mode === 'first' ? 0 : 1;
+  check(markers[0].pages[0] === expectedPage, 'block starts on the correct non-empty page');
+  if (mode === 'first') check(pages.value.length === 1, 'no blank leading or trailing page');
+  if (mode !== 'long') check(markers.every(marker => marker.pages[0] === expectedPage), 'all titles, results, ranges, cultures and formulas stay on the same sheet');
   else {
     check(markers.slice(0, 3).every(marker => marker.pages[0] === 1), 'oversized group title, column header and first result stay together');
     check(new Set(markers.flatMap(marker => marker.pages)).size > 1, 'oversized group continues between complete result rows');
