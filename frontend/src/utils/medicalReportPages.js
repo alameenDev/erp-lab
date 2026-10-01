@@ -57,6 +57,10 @@ export async function printMedicalReportPages(pages, printWindow) {
 // offsets (that paints results over the margins). Prefer row/paragraph edges.
 export function reportSlices(height, capacity, intervals = [], forcedBreaks = []) {
   if (!(height >= 0 && capacity > 0)) throw new Error('Invalid report page dimensions');
+  // An explicit page break (including an isolated group inside a package)
+  // takes precedence over keeping a surrounding block on one sheet.
+  const keep = intervals.filter(([top, bottom]) => bottom - top <= capacity &&
+    !forcedBreaks.some(y => y > top + 1 && y < bottom - 1));
   const slices = [];
   let start = 0;
   while (start < height) {
@@ -68,8 +72,8 @@ export function reportSlices(height, capacity, intervals = [], forcedBreaks = []
       previous = end;
       // Adjacent rasterized rows can overlap by one rounded pixel. Do not
       // cascade backwards through every row for that shared border.
-      for (const [top, bottom] of intervals) {
-        if (top > start + 1 && top < end && bottom > end + 1 && bottom - top <= capacity) end = top;
+      for (const [top, bottom] of keep) {
+        if (top > start + 1 && top < end && bottom > end + 1) end = top;
       }
     } while (previous !== end);
     end = Math.max(start + 1, Math.floor(end));
@@ -85,6 +89,56 @@ export async function waitForReportAssets(doc) {
     img.addEventListener('load', resolve, { once: true });
     img.addEventListener('error', resolve, { once: true });
   })));
+}
+
+// CSS break-inside cannot protect blocks after the report has been rasterized.
+// Measure semantic blocks in the capture document before slicing its pixels.
+export function reportKeepIntervals(target, rect, scale, headerPixels) {
+  const intervals = [];
+  const bounds = node => {
+    const r = node.getBoundingClientRect();
+    return [Math.floor((r.top - rect.top) * scale) - headerPixels,
+      Math.floor((r.bottom - rect.top) * scale) - headerPixels];
+  };
+  const add = (first, last = first) => {
+    const [top] = bounds(first), [, bottom] = bounds(last);
+    if (top >= 0 && bottom > top) intervals.push([top, bottom]);
+  };
+  target.querySelectorAll('tr,p,img,li,pre,blockquote,.sign,[data-report-section],.test-group-section,.template-section,[data-report-keep-together]').forEach(node => add(node));
+
+  // A merged table still contains separate tests, groups and packages. Their
+  // identity survives as metadata without changing the configured appearance.
+  for (const attribute of ['data-report-block', 'data-report-bundle']) {
+    const groups = new Map();
+    target.querySelectorAll(`[${attribute}]`).forEach(node => {
+      const key = node.getAttribute(attribute);
+      if (!key) return;
+      const [top, bottom] = bounds(node);
+      const prior = groups.get(key);
+      groups.set(key, prior ? [Math.min(top, prior[0]), Math.max(bottom, prior[1])] : [top, bottom]);
+    });
+    intervals.push(...[...groups.values()].filter(([top, bottom]) => top >= 0 && bottom > top));
+  }
+
+  // Large sections must continue, but their title(s) and table header must
+  // travel with the first complete result. Protect every table header too,
+  // including a culture table following the tests in the same group.
+  const rows = Array.from(target.querySelectorAll('table > tbody > tr'))
+    .filter(row => row.closest('table') !== target && row.getBoundingClientRect().height > 0);
+  target.querySelectorAll('table').forEach(table => {
+    const first = table.querySelector(':scope > tbody > tr');
+    if (first) add(table.querySelector(':scope > thead') || first, first);
+  });
+  const content = [...rows, ...Array.from(target.querySelectorAll('p,img,li,pre,blockquote'))
+    .filter(node => !node.closest('thead,.section-header') && !rows.some(row => row.contains(node)))];
+  target.querySelectorAll('.section-header,h1,h2,h3,h4,h5,h6,caption').forEach(heading => {
+    const r = heading.getBoundingClientRect();
+    const next = content.filter(node => node.getBoundingClientRect().height > 0 &&
+      node.getBoundingClientRect().top >= r.bottom - 1)
+      .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)[0];
+    if (next) add(heading, next);
+  });
+  return intervals;
 }
 
 export async function renderMedicalReportPages({ element, css, margins, background }) {
@@ -137,10 +191,7 @@ export async function renderMedicalReportPages({ element, css, margins, backgrou
       const geometry = reportGeometry(m, pixelsPerMm);
       const available = geometry.content.height - headerPixels;
       if (available <= 0) throw new Error('بيانات رأس التقرير تتجاوز المساحة المتاحة. قلّل الهوامش أو حجم الخط.');
-      const intervals = Array.from(target.querySelectorAll('tr,p,img,.sign,.section-header'), node => {
-        const r = node.getBoundingClientRect();
-        return [Math.floor((r.top - rect.top) * scale) - headerPixels, Math.floor((r.bottom - rect.top) * scale) - headerPixels];
-      }).filter(([top, bottom]) => top >= 0 && bottom > top);
+      const intervals = reportKeepIntervals(target, rect, scale, headerPixels);
       const breaks = Array.from(target.querySelectorAll('*')).filter(node => {
         const style = doc.defaultView.getComputedStyle(node);
         return node.matches('.page-break,[data-type="page-break"]') || ['page', 'always'].includes(style.breakBefore);

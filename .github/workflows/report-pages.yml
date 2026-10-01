@@ -15,6 +15,7 @@ on:
       - 'frontend/tests/ReportTemplateFixture.vue'
       - 'frontend/tests/GroupReportPagesFixture.vue'
       - 'frontend/tests/ReportOutputFixture.vue'
+      - 'frontend/tests/ReportKeepTogetherFixture.vue'
       - '.github/workflows/report-pages.yml'
 permissions:
   contents: read
@@ -49,6 +50,7 @@ jobs:
           node tests/report-template.browser.mjs
           node tests/report-group-pages.browser.mjs
           node tests/report-output.browser.mjs
+          node tests/report-keep-together.browser.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

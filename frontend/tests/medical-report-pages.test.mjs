@@ -66,3 +66,21 @@ test('shared rounded row borders do not collapse every sheet to a single row', (
   assert.ok(slices.slice(0, -1).every(([a, b]) => b - a >= 1200));
   assert.equal(slices.at(-1)[1], 4880);
 });
+
+test('a fitting section moves its heading and all results to the next sheet', () => {
+  assert.deepEqual(reportSlices(1050, 700, [[650, 680], [700, 790], [790, 880], [880, 970], [650, 970]]),
+    [[0, 650], [650, 1050]]);
+});
+
+test('oversized sections retain their heading stack and first complete result', () => {
+  const rows = Array.from({ length: 12 }, (_, i) => [750 + i * 100, 850 + i * 100]);
+  const slices = reportSlices(1950, 700, [[640, 1950], [640, 850], ...rows]);
+  assert.deepEqual(slices, [[0, 640], [640, 1250], [1250, 1950]]);
+});
+
+test('merged groups and package ranges remain whole while explicit isolation wins', () => {
+  assert.deepEqual(reportSlices(1100, 700, [[550, 980]]), [[0, 550], [550, 1100]]);
+  const slices = reportSlices(1100, 700, [[550, 980]], [800]);
+  assert.ok(slices.some(([, end]) => end === 800));
+  assert.equal(slices.at(-1)[1], 1100);
+});
