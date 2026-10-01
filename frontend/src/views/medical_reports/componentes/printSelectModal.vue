@@ -13,7 +13,7 @@ const emit = defineEmits(["update:modelValue", "execute"]);
 const { printRecord } = storeToRefs(useinvoicesStore());
 const search = ref("");
 const action = ref("print");
-const withBackground = ref(false);
+const withBackground = ref(null);
 const phone = ref("");
 const phoneValid = computed(() => phone.value.replace(/\D/g, "").length >= 10);
 const selected = ref(new Set());
@@ -38,7 +38,8 @@ watch(() => props.modelValue, open => {
   if (!open) return;
   search.value = "";
   action.value = "print";
-  withBackground.value = Boolean(props.hasBackground);
+  // Keep the selected form when changing actions or reopening this dialog.
+  if (withBackground.value === null) withBackground.value = Boolean(props.hasBackground);
   phone.value = printRecord.value?.patient?.phone || "";
   selected.value = new Set(allKeys.value);
 });
@@ -60,7 +61,7 @@ function execute(nextAction = action.value) {
   const chosen = key => sections.value.find(section => section.key === key).items.flatMap((_, i) => selected.value.has(keyFor(key, i)) ? [i] : []);
   emit("execute", {
     tests: chosen("tests"), cultures: chosen("cultures"), testGroups: chosen("testGroups"), packages: chosen("packages"),
-    action: nextAction, withBackground: withBackground.value, phone: phone.value.trim(),
+    action: nextAction, withBackground: props.hasBackground && Boolean(withBackground.value), phone: phone.value.trim(),
   });
 }
 </script>
@@ -109,6 +110,7 @@ function execute(nextAction = action.value) {
           <div class="mt-4 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
             <label v-if="action === 'whatsapp'" class="text-sm font-medium text-slate-700">رقم هاتف المريض المسجل<input :value="phone" type="tel" dir="ltr" readonly class="mt-1 block w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2" /></label>
             <label v-if="hasBackground" class="flex items-center gap-2 text-sm text-slate-700"><input v-model="withBackground" type="checkbox" class="accent-blue-600" /> الطباعة على فورمة المختبر</label>
+            <p class="text-xs text-slate-500 sm:col-span-2">الفورمة والتنسيق المحددان يُطبّقان على المعاينة والطباعة والحفظ وملف الواتساب بنفس الشكل.</p>
             <p v-if="action === 'whatsapp'" class="text-xs text-slate-500 sm:col-span-2">تُفتح محادثة الرقم المسجل برسالة تحتوي رابط بوابة المريض ويُنزل ملف PDF. أرفق الملف بالمحادثة واضغط إرسال؛ واتساب لا يرفق الملفات تلقائياً من رابط wa.me.</p>
           </div>
         </div>

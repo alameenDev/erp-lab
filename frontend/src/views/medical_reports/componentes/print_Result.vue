@@ -4,6 +4,7 @@ import { storeToRefs } from "pinia";
 import { useRoute } from "vue-router";
 import { createMedicalReportPdf, renderMedicalReportPages, printMedicalReportPages } from "@/utils/medicalReportPages";
 import JsBarcode from "jsbarcode";
+import { reportFormChoice, reportFormFromRoute, reportUrlWithForm, medicalReportFilename, downloadMedicalReportFile } from "@/utils/medicalReportOutput";
 import { useTemplatesStore } from "@/store/modules/template";
 import { useinvoicesStore } from "@/store/modules/invoices";
 import { useresultStatusStore } from "@/store/modules/result-status";
@@ -36,8 +37,7 @@ const reportLoaded = ref(false);
 const patientId = ref(null);
 const template = ref({});
 const contentToConvert = ref(null);
-const showWithForm = ref(false);
-const backgroundUrl = ref(null);
+const showWithForm = ref(reportFormFromRoute(route));
 const showDirectView = ref(false);
 const reportNotReady = ref(false);
 const pdfGenerating = ref(false);
@@ -46,6 +46,7 @@ const renderForCapture = ref(false);
 defineExpose({
   beginCapture: () => { renderForCapture.value = true; },
   endCapture: () => { renderForCapture.value = false; },
+  prepareReport: (options) => prepareReport(options),
 });
 const _defaultMargins = { top: 20, bottom: 20, left: 15, right: 15 };
 const labSettingsStore = useLabSettingsStore();
@@ -61,13 +62,9 @@ const referralLogo = computed(() => {
   const logo = reportBrand.value?.logo;
   return logo ? (logo.startsWith("http") ? logo : `${imageBaseUrl}/${logo}`) : "";
 });
-const serverMargins = ref(
-  localStorage.getItem("token")
-    ? (labSettingsStore.settings.print_margins || { ..._defaultMargins })
-    : { ..._defaultMargins }
-);
-// Background selection is independent of the content margins.
-const showBackground = computed(() => showWithForm.value);
+const backgroundUrl = computed(() => reportSettings.value.report_background || null);
+const serverMargins = computed(() => reportSettings.value.print_margins || _defaultMargins);
+const showBackground = computed(() => Boolean(backgroundUrl.value) && reportFormChoice(showWithForm.value));
 let previewTimer;
 onUnmounted(() => clearTimeout(previewTimer));
 
@@ -154,7 +151,6 @@ onMounted(() => {
   const day = String(todayDate.getDate()).padStart(2, "0");
   today.value = `${year}-${month}-${day}`;
 
-  showWithForm.value = route.query.form === "1" || sharedReferralReport.value || referralReport.value;
 
   // Only fetch auth-required data for logged-in users
   if (hasToken && !referralReport.value && !sharedReferralReport.value) {
@@ -354,23 +350,12 @@ const templateChunks = (data) => {
 
 const hasToken = !!localStorage.getItem("token");
 
-// Print settings — defaults until API/store loads
-const showCategories = ref(true);
-const showTestName = ref(true);
-// lab_settings.print_black_white — when on, every print output drops colour.
-const printBlackWhite = ref(false);
-const showStatus = ref(true);
-const showLastResult = ref(false);
-
-// For staff: read from Pinia store (already fetched on login)
-if (hasToken) {
-  const s = labSettingsStore.settings;
-  showCategories.value = s.show_categories !== false;
-  showTestName.value = s.show_test_names !== false;
-  printBlackWhite.value = s.print_black_white === true;
-  showStatus.value = s.show_status !== false;
-  showLastResult.value = s.show_last_result === true;
-}
+// One settings source drives the visible report and every export action.
+const showCategories = computed(() => reportSettings.value.show_categories !== false);
+const showTestName = computed(() => reportSettings.value.show_test_names !== false);
+const printBlackWhite = computed(() => reportSettings.value.print_black_white === true);
+const showStatus = computed(() => reportSettings.value.show_status !== false);
+const showLastResult = computed(() => reportSettings.value.show_last_result === true);
 
 // Inject dynamic <style> for patient-header sizes from lab_settings.
 // Same CSS used in print/PDF/WhatsApp via printStyles.getPatientHeaderCss().
@@ -383,26 +368,18 @@ const applyPatientHeaderCss = (config) => {
   }
   el.textContent = printStyles.getPatientHeaderCss(config) + printStyles.getPrintTableCss(reportSettings.value.print_table_config) + printStyles.getReportTemplateCss(reportSettings.value);
 };
-if (hasToken) {
-  applyPatientHeaderCss(labSettingsStore.settings.patient_header_config);
-}
-
-// Re-read from store when settings change (e.g. user saves settings in another tab)
-watch(() => labSettingsStore.settings, (s) => {
-  if (!hasToken || publicLabSettings.value) return;
-  showCategories.value = s.show_categories !== false;
-  showTestName.value = s.show_test_names !== false;
-  printBlackWhite.value = s.print_black_white === true;
-  showStatus.value = s.show_status !== false;
-  showLastResult.value = s.show_last_result === true;
-  serverMargins.value = s.print_margins || { ..._defaultMargins };
-  backgroundUrl.value = s.report_background || null;
+watch(reportSettings, (s) => {
   applyPatientHeaderCss(s.patient_header_config);
   if (reportLoaded.value) {
     clearTimeout(previewTimer);
     previewTimer = setTimeout(generatePDF, 100);
   }
-}, { deep: true });
+}, { deep: true, immediate: true });
+
+watch(() => [route.query.form, route.hash], () => {
+  showWithForm.value = reportFormFromRoute(route);
+  if (reportLoaded.value) generatePDF();
+});
 
 // Build a map of last results keyed by test name for quick lookup
 const lastResultMap = computed(() => {
@@ -612,55 +589,21 @@ const getData = async () => {
     return;
   }
 
-  if (printRecord.value?.lab_id_fk) {
-    try {
+  try {
     if (referralReport.value) {
-      const { data: s } = await $http.get('/referral-portal/workspace/lab-settings');
-      publicLabSettings.value = s;
-      serverMargins.value = s.print_margins || _defaultMargins;
-      backgroundUrl.value = s.report_background || null;
-      showCategories.value = s.show_categories !== false;
-      showTestName.value = s.show_test_names !== false;
-      printBlackWhite.value = s.print_black_white === true;
-      showStatus.value = s.show_status !== false;
-      showLastResult.value = s.show_last_result === true;
-      applyPatientHeaderCss(s.patient_header_config);
-    } else if (sharedReferralReport.value) {
-      const s = publicLabSettings.value;
-      serverMargins.value = s.print_margins || _defaultMargins;
-      backgroundUrl.value = s.report_background || null;
-      showCategories.value = s.show_categories !== false;
-      showTestName.value = s.show_test_names !== false;
-      printBlackWhite.value = s.print_black_white === true;
-      showStatus.value = s.show_status !== false;
-      showLastResult.value = s.show_last_result === true;
-      applyPatientHeaderCss(s.patient_header_config);
-    } else if (hasToken) {
-      // Staff: read from Pinia store (already fetched on login)
-      const s = labSettingsStore.settings;
-      serverMargins.value = s.print_margins || _defaultMargins;
-      backgroundUrl.value = s.report_background || null;
-    } else {
-      // Public: fetch from API
-      try {
-        const { data } = await $http.get(`/lab-settings/${printRecord.value.lab_id_fk}`);
-        publicLabSettings.value = data;
-        serverMargins.value = data?.print_margins || _defaultMargins;
-        if (data?.report_background) backgroundUrl.value = data.report_background;
-        if (data?.show_categories !== undefined) showCategories.value = data.show_categories;
-        if (data?.show_test_names !== undefined) showTestName.value = data.show_test_names;
-        if (data?.print_black_white !== undefined) printBlackWhite.value = data.print_black_white === true;
-        if (data?.show_status !== undefined) showStatus.value = data.show_status;
-        if (data?.show_last_result !== undefined) showLastResult.value = data.show_last_result;
-        applyPatientHeaderCss(data?.patient_header_config);
-      } catch (err) {
-        console.error("Failed to fetch lab settings:", err);
-      }
+      const { data } = await $http.get('/referral-portal/workspace/lab-settings');
+      publicLabSettings.value = data;
+    } else if (!sharedReferralReport.value && printRecord.value?.lab_id_fk) {
+      // Direct patient/QR links always use the invoice lab's current settings,
+      // including when another staff account is logged in in this browser.
+      const { data } = await $http.get(`/lab-settings/${printRecord.value.lab_id_fk}`);
+      publicLabSettings.value = data;
     }
-    } catch (error) {
-      console.error("Failed to load report settings", error);
-      if (referralReport.value || sharedReferralReport.value) shareError.value = "تعذر تحميل هوية مختبر الإحالة";
-    }
+  } catch (error) {
+    console.error("Failed to load report settings", error);
+    showDirectView.value = true;
+    shareError.value = "تعذر تحميل إعدادات التقرير. أعد تحميل الصفحة قبل الطباعة أو الحفظ.";
+    return;
   }
 
   if (referralReport.value) {
@@ -684,7 +627,7 @@ const getPatientReportLink = () => {
 
 const printReferralReport = () => printFromQR();
 const shareReferralReport = async () => {
-  if (sharing.value) return;
+  if (sharing.value || !reportLoaded.value) return;
   sharing.value = true;
   shareError.value = "";
   const whatsappTab = window.open("about:blank", "_blank");
@@ -692,7 +635,7 @@ const shareReferralReport = async () => {
     const { data } = await $http.post(`/referral-portal/workspace/invoices/${patientId.value}/share-report`);
     reportShareUrl.value = data.url;
     const name = reportBrand.value?.lab_display_name || "مختبر الإحالة";
-    const message = `التقرير الطبي من ${name}\n${data.url}`;
+    const message = `التقرير الطبي من ${name}\n${reportUrlWithForm(data.url, showBackground.value)}`;
     const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
     if (whatsappTab) { whatsappTab.opener = null; whatsappTab.location.href = url; }
     else { await navigator.clipboard.writeText(message); shareError.value = "تم نسخ الرابط؛ افتح واتساب وألصقه في المحادثة"; }
@@ -717,6 +660,27 @@ const buildReportPages = async () => {
   }
 };
 
+let preparedReport = null;
+let preparingReport = null;
+async function prepareReport(options = {}) {
+  if (options.withBackground !== undefined) showWithForm.value = options.withBackground;
+  await nextTick();
+  const key = JSON.stringify({ record: printRecord.value, settings: reportSettings.value,
+    withBackground: showBackground.value, shareUrl: reportShareUrl.value });
+  if (preparedReport?.key === key) return preparedReport.output;
+  if (preparingReport?.key === key) return preparingReport.promise;
+  const promise = (async () => {
+    const pages = await buildReportPages();
+    const pdf = await createMedicalReportPdf({ pages });
+    const output = { pages, blob: pdf.output('blob'), filename: medicalReportFilename(printRecord.value), withBackground: showBackground.value };
+    preparedReport = { key, output };
+    return output;
+  })();
+  preparingReport = { key, promise };
+  try { return await promise; }
+  finally { if (preparingReport?.promise === promise) preparingReport = null; }
+}
+
 let previewVersion = 0;
 const generatePDF = async () => {
   const version = ++previewVersion;
@@ -724,8 +688,8 @@ const generatePDF = async () => {
   shareError.value = '';
   pdfGenerating.value = true;
   try {
-    const pages = await buildReportPages();
-    if (version === previewVersion) reportPages.value = pages;
+    const output = await prepareReport();
+    if (version === previewVersion) reportPages.value = output.pages;
   } catch (error) {
     if (version === previewVersion) shareError.value = error?.message || 'تعذر تجهيز التقرير';
   } finally {
@@ -781,15 +745,15 @@ const getResultColorStyle = (statusId) => {
 
 // Both actions consume the same complete sheets as the on-screen report.
 const printFromQR = async () => {
-  if (pdfGenerating.value) return;
+  if (pdfGenerating.value || !reportLoaded.value) return;
   const printWindow = window.open('about:blank', '_blank');
   pdfGenerating.value = true;
   shareError.value = '';
   try {
     if (!printWindow) throw new Error('اسمح بالنوافذ المنبثقة للطباعة.');
-    const pages = await buildReportPages();
-    reportPages.value = pages;
-    await printMedicalReportPages(pages, printWindow);
+    const output = await prepareReport();
+    reportPages.value = output.pages;
+    await printMedicalReportPages(output.pages, printWindow);
   } catch (error) {
     printWindow?.close();
     shareError.value = error?.message || 'تعذر تجهيز التقرير';
@@ -799,15 +763,13 @@ const printFromQR = async () => {
 };
 
 const downloadPDF = async () => {
-  if (pdfGenerating.value) return;
+  if (pdfGenerating.value || !reportLoaded.value) return;
   pdfGenerating.value = true;
   shareError.value = '';
   try {
-    const pages = await buildReportPages();
-    reportPages.value = pages;
-    const pdf = await createMedicalReportPdf({ pages });
-    const name = (printRecord.value?.patient?.name || 'report').replace(/[^\p{L}\p{N}\s_-]/gu, '');
-    pdf.save(`${name}-${printRecord.value?.barcode || ''}.pdf`);
+    const output = await prepareReport();
+    reportPages.value = output.pages;
+    downloadMedicalReportFile(output);
   } catch (error) {
     shareError.value = error?.message || 'تعذر تجهيز التقرير';
   } finally {
@@ -845,14 +807,14 @@ const generateBarcodeImage = (value) => {
     <!-- ===== AUTHENTICATED VIEW (staff) — PDF iframe ===== -->
     <div v-if="referralReport && printRecord?.id" class="referral-actions" dir="rtl">
       <strong>تقرير {{ reportBrand?.lab_display_name || 'مختبر الإحالة' }}</strong>
-      <button type="button" @click="printReferralReport">طباعة التقرير</button>
-      <button type="button" :disabled="sharing" @click="shareReferralReport">{{ sharing ? 'جاري تجهيز الرابط...' : 'إرسال عبر واتساب' }}</button>
+      <button type="button" :disabled="pdfGenerating || !reportLoaded" @click="printReferralReport">طباعة التقرير</button>
+      <button type="button" :disabled="sharing || !reportLoaded" @click="shareReferralReport">{{ sharing ? 'جاري تجهيز الرابط...' : 'إرسال عبر واتساب' }}</button>
       <span v-if="shareError" role="alert">{{ shareError }}</span>
     </div>
     <div v-if="showDirectView" class="report-page-preview">
       <div class="report-preview-actions" dir="rtl">
-        <button type="button" :disabled="pdfGenerating" @click="printFromQR">طباعة</button>
-        <button type="button" :disabled="pdfGenerating" @click="downloadPDF">تحميل PDF</button>
+        <button type="button" :disabled="pdfGenerating || !reportLoaded" @click="printFromQR">طباعة</button>
+        <button type="button" :disabled="pdfGenerating || !reportLoaded" @click="downloadPDF">تحميل PDF</button>
         <span v-if="pdfGenerating" role="status">جاري تجهيز التقرير...</span>
         <span v-if="shareError" role="alert">{{ shareError }}</span>
       </div>
@@ -879,7 +841,7 @@ const generateBarcodeImage = (value) => {
             class="print-wrapper"
             :style="(tIdx > 0 || cIdx > 0) ? 'page-break-before: always; break-before: page;' : ''"
           >
-            <thead><tr><td class="pw-cell pw-top"><result_section :modern="modernReport" :lab-name="reportBrand?.lab_display_name" :lab-logo="showBackground && backgroundUrl ? '' : referralLogo" :share-url="reportShareUrl" :is-referral="referralReport || sharedReferralReport" /></td></tr></thead>
+            <thead><tr><td class="pw-cell pw-top"><result_section :modern="modernReport" :with-background="showBackground" :lab-name="reportBrand?.lab_display_name" :lab-logo="showBackground && backgroundUrl ? '' : referralLogo" :share-url="reportShareUrl" :is-referral="referralReport || sharedReferralReport" /></td></tr></thead>
             <tfoot><tr><td class="pw-cell pw-bottom"></td></tr></tfoot>
             <tbody><tr><td class="pw-cell">
               <section class="template-section"><div v-html="chunk"></div></section>
@@ -897,7 +859,7 @@ const generateBarcodeImage = (value) => {
         class="print-wrapper"
         :style="hasTemplateTest ? 'page-break-before: always; break-before: page;' : ''"
       >
-        <thead><tr><td class="pw-cell pw-top"><result_section :modern="modernReport" :lab-name="reportBrand?.lab_display_name" :lab-logo="showBackground && backgroundUrl ? '' : referralLogo" :share-url="reportShareUrl" :is-referral="referralReport || sharedReferralReport" /></td></tr></thead>
+        <thead><tr><td class="pw-cell pw-top"><result_section :modern="modernReport" :with-background="showBackground" :lab-name="reportBrand?.lab_display_name" :lab-logo="showBackground && backgroundUrl ? '' : referralLogo" :share-url="reportShareUrl" :is-referral="referralReport || sharedReferralReport" /></td></tr></thead>
         <tfoot><tr><td class="pw-cell pw-bottom"></td></tr></tfoot>
         <tbody><tr><td class="pw-cell">
 

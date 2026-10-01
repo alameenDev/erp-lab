@@ -3,6 +3,10 @@ on:
   pull_request:
     paths:
       - 'frontend/src/utils/medicalReportPages.js'
+      - 'frontend/src/utils/medicalReportOutput.js'
+      - 'frontend/src/utils/sharePatientPortal.js'
+      - 'frontend/src/views/portal/PatientPortal.vue'
+      - 'frontend/src/store/modules/invoices.js'
       - 'frontend/src/utils/medicalReportTemplate.js'
       - 'frontend/src/views/lab-settings/**'
       - 'frontend/src/views/medical_reports/**'
@@ -10,6 +14,7 @@ on:
       - 'frontend/tests/*report*'
       - 'frontend/tests/ReportTemplateFixture.vue'
       - 'frontend/tests/GroupReportPagesFixture.vue'
+      - 'frontend/tests/ReportOutputFixture.vue'
       - '.github/workflows/report-pages.yml'
 permissions:
   contents: read
@@ -30,7 +35,7 @@ jobs:
         working-directory: frontend
       - run: npx playwright install --with-deps chromium
         working-directory: frontend
-      - run: node --test tests/medical-report-pages.test.mjs tests/print-lifecycle.test.mjs
+      - run: node --test tests/medical-report-pages.test.mjs tests/medical-report-output.test.mjs tests/print-lifecycle.test.mjs
         working-directory: frontend
       - name: Verify rendered sheets and native print
         working-directory: frontend
@@ -43,6 +48,7 @@ jobs:
           node tests/report-background.browser.mjs
           node tests/report-template.browser.mjs
           node tests/report-group-pages.browser.mjs
+          node tests/report-output.browser.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

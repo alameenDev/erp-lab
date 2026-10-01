@@ -1,0 +1,15 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Unified report output verification</title></head><body><div id="app"></div>
+<script type="module">
+import { createApp } from 'vue';
+import { createPinia } from 'pinia';
+import { createRouter, createMemoryHistory } from 'vue-router';
+import Fixture from './ReportOutputFixture.vue';
+import '/src/assets/main.css';
+const params = new URLSearchParams(location.search);
+const mode = params.get('mode') || 'public';
+if (mode === 'public') localStorage.removeItem('token'); else localStorage.setItem('token', 'synthetic-fixture');
+const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/', component: {} }, { path: '/result/:patientId', name: 'result', component: {} }] });
+const app = createApp(Fixture).use(createPinia()).use(router);
+await router.push(mode === 'staff' ? '/' : '/result/14' + (params.has('form') ? '?form=' + params.get('form') : ''));
+await router.isReady(); app.mount('#app');
+</script></body></html>

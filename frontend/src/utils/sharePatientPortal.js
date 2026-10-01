@@ -1,7 +1,8 @@
 import { $http } from '@/plugins/axios';
 import { messageTemplate } from '@/utils/labDocuments';
+import { reportUrlWithForm } from '@/utils/medicalReportOutput';
 
-export async function prepareMedicalReportWhatsApp(record, settings, fallbackLabName) {
+export async function prepareMedicalReportWhatsApp(record, settings, fallbackLabName, options = {}) {
   const patientId = record?.patient?.id || record?.patient_id_fk;
   if (!patientId) throw new Error('لا يوجد مريض مرتبط بالتقرير.');
   let phone = String(record?.patient?.phone || '').replace(/\D/g, '');
@@ -12,6 +13,11 @@ export async function prepareMedicalReportWhatsApp(record, settings, fallbackLab
 
   const { data } = await $http.post('/portal/generate', { patient_id: patientId });
   if (!data?.url || !new URL(data.url).pathname.startsWith('/portal/')) throw new Error('تعذر إنشاء رابط بوابة المريض.');
+  if (options.withBackground !== undefined) {
+    const portal = new URL(reportUrlWithForm(data.url, options.withBackground));
+    portal.searchParams.set('report', record.id);
+    data.url = portal.href;
+  }
   const values = {
     lab_name: settings?.lab_display_name || fallbackLabName || 'المختبر',
     patient_name: record?.patient?.name || 'المريض',

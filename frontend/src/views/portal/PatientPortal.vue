@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import { $http } from "@/plugins/axios";
 import ResultTrends from '@/components/ResultTrends.vue';
+import { portalReportUrl } from '@/utils/medicalReportOutput';
 
 const route = useRoute();
 const token = route.params.token;
@@ -355,7 +356,7 @@ onMounted(load);
             <div class="grid grid-cols-3 gap-2 p-4 text-sm bg-slate-50"><div><p class="text-xs text-slate-500">الإجمالي</p><p class="font-bold mt-1">{{ money(r.total) }} د.ع</p></div><div><p class="text-xs text-slate-500">المدفوع</p><p class="font-bold text-teal-700 mt-1">{{ money(r.paid) }} د.ع</p></div><div><p class="text-xs text-slate-500">المتبقي</p><p class="font-bold text-amber-800 mt-1">{{ money(r.due) }} د.ع</p></div></div>
             <p v-if="r.loyalty_discount" class="px-4 py-2 text-xs text-teal-700">خصم نقاط: {{ money(r.loyalty_discount) }} د.ع مقابل {{ r.loyalty_points_spent }} نقطة</p>
             <details class="p-4"><summary class="cursor-pointer font-semibold text-sm text-slate-700">تفاصيل الفحوصات ({{ r.tests?.length || 0 }})</summary><div v-for="test in r.tests" :key="test.id" class="flex justify-between gap-3 border-b border-slate-100 py-3 text-sm"><div><p class="font-semibold">{{ test.name }}</p><p class="text-xs text-slate-500 mt-1">{{ test.kind }} · {{ test.sample_received ? 'تم استلام العينة' : 'بانتظار استلام العينة' }}</p></div><span :class="['text-xs self-start px-2 py-1 rounded-full whitespace-nowrap', statusClass(test.status)]">{{ test.status === 'ready' ? 'مكتمل' : 'قيد الإجراء' }}</span></div></details>
-            <footer class="px-4 pb-4"><p v-if="r.result_date" class="text-xs text-slate-500 mb-3">موعد النتائج: {{ formatDate(r.result_date) }}</p><a v-if="r.status === 'ready' && r.view_url" :href="r.view_url" target="_blank" rel="noopener" class="block text-center rounded-xl bg-teal-700 text-white py-3 text-sm font-bold">عرض التقرير والنتائج</a><p v-else class="rounded-xl bg-amber-50 text-amber-900 p-3 text-xs">الفحوصات قيد الإجراء؛ سيظهر رابط التقرير عند اكتمال الفاتورة.</p></footer>
+            <footer class="px-4 pb-4"><p v-if="r.result_date" class="text-xs text-slate-500 mb-3">موعد النتائج: {{ formatDate(r.result_date) }}</p><a v-if="r.status === 'ready' && r.view_url" :href="portalReportUrl(r.view_url, r.id, route.query)" target="_blank" rel="noopener" class="block text-center rounded-xl bg-teal-700 text-white py-3 text-sm font-bold">عرض التقرير والنتائج</a><p v-else class="rounded-xl bg-amber-50 text-amber-900 p-3 text-xs">الفحوصات قيد الإجراء؛ سيظهر رابط التقرير عند اكتمال الفاتورة.</p></footer>
           </article>
         </div>
 
