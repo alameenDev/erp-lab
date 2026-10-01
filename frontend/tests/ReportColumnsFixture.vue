@@ -46,6 +46,7 @@ async function verify() {
     const source = document.getElementById('Result');
     const tables = [...source.querySelectorAll('.report-results-table')];
     check(tables.length >= (store.settings.show_test_names ? 6 : 1), 'all result table types are present');
+    tables.push(...document.querySelectorAll('.report-template-preview .report-results-table'));
     const enabled = customReportColumns(store.settings.print_table_config), widths = reportColumnWidths(store.settings), keys = reportColumnKeys(store.settings);
     for (const table of tables) {
       check(table.classList.contains('report-column-widths') === enabled, 'custom layout follows the saved switch');

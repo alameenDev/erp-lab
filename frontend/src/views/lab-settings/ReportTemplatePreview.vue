@@ -24,7 +24,9 @@ onMounted(() => {
   resize();
 });
 onBeforeUnmount(() => observer?.disconnect());
-const css = computed(() => printStyles.getPrintTableCss(props.settings.print_table_config).replaceAll('#Result', '.report-template-preview') + printStyles.getReportTemplateCss(props.settings));
+// Keep the shared :is(#Result, .report-template-preview) column selectors intact
+// so their specificity still overrides the modern template's auto table layout.
+const css = computed(() => printStyles.getPrintTableCss(props.settings.print_table_config).replaceAll('#Result ', '.report-template-preview ') + printStyles.getReportTemplateCss(props.settings));
 const record = { patient: { name: 'مريض تجريبي', age: 35, age_unit: 'Years', gender: 'Male', code: 'LAB-0001' }, registration_date: '2026-01-01T09:00:00', referral: { name: 'Sample Doctor' } };
 const rows = [
   { name: 'Triglycerides (Serum)', result: '169', status: 1, label: 'High', range: '40–160\nFasting sample' },
