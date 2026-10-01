@@ -9,6 +9,7 @@ on:
       - 'frontend/src/composables/usePrint.js'
       - 'frontend/tests/*report*'
       - 'frontend/tests/ReportTemplateFixture.vue'
+      - 'frontend/tests/GroupReportPagesFixture.vue'
       - '.github/workflows/report-pages.yml'
 permissions:
   contents: read
@@ -41,6 +42,7 @@ jobs:
           done
           node tests/report-background.browser.mjs
           node tests/report-template.browser.mjs
+          node tests/report-group-pages.browser.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

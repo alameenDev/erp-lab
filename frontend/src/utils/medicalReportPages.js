@@ -145,6 +145,17 @@ export async function renderMedicalReportPages({ element, css, margins, backgrou
         const style = doc.defaultView.getComputedStyle(node);
         return node.matches('.page-break,[data-type="page-break"]') || ['page', 'always'].includes(style.breakBefore);
       }).map(node => Math.floor((node.getBoundingClientRect().top - rect.top) * scale) - headerPixels);
+      // Isolate both sides of a marked group, including its continuation pages.
+      // Break at the NEXT result section, not the group's bottom: a last group
+      // may keep its signature, and must not create a blank trailing sheet.
+      // The first section already starts a sheet (after the patient header).
+      const sections = Array.from(target.querySelectorAll('[data-report-section]'))
+        .filter(node => node.getBoundingClientRect().height > 0);
+      sections.forEach((section, index) => {
+        if (index > 0 && (section.dataset.reportIsolated === 'true' || sections[index - 1].dataset.reportIsolated === 'true')) {
+          breaks.push(Math.floor((section.getBoundingClientRect().top - rect.top) * scale) - headerPixels);
+        }
+      });
       const slices = reportSlices(canvas.height - headerPixels, available, intervals, breaks);
       // A header-only report still produces one page.
       for (const [start, end] of slices.length ? slices : [[0, 0]]) {
