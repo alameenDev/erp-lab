@@ -59,7 +59,8 @@ export function reportSlices(height, capacity, intervals = [], forcedBreaks = []
   if (!(height >= 0 && capacity > 0)) throw new Error('Invalid report page dimensions');
   // An explicit page break (including an isolated group inside a package)
   // takes precedence over keeping a surrounding block on one sheet.
-  const keep = intervals.filter(([top, bottom]) => bottom - top <= capacity &&
+  const keep = intervals.map(([top, bottom]) => [top, Math.min(height, bottom)])
+    .filter(([top, bottom]) => bottom > top && bottom - top <= capacity &&
     !forcedBreaks.some(y => y > top + 1 && y < bottom - 1));
   const slices = [];
   let start = 0;
@@ -141,6 +142,25 @@ export function reportKeepIntervals(target, rect, scale, headerPixels) {
   return intervals;
 }
 
+// A moved block can end exactly at the page limit while its CSS bottom margin
+// extends beyond it. Trailing white/transparent pixels must not create another
+// sheet containing only the repeated patient header. Inspect the source, before
+// adding the letterhead, and retain every actually painted content pixel.
+function reportPaintedHeight(canvas, headerPixels) {
+  const ctx = canvas.getContext('2d');
+  for (let end = canvas.height; end > headerPixels;) {
+    const top = Math.max(headerPixels, end - 128);
+    const pixels = ctx.getImageData(0, top, canvas.width, end - top).data;
+    for (let i = pixels.length - 4; i >= 0; i -= 4) {
+      if (pixels[i + 3] && (pixels[i] !== 255 || pixels[i + 1] !== 255 || pixels[i + 2] !== 255)) {
+        return top + Math.floor(i / 4 / canvas.width) + 1;
+      }
+    }
+    end = top;
+  }
+  return headerPixels;
+}
+
 export async function renderMedicalReportPages({ element, css, margins, background }) {
   if (!element) throw new Error('تعذر العثور على محتوى التقرير.');
   const m = reportMargins(margins);
@@ -207,7 +227,7 @@ export async function renderMedicalReportPages({ element, css, margins, backgrou
           breaks.push(Math.floor((section.getBoundingClientRect().top - rect.top) * scale) - headerPixels);
         }
       });
-      const slices = reportSlices(canvas.height - headerPixels, available, intervals, breaks);
+      const slices = reportSlices(reportPaintedHeight(canvas, headerPixels) - headerPixels, available, intervals, breaks);
       // A header-only report still produces one page.
       for (const [start, end] of slices.length ? slices : [[0, 0]]) {
         const page = doc.createElement('canvas');

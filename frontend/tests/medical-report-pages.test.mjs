@@ -84,3 +84,7 @@ test('merged groups and package ranges remain whole while explicit isolation win
   assert.ok(slices.some(([, end]) => end === 800));
   assert.equal(slices.at(-1)[1], 1100);
 });
+
+test('unpainted bottom spacing cannot pull a fitting final section onto an extra sheet', () => {
+  assert.deepEqual(reportSlices(950, 700, [[750, 1450]]), [[0, 700], [700, 950]]);
+});
