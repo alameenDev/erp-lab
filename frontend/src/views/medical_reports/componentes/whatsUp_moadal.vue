@@ -1,67 +1,41 @@
 <script setup>
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { storeToRefs } from "pinia";
 import { useinvoicesStore } from "@/store/modules/invoices";
-import { usePatientsStore } from "@/store/modules/patients";
 import { useLabSettingsStore } from "@/store/modules/labSettings";
 import { t, alertSuccess } from "@/utils/helper";
+import { prepareMedicalReportWhatsApp } from "@/utils/sharePatientPortal";
+import { downloadMedicalReportFile } from "@/utils/medicalReportOutput";
 import printResult from "./print_Result.vue";
 
 const props = defineProps({
   withBackground: { type: Boolean, default: false },
   background: { type: String, default: "" },
 });
-
 const invoicesStore = useinvoicesStore();
-const patientsStore = usePatientsStore();
 const labSettingsStore = useLabSettingsStore();
-const { printRecord, WhatsUpDialog, Pdfurl } = storeToRefs(invoicesStore);
-
+const { printRecord, WhatsUpDialog } = storeToRefs(invoicesStore);
 const lang = computed(() => localStorage.getItem("locale") || "ar");
-
-const buildBackgroundHtml = (innerHtml) => {
-  const bg = props.background;
-  const margins = labSettingsStore.settings.print_margins || { top: 20, bottom: 20, left: 15, right: 15 };
-
-  const resultEl = document.getElementById("Result");
-  const headerEl = resultEl?.querySelector(".border-t.border-b.border-black");
-  const headerHtml = headerEl ? headerEl.outerHTML : "";
-
-  const wrapper = document.createElement("div");
-  wrapper.innerHTML = innerHtml;
-  wrapper.querySelectorAll(".border-t.border-b.border-black").forEach((el) => el.remove());
-  const contentHtml = wrapper.innerHTML;
-
-  return `
-    <div style="position:relative;width:210mm;min-height:297mm;margin:0 auto;">
-      <img src="${bg}" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:0;" />
-      <table style="width:100%;border-collapse:collapse;position:relative;z-index:1;">
-        <thead><tr><td style="padding:${margins.top}mm ${margins.right}mm 2mm ${margins.left}mm;">${headerHtml}</td></tr></thead>
-        <tbody><tr><td style="padding:0 ${margins.right}mm ${margins.bottom}mm ${margins.left}mm;">${contentHtml}</td></tr></tbody>
-      </table>
-    </div>
-  `;
-};
-
+const report = ref(null);
+const busy = ref(false);
+const error = ref("");
 const sendMsg = async () => {
-  const resultEl = document.getElementById("Result");
-  let invoiceContent;
-
-  if (props.withBackground && props.background) {
-    invoiceContent = buildBackgroundHtml(resultEl.innerHTML);
-  } else {
-    invoiceContent = resultEl.outerHTML;
-  }
-
-  await invoicesStore.pdf(invoiceContent, printRecord.value?.id);
-  await patientsStore.whatsapp(printRecord.value?.patient?.phone, Pdfurl.value.path);
-  alertSuccess(t("alertSuccess"));
-  close();
+  if (busy.value) return;
+  busy.value = true; error.value = "";
+  const tab = window.open('about:blank', '_blank');
+  try {
+    const output = await report.value.prepareReport({ withBackground: props.withBackground });
+    const share = await prepareMedicalReportWhatsApp(printRecord.value, labSettingsStore.settings,
+      printRecord.value?.lab?.name, { withBackground: output.withBackground });
+    if (!tab) throw new Error('اسمح بالنوافذ المنبثقة ثم أعد المحاولة.');
+    downloadMedicalReportFile(output);
+    tab.opener = null; tab.location.href = share.whatsappUrl;
+    alertSuccess('نُزّل PDF وفُتحت محادثة المريض. أرفق الملف ثم أرسل الرسالة.');
+    WhatsUpDialog.value = false;
+  } catch (e) { tab?.close(); error.value = e.message || 'تعذر تجهيز التقرير'; }
+  finally { busy.value = false; }
 };
-
-const close = () => {
-  WhatsUpDialog.value = false;
-};
+const close = () => { if (!busy.value) WhatsUpDialog.value = false; };
 </script>
 
 <template>
@@ -89,7 +63,8 @@ const close = () => {
 
           <!-- Content -->
           <div class="p-6 overflow-y-auto max-h-[calc(90vh-150px)]">
-            <printResult></printResult>
+            <printResult ref="report" />
+            <p v-if="error" role="alert" class="text-red-600">{{ error }}</p>
           </div>
 
           <!-- Footer -->
@@ -101,6 +76,7 @@ const close = () => {
               {{ t("close") }}
             </button>
             <button
+              :disabled="busy"
               @click="sendMsg"
               class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
             >

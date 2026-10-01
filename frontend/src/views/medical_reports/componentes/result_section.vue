@@ -5,17 +5,18 @@ import { useinvoicesStore } from "@/store/modules/invoices";
 import { dateTimeFormat } from "@/utils/helper";
 import QrcodeVue from "qrcode.vue";
 import ModernPatientHeader from "./ModernPatientHeader.vue";
+import { reportUrlWithForm } from "@/utils/medicalReportOutput";
 
 const invoicesStore = useinvoicesStore();
 const { printRecord } = storeToRefs(invoicesStore);
-const props = defineProps({ modern: { type: Boolean, default: false }, labName: { type: String, default: "" }, labLogo: { type: String, default: "" }, shareUrl: { type: String, default: "" }, isReferral: { type: Boolean, default: false } });
+const props = defineProps({ withBackground: { type: Boolean, default: true }, modern: { type: Boolean, default: false }, labName: { type: String, default: "" }, labLogo: { type: String, default: "" }, shareUrl: { type: String, default: "" }, isReferral: { type: Boolean, default: false } });
 
 const patientId = computed(() => printRecord.value?.id);
 
 const appBaseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
 
 const getPatientReportLink = () => {
-     return props.shareUrl || `${appBaseUrl}/result/${patientId.value}`;
+     return reportUrlWithForm(props.shareUrl || `${appBaseUrl}/result/${patientId.value}`, props.withBackground);
 };
 </script>
 

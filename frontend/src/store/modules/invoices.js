@@ -1,3 +1,4 @@
+import { assertPdfBlob } from "@/utils/medicalReportOutput";
 import { defineStore } from "pinia";
 import { $http } from "@/plugins/axios";
 import { usePatientsStore } from "@/store/modules/patients";
@@ -393,11 +394,14 @@ export const useinvoicesStore = defineStore("invoices", {
     // PDF generation
     async pdf(invoiceContent, id) {
       try {
-        const blob = new Blob([invoiceContent], { type: "application/pdf" });
+        // Only upload an actual generated PDF; HTML must never be relabelled as PDF.
+        const blob = await assertPdfBlob(invoiceContent);
         const formData = new FormData();
         formData.append("result_doc", blob, "invoice.pdf");
         formData.append("id", id);
-        const { data } = await $http.post(`/invoices/pdf`, formData);
+        const { data } = await $http.post(`/invoices/pdf`, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
         this.Pdfurl = data;
         return data;
       } catch (error) {

@@ -1418,7 +1418,8 @@
 </template>
 
 <script setup>
-import { createMedicalReportPdf, renderMedicalReportPages, printMedicalReportPages } from "@/utils/medicalReportPages";
+import { printMedicalReportPages } from "@/utils/medicalReportPages";
+import { downloadMedicalReportFile } from "@/utils/medicalReportOutput";
 
 import { messageTemplate } from '@/utils/labDocuments';
 import { prepareMedicalReportWhatsApp } from '@/utils/sharePatientPortal';
@@ -2542,26 +2543,15 @@ const openReportActions = async () => {
 const downloadAsPdf = async (withBg, output = "download") => {
   if (downloadInProgress.value) return;
   downloadInProgress.value = true;
-  printResultRef.value?.beginCapture?.();
   try {
-    await nextTick();
-    let css = printStyles.getResultCss() + printStyles.getPatientHeaderCss(labSettingsStore.settings.patient_header_config) + printStyles.getPrintTableCss(labSettingsStore.settings.print_table_config) + printStyles.getReportTemplateCss(labSettingsStore.settings);
-    if (labSettingsStore.settings.print_black_white) css += printStyles.getBlackWhiteCss();
-    const pages = await renderMedicalReportPages({
-      element: document.getElementById("Result"), css,
-      margins: labSettingsStore.settings.print_margins,
-      background: withBg ? reportBackground.value : null,
-    });
-    const pdf = await createMedicalReportPdf({ pages });
-    const safeName = (printRecord.value?.patient?.name || "patient").replace(/[^\p{L}\p{N}\s_-]/gu, "");
-    const filename = `${safeName}-${printRecord.value?.barcode || ""}.pdf`;
-    if (output === "download") pdf.save(filename);
-    return { blob: pdf.output("blob"), filename, pages };
+    if (!printResultRef.value?.prepareReport) throw new Error('التقرير غير جاهز. حاول مجدداً.');
+    const result = await printResultRef.value.prepareReport({ withBackground: withBg });
+    if (output === 'download') downloadMedicalReportFile(result);
+    return result;
   } catch (error) {
     console.error("[download]", error);
     toast.error(error?.message || t("download_failed") || "Download failed");
   } finally {
-    printResultRef.value?.endCapture?.();
     downloadInProgress.value = false;
   }
 };
@@ -2598,11 +2588,8 @@ const handlePrintSelection = async (selection) => {
         if (previewTab) previewTab.location.href = url; else window.open(url, '_blank');
         setTimeout(() => URL.revokeObjectURL(url), 120000);
       } else {
-        const share = await prepareMedicalReportWhatsApp(printRecord.value, labSettingsStore.settings, printRecord.value?.lab?.name);
-        const url = URL.createObjectURL(result.blob);
-        const link = document.createElement('a'); link.href = url; link.download = result.filename;
-        document.body.appendChild(link); link.click(); link.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 120000);
+        const share = await prepareMedicalReportWhatsApp(printRecord.value, labSettingsStore.settings, printRecord.value?.lab?.name, { withBackground: result.withBackground });
+        downloadMedicalReportFile(result);
         if (whatsappTab) { whatsappTab.opener = null; whatsappTab.location.href = share.whatsappUrl; }
         else if (!window.open(share.whatsappUrl, '_blank')) throw new Error('اسمح بالنوافذ المنبثقة ثم أعد المحاولة.');
         toast.success('نُزّل PDF وفُتحت محادثة المريض مع رابط البوابة. أرفق الملف ثم أرسل الرسالة.');
