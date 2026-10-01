@@ -43,6 +43,17 @@ test('explicit page breaks and print-alone groups remain on new pages', () => {
   assert.deepEqual(reportSlices(1500, 700, [], [0, 320, 900]), [[0, 320], [320, 900], [900, 1500]]);
 });
 
+test('a long isolated group cannot share its final sheet with the next results', () => {
+  // Before: 0–200, isolated group: 200–1800, after: 1800–1950.
+  assert.deepEqual(reportSlices(1950, 700, [], [200, 1800]),
+    [[0, 200], [200, 900], [900, 1600], [1600, 1800], [1800, 1950]]);
+});
+
+test('adjacent isolated groups and first/last boundaries do not add empty sheets', () => {
+  assert.deepEqual(reportSlices(900, 700, [], [0, 300, 300, 600, 900]),
+    [[0, 300], [300, 600], [600, 900]]);
+});
+
 test('a row larger than the page cannot hang pagination or discard results', () => {
   assert.deepEqual(reportSlices(1600, 700, [[0, 1600]]), [[0, 700], [700, 1400], [1400, 1600]]);
   assert.throws(() => reportSlices(100, 0));

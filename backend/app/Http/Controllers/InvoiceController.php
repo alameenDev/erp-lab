@@ -1190,6 +1190,7 @@ class InvoiceController extends Controller
                 'test_group_id_fk' => $g->id,
                 'group_name' => $g->group_name,
                 'shortcut' => $g->shortcut,
+                'is_print_alone' => $g->is_print_alone == 1,
                 'formula' => $g->formula,
                 'tests' => TestResource::collection($g->tests ?? [])->resolve(),
                 'cultures' => CultureResource::collection($g->culture ?? [])->resolve(),

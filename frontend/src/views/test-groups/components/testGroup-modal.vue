@@ -379,7 +379,10 @@ const close = () => {
                               v-model="record.is_print_alone"
                               class="w-5 h-5 text-primary-600 border-slate-300 rounded focus:ring-primary-500"
                             />
-                            <span class="text-sm font-medium text-slate-700">{{ t("Print_Alone") }}</span>
+                            <span>
+                              <span class="block text-sm font-medium text-slate-700">{{ t("Print_Alone") }}</span>
+                              <span class="block text-xs text-slate-500 mt-1">{{ t("Print_Group_Alone_Help") }}</span>
+                            </span>
                           </label>
                         </div>
                       </div>

@@ -181,6 +181,7 @@
   "Precautions": "Precautions",
   "no": "no",
   "Print_Alone": "Print Alone ?",
+  "Print_Group_Alone_Help": "Print this group on its own page, with no other test or group sharing it, including within a package. Longer groups continue on dedicated pages.",
   "Result_Comments": "Result Comments",
   "Test_Group_Comment": "Test Group Comment",
   "interface_code": "interface code",

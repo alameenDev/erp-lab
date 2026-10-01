@@ -10,7 +10,7 @@ const { printRecord } = storeToRefs(invoicesStore);
   <section class="w-full flex justify-center my-2" v-if="printRecord?.signed_by?.image">
     <img :src="printRecord?.signed_by?.image" width="100" height="100" />
   </section>
-  <section v-if="printRecord?.tests_last_results?.length > 0">
+  <section v-if="printRecord?.tests_last_results?.length > 0" data-report-section>
     <h3>patient History</h3>
     <table class="w-full my-5" style="border-collapse: collapse;">
       <thead>
