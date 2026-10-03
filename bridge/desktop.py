@@ -19,7 +19,8 @@ DEFAULTS={'api_url':'https://lightpink-badger-650079.hostingersite.com/api',
 
 class Window:
     def __init__(self):
-        self.root=tk.Tk();self.root.title('Digital Lab — DxH 500 Bridge');self.root.geometry('820x760')
+        self.np21 = DEFAULTS.get('adapter') == 'np21h'
+        self.root=tk.Tk();self.root.title('Digital Lab — '+('NP-21H' if self.np21 else 'DxH 500')+' Bridge');self.root.geometry('820x760')
         self.root.minsize(720,620)
         self.events=queue.Queue();self.bridge=None;self.busy=False
         self.store=Store(HOME_DIR/'bridge.sqlite3')
@@ -29,12 +30,15 @@ class Window:
             except (ValueError,OSError):pass
         self.vars={};self.inputs=[]
         main=ttk.Frame(self.root,padding=24);main.pack(fill='both',expand=True)
-        ttk.Label(main,text='ربط جهاز DxH 500 بالمختبر',font=('Segoe UI',20,'bold'),anchor='e').pack(fill='x')
+        ttk.Label(main,text=('Digital Lab — NP-21H CBC Bridge' if self.np21 else 'ربط جهاز DxH 500 بالمختبر'),font=('Segoe UI',20,'bold'),anchor='e').pack(fill='x')
         ttk.Label(main,text='اضبط الاتصال مرة واحدة، بعدها الاستقبال والإرسال تلقائياً',anchor='e').pack(fill='x',pady=(5,18))
         form=ttk.Frame(main);form.pack(fill='x')
         fields=[('api_url','عنوان API السيرفر'),('token','مفتاح الجهاز API Token'),
                 ('listen_ip','IP الحاسبة — 0.0.0.0 للاستماع على الشبكة'),('analyzer_ip','IP جهاز التحليل'),
                 ('port','منفذ الاستقبال — مطابق لـ Host Port'),('sample_field','حقل باركود العينة O-2 أو O-3')]
+        if self.np21:
+            fields = [f for f in fields if f[0]!='sample_field']
+            ttk.Label(main,text='Sample ID: OBR-3 | CBC + 3-part differential | 21 parameters').pack(fill='x')
         for i,(key,label) in enumerate(fields):
             var=tk.StringVar(value=str(self.config.get(key,'')));self.vars[key]=var
             ttk.Label(form,text=label,anchor='e').grid(row=i,column=1,sticky='e',padx=(12,0),pady=7)

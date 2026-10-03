@@ -185,6 +185,7 @@ class MLLPStream:
             if end < 0:
                 if len(self.buffer) > self.limit: raise ValueError("MLLP message too large")
                 break
+            if end-1 > self.limit: raise ValueError("MLLP message too large")
             messages.append(bytes(self.buffer[1:end]))
             del self.buffer[:end + 2]
         return messages

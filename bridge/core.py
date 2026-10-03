@@ -13,6 +13,8 @@ import urllib.request
 from contextlib import contextmanager
 from pathlib import Path
 from dxh500 import parse_dxh500
+from np21h import parse_np21h, identity as np21_identity, ack as np21_ack
+from protocols import MLLPStream
 from protocols import ACK, NAK, ENQ, EOT, STX, ETX, CR, LF, validate_astm_frame
 
 LIMIT = 65535
@@ -21,6 +23,8 @@ PROTOCOL = 'labbridge-v1'
 
 def validate_config(config, require_destination=True):
     cfg = dict(config)
+    cfg['adapter'] = cfg.get('adapter', 'dxh500')
+    if cfg['adapter'] not in ('dxh500','np21h'): raise ValueError('Unsupported analyzer adapter')
     url = urllib.parse.urlsplit(str(cfg.get('api_url', '')).strip().rstrip('/'))
     if url.scheme != 'https' or not url.hostname or url.username or url.password or url.query or url.fragment:
         raise ValueError('Server must be an HTTPS API URL without credentials or query parameters')
@@ -84,6 +88,8 @@ class Api:
             raise DeliveryError('Invalid server device identity', True)
         if self.config.get('device_id') and result['device_id'] != self.config['device_id']:
             raise DeliveryError('Token belongs to a different device; queued records were not sent', True)
+        if self.config.get('adapter') == 'np21h' and 'np21h' not in result.get('adapters', []):
+            raise DeliveryError('Install the NP-21H server update before saving settings', True)
         return result
 
     def deliver(self, payload):
@@ -109,6 +115,9 @@ class Store:
                     status TEXT NOT NULL, error TEXT NOT NULL DEFAULT '', attempts INTEGER NOT NULL DEFAULT 0,
                     retry_at REAL NOT NULL DEFAULT 0, server_id INTEGER, created_at REAL NOT NULL,
                     UNIQUE(api_url, device_id, digest));
+                CREATE TABLE IF NOT EXISTS np21_identity (
+                    api_url TEXT NOT NULL, device_id INTEGER NOT NULL, fingerprint TEXT NOT NULL,
+                    outbox_id INTEGER NOT NULL, UNIQUE(api_url,device_id,fingerprint));
                 CREATE TABLE IF NOT EXISTS wire (
                     id INTEGER PRIMARY KEY, at REAL NOT NULL, direction TEXT NOT NULL, data BLOB NOT NULL);
             ''')
@@ -132,7 +141,7 @@ class Store:
         payload, status, error = None, 'pending', ''
         try:
             if len(raw) > LIMIT: raise ValueError('Message exceeds server limit')
-            parsed = parse_dxh500(raw, options={'astm_sample_field': cfg['sample_field']})
+            parsed = parse_np21h(raw) if cfg.get('adapter') == 'np21h' else parse_dxh500(raw, options={'astm_sample_field': cfg['sample_field']})
             accessions = {o['accession'] for o in parsed['observations']}
             if len(accessions) != 1 or len(parsed['orders']) != 1:
                 raise ValueError('Multiple orders require manual review; original retained locally')
@@ -146,11 +155,17 @@ class Store:
         except (ValueError, UnicodeError) as exc:
             status, error = 'review', str(exc)
         with self.db() as db:
+            fingerprint = np21_identity(raw) if cfg.get('adapter') == 'np21h' and payload else None
+            if fingerprint:
+                prior = db.execute('SELECT o.id,o.status FROM np21_identity n JOIN outbox o ON o.id=n.outbox_id WHERE n.api_url=? AND n.device_id=? AND n.fingerprint=?', (cfg['api_url'],cfg['device_id'],fingerprint)).fetchone()
+                if prior: return dict(prior)
             db.execute('''INSERT OR IGNORE INTO outbox(api_url,device_id,digest,raw,payload,status,error,created_at)
                 VALUES(?,?,?,?,?,?,?,?)''', (cfg['api_url'], cfg['device_id'], digest, raw,
                 json.dumps(payload, ensure_ascii=False) if payload else None, status, error, time.time()))
             row = db.execute('SELECT id,status FROM outbox WHERE api_url=? AND device_id=? AND digest=?',
                 (cfg['api_url'],cfg['device_id'],digest)).fetchone()
+            if fingerprint:
+                db.execute('INSERT OR IGNORE INTO np21_identity VALUES(?,?,?,?)',(cfg['api_url'],cfg['device_id'],fingerprint,row['id']))
             return dict(row)
 
     def next(self, cfg):
@@ -224,9 +239,36 @@ class Bridge:
                     self.notify('تم رفض اتصال من عنوان غير مسموح');continue
                 conn.settimeout(1)
                 self.notify('الجهاز متصل')
-                try: self.receive(conn)
+                try:
+                    if self.cfg.get('adapter') == 'np21h': self.receive_hl7(conn)
+                    else: self.receive(conn)
                 except Exception as exc: self.notify('توقف اتصال الجهاز: '+type(exc).__name__)
                 self.notify('انتهى الاتصال — الاستقبال ينتظر إعادة الاتصال')
+
+    def receive_hl7(self, conn):
+        stream = MLLPStream(limit=LIMIT)
+        activity = time.monotonic()
+        while not self.stop.is_set():
+            try: data = conn.recv(8192)
+            except socket.timeout:
+                if stream.buffer and time.monotonic()-activity > 30:
+                    self.notify('Incomplete HL7 frame retained in wire log; reconnect required')
+                    return
+                continue  # An idle connection is normal; never disconnect merely for silence.
+            if not data:
+                if stream.buffer: self.notify('Incomplete HL7 frame retained in wire log')
+                return
+            self.store.wire('RX', data)
+            activity = time.monotonic()
+            for raw in stream.feed(data):
+                row = self.store.capture(raw, self.cfg)
+                code = 'AR' if row['status']=='review' else 'AA'
+                explanation = 'Retained for review; unsupported result' if code=='AR' else 'Stored in durable local outbox'
+                reply = np21_ack(raw, code, explanation)
+                self.store.wire('TX_PENDING',reply)
+                conn.sendall(reply)
+                self.store.wire('TX',reply)
+                self.notify('NP-21H: local record #'+str(row['id'])+' / '+row['status']+' / ACK '+code)
 
     def receive(self, conn):
         pending, content = bytearray(), bytearray()

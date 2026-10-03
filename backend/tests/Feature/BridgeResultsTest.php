@@ -220,4 +220,45 @@ class BridgeResultsTest extends TestCase
         $this->assertStringNotContainsString('<img', $rel->fresh()->content['html']);
         $this->assertStringContainsString('&lt;img', $rel->fresh()->content['html']);
     }
+    public function test_np21_full_panel_and_transport_time_retransmission(): void
+    {
+        [$device, $invoice, $test, $rel] = $this->cbcFixture();
+        $payload = json_decode(file_get_contents(base_path('../bridge/tests/np21_payload.json')), true);
+        $payload['device_id'] = $device->id;
+        $invoice->update(['barcode' => $payload['specimen_barcode']]);
+        $first = $this->postJson('/api/device/bridge/results', $payload)->assertCreated()->assertJsonPath('status', 'applied');
+        $rows = $rel->fresh()->sub_tests;
+        $this->assertCount(21, $rows);
+        $this->assertSame('GRAN%', $rows[2]['name']);
+        $this->assertSame('PCT', $rows[18]['name']);
+        $this->assertSame('0.326', $rows[18]['value']);
+        $this->assertSame('10*9/L', $rows[20]['unit']);
+        $html = $rel->fresh()->content['html'];
+        $this->assertStringContainsString('Complete Blood Count (CBC)', $html);
+        $this->assertStringNotContainsString('Age', $html);
+        $this->assertSame(4, substr_count($html, '<th '));
+        $this->assertFalse($rel->fresh()->is_done);
+        $this->postJson('/api/device/bridge/results', $payload)->assertOk()->assertJsonPath('duplicate', true);
+        $payload['raw_message'] = str_replace('20261003183702', '20261003185702', $payload['raw_message']);
+        $payload['delivery_id'] = hash('sha256', $payload['raw_message']);
+        $payload['instrument_metadata']['orders'][0]['message_time'] = '20261003185702';
+        $this->postJson('/api/device/bridge/results', $payload)->assertOk()
+            ->assertJsonPath('duplicate', true)->assertJsonPath('id', $first->json('id'))
+            ->assertJsonPath('delivery_id', $payload['delivery_id']);
+        $this->assertDatabaseCount('device_results', 1);
+        $payload['parsed_results'][0]['value'] = '99';
+        $this->postJson('/api/device/bridge/results', $payload)->assertStatus(409);
+    }
+
+    public function test_np21_missing_parameter_is_held_without_overwriting_invoice(): void
+    {
+        [$device, $invoice, $test, $rel] = $this->cbcFixture();
+        $payload = json_decode(file_get_contents(base_path('../bridge/tests/np21_payload.json')), true);
+        $payload['device_id'] = $device->id;
+        $invoice->update(['barcode' => $payload['specimen_barcode']]);
+        array_pop($payload['parsed_results']);
+        $this->postJson('/api/device/bridge/results', $payload)->assertCreated()->assertJsonPath('status', 'matched');
+        $this->assertNull($rel->fresh()->sub_tests);
+    }
+
 }
