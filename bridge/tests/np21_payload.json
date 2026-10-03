@@ -1,0 +1,263 @@
+{
+  "delivery_id": "f47793ece11a01a5d065f0a3c9c6a0a181ffa121faaf166db629dc2770981685",
+  "device_id": 7,
+  "specimen_barcode": "TEST-123",
+  "raw_message": "MSH|^~\\&|NP-21H/NP-26H|Nipigon Health|||20261003183702||ORU^R01|TEST-CONTROL-1|P|2.3.1||||||UNICODE\rPID|1||||^TEST|||Female\rPV1|1\rOBR|1||TEST-123|01001^Automated Count^99MRC||20231003171627|20231003171650\rOBX|1|IS|02001^Take Mode^99MRC||O||||||F\rOBX|2|IS|02002^Blood Mode^99MRC||W||||||F\rOBX|3|IS|02003^Test Mode^99MRC||CBC+3DIFF||||||F\rOBX|4|NM|30525-0^Age^LN||33|yr|||||F\rOBX|5|IS|09001^Remark^99MRC||||||||F\rOBX|6|IS|03001^Ref Group^99MRC||Woman||||||F\rOBX|7|NM|6690-2^WBC^LN||11.10|10*3/uL|3.50-9.50|H~A|||F\rOBX|8|NM|736-9^LYM%^LN||27.7|%|20.0-50.0|~N|||F\rOBX|9|NM|20482-6^GRAN%^LN||66.7|%|40.0-75.0|~N|||F\rOBX|10|NM|32155-4^MID%^LN||5.6|%|3.0-10.0|~N|||F\rOBX|11|NM|731-0^LYM#^LN||3.07|10*3/uL|1.10-3.20|~N|||F\rOBX|12|NM|19023-1^GRAN#^LN||7.41|10*3/uL|1.80-6.30|H~A|||F\rOBX|13|NM|32154-7^MID#^LN||0.62|10*3/uL|0.10-0.60|H~A|||F\rOBX|14|NM|789-8^RBC^LN||4.79|10*6/uL|3.80-5.10|~N|||F\rOBX|15|NM|718-7^HGB^LN||13.3|g/dL|11.5-15.0|~N|||F\rOBX|16|NM|4544-3^HCT^LN||40.1|%|35.0-45.0|~N|||F\rOBX|17|NM|787-2^MCV^LN||83.7|fL|82.0-100.0|~N|||F\rOBX|18|NM|785-6^MCH^LN||27.7|pg|27.0-34.0|~N|||F\rOBX|19|NM|786-4^MCHC^LN||33.1|g/dL|31.6-35.4|~N|||F\rOBX|20|NM|788-0^RDW-CV^LN||12.7|%|11.5-14.5|~N|||F\rOBX|21|NM|21000-5^RDW-SD^LN||38.5|fL|35.0-56.0|~N|||F\rOBX|22|NM|777-3^PLT^LN||369|10*3/uL|125-350|H~A|||F\rOBX|23|NM|32623-1^MPV^LN||8.8|fL|6.5-12.0|~N|||F\rOBX|24|NM|32207-3^PDW^LN||9.2|fL|9.0-17.0|~N|||F\rOBX|25|NM|11003^PCT^99MRC||0.326|%|0.108-0.282|H~A|||F\rOBX|26|NM|48386-7^P-LCR^LN||18.8|%|11.0-45.0|~N|||F\rOBX|27|NM|34167-7^P-LCC^LN||69|10*9/L|30-90|~N|||F\r",
+  "parsed_results": [
+    {
+      "test_code": "WBC",
+      "test_name": "WBC",
+      "value": "11.10",
+      "unit": "10*3/uL",
+      "flags": "H~A",
+      "reference_range": "3.50-9.50",
+      "result_status": "F",
+      "research_only": false,
+      "raw_value": "11.10"
+    },
+    {
+      "test_code": "LYM%",
+      "test_name": "LYM%",
+      "value": "27.7",
+      "unit": "%",
+      "flags": "~N",
+      "reference_range": "20.0-50.0",
+      "result_status": "F",
+      "research_only": false,
+      "raw_value": "27.7"
+    },
+    {
+      "test_code": "GRAN%",
+      "test_name": "GRAN%",
+      "value": "66.7",
+      "unit": "%",
+      "flags": "~N",
+      "reference_range": "40.0-75.0",
+      "result_status": "F",
+      "research_only": false,
+      "raw_value": "66.7"
+    },
+    {
+      "test_code": "MID%",
+      "test_name": "MID%",
+      "value": "5.6",
+      "unit": "%",
+      "flags": "~N",
+      "reference_range": "3.0-10.0",
+      "result_status": "F",
+      "research_only": false,
+      "raw_value": "5.6"
+    },
+    {
+      "test_code": "LYM#",
+      "test_name": "LYM#",
+      "value": "3.07",
+      "unit": "10*3/uL",
+      "flags": "~N",
+      "reference_range": "1.10-3.20",
+      "result_status": "F",
+      "research_only": false,
+      "raw_value": "3.07"
+    },
+    {
+      "test_code": "GRAN#",
+      "test_name": "GRAN#",
+      "value": "7.41",
+      "unit": "10*3/uL",
+      "flags": "H~A",
+      "reference_range": "1.80-6.30",
+      "result_status": "F",
+      "research_only": false,
+      "raw_value": "7.41"
+    },
+    {
+      "test_code": "MID#",
+      "test_name": "MID#",
+      "value": "0.62",
+      "unit": "10*3/uL",
+      "flags": "H~A",
+      "reference_range": "0.10-0.60",
+      "result_status": "F",
+      "research_only": false,
+      "raw_value": "0.62"
+    },
+    {
+      "test_code": "RBC",
+      "test_name": "RBC",
+      "value": "4.79",
+      "unit": "10*6/uL",
+      "flags": "~N",
+      "reference_range": "3.80-5.10",
+      "result_status": "F",
+      "research_only": false,
+      "raw_value": "4.79"
+    },
+    {
+      "test_code": "HGB",
+      "test_name": "HGB",
+      "value": "13.3",
+      "unit": "g/dL",
+      "flags": "~N",
+      "reference_range": "11.5-15.0",
+      "result_status": "F",
+      "research_only": false,
+      "raw_value": "13.3"
+    },
+    {
+      "test_code": "HCT",
+      "test_name": "HCT",
+      "value": "40.1",
+      "unit": "%",
+      "flags": "~N",
+      "reference_range": "35.0-45.0",
+      "result_status": "F",
+      "research_only": false,
+      "raw_value": "40.1"
+    },
+    {
+      "test_code": "MCV",
+      "test_name": "MCV",
+      "value": "83.7",
+      "unit": "fL",
+      "flags": "~N",
+      "reference_range": "82.0-100.0",
+      "result_status": "F",
+      "research_only": false,
+      "raw_value": "83.7"
+    },
+    {
+      "test_code": "MCH",
+      "test_name": "MCH",
+      "value": "27.7",
+      "unit": "pg",
+      "flags": "~N",
+      "reference_range": "27.0-34.0",
+      "result_status": "F",
+      "research_only": false,
+      "raw_value": "27.7"
+    },
+    {
+      "test_code": "MCHC",
+      "test_name": "MCHC",
+      "value": "33.1",
+      "unit": "g/dL",
+      "flags": "~N",
+      "reference_range": "31.6-35.4",
+      "result_status": "F",
+      "research_only": false,
+      "raw_value": "33.1"
+    },
+    {
+      "test_code": "RDW-CV",
+      "test_name": "RDW-CV",
+      "value": "12.7",
+      "unit": "%",
+      "flags": "~N",
+      "reference_range": "11.5-14.5",
+      "result_status": "F",
+      "research_only": false,
+      "raw_value": "12.7"
+    },
+    {
+      "test_code": "RDW-SD",
+      "test_name": "RDW-SD",
+      "value": "38.5",
+      "unit": "fL",
+      "flags": "~N",
+      "reference_range": "35.0-56.0",
+      "result_status": "F",
+      "research_only": false,
+      "raw_value": "38.5"
+    },
+    {
+      "test_code": "PLT",
+      "test_name": "PLT",
+      "value": "369",
+      "unit": "10*3/uL",
+      "flags": "H~A",
+      "reference_range": "125-350",
+      "result_status": "F",
+      "research_only": false,
+      "raw_value": "369"
+    },
+    {
+      "test_code": "MPV",
+      "test_name": "MPV",
+      "value": "8.8",
+      "unit": "fL",
+      "flags": "~N",
+      "reference_range": "6.5-12.0",
+      "result_status": "F",
+      "research_only": false,
+      "raw_value": "8.8"
+    },
+    {
+      "test_code": "PDW",
+      "test_name": "PDW",
+      "value": "9.2",
+      "unit": "fL",
+      "flags": "~N",
+      "reference_range": "9.0-17.0",
+      "result_status": "F",
+      "research_only": false,
+      "raw_value": "9.2"
+    },
+    {
+      "test_code": "PCT",
+      "test_name": "PCT",
+      "value": "0.326",
+      "unit": "%",
+      "flags": "H~A",
+      "reference_range": "0.108-0.282",
+      "result_status": "F",
+      "research_only": false,
+      "raw_value": "0.326"
+    },
+    {
+      "test_code": "P-LCR",
+      "test_name": "P-LCR",
+      "value": "18.8",
+      "unit": "%",
+      "flags": "~N",
+      "reference_range": "11.0-45.0",
+      "result_status": "F",
+      "research_only": false,
+      "raw_value": "18.8"
+    },
+    {
+      "test_code": "P-LCC",
+      "test_name": "P-LCC",
+      "value": "69",
+      "unit": "10*9/L",
+      "flags": "~N",
+      "reference_range": "30-90",
+      "result_status": "F",
+      "research_only": false,
+      "raw_value": "69"
+    }
+  ],
+  "instrument_metadata": {
+    "adapter": "np21h",
+    "warnings": [
+      "Result date differs from message date; verify historical sample before release."
+    ],
+    "comments": [],
+    "orders": [
+      {
+        "accession": "TEST-123",
+        "sample_time": "20231003171627",
+        "analysis_time": "20231003171650",
+        "message_time": "20261003183702",
+        "control_id": "TEST-CONTROL-1",
+        "details": {
+          "Take Mode": "O",
+          "Blood Mode": "W",
+          "Test Mode": "CBC+3DIFF",
+          "Age": "33",
+          "Remark": "",
+          "Ref Group": "Woman"
+        }
+      }
+    ]
+  }
+}

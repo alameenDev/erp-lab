@@ -22,11 +22,14 @@ class BridgeResultController extends DeviceResultController
             return response()->json(['message' => 'Bridge database migration is required'], 503);
         }
         $device->update(['last_seen_at' => now(), 'status' => 'online']);
+        $settings = $device->bridgeSettings();
 
         return response()->json([
             'protocol' => 'labbridge-v1', 'device_id' => $device->id,
-            'device_name' => $device->name, 'idempotency' => true,
-            'storage' => 'device_results', 'automatic_invoice_apply' => true, 'cbc_interface_code' => '12345678',
+            'device_name' => $device->name, 'lab_id' => $device->lab_id_fk, 'lab_name' => $device->lab?->name,
+            'idempotency' => true, 'adapters' => [$settings['adapter']],
+            'storage' => 'device_results', 'automatic_invoice_apply' => $settings['automatic_invoice_apply'],
+            'cbc_interface_code' => $settings['cbc_interface_code'],
         ]);
     }
 
@@ -55,7 +58,7 @@ class BridgeResultController extends DeviceResultController
             'parsed_results.*.research_only' => 'required|boolean',
             'parsed_results.*.raw_value' => 'present|nullable|string|max:1000',
             'instrument_metadata' => 'required|array',
-            'instrument_metadata.adapter' => 'required|in:dxh500',
+            'instrument_metadata.adapter' => 'required|in:dxh500,np21h',
             'instrument_metadata.comments' => 'present|array|max:200',
             'instrument_metadata.comments.*.text' => 'required|string|max:2000',
             'instrument_metadata.comments.*.code' => 'nullable|string|max:100',
@@ -71,6 +74,17 @@ class BridgeResultController extends DeviceResultController
         if (strlen($data['raw_message']) > 65535 ||
             ! hash_equals(hash('sha256', $data['raw_message']), $data['delivery_id'])) {
             return response()->json(['message' => 'Invalid raw message digest or size'], 422);
+        }
+        if ($data['instrument_metadata']['adapter'] === 'np21h') {
+            $lines = explode("\r", $data['raw_message']);
+            $header = explode('|', $lines[0]);
+            if (count($header) < 12 || $header[0] !== 'MSH' || $header[2] !== 'NP-21H/NP-26H' ||
+                $header[8] !== 'ORU^R01' || $header[11] !== '2.3.1') {
+                return response()->json(['message' => 'Invalid NP-21H header'], 422);
+            }
+            $header[6] = ''; // Ignore only transport timestamp when recognizing a retransmission.
+            $lines[0] = implode('|', $header);
+            $data['instrument_metadata']['np21_identity'] = hash('sha256', implode("\r", $lines));
         }
         $data['instrument_metadata']['review_required'] = true;
         foreach ($data['parsed_results'] as &$item) {
@@ -93,6 +107,20 @@ class BridgeResultController extends DeviceResultController
                 }
                 return $this->receipt($prior, true);
             }
+            if ($data['instrument_metadata']['adapter'] === 'np21h') {
+                $prior = DeviceResult::where('device_id_fk', $device->id)
+                    ->where('instrument_metadata->np21_identity', $data['instrument_metadata']['np21_identity'])->first();
+                if ($prior) {
+                    if ($prior->specimen_barcode !== $data['specimen_barcode'] || $prior->parsed_results != $data['parsed_results']) {
+                        return response()->json(['message' => 'Repeated NP-21H message has inconsistent parsed data'], 409);
+                    }
+                    return $this->receipt($prior, true, $data['delivery_id']);
+                }
+            }
+            $settings = $locked->bridgeSettings();
+            if ($settings['adapter'] !== $data['instrument_metadata']['adapter']) {
+                return response()->json(['message' => 'Analyzer model does not match this laboratory device. Check its settings and API token.'], 409);
+            }
             $invoices = Invoice::where('barcode', $data['specimen_barcode'])
                 ->whereIn('lab_id_fk', $this->getDeviceTenantIds($device))->limit(2)->get();
             $invoice = $invoices->count() === 1 &&
@@ -104,7 +132,9 @@ class BridgeResultController extends DeviceResultController
                 'delivery_id' => $data['delivery_id'], 'delivery_hash' => $hash,
                 'status' => $invoice ? 'matched' : 'pending', 'matched_at' => $invoice ? now() : null,
             ]);
-            app(\App\Services\BridgeCbcService::class)->apply($result);
+            if ($settings['automatic_invoice_apply']) {
+                app(\App\Services\BridgeCbcService::class)->apply($result);
+            }
             $result->refresh();
             $locked->update(['last_seen_at' => now(), 'status' => 'online']);
 
@@ -112,11 +142,11 @@ class BridgeResultController extends DeviceResultController
         }, 3);
     }
 
-    private function receipt(DeviceResult $result, bool $duplicate)
+    private function receipt(DeviceResult $result, bool $duplicate, ?string $requestDeliveryId = null)
     {
         return response()->json([
             'protocol' => 'labbridge-v1', 'stored' => true, 'duplicate' => $duplicate,
-            'delivery_id' => $result->delivery_id, 'device_id' => $result->device_id_fk,
+            'delivery_id' => $requestDeliveryId ?? $result->delivery_id, 'stored_delivery_id' => $result->delivery_id, 'device_id' => $result->device_id_fk,
             'id' => $result->id, 'status' => $result->status,
             'invoice_matched' => (bool) $result->invoice_id_fk,
         ], $duplicate ? 200 : 201);

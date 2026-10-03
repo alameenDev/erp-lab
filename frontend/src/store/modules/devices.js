@@ -5,6 +5,7 @@ import { checkObjectParams } from "@/utils/helper";
 export const useDevicesStore = defineStore("devices", {
      state: () => ({
           devices: [],
+          options: { profiles: [], labs: [], can_select_lab: false },
           deviceResults: [],
           resultsPagination: { current_page: 1, total: 0, per_page: 25, last_page: 1 },
           totalCount: 0,
@@ -15,16 +16,21 @@ export const useDevicesStore = defineStore("devices", {
           newToken: "",
           record: {
                id: "",
+               lab_id_fk: "",
                name: "",
                device_type: "",
                serial_number: "",
                connection_type: "serial",
-               connection_config: { com_port: "", baud_rate: 9600 },
+               connection_config: { com_port: "", baud_rate: 9600, bridge_adapter: "dxh500", cbc_interface_code: "12345678", automatic_invoice_apply: true },
           },
           selectedResult: null,
           pollingInterval: null,
      }),
      actions: {
+          async GetDeviceOptions() {
+               const { data } = await $http.get("/devices/options");
+               this.options = data;
+          },
           async GetDevices() {
                try {
                     const { data } = await $http.get("/devices");

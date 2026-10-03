@@ -15,19 +15,30 @@ class BridgeCbcService
         'PLT', 'MPV', 'LY', 'MO', 'NE', 'EO', 'BA', 'LY#', 'MO#', 'NE#', 'EO#', 'BA#',
     ];
 
+    private const NP21_CODES = [
+        'WBC', 'LYM%', 'GRAN%', 'MID%', 'LYM#', 'GRAN#', 'MID#', 'RBC', 'HGB',
+        'HCT', 'MCV', 'MCH', 'MCHC', 'RDW-CV', 'RDW-SD', 'PLT', 'MPV', 'PDW',
+        'PCT', 'P-LCR', 'P-LCC',
+    ];
+
     public function apply(DeviceResult $source): array
     {
         return DB::transaction(function () use ($source) {
             $device = LabDevice::whereKey($source->device_id_fk)->lockForUpdate()->first();
             $result = DeviceResult::whereKey($source->id)->lockForUpdate()->firstOrFail();
             if (! $device || ! $result->delivery_id ||
-                ($result->instrument_metadata['adapter'] ?? null) !== 'dxh500') {
-                return ['applied' => false, 'message' => 'هذه الرسالة ليست من ربط DxH 500.'];
+                ! in_array($result->instrument_metadata['adapter'] ?? null, ['dxh500', 'np21h'], true)) {
+                return ['applied' => false, 'message' => 'هذه الرسالة ليست من ربط جهاز CBC مدعوم.'];
             }
             if ($result->status === 'applied') {
                 return ['applied' => true, 'duplicate' => true,
                     'applied_count' => $result->instrument_metadata['cbc_count'] ?? 0];
             }
+            $settings = $device->bridgeSettings();
+            if ($settings['adapter'] !== $result->instrument_metadata['adapter']) {
+                return $this->hold($result, 'موديل الرسالة لا يطابق إعدادات الجهاز في هذا المختبر.');
+            }
+            $interfaceCode = $settings['cbc_interface_code'];
             $tenantIds = User::where('creator_id', $device->lab_id_fk)->pluck('id')->all();
             $tenantIds[] = $device->lab_id_fk;
             // Never trust a manual invoice link: independently resolve the exact barcode.
@@ -46,7 +57,7 @@ class BridgeCbcService
             foreach (InvoiceTestRel::where('invoice_id_fk', $invoice->id)->lockForUpdate()->get() as $rel) {
                 if ($rel->test_id_fk) {
                     $test = Test::find($rel->test_id_fk);
-                    if ($test && (string) $test->interface_code === self::INTERFACE_CODE) {
+                    if ($test && (string) $test->interface_code === $interfaceCode) {
                         $targets[] = [$rel, null, null, null];
                     }
                     continue;
@@ -75,14 +86,14 @@ class BridgeCbcService
                     foreach ($items as $i => $item) {
                         $testId = $item['test_id_fk'] ?? $item['id'] ?? null;
                         $test = $testId ? Test::find($testId) : null;
-                        if ($test && (string) $test->interface_code === self::INTERFACE_CODE) {
+                        if ($test && (string) $test->interface_code === $interfaceCode) {
                             $targets[] = [$rel, $field, $i, $items];
                         }
                     }
                 }
             }
             if (count($targets) !== 1) {
-                return $this->hold($result, 'يجب أن تحتوي الفاتورة على تحليل واحد بكود الربط 12345678.');
+                return $this->hold($result, 'يجب أن تحتوي الفاتورة على تحليل واحد بكود الربط '.$interfaceCode.'.');
             }
             [$rel, $field, $index, $items] = $targets[0];
             $existing = $field ? $items[$index] : $rel->toArray();
@@ -90,6 +101,8 @@ class BridgeCbcService
                 return $this->hold($result, 'توجد نتيجة سابقة لتحليل CBC؛ لم يتم استبدالها تلقائياً.');
             }
 
+            $isNp21 = ($result->instrument_metadata['adapter'] ?? '') === 'np21h';
+            $allowedCodes = $isNp21 ? self::NP21_CODES : self::CODES;
             $rows = [];
             $seen = [];
             foreach ($result->parsed_results ?? [] as $observation) {
@@ -98,7 +111,7 @@ class BridgeCbcService
                 if (($observation['research_only'] ?? false) || str_starts_with($code, '@')) {
                     continue;
                 }
-                if (! in_array($code, self::CODES, true) || isset($seen[$code])) {
+                if (! in_array($code, $allowedCodes, true) || isset($seen[$code])) {
                     return $this->hold($result, 'تحتوي الرسالة على كود فحص غير معروف أو مكرر؛ تحتاج مراجعة.');
                 }
                 $seen[$code] = true;
@@ -108,6 +121,12 @@ class BridgeCbcService
                     'unit' => (string) ($observation['unit'] ?? ''),
                     'reference_range' => (string) ($observation['reference_range'] ?? ''),
                 ];
+            }
+            if ($isNp21 && count($rows) !== 21) {
+                return $this->hold($result, 'NP-21H: يجب استلام 21 نتيجة CBC كاملة.');
+            }
+            if ($isNp21) {
+                usort($rows, fn ($a, $b) => array_search($a['name'], self::NP21_CODES, true) <=> array_search($b['name'], self::NP21_CODES, true));
             }
             if (! $rows) {
                 return $this->hold($result, 'لا توجد نتائج CBC قابلة للعرض في تقرير المريض.');
@@ -119,6 +138,7 @@ class BridgeCbcService
                 'review_messages' => array_values(array_unique(array_filter(array_merge(
                     ['نتائج مستلمة من الجهاز؛ راجع هوية العينة وتنبيهات الجهاز قبل اعتماد التقرير.'],
                     array_column($result->instrument_metadata['comments'] ?? [], 'text'),
+                    $result->instrument_metadata['warnings'] ?? [],
                     array_map(fn ($o) => empty($o['flags']) ? '' : $o['test_code'].': '.$o['flags'], $result->parsed_results ?? [])
                 )))),
             ];
@@ -137,6 +157,7 @@ class BridgeCbcService
             $rel->save();
             $metadata = $result->instrument_metadata;
             $metadata['cbc_count'] = count($rows);
+            $metadata['cbc_interface_code'] = $interfaceCode;
             $metadata['cbc_invoice_test_rel_id'] = $rel->id;
             $metadata['review_required'] = true;
             $result->update([

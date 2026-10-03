@@ -220,4 +220,140 @@ class BridgeResultsTest extends TestCase
         $this->assertStringNotContainsString('<img', $rel->fresh()->content['html']);
         $this->assertStringContainsString('&lt;img', $rel->fresh()->content['html']);
     }
+    public function test_np21_full_panel_and_transport_time_retransmission(): void
+    {
+        [$device, $invoice, $test, $rel] = $this->cbcFixture();
+        $device->update(['connection_config' => ['bridge_adapter' => 'np21h']]);
+        $payload = json_decode(file_get_contents(base_path('../bridge/tests/np21_payload.json')), true);
+        $payload['device_id'] = $device->id;
+        $invoice->update(['barcode' => $payload['specimen_barcode']]);
+        $first = $this->postJson('/api/device/bridge/results', $payload)->assertCreated()->assertJsonPath('status', 'applied');
+        $rows = $rel->fresh()->sub_tests;
+        $this->assertCount(21, $rows);
+        $this->assertSame('GRAN%', $rows[2]['name']);
+        $this->assertSame('PCT', $rows[18]['name']);
+        $this->assertSame('0.326', $rows[18]['value']);
+        $this->assertSame('10*9/L', $rows[20]['unit']);
+        $html = $rel->fresh()->content['html'];
+        $this->assertStringContainsString('Complete Blood Count (CBC)', $html);
+        $this->assertStringNotContainsString('Age', $html);
+        $this->assertSame(4, substr_count($html, '<th '));
+        $this->assertFalse($rel->fresh()->is_done);
+        $this->postJson('/api/device/bridge/results', $payload)->assertOk()->assertJsonPath('duplicate', true);
+        $payload['raw_message'] = str_replace('20261003183702', '20261003185702', $payload['raw_message']);
+        $payload['delivery_id'] = hash('sha256', $payload['raw_message']);
+        $payload['instrument_metadata']['orders'][0]['message_time'] = '20261003185702';
+        $this->postJson('/api/device/bridge/results', $payload)->assertOk()
+            ->assertJsonPath('duplicate', true)->assertJsonPath('id', $first->json('id'))
+            ->assertJsonPath('delivery_id', $payload['delivery_id']);
+        $this->assertDatabaseCount('device_results', 1);
+        $payload['parsed_results'][0]['value'] = '99';
+        $this->postJson('/api/device/bridge/results', $payload)->assertStatus(409);
+    }
+
+    public function test_np21_missing_parameter_is_held_without_overwriting_invoice(): void
+    {
+        [$device, $invoice, $test, $rel] = $this->cbcFixture();
+        $device->update(['connection_config' => ['bridge_adapter' => 'np21h']]);
+        $payload = json_decode(file_get_contents(base_path('../bridge/tests/np21_payload.json')), true);
+        $payload['device_id'] = $device->id;
+        $invoice->update(['barcode' => $payload['specimen_barcode']]);
+        array_pop($payload['parsed_results']);
+        $this->postJson('/api/device/bridge/results', $payload)->assertCreated()->assertJsonPath('status', 'matched');
+        $this->assertNull($rel->fresh()->sub_tests);
+    }
+
+
+    public function test_device_options_and_management_are_scoped_and_admin_must_select_lab(): void
+    {
+        $device = $this->device();
+        $owner = User::findOrFail($device->lab_id_fk);
+        $owner->givePermissionTo(['devices view', 'devices create', 'devices edit']);
+        $other = User::create(['name'=>'Capital Lab', 'email'=>'capital@example.test', 'password'=>'test-password', 'role_id'=>2]);
+        $otherDevice = LabDevice::create(['name'=>'NP-21H', 'lab_id_fk'=>$other->id, 'api_token'=>str_repeat('b',64),
+            'connection_config'=>['bridge_adapter'=>'np21h', 'cbc_interface_code'=>'CAPITAL-CBC', 'automatic_invoice_apply'=>false]]);
+        $this->actingAs($owner)->getJson('/api/devices/options')->assertOk()
+            ->assertJsonCount(1, 'labs')->assertJsonPath('labs.0.id', $owner->id)->assertJsonPath('can_select_lab', false);
+        $this->getJson('/api/devices')->assertOk()->assertJsonCount(1)
+            ->assertJsonPath('0.bridge_settings.adapter', 'dxh500');
+        $this->postJson('/api/devices/create', ['name'=>'Wrong lab', 'lab_id_fk'=>$other->id])->assertForbidden();
+        $this->putJson('/api/devices/update', ['id'=>$otherDevice->id, 'name'=>'Tampered'])->assertForbidden();
+        $this->postJson('/api/devices/regenerate-token', ['id'=>$otherDevice->id])->assertForbidden();
+        $this->putJson('/api/devices/update', ['id'=>$device->id, 'name'=>'DxH', 'lab_id_fk'=>$other->id])->assertUnprocessable();
+        $created = $this->postJson('/api/devices/create', ['name'=>'Local NP', 'connection_type'=>'tcp',
+            'connection_config'=>['bridge_adapter'=>'np21h','cbc_interface_code'=>'LOCAL-CBC','automatic_invoice_apply'=>false,'port'=>5600]])
+            ->assertCreated()->assertJsonPath('device.lab_id_fk', $owner->id);
+        $this->putJson('/api/devices/update', ['id'=>$created->json('device.id'), 'name'=>'Local NP updated',
+            'connection_config'=>['ip'=>'192.168.1.80']])->assertOk()
+            ->assertJsonPath('connection_config.bridge_adapter', 'np21h')
+            ->assertJsonPath('connection_config.cbc_interface_code', 'LOCAL-CBC')
+            ->assertJsonPath('connection_config.automatic_invoice_apply', false);
+        $this->putJson('/api/devices/update', ['id'=>$device->id,'name'=>'Invalid',
+            'connection_config'=>['bridge_adapter'=>'unknown']])->assertUnprocessable();
+        $admin = User::create(['name'=>'Admin', 'email'=>'devices-admin@example.test', 'password'=>'test-password', 'role_id'=>1]);
+        $admin->givePermissionTo(['devices view', 'devices create', 'devices edit']);
+        $this->actingAs($admin)->getJson('/api/devices/options')->assertOk()
+            ->assertJsonCount(2, 'labs')->assertJsonPath('can_select_lab', true);
+        $this->postJson('/api/devices/create', ['name'=>'Missing owner'])->assertUnprocessable();
+        $this->postJson('/api/devices/create', ['name'=>'Not a lab','lab_id_fk'=>$admin->id])->assertUnprocessable();
+        $this->postJson('/api/devices/create', ['name'=>'Capital NP','lab_id_fk'=>$other->id,
+            'connection_config'=>['bridge_adapter'=>'np21h']])->assertCreated()->assertJsonPath('device.lab_id_fk',$other->id);
+        $this->putJson('/api/devices/update', ['id'=>$device->id, 'name'=>'Move', 'lab_id_fk'=>$other->id])->assertUnprocessable();
+        $this->assertSame('dxh500', $device->fresh()->bridgeSettings()['adapter']);
+        $this->assertSame('np21h', $otherDevice->fresh()->bridgeSettings()['adapter']);
+        $this->assertSame(str_repeat('b',64), $otherDevice->fresh()->api_token);
+    }
+
+    public function test_inbox_only_and_custom_cbc_mapping_can_be_applied_manually(): void
+    {
+        [$device, $invoice, $test, $rel, $payload] = $this->cbcFixture();
+        $device->update(['connection_config'=>['cbc_interface_code'=>'FURAT-CBC','automatic_invoice_apply'=>false]]);
+        $test->update(['interface_code'=>'FURAT-CBC']);
+        $this->postJson('/api/device/bridge/heartbeat')->assertOk()
+            ->assertJsonPath('adapters', ['dxh500'])->assertJsonPath('lab_id', $device->lab_id_fk)
+            ->assertJsonPath('cbc_interface_code', 'FURAT-CBC')->assertJsonPath('automatic_invoice_apply', false);
+        $response = $this->postJson('/api/device/bridge/results', $payload)->assertCreated()->assertJsonPath('status','matched');
+        $this->assertNull($rel->fresh()->sub_tests);
+        $owner = User::findOrFail($device->lab_id_fk); $owner->givePermissionTo('medical reports update');
+        $this->actingAs($owner)->postJson('/api/device-results/'.$response->json('id').'/apply')->assertOk()->assertJsonPath('applied_count',21);
+        $this->assertSame('FURAT-CBC', DeviceResult::find($response->json('id'))->instrument_metadata['cbc_interface_code']);
+        $this->assertFalse($rel->fresh()->is_done);
+    }
+
+    public function test_same_barcode_in_two_labs_uses_each_device_model_and_invoice(): void
+    {
+        [$furatDevice, $furatInvoice, $furatTest, $furatRel, $dxh] = $this->cbcFixture();
+        $capital = User::create(['name'=>'Capital', 'email'=>'capital-sample@example.test', 'password'=>'test-password', 'role_id'=>2]);
+        $capitalDevice = LabDevice::create(['lab_id_fk'=>$capital->id, 'name'=>'NP-21H', 'api_token'=>str_repeat('b',64),
+            'connection_config'=>['bridge_adapter'=>'np21h', 'cbc_interface_code'=>'CAPITAL-CBC']]);
+        $capitalTest = LabTest::create(['lab_id_fk'=>$capital->id,'name'=>'CBC','interface_code'=>'CAPITAL-CBC','price'=>0]);
+        $capitalInvoice = Invoice::create(['lab_id_fk'=>$capital->id,'patient_id_fk'=>$furatInvoice->patient_id_fk,
+            'barcode'=>$furatInvoice->barcode,'is_done'=>false]);
+        $capitalRel = InvoiceTestRel::create(['invoice_id_fk'=>$capitalInvoice->id,'test_id_fk'=>$capitalTest->id,'is_done'=>false]);
+        $np = json_decode(file_get_contents(base_path('../bridge/tests/np21_payload.json')), true);
+        $np['raw_message'] = str_replace('TEST-123', $furatInvoice->barcode, $np['raw_message']);
+        $np['specimen_barcode'] = $furatInvoice->barcode;
+        $np['delivery_id'] = hash('sha256', $np['raw_message']);
+        $np['device_id'] = $furatDevice->id;
+        // Even a valid device token must not import an unconfigured analyzer model.
+        $this->postJson('/api/device/bridge/results', $np)->assertStatus(409);
+        $this->assertDatabaseCount('device_results', 0);
+        $this->postJson('/api/device/bridge/results', $dxh)->assertCreated()->assertJsonPath('status','applied');
+        $furatRows = $furatRel->fresh()->sub_tests;
+        $this->assertNull($capitalRel->fresh()->sub_tests);
+        $np['device_id'] = $capitalDevice->id;
+        $this->withHeader('X-Device-Token',$capitalDevice->api_token)->postJson('/api/device/bridge/heartbeat')
+            ->assertOk()->assertJsonPath('adapters',['np21h'])->assertJsonPath('lab_id',$capital->id);
+        $response = $this->postJson('/api/device/bridge/results', $np)->assertCreated()->assertJsonPath('status','applied');
+        $this->assertSame($capitalInvoice->id, DeviceResult::find($response->json('id'))->invoice_id_fk);
+        $this->assertSame('GRAN%', $capitalRel->fresh()->sub_tests[2]['name']);
+        $this->assertSame('HGB', $furatRows[2]['name']);
+        $this->assertSame($furatRows, $furatRel->fresh()->sub_tests);
+        $this->postJson('/api/device/bridge/results', $np)->assertOk()->assertJsonPath('duplicate', true);
+        $this->assertDatabaseCount('device_results', 2);
+        $dxh['device_id'] = $capitalDevice->id;
+        $this->postJson('/api/device/bridge/results', $dxh)->assertStatus(409);
+        $this->assertFalse($capitalInvoice->fresh()->is_done);
+    }
+
 }
