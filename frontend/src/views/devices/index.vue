@@ -13,7 +13,7 @@ const authStore = useAuthStore();
 const { havePermission } = authStore;
 
 const { devices, deviceResults, totalCount, pendingCount, record, dialog, newTokenDialog, newToken } = storeToRefs(devicesStore);
-const { GetDevices, GetDeviceResults, RemoveDevice, ApplyResult, RegenerateToken, startPolling, stopPolling } = devicesStore;
+const { GetDeviceOptions, GetDevices, GetDeviceResults, RemoveDevice, ApplyResult, RegenerateToken, startPolling, stopPolling } = devicesStore;
 
 const isLoading = ref(true);
 const activeTab = ref("devices");
@@ -33,21 +33,32 @@ onMounted(async () => {
 
 onUnmounted(() => stopPolling());
 
-const addDevice = () => {
-     Object.keys(record.value).forEach((key) => {
-          if (key === "connection_type") record.value[key] = "serial";
-          else if (key === "connection_config") record.value[key] = { com_port: "", baud_rate: 9600 };
-          else record.value[key] = "";
-     });
-     record.value.id = "";
-     dialog.value = true;
+const openDevice = async (device = null) => {
+     try {
+          await GetDeviceOptions();
+          record.value = {
+               id: device?.id || "",
+               lab_id_fk: device?.lab_id_fk || (devicesStore.options.can_select_lab ? "" : devicesStore.options.labs[0]?.id || ""),
+               lab: device?.lab || "",
+               name: device?.name || "",
+               device_type: device?.device_type || "hematology",
+               serial_number: device?.serial_number || "",
+               connection_type: device?.connection_type || "tcp",
+               connection_config: {
+                    com_port: "", baud_rate: 9600,
+                    ...JSON.parse(JSON.stringify(device?.connection_config || {})),
+                    bridge_adapter: device?.bridge_settings?.adapter || "dxh500",
+                    cbc_interface_code: device?.bridge_settings?.cbc_interface_code || "12345678",
+                    automatic_invoice_apply: device?.bridge_settings?.automatic_invoice_apply ?? true,
+               },
+          };
+          dialog.value = true;
+     } catch (error) {
+          toast.error(error.response?.data?.message || "Unable to load laboratory device settings");
+     }
 };
-
-const editDevice = (device) => {
-     Object.assign(record.value, device);
-     record.value.connection_config = device.connection_config || { com_port: "", baud_rate: 9600 };
-     dialog.value = true;
-};
+const addDevice = () => openDevice();
+const editDevice = (device) => openDevice(device);
 
 const deleteDevice = (device) => {
      showAlertWithConfirm(t("AlertWithConfirm")).then((res) => {
@@ -197,7 +208,9 @@ const timeAgo = (dateStr) => {
                               <td class="px-5 py-4 text-sm text-slate-500">{{ device.index }}</td>
                               <td class="px-5 py-4">
                                    <p class="text-sm font-semibold text-slate-800">{{ device.name }}</p>
-                                   <p class="text-xs text-slate-400 mt-0.5">{{ device.serial_number || '-' }}</p>
+                                   <p class="text-xs text-slate-500 mt-0.5">{{ device.lab || '-' }}</p>
+                                   <p class="text-xs text-slate-400 mt-0.5" dir="ltr">{{ device.bridge_settings?.adapter === 'np21h' ? 'Nipigon NP-21H · HL7 / MLLP' : 'Beckman Coulter DxH 500 · ASTM' }}</p>
+                                   <p class="text-xs text-slate-400 mt-0.5" dir="ltr">CBC: {{ device.bridge_settings?.cbc_interface_code || '12345678' }} · {{ device.bridge_settings?.automatic_invoice_apply === false ? 'Inbox only' : 'Invoice draft' }}</p>
                               </td>
                               <td class="px-5 py-4 text-sm text-slate-600 capitalize">{{ device.device_type || '-' }}</td>
                               <td class="px-5 py-4 text-center">

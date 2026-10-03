@@ -34,6 +34,11 @@ class BridgeCbcService
                 return ['applied' => true, 'duplicate' => true,
                     'applied_count' => $result->instrument_metadata['cbc_count'] ?? 0];
             }
+            $settings = $device->bridgeSettings();
+            if ($settings['adapter'] !== $result->instrument_metadata['adapter']) {
+                return $this->hold($result, 'موديل الرسالة لا يطابق إعدادات الجهاز في هذا المختبر.');
+            }
+            $interfaceCode = $settings['cbc_interface_code'];
             $tenantIds = User::where('creator_id', $device->lab_id_fk)->pluck('id')->all();
             $tenantIds[] = $device->lab_id_fk;
             // Never trust a manual invoice link: independently resolve the exact barcode.
@@ -52,7 +57,7 @@ class BridgeCbcService
             foreach (InvoiceTestRel::where('invoice_id_fk', $invoice->id)->lockForUpdate()->get() as $rel) {
                 if ($rel->test_id_fk) {
                     $test = Test::find($rel->test_id_fk);
-                    if ($test && (string) $test->interface_code === self::INTERFACE_CODE) {
+                    if ($test && (string) $test->interface_code === $interfaceCode) {
                         $targets[] = [$rel, null, null, null];
                     }
                     continue;
@@ -81,14 +86,14 @@ class BridgeCbcService
                     foreach ($items as $i => $item) {
                         $testId = $item['test_id_fk'] ?? $item['id'] ?? null;
                         $test = $testId ? Test::find($testId) : null;
-                        if ($test && (string) $test->interface_code === self::INTERFACE_CODE) {
+                        if ($test && (string) $test->interface_code === $interfaceCode) {
                             $targets[] = [$rel, $field, $i, $items];
                         }
                     }
                 }
             }
             if (count($targets) !== 1) {
-                return $this->hold($result, 'يجب أن تحتوي الفاتورة على تحليل واحد بكود الربط 12345678.');
+                return $this->hold($result, 'يجب أن تحتوي الفاتورة على تحليل واحد بكود الربط '.$interfaceCode.'.');
             }
             [$rel, $field, $index, $items] = $targets[0];
             $existing = $field ? $items[$index] : $rel->toArray();
@@ -152,6 +157,7 @@ class BridgeCbcService
             $rel->save();
             $metadata = $result->instrument_metadata;
             $metadata['cbc_count'] = count($rows);
+            $metadata['cbc_interface_code'] = $interfaceCode;
             $metadata['cbc_invoice_test_rel_id'] = $rel->id;
             $metadata['review_required'] = true;
             $result->update([

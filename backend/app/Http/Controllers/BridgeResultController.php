@@ -22,11 +22,14 @@ class BridgeResultController extends DeviceResultController
             return response()->json(['message' => 'Bridge database migration is required'], 503);
         }
         $device->update(['last_seen_at' => now(), 'status' => 'online']);
+        $settings = $device->bridgeSettings();
 
         return response()->json([
             'protocol' => 'labbridge-v1', 'device_id' => $device->id,
-            'device_name' => $device->name, 'idempotency' => true, 'adapters' => ['dxh500', 'np21h'],
-            'storage' => 'device_results', 'automatic_invoice_apply' => true, 'cbc_interface_code' => '12345678',
+            'device_name' => $device->name, 'lab_id' => $device->lab_id_fk, 'lab_name' => $device->lab?->name,
+            'idempotency' => true, 'adapters' => [$settings['adapter']],
+            'storage' => 'device_results', 'automatic_invoice_apply' => $settings['automatic_invoice_apply'],
+            'cbc_interface_code' => $settings['cbc_interface_code'],
         ]);
     }
 
@@ -114,6 +117,10 @@ class BridgeResultController extends DeviceResultController
                     return $this->receipt($prior, true, $data['delivery_id']);
                 }
             }
+            $settings = $locked->bridgeSettings();
+            if ($settings['adapter'] !== $data['instrument_metadata']['adapter']) {
+                return response()->json(['message' => 'Analyzer model does not match this laboratory device. Check its settings and API token.'], 409);
+            }
             $invoices = Invoice::where('barcode', $data['specimen_barcode'])
                 ->whereIn('lab_id_fk', $this->getDeviceTenantIds($device))->limit(2)->get();
             $invoice = $invoices->count() === 1 &&
@@ -125,7 +132,9 @@ class BridgeResultController extends DeviceResultController
                 'delivery_id' => $data['delivery_id'], 'delivery_hash' => $hash,
                 'status' => $invoice ? 'matched' : 'pending', 'matched_at' => $invoice ? now() : null,
             ]);
-            app(\App\Services\BridgeCbcService::class)->apply($result);
+            if ($settings['automatic_invoice_apply']) {
+                app(\App\Services\BridgeCbcService::class)->apply($result);
+            }
             $result->refresh();
             $locked->update(['last_seen_at' => now(), 'status' => 'online']);
 

@@ -498,6 +498,7 @@ Route::group(['middleware' => ['auth:sanctum', \App\Http\Middleware\RestrictRefe
     /**
      * Lab Devices Routes
      */
+    Route::get('devices/options', [LabDeviceController::class, 'options']);
     Route::get('devices', [LabDeviceController::class, 'index']);
     Route::post('devices/create', [LabDeviceController::class, 'store']);
     Route::put('devices/update', [LabDeviceController::class, 'update']);

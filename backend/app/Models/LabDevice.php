@@ -49,4 +49,23 @@ class LabDevice extends Model
     {
         return bin2hex(random_bytes(32));
     }
+
+    public static function bridgeProfiles(): array
+    {
+        return [
+            ['id' => 'dxh500', 'name' => 'Beckman Coulter DxH 500', 'protocol' => 'ASTM LIS2-A2', 'port' => 5001],
+            ['id' => 'np21h', 'name' => 'Nipigon NP-21H', 'protocol' => 'HL7 2.3.1 / MLLP', 'port' => 5600],
+        ];
+    }
+
+    /** Existing devices retain their DxH configuration until explicitly edited. */
+    public function bridgeSettings(): array
+    {
+        $config = $this->connection_config ?? [];
+        return [
+            'adapter' => $config['bridge_adapter'] ?? 'dxh500',
+            'cbc_interface_code' => (string) ($config['cbc_interface_code'] ?? '12345678'),
+            'automatic_invoice_apply' => (bool) ($config['automatic_invoice_apply'] ?? true),
+        ];
+    }
 }

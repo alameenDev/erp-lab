@@ -1,13 +1,20 @@
 <script setup>
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { storeToRefs } from "pinia";
 import { useDevicesStore } from "@/store/modules/devices";
-import { t, alertSuccess, clearObjectValues } from "@/utils/helper";
+import { t, clearObjectValues } from "@/utils/helper";
 import { useToast } from "@/composables/useToast";
 
 const toast = useToast();
 const devicesStore = useDevicesStore();
-const { record, dialog } = storeToRefs(devicesStore);
+const { record, dialog, options } = storeToRefs(devicesStore);
+const saving = ref(false);
+const selectedProfile = computed(() => options.value.profiles.find((p) => p.id === record.value.connection_config.bridge_adapter));
+const chooseProfile = () => {
+     record.value.connection_type = "tcp";
+     record.value.device_type = "hematology";
+     if (!record.value.connection_config.port) record.value.connection_config.port = selectedProfile.value?.port;
+};
 const { AddDevice, UpdateDevice } = devicesStore;
 
 const lang = computed(() => localStorage.getItem("locale") || "ar");
@@ -23,6 +30,8 @@ const deviceTypes = [
 ];
 
 const handleSubmit = async () => {
+     if (saving.value) return;
+     saving.value = true;
      try {
           if (record.value.id) {
                await UpdateDevice();
@@ -36,11 +45,15 @@ const handleSubmit = async () => {
           record.value.connection_type = "serial";
           record.value.connection_config = { com_port: "", baud_rate: 9600 };
      } catch (error) {
-          console.error(error);
+          const errors = error.response?.data?.errors;
+          toast.error(errors ? Object.values(errors).flat()[0] : error.response?.data?.message || "Unable to save device settings");
+     } finally {
+          saving.value = false;
      }
 };
 
 const close = () => {
+     if (saving.value) return;
      dialog.value = false;
      clearObjectValues(record.value);
      record.value.connection_type = "serial";
@@ -69,10 +82,40 @@ const close = () => {
                          <!-- Body -->
                          <form @submit.prevent="handleSubmit" class="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
                               <div class="grid grid-cols-1 gap-4">
+                                   <div>
+                                        <label for="device-lab" class="block text-sm font-medium text-gray-700 mb-1">Laboratory <span class="text-red-500">*</span></label>
+                                        <select v-if="!record.id && options.can_select_lab" id="device-lab" v-model="record.lab_id_fk" required class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                                             <option value="" disabled>Select laboratory</option>
+                                             <option v-for="lab in options.labs" :key="lab.id" :value="lab.id">{{ lab.name }} (#{{ lab.id }})</option>
+                                        </select>
+                                        <p v-else id="device-lab" class="px-3 py-2 rounded-lg bg-slate-50 text-sm text-slate-700">{{ record.lab || options.labs.find((lab) => lab.id === record.lab_id_fk)?.name || '-' }}</p>
+                                        <p class="text-xs text-slate-500 mt-1">{{ lang === 'ar' ? 'الإعدادات ومفتاح API والنتائج تخص هذا المختبر فقط.' : 'Settings, API token and results belong to this laboratory only.' }}</p>
+                                   </div>
+                                   <div class="rounded-xl border border-blue-100 bg-blue-50/40 p-4 space-y-3">
+                                        <div>
+                                             <label for="bridge-model" class="block text-sm font-medium text-gray-700 mb-1">Analyzer Model</label>
+                                             <select id="bridge-model" v-model="record.connection_config.bridge_adapter" required @change="chooseProfile" class="w-full px-3 py-2 border border-gray-300 rounded-lg" dir="ltr">
+                                                  <option v-for="profile in options.profiles" :key="profile.id" :value="profile.id">{{ profile.name }}</option>
+                                             </select>
+                                             <p class="text-xs text-slate-500 mt-1" dir="ltr">{{ selectedProfile?.protocol }}</p>
+                                        </div>
+                                        <div>
+                                             <label for="cbc-code" class="block text-sm font-medium text-gray-700 mb-1">CBC Interface Code</label>
+                                             <input id="cbc-code" v-model="record.connection_config.cbc_interface_code" required maxlength="100" pattern="[A-Za-z0-9_.-]+" class="w-full px-3 py-2 border border-gray-300 rounded-lg" dir="ltr" />
+                                        </div>
+                                        <div>
+                                             <label for="result-destination" class="block text-sm font-medium text-gray-700 mb-1">Result Handling</label>
+                                             <select id="result-destination" v-model="record.connection_config.automatic_invoice_apply" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                                                  <option :value="true">Match barcode and fill invoice draft</option>
+                                                  <option :value="false">Save to device inbox for manual review</option>
+                                             </select>
+                                             <p class="text-xs text-slate-500 mt-1">{{ lang === 'ar' ? 'المطابقة حسب باركود العينة داخل هذا المختبر. تبقى النتيجة بانتظار اعتماد الموظف.' : 'Match the sample barcode within this laboratory. Staff approval is still required.' }}</p>
+                                        </div>
+                                   </div>
                                    <!-- Name -->
                                    <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-1">{{ t("name") }} <span class="text-red-500">*</span></label>
-                                        <input v-model="record.name" type="text" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" :placeholder="'Mindray BC-5000'" />
+                                        <input v-model="record.name" type="text" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" :placeholder="selectedProfile?.name" />
                                    </div>
 
                                    <!-- Device Type -->
@@ -123,12 +166,12 @@ const close = () => {
                                    <template v-if="record.connection_type === 'tcp'">
                                         <div class="grid grid-cols-2 gap-3">
                                              <div>
-                                                  <label class="block text-sm font-medium text-gray-700 mb-1">IP Address</label>
-                                                  <input v-model="record.connection_config.ip" type="text" placeholder="192.168.1.100" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                                                  <label class="block text-sm font-medium text-gray-700 mb-1">Analyzer IP Address</label>
+                                                  <input v-model="record.connection_config.ip" type="text" placeholder="192.168.1.80" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                                              </div>
                                              <div>
-                                                  <label class="block text-sm font-medium text-gray-700 mb-1">Port</label>
-                                                  <input v-model="record.connection_config.port" type="number" placeholder="5000" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                                                  <label class="block text-sm font-medium text-gray-700 mb-1">Host Port</label>
+                                                  <input v-model.number="record.connection_config.port" type="number" min="1" max="65535" :placeholder="String(selectedProfile?.port || 5001)" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                                              </div>
                                         </div>
                                    </template>
@@ -139,7 +182,7 @@ const close = () => {
                                    <button type="button" @click="close" class="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors">
                                         {{ t("close") }}
                                    </button>
-                                   <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors">
+                                   <button type="submit" :disabled="saving" class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors">
                                         {{ record.id ? t("save") : t("add") }}
                                    </button>
                               </div>

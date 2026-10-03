@@ -89,6 +89,8 @@ class Api:
         if self.config.get('device_id') and result['device_id'] != self.config['device_id']:
             raise DeliveryError('Token belongs to a different device; queued records were not sent', True)
         if self.config.get('adapter') == 'np21h' and 'np21h' not in result.get('adapters', []):
+            if result.get('lab_id'):
+                raise DeliveryError('Select Nipigon NP-21H in this laboratory device settings, then use its own API token', True)
             raise DeliveryError('Install the NP-21H server update before saving settings', True)
         return result
 
