@@ -22,11 +22,11 @@ class ResultTrendService
                 $add = function ($type, $id, $name, $item) use (&$series, $invoice, $rel): void {
                     if (! $id && ! $name) return;
                     $identity = $type.':'.($id ?: 'name:'.mb_strtolower(trim($name)));
-                    $append = function ($field, $label, $value, $unit, $ranges = [], $rangeSource = 'stored') use (&$series, $invoice, $rel, $identity, $name): void {
+                    $append = function ($field, $label, $value, $unit, $ranges = [], $rangeSource = 'stored') use (&$series, $invoice, $rel, $identity, $name, $type, $id): void {
                         if (! is_scalar($value) || is_bool($value) || trim((string) $value) === '' || $value === 'null') return;
                         $unit = is_scalar($unit) ? trim((string) $unit) : '';
                         $key = json_encode([$invoice->lab_id_fk, $identity, $field, $unit], JSON_UNESCAPED_UNICODE);
-                        if (! isset($series[$key])) $series[$key] = ['key' => $key, 'name' => $name ?: 'فحص', 'field' => $label,
+                        if (! isset($series[$key])) $series[$key] = ['type' => $type, 'test_id' => $id, 'key' => $key, 'name' => $name ?: 'فحص', 'field' => $label,
                             'unit' => $unit, 'lab' => $invoice->lab?->name, 'points' => []];
                         $normalized = strtr(trim((string) $value), ['٠'=>'0','١'=>'1','٢'=>'2','٣'=>'3','٤'=>'4','٥'=>'5','٦'=>'6','٧'=>'7','٨'=>'8','٩'=>'9','٫'=>'.']);
                         $number = preg_match('/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/D', $normalized) ? (float) $normalized : null;

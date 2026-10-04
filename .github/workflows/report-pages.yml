@@ -38,7 +38,7 @@ jobs:
         working-directory: frontend
       - run: npx playwright install --with-deps chromium
         working-directory: frontend
-      - run: node --test tests/medical-report-columns.test.mjs tests/medical-report-pages.test.mjs tests/medical-report-output.test.mjs tests/print-lifecycle.test.mjs
+      - run: node --test tests/result-history.test.mjs tests/medical-report-columns.test.mjs tests/medical-report-pages.test.mjs tests/medical-report-output.test.mjs tests/print-lifecycle.test.mjs
         working-directory: frontend
       - name: Verify rendered sheets and native print
         working-directory: frontend

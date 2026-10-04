@@ -10,6 +10,8 @@ import { useinvoicesStore } from "@/store/modules/invoices";
 import { useresultStatusStore } from "@/store/modules/result-status";
 import result_section from "./result_section.vue";
 import ReportResultFlag from "./ReportResultFlag.vue";
+import ResultHistoryTable from '@/components/ResultHistoryTable.vue';
+import { resultHistoryRows } from '@/utils/resultHistory';
 import ReportTableColumns from "./ReportTableColumns.vue";
 import { customReportColumns } from "@/utils/medicalReportColumns";
 import result_footer_section from "./result_footer_section.vue";
@@ -855,7 +857,7 @@ const generateBarcodeImage = (value) => {
             <thead><tr><td class="pw-cell pw-top"><result_section :modern="modernReport" :with-background="showBackground" :lab-name="reportBrand?.lab_display_name" :lab-logo="showBackground && backgroundUrl ? '' : referralLogo" :share-url="reportShareUrl" :is-referral="referralReport || sharedReferralReport" /></td></tr></thead>
             <tfoot><tr><td class="pw-cell pw-bottom"></td></tr></tfoot>
             <tbody><tr><td class="pw-cell">
-              <section class="template-section"><div v-html="chunk"></div></section>
+              <section class="template-section"><div v-html="chunk"></div><ResultHistoryTable v-if="cIdx === templateChunks(tTest).length - 1" :rows="resultHistoryRows(printRecord, tTest)" /></section>
             </td></tr></tbody>
           </table>
         </template>
@@ -892,7 +894,7 @@ const generateBarcodeImage = (value) => {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(item, idx) in section.tests" :key="'merged-' + idx" :data-report-block="section.blocks[idx]" :data-report-bundle="section.bundles[idx]">
+                <template v-for="(item, idx) in section.tests" :key="'merged-' + idx"><tr :data-report-block="section.blocks[idx]" :data-report-bundle="section.bundles[idx]">
                   <td class="border border-black/15 p-0.5 text-center">{{ item.report_name || item.name }}</td>
                   <td class="border border-black/15 p-0.5 text-center" :style="getResultColorStyle(item.result_status_id_fk)">{{ item.result ?? "" }}</td>
                   <td v-if="showStatus && modernReport" class="report-flag-cell"><ReportResultFlag :status-id="item.result_status_id_fk" :label="getStatusLabel(item.result_status_id_fk)" /></td>
@@ -907,6 +909,7 @@ const generateBarcodeImage = (value) => {
                   <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center">{{ lastResultMap[item.name] || '' }}</td>
                   <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(item.result_status_id_fk) }}</td>
                 </tr>
+                <tr v-if="resultHistoryRows(printRecord, item, 'test').length" :data-report-block="section.blocks[idx]" :data-report-bundle="section.bundles[idx]"><td :colspan="colCount"><ResultHistoryTable :rows="resultHistoryRows(printRecord, item, 'test')" /></td></tr></template>
               </tbody>
             </table>
           </section>
@@ -932,7 +935,7 @@ const generateBarcodeImage = (value) => {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(item, idx) in group.tests" :key="idx">
+                <template v-for="(item, idx) in group.tests" :key="idx"><tr>
                   <td class="border border-black/15 p-0.5 text-center">{{ item.report_name || item.name }}</td>
                   <td class="border border-black/15 p-0.5 text-center" :style="getResultColorStyle(item.result_status_id_fk)">{{ item.result ?? "" }}</td>
                   <td v-if="showStatus && modernReport" class="report-flag-cell"><ReportResultFlag :status-id="item.result_status_id_fk" :label="getStatusLabel(item.result_status_id_fk)" /></td>
@@ -947,6 +950,7 @@ const generateBarcodeImage = (value) => {
                   <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center">{{ lastResultMap[item.name] || '' }}</td>
                   <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(item.result_status_id_fk) }}</td>
                 </tr>
+                <tr v-if="resultHistoryRows(printRecord, item, 'test').length"><td :colspan="colCount"><ResultHistoryTable :rows="resultHistoryRows(printRecord, item, 'test')" /></td></tr></template>
               </tbody>
             </table>
           </section>
@@ -972,7 +976,7 @@ const generateBarcodeImage = (value) => {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(item, idx) in group.tests.filter(t => !isFormulaTarget(group, t))" :key="'tgt-' + idx">
+                <template v-for="(item, idx) in group.tests.filter(t => !isFormulaTarget(group, t))" :key="'tgt-' + idx"><tr>
                   <td class="border border-black/15 p-0.5 text-center">{{ item.report_name || item.name }}</td>
                   <td class="border border-black/15 p-0.5 text-center" :style="getResultColorStyle(item.result_status_id_fk)">{{ item.result ?? "" }}</td>
                   <td v-if="showStatus && modernReport" class="report-flag-cell"><ReportResultFlag :status-id="item.result_status_id_fk" :label="getStatusLabel(item.result_status_id_fk)" /></td>
@@ -987,6 +991,7 @@ const generateBarcodeImage = (value) => {
                   <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center">{{ lastResultMap[item.name] || '' }}</td>
                   <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(item.result_status_id_fk) }}</td>
                 </tr>
+                <tr v-if="resultHistoryRows(printRecord, item, 'test').length"><td :colspan="colCount"><ResultHistoryTable :rows="resultHistoryRows(printRecord, item, 'test')" /></td></tr></template>
                 <tr v-for="(f, fi) in (Array.isArray(group.formula) ? group.formula : [])" :key="'gf-' + fi">
                   <td class="border border-black/15 p-0.5 text-center font-bold">{{ getTestLabel(group, f.name) }}</td>
                   <td class="border border-black/15 p-0.5 text-center font-bold" :style="modernReport ? getResultColorStyle(getFormulaStatusId(group, f)) : ''">{{ evalFormulaValue(group, f) }}</td>
@@ -1021,7 +1026,7 @@ const generateBarcodeImage = (value) => {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="(item, idx) in group.cultures" :key="'tgc-' + idx">
+                  <template v-for="(item, idx) in group.cultures" :key="'tgc-' + idx"><tr>
                     <td class="border border-black/15 p-0.5 text-center">{{ item.name }}</td>
                     <td class="border border-black/15 p-0.5 text-center" :style="getResultColorStyle(item.result_status_id_fk)">{{ item.result ?? "" }}</td>
                   <td v-if="showStatus && modernReport" class="report-flag-cell"><ReportResultFlag :status-id="item.result_status_id_fk" :label="getStatusLabel(item.result_status_id_fk)" /></td>
@@ -1035,6 +1040,7 @@ const generateBarcodeImage = (value) => {
                     <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center">{{ lastResultMap[item.name] || '' }}</td>
                     <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(item.result_status_id_fk) }}</td>
                   </tr>
+                <tr v-if="resultHistoryRows(printRecord, item, 'culture').length"><td :colspan="colCount"><ResultHistoryTable :rows="resultHistoryRows(printRecord, item, 'culture')" /></td></tr></template>
                 </tbody>
               </table>
             </template>
@@ -1063,7 +1069,7 @@ const generateBarcodeImage = (value) => {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(item, idx) in group.rows.filter(t => !isFormulaTarget(group, t))" :key="'ptgt-' + idx">
+                <template v-for="(item, idx) in group.rows.filter(t => !isFormulaTarget(group, t))" :key="'ptgt-' + idx"><tr>
                   <td class="border border-black/15 p-0.5 text-center">{{ item.report_name || item.name }}</td>
                   <td class="border border-black/15 p-0.5 text-center" :style="getResultColorStyle(item.result_status_id_fk)">{{ item.result ?? "" }}</td>
                   <td v-if="showStatus && modernReport" class="report-flag-cell"><ReportResultFlag :status-id="item.result_status_id_fk" :label="getStatusLabel(item.result_status_id_fk)" /></td>
@@ -1078,6 +1084,7 @@ const generateBarcodeImage = (value) => {
                   <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center">{{ lastResultMap[item.name] || '' }}</td>
                   <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(item.result_status_id_fk) }}</td>
                 </tr>
+                <tr v-if="resultHistoryRows(printRecord, item, 'test').length"><td :colspan="colCount"><ResultHistoryTable :rows="resultHistoryRows(printRecord, item, 'test')" /></td></tr></template>
                 <tr v-for="(f, fi) in group.formula" :key="'ptgf-' + fi">
                   <td class="border border-black/15 p-0.5 text-center font-bold">{{ getTestLabel(group, f.name) }}</td>
                   <td class="border border-black/15 p-0.5 text-center font-bold" :style="modernReport ? getResultColorStyle(getFormulaStatusId(group, f)) : ''">{{ evalFormulaValue(group, f) }}</td>
@@ -1129,7 +1136,7 @@ const generateBarcodeImage = (value) => {
                   </td>
                   <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center">{{ lastResultMap[culture.name] || '' }}</td>
                   <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(culture.result_status_id_fk) }}</td>
-                </tr>
+                </tr><tr v-if="resultHistoryRows(printRecord, culture, 'culture').length"><td :colspan="colCount"><ResultHistoryTable :rows="resultHistoryRows(printRecord, culture, 'culture')" /></td></tr>
               </tbody>
             </table>
           </section>
@@ -1156,7 +1163,7 @@ const generateBarcodeImage = (value) => {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(item, idx) in pkg.cultures" :key="'pc-' + idx">
+                <template v-for="(item, idx) in pkg.cultures" :key="'pc-' + idx"><tr>
                   <td class="border border-black/15 p-0.5 text-center">{{ item.name }}</td>
                   <td class="border border-black/15 p-0.5 text-center" :style="getResultColorStyle(item.result_status_id_fk)">{{ item.result ?? "" }}</td>
                   <td v-if="showStatus && modernReport" class="report-flag-cell"><ReportResultFlag :status-id="item.result_status_id_fk" :label="getStatusLabel(item.result_status_id_fk)" /></td>
@@ -1169,6 +1176,7 @@ const generateBarcodeImage = (value) => {
                   <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center">{{ lastResultMap[item.name] || '' }}</td>
                   <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(item.result_status_id_fk) }}</td>
                 </tr>
+                <tr v-if="resultHistoryRows(printRecord, item, 'culture').length"><td :colspan="colCount"><ResultHistoryTable :rows="resultHistoryRows(printRecord, item, 'culture')" /></td></tr></template>
                 <tr v-for="(f, fi) in (Array.isArray(pkg.formula) ? pkg.formula : [])" :key="'pf-' + fi">
                   <td class="border border-black/15 p-0.5 text-center font-bold">{{ getTestLabel(pkg, f.name) }}</td>
                   <td class="border border-black/15 p-0.5 text-center font-bold" :style="modernReport ? getResultColorStyle(getFormulaStatusId(pkg, f)) : ''">{{ evalFormulaValue(pkg, f) }}</td>
