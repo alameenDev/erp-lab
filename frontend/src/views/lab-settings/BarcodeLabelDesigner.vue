@@ -64,10 +64,10 @@ const printTest = () => printWithIframe('barcode-test-print', barcodePrintCss(c.
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div><h3 class="text-lg font-bold text-slate-900">{{ tr('مصمم ملصقات الباركود', 'Barcode label designer') }}</h3>
         <p class="mt-1 text-sm text-slate-500">{{ tr('مقاسات حقيقية، ترتيب بالسحب، ومعاينة مطابقة للطباعة. تُحفظ الإعدادات لهذا المختبر فقط بزر حفظ الإعدادات.', 'Physical dimensions, drag-to-position and a shared print preview. Use Save settings to save for this laboratory.') }}</p></div>
-      <span class="rounded-full bg-teal-50 px-3 py-1 text-xs font-bold text-teal-700">{{ c.width_mm }} × {{ c.height_mm }} mm</span>
+      <span dir="ltr" class="rounded-full bg-teal-50 px-3 py-1 text-xs font-bold text-teal-700">{{ c.width_mm }} × {{ c.height_mm }} mm</span>
     </div>
     <div class="flex flex-wrap gap-2">
-      <button v-for="size in [[50,30],[60,40],[76.2,38.1],[40,25]]" :key="size.join('x')" type="button" class="rounded-lg border px-3 py-2 text-sm hover:bg-teal-50" @click="preset(...size)">{{ size[0] }} × {{ size[1] }} mm</button>
+      <button dir="ltr" v-for="size in [[50,30],[60,40],[76.2,38.1],[40,25]]" :key="size.join('x')" type="button" class="rounded-lg border px-3 py-2 text-sm hover:bg-teal-50" @click="preset(...size)">{{ size[0] }} × {{ size[1] }} mm</button>
       <button type="button" class="rounded-lg border px-3 py-2 text-sm text-slate-600" @click="preset(c.width_mm,c.height_mm)">{{ tr('إعادة ترتيب العناصر', 'Reset layout') }}</button>
     </div>
     <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
