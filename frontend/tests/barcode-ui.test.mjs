@@ -1,14 +1,14 @@
 // Isolated synthetic data only; no login, API or patient data is used.
 import { chromium } from 'playwright';
-import { spawn } from 'node:child_process';
+import { createServer } from 'vite';
 import { mkdir, writeFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 const out = 'barcode-qa';
 await mkdir(out, { recursive:true });
-const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','--host','127.0.0.1','--port','5183'],{stdio:'pipe'});
+const server=await createServer({server:{host:'127.0.0.1',port:5183,strictPort:true}});
 let browser;
 try {
-  await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('Vite startup timeout')),30000);server.stdout.on('data',s=>{if(s.toString().includes('Local:')){clearTimeout(timer);resolve();}});server.on('error',reject);});
+  await server.listen();
   browser=await chromium.launch({headless:true});
   const page=await browser.newPage({viewport:{width:1380,height:1100}}), errors=[];
   page.on('pageerror',e=>errors.push(e.message));
@@ -53,4 +53,4 @@ try {
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth));
   assert.deepEqual(errors,[]);
   console.log('PASS: preset fit, keyboard/pointer positioning, real print iframe, two physical pages, scan comparison, overflow blocking and mobile width.');
-} finally { await browser?.close();server.kill(); }
+} finally { await browser?.close();await server.close(); }
