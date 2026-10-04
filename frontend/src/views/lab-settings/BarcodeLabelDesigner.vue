@@ -71,8 +71,8 @@ const printTest = () => printWithIframe('barcode-test-print', barcodePrintCss(c.
       <button type="button" class="rounded-lg border px-3 py-2 text-sm text-slate-600" @click="preset(c.width_mm,c.height_mm)">{{ tr('إعادة ترتيب العناصر', 'Reset layout') }}</button>
     </div>
     <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <label class="bl-field">{{ tr('عرض الملصق (مم)', 'Label width (mm)') }}<input type="number" :value="c.width_mm" min="25" max="150" step="0.1" @change="number('width_mm',$event)"></label>
-      <label class="bl-field">{{ tr('ارتفاع الملصق (مم)', 'Label height (mm)') }}<input type="number" :value="c.height_mm" min="15" max="150" step="0.1" @change="number('height_mm',$event)"></label>
+      <label class="bl-field">{{ tr('عرض الملصق (مم)', 'Label width (mm)') }}<input type="number" :value="c.width_mm" min="25" max="254" step="0.1" @change="number('width_mm',$event)"></label>
+      <label class="bl-field">{{ tr('ارتفاع الملصق (مم)', 'Label height (mm)') }}<input type="number" :value="c.height_mm" min="12.7" max="254" step="0.1" @change="number('height_mm',$event)"></label>
       <label class="bl-field">{{ tr('دقة الطابعة', 'Printer resolution') }}<select :value="c.dpi" @change="number('dpi',$event)"><option v-for="dpi in [203,300,600]" :value="dpi" :key="dpi">{{ dpi }} DPI</option></select></label>
       <label class="bl-field">{{ tr('نسخ لكل عينة', 'Copies per sample') }}<input type="number" :value="c.copies" min="1" max="20" @change="number('copies',$event)"></label>
     </div>
@@ -97,7 +97,7 @@ const printTest = () => printWithIframe('barcode-test-print', barcodePrintCss(c.
       <div class="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
         <h4 class="font-bold text-slate-800">{{ name(selected) }}</h4>
         <div class="grid grid-cols-2 gap-3">
-          <label v-for="(caption,key) in {x:tr('من اليسار (مم)','Left (mm)'),y:tr('من الأعلى (مم)','Top (mm)'),width:tr('العرض (مم)','Width (mm)'),height:tr('الارتفاع (مم)','Height (mm)')}" :key="key" class="bl-field">{{ caption }}<input type="number" :value="e[key]" :min="['x','y'].includes(key)?0:1" max="150" step="0.1" @change="number(key,$event,true)"></label>
+          <label v-for="(caption,key) in {x:tr('من اليسار (مم)','Left (mm)'),y:tr('من الأعلى (مم)','Top (mm)'),width:tr('العرض (مم)','Width (mm)'),height:tr('الارتفاع (مم)','Height (mm)')}" :key="key" class="bl-field">{{ caption }}<input type="number" :value="e[key]" :min="['x','y'].includes(key)?0:1" max="254" step="0.1" @change="number(key,$event,true)"></label>
         </div>
         <label class="bl-field">{{ tr('اتجاه العنصر', 'Rotation') }}<select :value="e.rotation" @change="number('rotation',$event,true)"><option v-for="r in [0,90,180,270]" :key="r" :value="r">{{ r }}°</option></select></label>
         <button type="button" class="w-full rounded-lg border bg-white p-2 text-sm" @click="center">{{ tr('توسيط أفقياً', 'Center horizontally') }}</button>

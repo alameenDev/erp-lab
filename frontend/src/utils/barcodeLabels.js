@@ -44,8 +44,8 @@ export function defaultLabel(width = 76.2, height = 38.1, old = {}, showTests = 
 export function labelConfig(input, showTests = true) {
   const c = input && typeof input === 'object' ? input : {};
   const modern = Number(c.version) === 2;
-  const width = roundMm(modern ? n(c.width_mm, 76.2, 25, 150) : n(c.label_width, 3, 1, 10) * 25.4);
-  const height = roundMm(modern ? n(c.height_mm, 38.1, 15, 150) : n(c.label_height, 1.5, 0.5, 10) * 25.4);
+  const width = roundMm(modern ? n(c.width_mm, 76.2, 25, 254) : n(c.label_width, 3, 1, 10) * 25.4);
+  const height = roundMm(modern ? n(c.height_mm, 38.1, 12.7, 254) : n(c.label_height, 1.5, 0.5, 10) * 25.4);
   const base = defaultLabel(width, height, c, showTests);
   if (!modern) return base;
   return {
@@ -56,8 +56,8 @@ export function labelConfig(input, showTests = true) {
     copies: Math.round(n(c.copies, 1, 1, 20)), custom_text: String(c.custom_text || '').slice(0, 120),
     elements: Object.fromEntries(labelFields.map(key => {
       const e = c.elements?.[key] || {}, d = base.elements[key];
-      return [key, { x: n(e.x, d.x, 0, 150), y: n(e.y, d.y, 0, 150),
-        width: n(e.width, d.width, 1, 150), height: n(e.height, d.height, 1, 150),
+      return [key, { x: n(e.x, d.x, 0, 254), y: n(e.y, d.y, 0, 254),
+        width: n(e.width, d.width, 1, 254), height: n(e.height, d.height, 1, 254),
         font: n(e.font, d.font, 4, 32), align: ['left', 'center', 'right'].includes(e.align) ? e.align : d.align,
         bold: bool(e.bold, d.bold), visible: key === 'barcode' || bool(e.visible, d.visible),
         rotation: [0, 90, 180, 270].includes(Number(e.rotation)) ? Number(e.rotation) : 0 }];

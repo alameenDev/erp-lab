@@ -35,7 +35,7 @@ class LabSettingsTest extends TestCase
     public function test_barcode_layout_validates_dimensions_modules_and_field_properties(): void
     {
         $this->actingAs($this->owner());
-        foreach (['width_mm'=>0, 'height_mm'=>151, 'dpi'=>72, 'quiet_modules'=>0, 'format'=>'QR', 'copies'=>100, 'offset_x'=>11] as $key=>$value) {
+        foreach (['width_mm'=>0, 'height_mm'=>255, 'dpi'=>72, 'quiet_modules'=>0, 'format'=>'QR', 'copies'=>100, 'offset_x'=>11] as $key=>$value) {
             $layout = $this->barcodeLayout(); $layout[$key] = $value;
             $this->postJson('/api/lab-settings', ['barcode_config'=>$layout])->assertUnprocessable();
         }

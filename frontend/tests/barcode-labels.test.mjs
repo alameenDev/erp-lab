@@ -6,6 +6,8 @@ test('legacy inch settings migrate without losing visibility or label size', () 
   const c = labelConfig({label_width:2,label_height:1,name_size:8}, false);
   assert.equal(c.width_mm,50.8); assert.equal(c.height_mm,25.4); assert.equal(c.elements.patient.font,8); assert.equal(c.elements.tests.visible,false);
   assert.deepEqual(labelConfig(c),c);
+  const large=labelConfig({label_width:10,label_height:10}); assert.deepEqual(labelConfig(large),large);
+  const short=labelConfig({label_height:0.5}); assert.equal(labelConfig(short).height_mm,12.7);
 });
 test('presets fit populated fields, preserve leading zeroes and quantize to printer dots', () => {
   for(const [w,h] of [[76.2,38.1],[50,30],[60,40],[40,25]]) for(const dpi of [203,300,600]) {
