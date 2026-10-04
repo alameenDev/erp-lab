@@ -1,3 +1,4 @@
+import { barcodePrintCss } from '../utils/barcodeLabels.js';
 import { reportColumnCss } from "../utils/medicalReportColumns.js";
 import { getReportTemplateCss } from "../utils/medicalReportTemplate.js";
 import { nextTick, onScopeDispose } from "vue";
@@ -79,6 +80,13 @@ export function usePrint() {
             ? Promise.resolve()
             : new Promise(done => { image.onload = done; image.onerror = done; })));
           if (frameDoc.fonts?.ready) await frameDoc.fonts.ready;
+          const labels = [...frameDoc.querySelectorAll('.barcode-label')];
+          const bad = labels.find(label => label.dataset.labelErrors || [...label.querySelectorAll('[data-label-text]')].some(e => e.scrollHeight > e.clientHeight + 1 || e.scrollWidth > e.clientWidth + 1));
+          if (bad) {
+            window.alert('تعذرت طباعة الملصق: يوجد تداخل أو نص خارج المساحة أو باركود ضيق. عدّل إعدادات ملصقات الباركود أو كبّر المقاس ثم أعد المحاولة.\nLabel does not fit. Check barcode label settings before printing.');
+            removeFrame(printFrame);
+            return;
+          }
           if (!frames.has(printFrame)) return;
           printFrame.contentWindow.onafterprint = () => {
             removeFrame(printFrame);
@@ -118,6 +126,13 @@ export function usePrint() {
             ? Promise.resolve()
             : new Promise(done => { image.onload = done; image.onerror = done; })));
           if (frameDoc.fonts?.ready) await frameDoc.fonts.ready;
+          const labels = [...frameDoc.querySelectorAll('.barcode-label')];
+          const bad = labels.find(label => label.dataset.labelErrors || [...label.querySelectorAll('[data-label-text]')].some(e => e.scrollHeight > e.clientHeight + 1 || e.scrollWidth > e.clientWidth + 1));
+          if (bad) {
+            window.alert('تعذرت طباعة الملصق: يوجد تداخل أو نص خارج المساحة أو باركود ضيق. عدّل إعدادات ملصقات الباركود أو كبّر المقاس ثم أعد المحاولة.\nLabel does not fit. Check barcode label settings before printing.');
+            removeFrame(printFrame);
+            return;
+          }
           if (!frames.has(printFrame)) return;
           printFrame.contentWindow.onafterprint = () => {
             removeFrame(printFrame);
@@ -259,34 +274,7 @@ export function usePrint() {
       }
     `,
 
-    getBarcodeCss: (config) => {
-      const c = config || {};
-      const w = c.label_width || 3;
-      const h = c.label_height || 1.5;
-      const nameS = c.name_size || 9;
-      const infoS = c.info_size || 7;
-      const numS = c.number_size || 6;
-      const bcH = c.barcode_height || 40;
-      const sampleS = c.sample_size || 8;
-      const testsS = c.tests_size || 7;
-      return `
-        @page { size: ${w}in ${h}in; margin: 0 !important; }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body { width: ${w}in; height: ${h}in; }
-        body { font-family: Arial, sans-serif; color: #000; }
-        .lbl { width: ${w}in; height: ${h}in; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.08in 0.15in; overflow: hidden; }
-        .lbl + .lbl { page-break-before: always; }
-        .top-row { width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
-        .num { font-size: ${numS}pt; font-weight: bold; line-height: 1.1; }
-        .sample { font-size: ${sampleS}pt; font-weight: bold; line-height: 1.2; text-transform: uppercase; }
-        .bc { width: 95%; margin: 2px 0; }
-        .bc svg { width: 100% !important; height: ${bcH}px !important; }
-        .pname { font-size: ${nameS}pt; font-weight: bold; line-height: 1.3; margin: 2px 0; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-        .info-row { width: 100%; display: flex; justify-content: space-between; align-items: center; font-size: ${infoS}pt; line-height: 1.2; margin-bottom: 2px; }
-        .info-row span { white-space: nowrap; }
-        .tests-row { font-size: ${testsS}pt; font-weight: bold; line-height: 1.2; text-align: center; width: 100%; padding: 0 0.05in; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      `;
-    },
+    getBarcodeCss: barcodePrintCss,
 
     // Print-table CSS overrides — applied on top of getResultCss() so the
     // result tables honour lab_settings.print_table_config.

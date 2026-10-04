@@ -3,16 +3,18 @@ import assert from 'node:assert/strict';
 import { effectScope } from 'vue';
 import { usePrint } from '../src/composables/usePrint.js';
 
-function fixture(mode = 'afterprint') {
+function fixture(mode = 'afterprint', labels = []) {
   const attached = new Set();
   let prints = 0;
+  let alerts = 0;
+  globalThis.window = {alert: () => alerts++};
   globalThis.document = {
     getElementById: () => ({outerHTML: '<div>barcode</div>'}),
     body: {appendChild: frame => attached.add(frame)},
     createElement() {
       const frame = {style: {}, setAttribute() {}, remove() {attached.delete(frame);}};
       frame.contentWindow = {
-        document: {images: [], fonts: {ready: Promise.resolve()}, open() {}, write() {}, close() {}},
+        document: {querySelectorAll: () => labels, images: [], fonts: {ready: Promise.resolve()}, open() {}, write() {}, close() {}},
         focus() {},
         print() {
           prints++;
@@ -28,7 +30,7 @@ function fixture(mode = 'afterprint') {
   };
   const scope = effectScope();
   const api = scope.run(() => usePrint());
-  return {attached, scope, api, prints: () => prints};
+  return {attached, scope, api, prints: () => prints, alerts: () => alerts};
 }
 
 test('both print paths clean up even when afterprint fires before print returns', async () => {
@@ -61,4 +63,19 @@ test('failed print removes the hidden frame', async () => {
   await f.api.printWithCustomContent('<svg/>', '', 'Barcode', 0);
   assert.equal(f.attached.size, 0);
   f.scope.stop();
+});
+
+test('invalid label geometry and clipped text block both print paths and clean up', async () => {
+  for (const label of [
+    {dataset: {labelErrors: 'narrow:barcode'}},
+    {dataset: {}, querySelectorAll: () => [{scrollHeight: 40, clientHeight: 10, scrollWidth: 40, clientWidth: 40}]}
+  ]) {
+    const f = fixture('afterprint', [label]);
+    await f.api.printWithCustomContent('<div/>', '', 'Barcode', 0);
+    await f.api.printWithIframe('parcode', '', 'Barcode', 0);
+    assert.equal(f.prints(), 0);
+    assert.equal(f.alerts(), 2);
+    assert.equal(f.attached.size, 0);
+    f.scope.stop();
+  }
 });

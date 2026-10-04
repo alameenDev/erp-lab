@@ -9,6 +9,8 @@ import { applyBranding } from "@/utils/branding";
 import DocumentPreview from "./DocumentPreview.vue";
 import ReportTemplatePicker from "./ReportTemplatePicker.vue";
 import ReportTemplatePreview from "./ReportTemplatePreview.vue";
+import BarcodeLabelDesigner from "./BarcodeLabelDesigner.vue";
+import { labelConfig } from "@/utils/barcodeLabels";
 import ReportColumnWidths from "./ReportColumnWidths.vue";
 import { customReportColumns, reportColumnDefaults } from "@/utils/medicalReportColumns";
 import LoyaltySettings from "./LoyaltySettings.vue";
@@ -142,15 +144,12 @@ const save = async () => {
           formData.append("show_status", settings.value.show_status ? "1" : "0");
           formData.append("show_last_result", settings.value.show_last_result ? "1" : "0");
           formData.append("print_black_white", settings.value.print_black_white ? "1" : "0");
-          const bc = settings.value.barcode_config || {};
-          formData.append("barcode_config[label_width]", bc.label_width ?? 3);
-          formData.append("barcode_config[label_height]", bc.label_height ?? 1.5);
-          formData.append("barcode_config[name_size]", bc.name_size ?? 9);
-          formData.append("barcode_config[info_size]", bc.info_size ?? 7);
-          formData.append("barcode_config[number_size]", bc.number_size ?? 6);
-          formData.append("barcode_config[barcode_height]", bc.barcode_height ?? 40);
-          formData.append("barcode_config[sample_size]", bc.sample_size ?? 8);
-          formData.append("barcode_config[tests_size]", bc.tests_size ?? 7);
+          const bc = labelConfig(settings.value.barcode_config, settings.value.show_tests_on_barcode !== false);
+          const appendBarcode = (prefix, value) => {
+               if (value && typeof value === 'object') Object.entries(value).forEach(([key, item]) => appendBarcode(`${prefix}[${key}]`, item));
+               else formData.append(prefix, typeof value === 'boolean' ? (value ? '1' : '0') : value);
+          };
+          appendBarcode('barcode_config', bc);
 
           const ph = settings.value.patient_header_config || {};
           formData.append("patient_header_config[name_size]", ph.name_size ?? 20);
@@ -346,7 +345,7 @@ const resetBranding = async () => {
                                         <label for="showCat" class="text-sm font-medium text-slate-700 cursor-pointer select-none">{{ t("show_categories_print") || "إظهار الأقسام في الطباعة والواتساب" }}</label>
                                    </div>
                                    <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                                        <input type="checkbox" id="showBarTests" v-model="settings.show_tests_on_barcode" class="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-primary-500" />
+                                        <input type="checkbox" id="showBarTests" :checked="settings.barcode_config?.version === 2 ? settings.barcode_config.elements?.tests?.visible : settings.show_tests_on_barcode" @change="settings.show_tests_on_barcode = $event.target.checked; settings.barcode_config = { ...labelConfig(settings.barcode_config), elements: { ...labelConfig(settings.barcode_config).elements, tests: { ...labelConfig(settings.barcode_config).elements.tests, visible: $event.target.checked } } }" class="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-primary-500" />
                                         <label for="showBarTests" class="text-sm font-medium text-slate-700 cursor-pointer select-none">{{ t("show_tests_barcode") || "إظهار التحاليل في طباعة الباركود" }}</label>
                                    </div>
                                    <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
@@ -368,57 +367,7 @@ const resetBranding = async () => {
                               </div>
                          </div>
 
-                         <!-- Barcode Label Config -->
-                         <div v-show="printSection === 'barcode'" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-                              <h3 class="text-base font-semibold text-slate-800 mb-1">{{ t("barcode_config") || "إعدادات ملصق الباركود (الستيكر الفيزيائي)" }}</h3>
-                              <p class="text-xs text-slate-500 mb-4">{{ t("barcode_config_hint") || "أحجام الستيكر اللاصق الذي يطبع على طابعة الباركود (3×1.5 إنش). مختلف عن رأس صفحة النتيجة." }}</p>
-                              <div class="space-y-4">
-                                   <!-- Label Size -->
-                                   <div>
-                                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">{{ t("label_size") || "حجم الملصق (بالإنش)" }}</p>
-                                        <div class="grid grid-cols-2 gap-3">
-                                             <div>
-                                                  <label class="block text-xs text-slate-500 mb-1">{{ t("width") || "العرض" }}</label>
-                                                  <input type="number" v-model.number="settings.barcode_config.label_width" min="1" max="10" step="0.25" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
-                                             </div>
-                                             <div>
-                                                  <label class="block text-xs text-slate-500 mb-1">{{ t("height") || "الارتفاع" }}</label>
-                                                  <input type="number" v-model.number="settings.barcode_config.label_height" min="0.5" max="10" step="0.25" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
-                                             </div>
-                                        </div>
-                                   </div>
-                                   <!-- Font Sizes -->
-                                   <div>
-                                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">{{ t("font_sizes") || "أحجام الخط (pt)" }}</p>
-                                        <div class="grid grid-cols-3 gap-3">
-                                             <div>
-                                                  <label class="block text-xs text-slate-500 mb-1">{{ t("patient_name") || "اسم المريض" }}</label>
-                                                  <input type="number" v-model.number="settings.barcode_config.name_size" min="4" max="24" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
-                                             </div>
-                                             <div>
-                                                  <label class="block text-xs text-slate-500 mb-1">{{ t("info_line") || "معلومات المريض" }}</label>
-                                                  <input type="number" v-model.number="settings.barcode_config.info_size" min="4" max="24" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
-                                             </div>
-                                             <div>
-                                                  <label class="block text-xs text-slate-500 mb-1">{{ t("invoice_number") || "رقم الفاتورة" }}</label>
-                                                  <input type="number" v-model.number="settings.barcode_config.number_size" min="4" max="24" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
-                                             </div>
-                                             <div>
-                                                  <label class="block text-xs text-slate-500 mb-1">{{ t("sample_name") || "اسم العينة" }}</label>
-                                                  <input type="number" v-model.number="settings.barcode_config.sample_size" min="4" max="24" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
-                                             </div>
-                                             <div>
-                                                  <label class="block text-xs text-slate-500 mb-1">{{ t("tests") || "التحاليل" }}</label>
-                                                  <input type="number" v-model.number="settings.barcode_config.tests_size" min="4" max="24" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
-                                             </div>
-                                             <div>
-                                                  <label class="block text-xs text-slate-500 mb-1">{{ t("barcode_height") || "ارتفاع الباركود (px)" }}</label>
-                                                  <input type="number" v-model.number="settings.barcode_config.barcode_height" min="20" max="100" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
-                                             </div>
-                                        </div>
-                                   </div>
-                              </div>
-                         </div>
+                         <BarcodeLabelDesigner v-show="printSection === 'barcode'" v-model="settings.barcode_config" :show-tests="settings.show_tests_on_barcode !== false" :lab-name="settings.lab_display_name" :lang="lang" />
 
                          <!-- Result-page header (Print / PDF / WhatsApp) — DIFFERENT from the barcode-sticker card above -->
                          <div v-show="printSection === 'header'" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
