@@ -452,7 +452,7 @@
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
-                  <tr v-for="{ item, index } in filteredAllTabTests" :key="'all-' + index" class="align-middle transition-colors hover:bg-primary-50/30" :class="item.is_done ? 'bg-emerald-50/30' : ''">
+                  <template v-for="{ item, index } in filteredAllTabTests" :key="'all-' + index"><tr class="align-middle transition-colors hover:bg-primary-50/30" :class="item.is_done ? 'bg-emerald-50/30' : ''">
                     <th scope="row" class="px-4 py-4 text-start">
                       <div class="flex items-center gap-2"><span class="h-2 w-2 shrink-0 rounded-full" :class="item.is_done ? 'bg-emerald-500' : 'bg-slate-300'"></span><span class="break-words font-semibold text-slate-900">{{ item.name }}</span></div>
                       <span v-if="item.shortcut" class="ms-4 text-xs text-slate-500">{{ item.shortcut }}</span>
@@ -473,7 +473,7 @@
                       </div>
                       <details class="mt-1 text-xs text-slate-500"><summary class="cursor-pointer py-1">ملاحظة</summary><input v-model="item.comment" type="text" :placeholder="t('enter_comment')" class="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-xs outline-none focus:border-primary-500" /></details>
                     </td>
-                  </tr>
+                  </tr><tr v-if="resultHistoryRows(updateResultRecord, item).length"><td colspan="6" class="px-4"><ResultHistoryTable :rows="resultHistoryRows(updateResultRecord, item)" /></td></tr></template>
                   <tr v-if="!filteredAllTabTests.length"><td colspan="6" class="p-10 text-center text-sm text-slate-500">لا توجد تحاليل تطابق البحث.</td></tr>
                 </tbody>
               </table>
@@ -653,7 +653,7 @@
                 ></textarea>
               </div>
             </div>
-          </div>
+          <ResultHistoryTable  :rows="resultHistoryRows(updateResultRecord, item, 'test')" /></div>
         </div>
 
         <!-- ==================== PACKAGES SECTION ==================== -->
@@ -699,7 +699,7 @@
                   <div v-html="getGroupTemplateHtml(test, pIndex, tIndex, 'packages')" class="dynamic-template"></div>
                 </div>
               </div>
-            </template>
+            <ResultHistoryTable v-if="isCustomTemplateTest(test)" :rows="resultHistoryRows(updateResultRecord, test, 'test')" /></template>
 
             <div v-if="packageVisibleTests(pkg).length || pkg.cultures?.length" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
               <div class="divide-y divide-slate-100">
@@ -801,11 +801,9 @@
                     </label>
                   </div>
                 </div>
-                </template>
+                <ResultHistoryTable  :rows="resultHistoryRows(updateResultRecord, test, 'test')" /></template>
                 <!-- Culture rows -->
-                <div
-                  v-for="(culture, cIndex) in pkg.cultures"
-                  :key="'culture-' + cIndex"
+                <template v-for="(culture, cIndex) in pkg.cultures" :key="'culture-' + cIndex"><div
                   class="flex flex-col sm:flex-row sm:items-center gap-3 p-4 bg-purple-50/30 hover:bg-purple-50/50 transition-colors"
                 >
                   <div class="flex items-center gap-3 flex-1 min-w-0">
@@ -831,7 +829,7 @@
                       <span class="text-xs text-slate-500">{{ t("done") }}</span>
                     </label>
                   </div>
-                </div>
+                </div><ResultHistoryTable :rows="resultHistoryRows(updateResultRecord, culture, 'culture')" /></template>
               </div>
               <!-- Formulas belonging to test groups attached to this package -->
               <div
@@ -906,13 +904,11 @@
                   <div v-html="getGroupTemplateHtml(test, gIndex, tIndex)" class="dynamic-template"></div>
                 </div>
               </div>
-            </template>
+            <ResultHistoryTable v-if="isCustomTemplateTest(test)" :rows="resultHistoryRows(updateResultRecord, test, 'test')" /></template>
 
             <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
               <div class="divide-y divide-slate-100">
-                <div
-                  v-for="(test, tIndex) in groupVisibleTests(group)"
-                  :key="tIndex"
+                <template v-for="(test, tIndex) in groupVisibleTests(group)" :key="tIndex"><div
                   data-tg-test-row
                   class="flex flex-col sm:flex-row sm:items-center gap-3 p-4 hover:bg-slate-50/50 transition-colors"
                 >
@@ -990,7 +986,7 @@
                       <span class="text-xs text-slate-500">{{ t("done") }}</span>
                     </label>
                   </div>
-                </div>
+                </div><ResultHistoryTable :rows="resultHistoryRows(updateResultRecord, test, 'test')" /></template>
                 <div v-if="Array.isArray(group.formula) && group.formula.length" class="p-4 bg-emerald-50/50 border-t border-emerald-100 space-y-2">
                   <div v-for="(f, fi) in group.formula" :key="'g-f-' + fi" class="flex items-center gap-3">
                     <span class="text-sm font-semibold text-emerald-700 min-w-[80px]">{{ f.name || t("formula") }}:</span>
@@ -1156,7 +1152,7 @@
                 ></textarea>
               </div>
             </div>
-          </div>
+          <ResultHistoryTable  :rows="resultHistoryRows(updateResultRecord, culture, 'culture')" /></div>
         </div>
 
         <!-- ==================== EXTRAS SECTION (Attachments + Comment) ==================== -->
@@ -1439,6 +1435,8 @@ import { usePrint } from "@/composables/usePrint";
 import printResult from "./componentes/print_Result.vue";
 import printSelectModal from "./componentes/printSelectModal.vue";
 import pationtHistoryModal from "./componentes/pationtHistory_modal.vue";
+import ResultHistoryTable from '@/components/ResultHistoryTable.vue';
+import { resultHistoryRows } from '@/utils/resultHistory';
 import PreviousResult from "./componentes/PreviousResult.vue";
 import ResultTrends from '@/components/ResultTrends.vue';
 

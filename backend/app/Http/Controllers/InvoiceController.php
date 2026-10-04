@@ -238,7 +238,7 @@ class InvoiceController extends Controller
 
             $invoices = $query->with($this->invoiceRelations())->get();
             // Transform invoices for response
-            $transformedInvoices = $invoices->map(fn ($invoice) => $this->transformInvoice($invoice));
+            $transformedInvoices = $invoices->map(fn ($invoice) => $this->transformInvoice($invoice, true, false));
 
             // Return transformed invoices as JSON response
             return response()->json(
@@ -680,7 +680,7 @@ class InvoiceController extends Controller
      * @param  Invoice  $invoice
      * @return array
      */
-    private function transformInvoice($invoice, bool $includeHistory = true)
+    private function transformInvoice($invoice, bool $includeHistory = true, bool $includeHistoryTables = true)
     {
         $test_groups = [];
         $tests = $cultures = $packages = $cultures_last_results = $tests_last_results = [];
@@ -857,6 +857,7 @@ class InvoiceController extends Controller
             'test_groups' => array_values(array_filter($test_groups)),
             'test_groups_all' => $test_groups_data,
             'test_group_comments' => array_values(array_filter($test_group_comments)),
+            'result_history' => $includeHistory && $includeHistoryTables ? app(\App\Services\ResultHistoryService::class)->forInvoice($invoice) : [],
             'tests_last_results' => array_values(array_filter($tests_last_results)),
             'cultures_last_results' => array_values(array_filter($cultures_last_results)),
             'created_at' => $invoice->created_at,
@@ -1979,7 +1980,7 @@ class InvoiceController extends Controller
             ], 403);
         }
 
-        $invoiceJson = $this->transformInvoice($invoice);
+        $invoiceJson = $this->transformInvoice($invoice, true, false);
 
         // Strip financial data for public access
         unset(
