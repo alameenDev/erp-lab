@@ -24,8 +24,9 @@ const settings = { report_template: params.get('template') || 'modern', show_tes
   print_table_config: { header_font_size: 12, body_font_size: 12, cell_padding: 6 } };
 const sample = { id: 14, lab_id_fk: 1, patient: { id: 1, name: 'مريض تجريبي', phone: '07700000000', age: 35, age_unit: 'Years', gender: 'Male', code: 'SAMPLE-14' },
   registration_date: '2026-10-01T09:00:00', tests: [], cultures: [], packages: [], tests_last_results: [],
-  test_groups: [{ group_name: 'Test group', tests: Array.from({ length: 40 }, (_, i) => ({ name: 'Test ' + (i + 1), result: i, unit: 'mg/dL', result_status_id_fk: 2,
+  test_groups: [{ group_name: 'Test group', tests: Array.from({ length: 40 }, (_, i) => ({ test_id_fk: i + 1, name: 'Test ' + (i + 1), result: i, unit: 'mg/dL', result_status_id_fk: 2,
     test_reference_ranges: [{ from: 0, to: 100, gender: 'both', age_from: 0, age_to: 120, age_unit: 'Years' }] })) }] };
+sample.result_history = { test_1: Array.from({ length: 35 }, (_, i) => ({ date: '2026-09-01', date_source: 'result', field: 'Test 1', value: String(i), unit: 'mg/dL' })) };
 const store = useLabSettingsStore(), invoices = useinvoicesStore();
 // A direct report must load the invoice lab settings even if the current
 // browser has a stale/different lab's settings in Pinia.
@@ -57,6 +58,9 @@ onMounted(async () => {
     assert(output === repeated && output.blob === repeated.blob, 'all actions reuse the same prepared PDF and sheets');
     assert(output.withBackground === chosenForm, 'form selection survives the entry point');
     pages.value = output.pages;
+    assert(document.querySelectorAll('#Result .result-history').length === 1, 'history appears only below the matching analysis');
+    assert(document.querySelectorAll('#Result .result-history tbody tr').length === 35, 'all previous measurements are included in the report source');
+    assert(document.querySelector('#Result .result-history').textContent.includes('01/09/2026'), 'history displays the recorded calendar date');
     assert(pages.value.length > 1, 'report spans multiple sheets');
     if (direct) assert([...document.querySelectorAll('.report-page-preview img')].every((img, i) => img.src === output.pages[i]), 'direct preview uses the exact export pages');
     assert(document.getElementById('Result').classList.contains('report-modern') === (settings.report_template === 'modern'), 'saved template applies independently of stale store settings');

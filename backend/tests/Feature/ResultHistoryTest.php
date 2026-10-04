@@ -23,6 +23,7 @@ class ResultHistoryTest extends TestCase
         $sameName = LabTest::create(['name'=>'CBC','unit'=>'','lab_id_fk'=>$lab->id]);
         $make = function ($date, $value, $overrides = [], $relOverrides = []) use ($lab, $patient, $test) {
             $invoice = Invoice::create(array_merge(['lab_id_fk'=>$lab->id,'patient_id_fk'=>$patient->id,'is_done'=>true,'result_date'=>$date,'created_at'=>'2026-01-01'], $overrides));
+            $invoice->forceFill(['created_at'=>$overrides['created_at'] ?? '2026-01-01'])->save();
             InvoiceTestRel::create(array_merge(['invoice_id_fk'=>$invoice->id,'test_id_fk'=>$test->id,'result'=>$value,'is_done'=>true], $relOverrides));
             return $invoice;
         };
@@ -35,6 +36,7 @@ class ResultHistoryTest extends TestCase
         $make('2026-01-05','different-patient',['patient_id_fk'=>null]);
         $make('2026-01-05','same-name',[],['test_id_fk'=>$sameName->id]);
         $make('2026-04-01','future');
+        $make('2026-01-05','later-created',['created_at'=>'2026-03-01']);
         $current = $make('2026-02-01','current',['created_at'=>'2026-02-01']);
         $history = app(ResultHistoryService::class)->forInvoice($current);
         $rows = $history['test_'.$test->id];
