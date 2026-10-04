@@ -10,6 +10,53 @@ class LabSettingsTest extends TestCase
 {
     use DatabaseMigrations;
 
+    private function barcodeLayout(): array
+    {
+        $item = ['x'=>2, 'y'=>6, 'width'=>46, 'height'=>8, 'font'=>8, 'visible'=>true, 'align'=>'center', 'bold'=>false, 'rotation'=>0];
+        return ['version'=>2, 'width_mm'=>50, 'height_mm'=>30, 'dpi'=>203, 'format'=>'CODE128',
+            'quiet_modules'=>10, 'offset_x'=>0.5, 'offset_y'=>0, 'copies'=>2, 'custom_text'=>'Sample',
+            'elements'=>['barcode'=>$item, 'patient'=>array_merge($item, ['y'=>16, 'height'=>5]), 'tests'=>array_merge($item, ['y'=>22, 'height'=>5, 'visible'=>false])]];
+    }
+
+    public function test_barcode_layout_is_saved_per_lab_and_survives_other_settings_updates(): void
+    {
+        $owner = $this->owner();
+        $other = User::create(['name'=>'Other barcode lab','email'=>'other-barcode@example.test','password'=>'Test-password-123','role_id'=>2]);
+        LabSetting::create(['lab_id_fk'=>$other->id,'barcode_config'=>['label_width'=>3]]);
+        $layout = $this->barcodeLayout();
+        $this->actingAs($owner)->postJson('/api/lab-settings', ['barcode_config'=>$layout])->assertOk()
+            ->assertJsonPath('setting.barcode_config.elements.tests.visible', false)
+            ->assertJsonPath('setting.barcode_config.width_mm', 50);
+        $this->getJson('/api/lab-settings')->assertOk()->assertJsonPath('barcode_config', $layout);
+        $this->postJson('/api/lab-settings', ['lab_display_name'=>'Changed'])->assertOk()->assertJsonPath('setting.barcode_config', $layout);
+        $this->assertSame(['label_width'=>3], LabSetting::where('lab_id_fk',$other->id)->first()->barcode_config);
+    }
+
+    public function test_barcode_layout_validates_dimensions_modules_and_field_properties(): void
+    {
+        $this->actingAs($this->owner());
+        foreach (['width_mm'=>0, 'height_mm'=>151, 'dpi'=>72, 'quiet_modules'=>0, 'format'=>'QR', 'copies'=>100, 'offset_x'=>11] as $key=>$value) {
+            $layout = $this->barcodeLayout(); $layout[$key] = $value;
+            $this->postJson('/api/lab-settings', ['barcode_config'=>$layout])->assertUnprocessable();
+        }
+        foreach (['rotation'=>45, 'x'=>-1, 'font'=>100, 'style'=>'color:red'] as $key=>$value) {
+            $layout = $this->barcodeLayout(); $layout['elements']['patient'][$key] = $value;
+            $this->postJson('/api/lab-settings', ['barcode_config'=>$layout])->assertUnprocessable();
+        }
+        $layout = $this->barcodeLayout(); $layout['elements']['barcode']['visible'] = false;
+        $this->postJson('/api/lab-settings', ['barcode_config'=>$layout])->assertUnprocessable();
+        $this->postJson('/api/lab-settings', ['barcode_config'=>['label_width'=>2,'label_height'=>1,'barcode_height'=>40]])->assertOk();
+    }
+
+    public function test_staff_cannot_replace_lab_barcode_layout(): void
+    {
+        $owner = $this->owner();
+        LabSetting::create(['lab_id_fk'=>$owner->id,'barcode_config'=>$this->barcodeLayout()]);
+        $staff = User::create(['name'=>'Barcode Staff','email'=>'barcode-staff@example.test','password'=>'Test-password-123','role_id'=>7,'creator_id'=>$owner->id]);
+        $this->actingAs($staff)->postJson('/api/lab-settings', ['barcode_config'=>$this->barcodeLayout()])->assertForbidden();
+        $this->getJson('/api/lab-settings')->assertOk()->assertJsonPath('barcode_config.width_mm', 50);
+    }
+
     private function owner(): User
     {
         return User::create(['name'=>'Settings Lab','email'=>'settings@example.test','password'=>'Test-password-123','role_id'=>2]);

@@ -19,7 +19,7 @@ jobs:
           node-version: '22'
       - run: npm ci --legacy-peer-deps
         working-directory: frontend
-      - run: node --test tests/default-test-results.test.mjs
+      - run: node --test tests/default-test-results.test.mjs tests/barcode-labels.test.mjs
         working-directory: frontend
       - run: npm run build
         working-directory: frontend
