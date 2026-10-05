@@ -61,11 +61,13 @@ import {
 import { registerPlugins } from "@/plugins";
 import Mixins from "@/utils/mixins.js";
 import { vueErrorHandler, vueWarnHandler, setupGlobalErrorHandlers } from "@/utils/logger.js";
+import { installActivityAudit } from '@/utils/activityAudit';
 
 const app = createApp(App);
 
 // Setup global error handlers (window.onerror, unhandledrejection)
 setupGlobalErrorHandlers();
+installActivityAudit();
 
 // Vue error handlers
 app.config.errorHandler = vueErrorHandler;

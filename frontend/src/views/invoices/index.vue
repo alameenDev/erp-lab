@@ -734,6 +734,7 @@ onMounted(async () => {
               <tr
                 v-for="invoice in invoices"
                 :key="invoice.id"
+                :data-audit-invoice-id="invoice.id"
                 class="hover:bg-slate-50/80 transition-colors group"
               >
                 <td class="px-5 py-4">

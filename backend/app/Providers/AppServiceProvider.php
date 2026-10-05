@@ -19,7 +19,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->scoped(\App\Services\AuditTrail::class);
     }
 
     /**
@@ -32,6 +32,11 @@ class AppServiceProvider extends ServiceProvider
         $this->configureUrl();
         $this->configureRateLimiting();
         InvoiceTestRel::observe(InvoiceTestRelObserver::class);
+        foreach (['creating', 'created', 'updating', 'updated', 'deleting', 'deleted', 'restoring', 'restored'] as $event) {
+            \Illuminate\Support\Facades\Event::listen('eloquent.'.$event.': *', function ($name, $models) {
+                app(\App\Services\AuditTrail::class)->observe($name, $models);
+            });
+        }
     }
 
     /**
