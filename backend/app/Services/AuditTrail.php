@@ -119,6 +119,9 @@ class AuditTrail
             $this->models[$key] = ['class' => get_class($model), 'id' => $model->getKey(), 'before' => $before,
                 'invoice_id' => $invoiceId, 'owner' => $model instanceof User ? self::tenantId($model) : ($attrs['lab_id_fk'] ?? $attrs['creator_id'] ?? null)];
         }
+        if ($invoiceId) {
+            $this->models[$key]['invoice_id'] = $invoiceId;
+        }
         if ($verb === 'updating') {
             foreach (array_keys($model->getDirty()) as $field) {
                 if (AuditSnapshot::clean('value', $field) === AuditSnapshot::HIDDEN) {
