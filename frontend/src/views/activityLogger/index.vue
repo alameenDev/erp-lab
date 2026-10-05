@@ -5,7 +5,7 @@ import { ActivityStore } from '@/store/modules/activityLogger';
 import { eventLabels, sourceLabels, statusLabels, fieldLabel, auditValue } from '@/utils/activityDetails';
 const store = ActivityStore();
 const { records, pagination, stats, loading, error } = storeToRefs(store);
-const filters = reactive({ search: '', invoice_id: '', causer_id: '', event: '', source: '', date_from: '', date_to: '', per_page: 25 });
+const filters = reactive({ search: '', invoice_id: '', causer_id: '', event: '', source: '', date_from: '', date_to: '', action_id: '', per_page: 25 });
 const selected = ref(null), detailLoading = ref(false), detailError = ref(''), exporting = ref(false), exportError = ref(''), showSnapshots = ref(false), detailsPanel = ref(null);
 let returnFocus = null, detailRequest = 0;
 const params = () => Object.fromEntries(Object.entries(filters).filter(([, v]) => v !== '' && v != null));
@@ -24,6 +24,11 @@ async function openDetails(record, event) {
   finally { if (request === detailRequest) detailLoading.value = false; }
 }
 function closeDetails() { detailRequest++; selected.value = null; returnFocus?.focus(); }
+function relatedActions() {
+  const id = selected.value.action_id;
+  Object.keys(filters).forEach(key => filters[key] = key === 'per_page' ? 25 : '');
+  filters.action_id = id; closeDetails(); load();
+}
 function dialogKey(event) {
   if (event.key === 'Escape') closeDetails();
   if (event.key !== 'Tab') return;
@@ -64,6 +69,7 @@ onBeforeUnmount(() => { detailRequest++; });
       <div class="mt-4 flex flex-wrap items-center justify-between gap-3"><p class="text-xs text-slate-500">نقرة الزر تعني بدء الإجراء؛ سجل النظام يوضح النتيجة والتغييرات المحفوظة.</p><div class="flex gap-2"><button type="button" class="audit-btn" @click="reset">مسح الفلاتر</button><button class="audit-btn audit-primary" :disabled="loading">تطبيق الفلاتر</button></div></div>
     </form>
     <p v-if="error" role="alert" class="audit-error">{{ error }}</p>
+    <div v-if="filters.action_id" class="flex items-center justify-between rounded-lg bg-blue-50 p-3 text-sm text-blue-800"><span>عرض النقرة والعمليات المرتبطة بها</span><button class="audit-btn" @click="filters.action_id = ''; load()">عرض كل الحركات</button></div>
     <section class="overflow-hidden rounded-xl border border-slate-200 bg-white" :aria-busy="loading">
       <div class="flex items-center justify-between border-b border-slate-100 px-4 py-3"><h2 class="font-semibold text-slate-800">تفاصيل الحركات</h2><span class="text-sm text-slate-500" role="status">{{ loading ? 'جاري تحميل السجل…' : `${pagination.total || 0} سجل مطابق` }}</span></div>
       <div class="overflow-x-auto">
@@ -96,6 +102,7 @@ onBeforeUnmount(() => { detailRequest++; });
             <template v-else>
               <div class="mb-5 grid gap-3 rounded-xl bg-slate-50 p-4 text-sm sm:grid-cols-3"><div><span class="text-slate-400">المستخدم</span><p class="mt-1 font-medium">{{ selected.causer_name }} (#{{ selected.causer_id || '—' }})</p></div><div><span class="text-slate-400">المريض / الباركود</span><p class="mt-1 font-medium">{{ selected.invoice?.patient_name || '—' }}<br />{{ selected.invoice?.barcode }}</p></div><div><span class="text-slate-400">الزر / الصفحة</span><p class="mt-1 break-all font-medium">{{ selected.button || '—' }}<br /><span dir="ltr" class="text-xs">{{ selected.page || '—' }}</span></p></div></div>
               <h3 class="mb-3 font-bold text-slate-800">التفاصيل قبل وبعد <span class="text-sm font-normal text-slate-400">({{ selected.change_count }} حقل)</span></h3>
+              <button v-if="selected.action_id" class="audit-btn mb-4" @click="relatedActions">عرض النقرة وكل العمليات المرتبطة بها</button>
               <p v-if="selected.source === 'legacy'" class="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">هذا سجل سابق؛ تُعرض المعلومات التي كانت محفوظة وقت العملية. التفاصيل غير المسجّلة سابقاً لا يمكن استعادتها.</p>
               <div v-if="shownChanges.length" class="overflow-x-auto rounded-xl border border-slate-200"><table class="audit-compare w-full min-w-[650px] table-fixed text-sm"><thead><tr><th class="w-[36%] bg-slate-50 text-right">الحقل / التحليل</th><th class="w-[32%] bg-red-50 text-right text-red-700">شنو جان — قبل</th><th class="w-[32%] bg-emerald-50 text-right text-emerald-700">شنو صار — بعد</th></tr></thead><tbody><tr v-for="(change, index) in shownChanges" :key="index" class="border-t border-slate-100 align-top"><td class="break-words font-medium text-slate-700">{{ fieldLabel(change.label) }}</td><td class="bg-red-50/30"><pre class="whitespace-pre-wrap break-words font-sans" dir="auto">{{ auditValue(change.before) }}</pre></td><td class="bg-emerald-50/30"><pre class="whitespace-pre-wrap break-words font-sans" dir="auto">{{ auditValue(change.after) }}</pre></td></tr></tbody></table></div>
               <p v-else class="rounded-xl border border-dashed border-slate-200 p-8 text-center text-slate-500">{{ selected.source === 'interface' ? 'تم تسجيل الضغط على الزر. نتيجة التنفيذ تُسجّل بشكل مستقل من النظام.' : 'لم تُسجّل فروقات في حقول البيانات لهذه الحركة.' }}</p>

@@ -28,11 +28,11 @@ try {
   await page.getByRole('button', { name:'التالي', exact:true }).click();
   await page.getByRole('button', { name:'تفاصيل السجل 2', exact:true }).waitFor();
   const last = await page.evaluate(() => window.auditRequests.filter(r => r.url === '/activity/show').at(-1));
-  assert.equal(last.params.invoice_id, '42'); assert.equal(last.params.page, 2);
+  assert.equal(Number(last.params.invoice_id), 42); assert.equal(last.params.page, 2);
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name:'تصدير التقرير المفصّل', exact:true }).click()]);
   assert.match(download.suggestedFilename(), /^activity-report-.*\.csv$/);
   const exported = await page.evaluate(() => window.auditRequests.find(r => r.url === '/activity/export'));
-  assert.equal(exported.params.invoice_id, '42');
+  assert.equal(Number(exported.params.invoice_id), 42);
   await page.evaluate(() => {
     const row = document.createElement('div'); row.dataset.auditInvoiceId = '42';
     const button = document.createElement('button'); button.textContent = 'حفظ تجريبي'; button.onclick = window.syntheticMutation;

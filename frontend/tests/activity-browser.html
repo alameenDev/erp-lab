@@ -22,7 +22,7 @@ $http.defaults.adapter = async config => {
   let data;
   if (config.url === '/activity/show') {
     const page = Number(config.params?.page || 1);
-    const matches = !config.params?.invoice_id || config.params.invoice_id === '42';
+    const matches = !config.params?.invoice_id || Number(config.params.invoice_id) === 42;
     data = { data: matches ? [{ ...base, id: page }, { ...base, id: page + 100, event: 'deleted', log_name: 'حذف', description: 'حذف فاتورة', changes: [{ field:'analyses.test_1_1.result', label:'analyses / test_1_1 (CBC) / result', before:'10', after:null, kind:'removed' }], change_count:1 }] : [],
       pagination: { current_page: page, per_page: 25, last_page: matches ? 2 : 1, total: matches ? 50 : 0 }, stats: { total: matches ? 50 : 0, changed: 40, failed: 2, clicks: 8 } };
   } else if (config.url.startsWith('/activity/show/')) data = { ...base, id: Number(config.url.split('/').at(-1)) };

@@ -137,26 +137,27 @@ class AuditTrail
         $this->writing = true;
         try {
             $written = false;
+            $contexts = [];
             foreach ($this->invoices as $id => $item) {
                 $invoice = Invoice::withTrashed()->find($id);
                 $after = $invoice && ! $invoice->trashed() ? AuditSnapshot::invoice($invoice) : null;
                 $before = $item['before'];
+                $details = $after ?? $before;
+                $contexts[$id] = ['id' => $id, 'barcode' => $details['invoice']['barcode'] ?? null,
+                    'patient_id' => $details['patient']['id'] ?? null, 'patient_name' => $details['patient']['name'] ?? null];
                 if ($before === $after) {
                     continue;
                 }
-                $details = $after ?? $before;
-                $written = $this->writeChange(Invoice::class, $id, $before, $after, $item['owner'], $status, [
-                    'id' => $id, 'barcode' => $details['invoice']['barcode'] ?? null,
-                    'patient_id' => $details['patient']['id'] ?? null, 'patient_name' => $details['patient']['name'] ?? null,
-                ]) || $written;
+                $written = $this->writeChange(Invoice::class, $id, $before, $after, $item['owner'], $status, $contexts[$id]) || $written;
             }
             foreach ($this->models as $item) {
-                if ($item['invoice_id'] && isset($this->invoices[$item['invoice_id']])) {
+                if ($item['invoice_id'] && isset($this->invoices[$item['invoice_id']]) &&
+                    in_array($item['class'], [Invoice::class, \App\Models\InvoiceTestRel::class, \App\Models\InvoicePaidDetail::class], true)) {
                     continue;
                 }
                 $model = (new $item['class'])->newQueryWithoutScopes()->find($item['id']);
                 $after = $model && ! ($model->getAttributes()['deleted_at'] ?? null) ? AuditSnapshot::resource($model) : null;
-                $written = $this->writeChange($item['class'], $item['id'], $item['before'], $after, $item['owner'], $status, null,
+                $written = $this->writeChange($item['class'], $item['id'], $item['before'], $after, $item['owner'], $status, $contexts[$item['invoice_id']] ?? null,
                     $status < 400 ? array_keys($item['protected_fields'] ?? []) : []) || $written;
             }
             // Also retain denied/failed attempts and actions without a model change.
@@ -209,6 +210,7 @@ class AuditTrail
             'InvoiceController@sendInvoice' => 'بدء إرسال النتيجة بالواتساب', 'InvoiceController@savePdf' => 'حفظ ملف التقرير',
             'BridgeResultController@receive' => 'استلام نتائج الجهاز', 'DeviceResultController@applyResults' => 'تطبيق نتائج الجهاز',
             'LabSettingController@update' => 'تعديل إعدادات المختبر',
+            'AuthController@logout' => 'تسجيل الخروج',
         ];
         if (isset($labels[$operation])) {
             return $labels[$operation];

@@ -77,7 +77,7 @@ class ActivityAuditTest extends TestCase
 
     public function test_payment_and_whatsapp_status_have_separate_audit_entries(): void
     {
-        $method = DB::table('payment_methods')->value('id');
+        $method = \App\Models\PaymentMethod::create(['name' => 'Cash', 'lab_id_fk' => $this->lab->id])->id;
         $this->postJson('/api/invoices/add-payment', ['invoice_id' => $this->invoice->id, 'amount' => 5000, 'payment_method_id_fk' => $method])->assertOk();
         $paymentLog = $this->invoiceLog();
         $this->assertStringContainsString('payments.', json_encode($paymentLog->properties['changes']));
@@ -87,6 +87,42 @@ class ActivityAuditTest extends TestCase
         $this->assertNotSame($paymentLog->id, $sentLog->id);
         $this->assertStringContainsString('sent_to_patient', json_encode($sentLog->properties['changes']));
         $this->assertSame('بدء إرسال النتيجة بالواتساب', $sentLog->description);
+    }
+
+    public function test_nested_group_results_and_membership_changes_are_not_lost_by_bulk_writes(): void
+    {
+        $group = TestGroup::create(['group_name' => 'Virology', 'lab_id_fk' => $this->lab->id]);
+        $group->tests()->attach($this->test->id);
+        $old = ['id' => $this->test->id, 'name' => 'Nested CBC', 'result' => '10', 'is_done' => true];
+        InvoiceTestRel::create(['invoice_id_fk' => $this->invoice->id, 'test_group_id_fk' => $group->id, 'test_group_tests' => [$old]]);
+        $this->postJson('/api/invoices/update-result', ['id' => $this->invoice->id, 'test_groups' => [
+            ['test_group_id_fk' => $group->id, 'tests' => [array_merge($old, ['result' => '18'])]],
+        ]])->assertOk();
+        $change = collect($this->invoiceLog()->properties['changes'])->firstWhere('field', 'analyses.test_group_'.$group->id.'_1.test_group_tests.0.result');
+        $this->assertSame('10', $change['before']);
+        $this->assertSame('18', $change['after']);
+        $this->assertStringContainsString('Nested CBC', $change['label']);
+        $this->lab->givePermissionTo('test groups edit');
+        $this->putJson('/api/test_groups/update', ['id' => $group->id, 'group_name' => 'Virology', 'test_ids' => [], 'is_print_alone' => false])->assertOk();
+        $log = Activity::where('subject_type', TestGroup::class)->where('subject_id', $group->id)->latest('id')->firstOrFail();
+        $removed = collect($log->properties['changes'])->firstWhere('field', 'tests.'.$this->test->id.'.name');
+        $this->assertSame('CBC', $removed['before']);
+        $this->assertNull($removed['after']);
+    }
+
+    public function test_device_receipt_is_attributed_to_the_device_without_recording_its_secret(): void
+    {
+        $device = \App\Models\LabDevice::create(['name' => 'Audit analyzer', 'lab_id_fk' => $this->lab->id, 'api_token' => str_repeat('d', 64)]);
+        $this->app['auth']->forgetGuards();
+        $this->withHeader('X-Device-Token', $device->api_token)->postJson('/api/device/results', [
+            'specimen_barcode' => $this->invoice->barcode, 'raw_message' => 'synthetic instrument message',
+            'parsed_results' => [['test_code' => 'CBC', 'value' => '10', 'unit' => 'g/dL']],
+        ])->assertCreated();
+        $log = Activity::where('audit_source', 'device')->where('subject_type', \App\Models\DeviceResult::class)->latest('id')->firstOrFail();
+        $this->assertSame($device->id, $log->causer_id);
+        $this->assertSame($this->invoice->id, $log->audit_invoice_id);
+        $this->assertSame('جهاز: Audit analyzer', $log->properties['actor_name']);
+        $this->assertStringNotContainsString($device->api_token, Activity::all()->toJson());
     }
 
     public function test_failed_or_rolled_back_writes_do_not_claim_committed_changes(): void
