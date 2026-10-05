@@ -49,8 +49,8 @@ class BridgeCbcService
                 return $this->hold($result, 'لا توجد فاتورة واحدة مطابقة لباركود العينة ضمن المختبر.');
             }
             $invoice = $invoices[0];
-            if ($invoice->is_signed || $invoice->signed_by_id_fk || $invoice->sent_to_patient || $invoice->is_done) {
-                return $this->hold($result, 'الفاتورة معتمدة أو مكتملة؛ لم يتم استبدال نتائجها.');
+            if ($invoice->is_signed || $invoice->signed_by_id_fk || $invoice->sent_to_patient) {
+                return $this->hold($result, 'الفاتورة موقّعة أو مرسلة للمريض؛ النتيجة الجديدة محفوظة للمراجعة ولم تستبدل التقرير.');
             }
 
             $targets = [];
@@ -101,7 +101,7 @@ class BridgeCbcService
             }
             [$rel, $field, $index, $items] = $targets[0];
             $existing = $field ? $items[$index] : $rel->toArray();
-            if ($rel->is_done || $this->hasValues($existing)) {
+            if ($this->hasValues($existing)) {
                 return $this->hold($result, 'توجد نتيجة سابقة لتحليل CBC؛ لم يتم استبدالها تلقائياً.');
             }
 
@@ -158,8 +158,21 @@ class BridgeCbcService
                 $rel->content = $content;
                 $rel->is_special_test = true;
             }
+            $previousState = [
+                'invoice_is_done' => (bool) $invoice->is_done,
+                'relation_is_done' => (bool) $rel->is_done,
+                'target_is_done' => (bool) ($existing['is_done'] ?? false),
+                'result_date' => $invoice->result_date,
+                'result_doc' => $invoice->result_doc,
+                'pdf_qr_code' => $invoice->pdf_qr_code,
+            ];
+            // Completion flags do not constitute a result. Import into an empty
+            // CBC only, then require review of this analysis and its invoice.
+            $rel->is_done = false;
             $rel->save();
+            $invoice->update(['is_done'=>false, 'result_date'=>null, 'result_doc'=>null, 'pdf_qr_code'=>null]);
             $metadata = $result->instrument_metadata;
+            $metadata['cbc_previous_invoice_state'] = $previousState;
             $metadata['cbc_count'] = count($rows);
             $metadata['cbc_interface_code'] = $interfaceCode;
             $metadata['cbc_invoice_test_rel_id'] = $rel->id;
@@ -189,7 +202,7 @@ class BridgeCbcService
 
     private function hasValues(array $item): bool
     {
-        if (! empty($item['is_done']) || ($item['result'] ?? '') !== '' && ($item['result'] ?? null) !== null) {
+        if (($item['result'] ?? '') !== '' && ($item['result'] ?? null) !== null) {
             return true;
         }
         if (($this->decode($item['content'] ?? [])['bridge_cbc'] ?? false)) {

@@ -161,6 +161,53 @@ class BridgeResultsTest extends TestCase
         $this->postJson('/api/device-results/'.$response->json('id').'/apply')->assertOk()->assertJsonPath('duplicate',true);
     }
 
+    public function test_empty_cbc_reopens_completed_unsigned_invoice_and_preserves_package_siblings(): void
+    {
+        [$device, $invoice, $test, $rel, $payload] = $this->cbcFixture();
+        $package = Package::create(['lab_id_fk'=>$device->lab_id_fk,'name'=>'Surgery','price'=>0]);
+        $package->tests()->attach($test->id);
+        $rel->update(['test_id_fk'=>null,'package_id_fk'=>$package->id,'is_done'=>true,
+            'package_tests'=>[['id'=>$test->id,'name'=>'CBC','result'=>null,'is_done'=>true],
+                ['name'=>'Blood Group','result'=>'A+','is_done'=>true]]]);
+        $invoice->update(['is_done'=>true,'result_date'=>'2026-10-05','result_doc'=>'old.pdf']);
+        $response = $this->postJson('/api/device/bridge/results',$payload)->assertCreated()->assertJsonPath('status','applied');
+        $stored = $rel->fresh();
+        $this->assertFalse((bool)$stored->is_done);
+        $this->assertFalse($stored->package_tests[0]['is_done']);
+        $this->assertCount(21,$stored->package_tests[0]['sub_tests']);
+        $this->assertSame(['name'=>'Blood Group','result'=>'A+','is_done'=>true],$stored->package_tests[1]);
+        $this->assertFalse($invoice->fresh()->is_done);
+        $this->assertNull($invoice->fresh()->result_doc);
+        $this->assertNull($invoice->fresh()->result_date);
+        $metadata = DeviceResult::find($response->json('id'))->instrument_metadata;
+        $this->assertTrue($metadata['cbc_previous_invoice_state']['invoice_is_done']);
+        $this->assertSame('old.pdf',$metadata['cbc_previous_invoice_state']['result_doc']);
+    }
+
+    public function test_completed_invoice_is_not_reopened_for_existing_results_or_released_reports(): void
+    {
+        [$device, $invoice, $test, $rel, $payload] = $this->cbcFixture();
+        $invoice->update(['is_done'=>true,'result_doc'=>'keep.pdf']);
+        $rel->update(['is_done'=>true,'result'=>'existing']);
+        $response = $this->postJson('/api/device/bridge/results',$payload)->assertCreated()->assertJsonPath('status','matched');
+        $this->assertTrue($invoice->fresh()->is_done);
+        $this->assertSame('keep.pdf',$invoice->fresh()->result_doc);
+        $owner = User::find($device->lab_id_fk);
+        $owner->givePermissionTo('medical reports update');
+        $this->actingAs($owner);
+        $rel->update(['result'=>null]);
+        foreach (['is_signed','sent_to_patient'] as $flag) {
+            $invoice->update([$flag=>true]);
+            $this->postJson('/api/device-results/'.$response->json('id').'/apply')->assertUnprocessable();
+            $this->assertTrue($invoice->fresh()->is_done);
+            $this->assertNull($rel->fresh()->sub_tests);
+            $invoice->update([$flag=>false]);
+        }
+        $this->postJson('/api/device-results/'.$response->json('id').'/apply')->assertOk();
+        $this->assertFalse($invoice->fresh()->is_done);
+        $this->assertFalse((bool)$rel->fresh()->is_done);
+    }
+
     public function test_cbc_ambiguous_invoice_or_panel_is_held(): void
     {
         [$device, $invoice, $test, $rel, $payload] = $this->cbcFixture();
