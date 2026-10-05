@@ -748,10 +748,12 @@ onMounted(async () => {
                       </svg>
                     </button>
 
-                  <button type="button" @click.stop="openprintResultTemplate(item)" :disabled="reportActionBusy" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50" title="اختيار عناصر التقرير وطباعته">
-                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-                    طباعة التقرير
-                  </button>
+                    <!-- Print Report -->
+                    <button type="button" @click.stop="openprintResultTemplate(item)" :disabled="reportActionBusy" class="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all disabled:opacity-50 disabled:cursor-wait" title="طباعة التقرير" aria-label="طباعة التقرير">
+                      <svg class="w-5 h-5 shrink-0" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 9V3h12v6M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6zM18 12h.01" />
+                      </svg>
+                    </button>
                     <!-- More Menu -->
                     <div class="relative">
                       <button @click.stop="toggleMenu(item.id)" class="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all">
