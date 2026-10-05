@@ -68,7 +68,7 @@ function execute(nextAction = action.value) {
 
 <template>
   <Teleport to="body">
-    <div v-if="modelValue" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-3 sm:p-6" dir="rtl" role="dialog" aria-modal="true" aria-labelledby="report-dialog-title" @keydown.esc="close">
+    <div v-if="modelValue" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-3 sm:p-6" dir="rtl" :data-audit-invoice-id="printRecord?.id" role="dialog" aria-modal="true" aria-labelledby="report-dialog-title" @keydown.esc="close">
       <div class="absolute inset-0" @click="close"></div>
       <div class="relative flex max-h-[94vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
         <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4 sm:px-7">

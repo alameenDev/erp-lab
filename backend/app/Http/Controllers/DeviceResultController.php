@@ -372,6 +372,7 @@ class DeviceResultController extends Controller
 
         // Timing-safe comparison
         if ($device && hash_equals($device->api_token, $token)) {
+            app(\App\Services\AuditTrail::class)->useDevice($device);
             return $device;
         }
 

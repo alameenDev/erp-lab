@@ -680,7 +680,7 @@ onMounted(async () => {
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
-              <tr v-for="item in invoices" :key="item.id" class="hover:bg-slate-50/80 transition-colors group">
+              <tr v-for="item in invoices" :key="item.id" :data-audit-invoice-id="item.id" class="hover:bg-slate-50/80 transition-colors group">
                 <td class="px-5 py-4">
                   <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 text-slate-600 text-sm font-medium group-hover:bg-primary-50 group-hover:text-primary-600 transition-colors">
                     {{ item.index }}

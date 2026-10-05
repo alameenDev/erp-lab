@@ -32,6 +32,9 @@ return [
         'Origin',
         'X-CSRF-TOKEN',
         'X-Device-Token',
+        'X-Audit-Action-Id',
+        'X-Audit-Label',
+        'X-Audit-Page',
     ],
 
     'exposed_headers' => ['Content-Length', 'X-Total-Count'],

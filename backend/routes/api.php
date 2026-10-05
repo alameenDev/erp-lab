@@ -117,15 +117,15 @@ Route::get('antibiotics/download-template', [AntibioticsController::class, 'down
 Route::post('device/bridge/heartbeat', [\App\Http\Controllers\BridgeResultController::class, 'check'])
     ->middleware('throttle:120,1');
 Route::post('device/bridge/results', [\App\Http\Controllers\BridgeResultController::class, 'receive'])
-    ->middleware('throttle:60,1');
+    ->middleware(['throttle:60,1', \App\Http\Middleware\AuditActivity::class]);
 
 // Device Agent Routes (api_token auth via X-Device-Token header)
 Route::post('device/results', [DeviceResultController::class, 'receiveResults'])
-    ->middleware('throttle:60,1');
+    ->middleware(['throttle:60,1', \App\Http\Middleware\AuditActivity::class]);
 Route::post('device/heartbeat', [DeviceResultController::class, 'heartbeat'])
     ->middleware('throttle:120,1');
 
-Route::group(['middleware' => ['auth:sanctum', \App\Http\Middleware\RestrictReferralPortal::class]], function (): void {
+Route::group(['middleware' => ['auth:sanctum', \App\Http\Middleware\RestrictReferralPortal::class, \App\Http\Middleware\AuditActivity::class]], function (): void {
 
     /**
      @ User Api Routes
@@ -143,6 +143,9 @@ Route::group(['middleware' => ['auth:sanctum', \App\Http\Middleware\RestrictRefe
      @ Activity Routes
      */
     Route::get('activity/show', [ActivityLogController::class, 'index']); // get all activity
+    Route::get('activity/export', [ActivityLogController::class, 'export']);
+    Route::get('activity/show/{id}', [ActivityLogController::class, 'show'])->whereNumber('id');
+    Route::post('activity/actions', [ActivityLogController::class, 'actions'])->middleware('throttle:120,1');
 
     /**
      @ Roles Routes

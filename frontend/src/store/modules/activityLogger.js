@@ -1,33 +1,37 @@
-import { defineStore } from "pinia";
-import { $http } from "@/plugins/axios";
+import { defineStore } from 'pinia';
+import { $http } from '@/plugins/axios';
 
-export const ActivityStore = defineStore("activity", {
-     state: () => ({
-          records: [],
-          totalCount: "",
-     }),
-     actions: {
-          /**
-           * Asynchronously fetches activity records from the server and processes them.
-           *
-           * This function sends a GET request to the `/activity/show` endpoint to retrieve
-           * activity records. The retrieved data is then mapped to include an `index` property
-           * which starts from 1. The processed records are stored in the `records` property
-           * and the total count of records is stored in the `totalCount` property.
-           *
-           */
-          async GetRecords() {
-               try {
-                    const { data } = await $http.get(`/activity/show`);
-                    const activities = Array.isArray(data) ? data : [];
-                    this.records = activities.map((item, index) => ({
-                         ...item,
-                         index: index + 1,
-                    }));
-                    this.totalCount = this.records.length;
-               } catch (error) {
-                    this.records = [];
-               }
-          },
-     },
+export const ActivityStore = defineStore('activity', {
+  state: () => ({ records: [], totalCount: 0, pagination: { current_page: 1, last_page: 1, total: 0 }, stats: {}, loading: false, error: '', requestNumber: 0 }),
+  actions: {
+    async GetRecords(params = {}) {
+      const request = ++this.requestNumber;
+      this.loading = true; this.error = '';
+      try {
+        const { data } = await $http.get('/activity/show', { params });
+        if (request !== this.requestNumber) return;
+        this.records = data.data || [];
+        this.pagination = data.pagination;
+        this.totalCount = data.pagination.total;
+        this.stats = data.stats;
+      } catch (error) {
+        if (request !== this.requestNumber) return;
+        this.error = error.response?.data?.message || 'تعذر تحميل سجل النشاط. أعد المحاولة.';
+      } finally {
+        if (request === this.requestNumber) this.loading = false;
+      }
+    },
+    async detail(id) {
+      const { data } = await $http.get(`/activity/show/${id}`);
+      return data;
+    },
+    async exportReport(params) {
+      const { data } = await $http.get('/activity/export', { params, responseType: 'blob', timeout: 120000 });
+      const url = URL.createObjectURL(data);
+      const link = document.createElement('a');
+      link.href = url; link.download = `activity-report-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    },
+  },
 });
