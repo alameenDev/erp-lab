@@ -103,7 +103,7 @@ class ActivityAuditTest extends TestCase
         $this->assertSame('18', $change['after']);
         $this->assertStringContainsString('Nested CBC', $change['label']);
         $this->lab->givePermissionTo('test groups edit');
-        $this->putJson('/api/test_groups/update', ['id' => $group->id, 'group_name' => 'Virology', 'test_ids' => [], 'is_print_alone' => false])->assertOk();
+        $this->putJson('/api/test_groups/update', ['id' => $group->id, 'group_name' => 'Virology', 'test_ids' => [], 'is_print_alone' => 0])->assertOk();
         $log = Activity::where('subject_type', TestGroup::class)->where('subject_id', $group->id)->latest('id')->firstOrFail();
         $removed = collect($log->properties['changes'])->firstWhere('field', 'tests.'.$this->test->id.'.name');
         $this->assertSame('CBC', $removed['before']);

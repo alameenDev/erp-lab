@@ -72,7 +72,7 @@ onBeforeUnmount(() => { detailRequest++; });
     <div v-if="filters.action_id" class="flex items-center justify-between rounded-lg bg-blue-50 p-3 text-sm text-blue-800"><span>عرض النقرة والعمليات المرتبطة بها</span><button class="audit-btn" @click="filters.action_id = ''; load()">عرض كل الحركات</button></div>
     <section class="overflow-hidden rounded-xl border border-slate-200 bg-white" :aria-busy="loading">
       <div class="flex items-center justify-between border-b border-slate-100 px-4 py-3"><h2 class="font-semibold text-slate-800">تفاصيل الحركات</h2><span class="text-sm text-slate-500" role="status">{{ loading ? 'جاري تحميل السجل…' : `${pagination.total || 0} سجل مطابق` }}</span></div>
-      <div class="overflow-x-auto">
+      <div class="relative overflow-x-auto">
         <table class="w-full min-w-[1000px] text-sm">
           <thead class="bg-slate-50 text-right text-xs text-slate-500"><tr><th>الوقت / المستخدم</th><th>الحركة</th><th>الفاتورة / المريض</th><th>ملخص التغيير</th><th>الحالة / المصدر</th><th><span class="sr-only">التفاصيل</span></th></tr></thead>
           <tbody class="divide-y divide-slate-100">
