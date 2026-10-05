@@ -54,6 +54,7 @@ class LabDevice extends Model
     {
         return [
             ['id' => 'dxh500', 'name' => 'Beckman Coulter DxH 500', 'protocol' => 'ASTM LIS2-A2', 'port' => 5001],
+            ['id' => 'bm850', 'name' => 'Boule BM850 (Izmir)', 'protocol' => 'HL7 2.7 / MLLP · Barcode OBR-4', 'port' => 5600],
             ['id' => 'np21h', 'name' => 'Nipigon NP-21H', 'protocol' => 'HL7 2.3.1 / MLLP', 'port' => 5600],
         ];
     }

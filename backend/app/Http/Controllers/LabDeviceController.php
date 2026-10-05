@@ -42,7 +42,7 @@ class LabDeviceController extends Controller
             'connection_config.baud_rate' => 'nullable|integer|in:9600,19200,38400,57600,115200',
             'connection_config.ip' => 'nullable|ip',
             'connection_config.port' => 'nullable|integer|min:1|max:65535',
-            'connection_config.bridge_adapter' => 'sometimes|required|in:dxh500,np21h',
+            'connection_config.bridge_adapter' => 'sometimes|required|in:dxh500,np21h,bm850',
             'connection_config.cbc_interface_code' => 'sometimes|required|string|max:100|regex:/^[A-Za-z0-9_.-]+$/',
             'connection_config.automatic_invoice_apply' => 'sometimes|required|boolean',
         ];

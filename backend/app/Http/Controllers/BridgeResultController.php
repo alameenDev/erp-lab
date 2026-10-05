@@ -58,7 +58,7 @@ class BridgeResultController extends DeviceResultController
             'parsed_results.*.research_only' => 'required|boolean',
             'parsed_results.*.raw_value' => 'present|nullable|string|max:1000',
             'instrument_metadata' => 'required|array',
-            'instrument_metadata.adapter' => 'required|in:dxh500,np21h',
+            'instrument_metadata.adapter' => 'required|in:dxh500,np21h,bm850',
             'instrument_metadata.comments' => 'present|array|max:200',
             'instrument_metadata.comments.*.text' => 'required|string|max:2000',
             'instrument_metadata.comments.*.code' => 'nullable|string|max:100',
@@ -85,6 +85,53 @@ class BridgeResultController extends DeviceResultController
             $header[6] = ''; // Ignore only transport timestamp when recognizing a retransmission.
             $lines[0] = implode('|', $header);
             $data['instrument_metadata']['np21_identity'] = hash('sha256', implode("\r", $lines));
+        }
+        if ($data['instrument_metadata']['adapter'] === 'bm850') {
+            $lines = explode("\r", $data['raw_message']);
+            $header = explode('|', $lines[0]);
+            $orders = array_values(array_filter(array_map(fn ($line) => explode('|', $line), $lines), fn ($row) => $row[0] === 'OBR'));
+            if (count($header) < 12 || $header[0] !== 'MSH' || $header[1] !== '^~\\&' ||
+                $header[2] !== 'BM850^HL7MW' || $header[8] !== 'ORU^R01' || $header[11] !== '2.7' || empty($header[9]) ||
+                count($orders) !== 1 || trim($orders[0][4] ?? '') !== $data['specimen_barcode']) {
+                return response()->json(['message' => 'Invalid BM850 header or OBR-4 barcode'], 422);
+            }
+            // Verify numeric observations against raw data, including their preliminary status.
+            $numeric = [];
+            foreach ($lines as $line) {
+                $row = explode('|', $line);
+                if ($row[0] !== 'OBX' || ($row[2] ?? '') !== 'NM') { continue; }
+                $code = $row[3] ?? '';
+                if (isset($numeric[$code]) || ! in_array($row[11] ?? '', ['P', 'F'], true)) {
+                    return response()->json(['message' => 'Duplicate or unsupported BM850 observation'], 422);
+                }
+                $numeric[$code] = $row;
+            }
+            if (count($numeric) !== 22 || count($data['parsed_results']) !== 22) {
+                return response()->json(['message' => 'Expected 22 BM850 results'], 422);
+            }
+            $seen = [];
+            foreach ($data['parsed_results'] as $observation) {
+                $code = $observation['test_code'];
+                $row = $numeric[$code] ?? [];
+                if (isset($seen[$code]) || ($row[5] ?? null) !== $observation['value'] ||
+                    ($row[6] ?? null) !== ($observation['unit'] ?? '') ||
+                    ($row[7] ?? null) !== ($observation['reference_range'] ?? '') ||
+                    ($row[11] ?? null) !== ($observation['result_status'] ?? '') ||
+                    (($row[8] ?? '') === '""' ? '' : ($row[8] ?? '')) !== ($observation['flags'] ?? '') ||
+                    $observation['research_only']) {
+                    return response()->json(['message' => 'BM850 parsed result differs from raw observation'], 422);
+                }
+                $seen[$code] = true;
+            }
+            if (collect($data['parsed_results'])->contains(fn ($o) => $o['result_status'] === 'P')) {
+                $data['instrument_metadata']['warnings'][] = 'Instrument marked results P (preliminary); review before report approval.';
+                $data['instrument_metadata']['warnings'] = array_values(array_unique($data['instrument_metadata']['warnings']));
+            }
+            foreach ([6, 7] as $index) {
+                if (preg_match('/^\d{14}$/D', $header[$index])) { $header[$index] = ''; }
+            }
+            $lines[0] = implode('|', $header);
+            $data['instrument_metadata']['bm850_identity'] = hash('sha256', implode("\r", $lines));
         }
         $data['instrument_metadata']['review_required'] = true;
         foreach ($data['parsed_results'] as &$item) {
@@ -113,6 +160,16 @@ class BridgeResultController extends DeviceResultController
                 if ($prior) {
                     if ($prior->specimen_barcode !== $data['specimen_barcode'] || $prior->parsed_results != $data['parsed_results']) {
                         return response()->json(['message' => 'Repeated NP-21H message has inconsistent parsed data'], 409);
+                    }
+                    return $this->receipt($prior, true, $data['delivery_id']);
+                }
+            }
+            if ($data['instrument_metadata']['adapter'] === 'bm850') {
+                $prior = DeviceResult::where('device_id_fk', $device->id)
+                    ->where('instrument_metadata->bm850_identity', $data['instrument_metadata']['bm850_identity'])->first();
+                if ($prior) {
+                    if ($prior->specimen_barcode !== $data['specimen_barcode'] || $prior->parsed_results != $data['parsed_results']) {
+                        return response()->json(['message' => 'Repeated BM850 message has inconsistent parsed data'], 409);
                     }
                     return $this->receipt($prior, true, $data['delivery_id']);
                 }
