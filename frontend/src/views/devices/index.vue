@@ -275,6 +275,7 @@ const timeAgo = (dateStr) => {
                               <td class="px-5 py-4 text-center text-sm text-slate-600">{{ result.parsed_results?.length || 0 }}</td>
                               <td class="px-5 py-4 text-center">
                                    <span :class="['px-2.5 py-1 text-xs font-medium rounded-full', resultStatusBadge(result.status)]">{{ result.status }}</span>
+                                   <p v-if="result.error_message" class="mt-2 max-w-sm text-xs text-amber-800" role="status">{{ result.error_message }}</p>
                               </td>
                               <td class="px-5 py-4 text-center text-xs text-slate-500">{{ timeAgo(result.created_at) }}</td>
                               <td class="px-5 py-4 text-center">
