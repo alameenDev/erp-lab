@@ -26,7 +26,7 @@ jobs:
         run: |
           $process = Start-Process bridge/dist/DigitalLabBridge-Izmir-BM850.exe -ArgumentList '--smoke-test' -PassThru -Wait
           if ($process.ExitCode -ne 0) { throw 'Packaged bridge failed to start' }
-          Copy-Item bridge/README_Izmir-BM850_AR.md bridge/dist/README_AR.md
+          Copy-Item bridge/README_IZMIR_AR.md bridge/dist/README_AR.md
       - uses: actions/upload-artifact@v4
         with:
           name: DigitalLabBridge-Izmir-BM850-Windows
