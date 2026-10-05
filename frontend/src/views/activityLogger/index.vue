@@ -116,6 +116,7 @@ onBeforeUnmount(() => { detailRequest++; });
 </template>
 
 <style scoped>
+.audit-page { width:100%;min-width:0;max-width:100%; }
 .audit-btn { display:inline-flex;align-items:center;justify-content:center;gap:.5rem;min-height:40px;border:1px solid #e2e8f0;border-radius:9px;background:white;padding:.5rem .85rem;font-size:.875rem;font-weight:600;color:#475569; }
 .audit-btn:hover { background:#f8fafc; }.audit-btn:focus-visible { outline:3px solid #93c5fd;outline-offset:2px; }.audit-btn:disabled { opacity:.5;cursor:not-allowed; }
 .audit-primary { background:#2563eb;color:white;border-color:#2563eb; }.audit-primary:hover { background:#1d4ed8; }

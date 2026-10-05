@@ -93,7 +93,7 @@ class ActivityAuditTest extends TestCase
     {
         $group = TestGroup::create(['group_name' => 'Virology', 'lab_id_fk' => $this->lab->id]);
         $group->tests()->attach($this->test->id);
-        $old = ['id' => $this->test->id, 'name' => 'Nested CBC', 'result' => '10', 'is_done' => true];
+        $old = ['id' => $this->test->id, 'name' => 'Nested CBC', 'result' => '10', 'is_done' => true, 'is_print_alone' => false];
         InvoiceTestRel::create(['invoice_id_fk' => $this->invoice->id, 'test_group_id_fk' => $group->id, 'test_group_tests' => [$old]]);
         $this->postJson('/api/invoices/update-result', ['id' => $this->invoice->id, 'test_groups' => [
             ['test_group_id_fk' => $group->id, 'tests' => [array_merge($old, ['result' => '18'])]],

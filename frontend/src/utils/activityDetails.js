@@ -17,6 +17,8 @@ const fields = {
 };
 export function fieldLabel(label = '') {
   return label.split(' / ').map(part => {
+    const analysis = part.match(/^(test_group|test|culture|package)_\d+_\d+(.*)$/);
+    if (analysis) return ({ test_group: 'كروب', test: 'تحليل', culture: 'زرع', package: 'باقة' }[analysis[1]]) + analysis[2];
     const match = part.match(/^([^ (]+)(.*)$/);
     if (!match) return part;
     return (fields[match[1]] || match[1]) + match[2];

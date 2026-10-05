@@ -10,7 +10,7 @@ await mkdir('test-results/activity', { recursive: true });
 try {
   await page.goto('http://127.0.0.1:5173/tests/activity-browser.html');
   await page.getByRole('button', { name: 'تفاصيل السجل 1', exact: true }).waitFor();
-  const desktop = await page.screenshot({ path:'test-results/activity/desktop.jpg', type:'jpeg', quality:55 });
+  await page.screenshot({ path:'test-results/activity/desktop.jpg', type:'jpeg', quality:65 });
   await page.getByRole('button', { name: 'تفاصيل السجل 1', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('cell', { name:'15', exact:true }).waitFor();
@@ -52,10 +52,11 @@ try {
   await page.getByRole('button', { name:'تفاصيل السجل 1', exact:true }).waitFor();
   await page.setViewportSize({ width:390, height:844 });
   await page.screenshot({ path:'test-results/activity/mobile.jpg', type:'jpeg', quality:65, fullPage:true });
-  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'page contains its horizontal table scroll on mobile');
+  const layout = await page.evaluate(() => ({ width:innerWidth, scroll:document.documentElement.scrollWidth,
+    overflow:[...document.querySelectorAll('body *')].filter(el => { const rect = el.getBoundingClientRect(); return (rect.left < 0 || rect.right > innerWidth) && !el.closest('.overflow-x-auto'); }).slice(0, 10).map(el => ({ tag:el.tagName, class:el.className, width:el.getBoundingClientRect().width })) }));
+  assert.equal(layout.scroll <= layout.width, true, 'page contains horizontal table scrolling: ' + JSON.stringify(layout));
   assert.deepEqual(errors, []);
   console.log('PASS activity details, values, invoice filters, pagination, export, mobile layout, focus restoration and click correlation');
-  console.log('AUDIT_DESKTOP_IMAGE:' + desktop.toString('base64'));
 } catch (error) {
   await page.screenshot({ path:'test-results/activity/failure.png', fullPage:true });
   throw error;

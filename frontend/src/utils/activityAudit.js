@@ -16,7 +16,7 @@ export function activityRequestHeaders(method, url) {
 
 export function buttonActivity(target, path = window.location.pathname) {
   if (excluded(path)) return null;
-  const button = target?.closest?.('button, [role="button"], input[type="submit"], input[type="button"]');
+  const button = target?.closest?.('button, a[href], [role="button"], [role="menuitem"], input[type="submit"], input[type="button"]');
   if (!button || button.disabled || button.getAttribute('aria-disabled') === 'true' || button.closest('[data-audit-ignore]')) return null;
   const label = (button.dataset.auditLabel || button.getAttribute('aria-label') || button.getAttribute('title') || button.textContent || button.value || 'زر بدون تسمية').replace(/\s+/g, ' ').trim().slice(0, 160);
   const container = button.closest('[data-audit-invoice-id]');
@@ -45,6 +45,7 @@ export function installActivityAudit() {
     if (queue.length) timer = setTimeout(flush, 300);
   };
   document.addEventListener('click', event => {
+    if (!event.isTrusted) return;
     const token = localStorage.getItem('token');
     if (!token) return;
     const action = buttonActivity(event.target);
