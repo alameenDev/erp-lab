@@ -71,14 +71,18 @@ class BridgeCbcService
                     if (! $items) {
                         $models = $field === 'package_tests' ? $rel->package?->tests : $rel->testGroup?->tests;
                         $items = TestResource::collection($models ?? [])->resolve();
-                        if ($field === 'package_tests') {
-                            $seen = array_column($items, 'id');
-                            foreach ($rel->package?->testGroups ?? [] as $group) {
-                                foreach (TestResource::collection($group->tests)->resolve() as $item) {
-                                    if (! in_array($item['id'], $seen, true)) {
-                                        $items[] = $item;
-                                        $seen[] = $item['id'];
-                                    }
+                    }
+                    // The invoice renderer includes group tests even when a package
+                    // already has a partial snapshot of its direct tests.
+                    if ($field === 'package_tests') {
+                        $seen = array_map(fn ($item) => (string) ($item['test_id_fk'] ?? $item['id'] ?? ''), $items);
+                        foreach ($rel->package?->testGroups ?? [] as $group) {
+                            foreach (TestResource::collection($group->tests)->resolve() as $item) {
+                                if (! in_array((string) $item['id'], $seen, true)) {
+                                    $item['test_group_name'] = $group->group_name;
+                                    $item['test_group_id_fk'] = $group->id;
+                                    $items[] = $item;
+                                    $seen[] = (string) $item['id'];
                                 }
                             }
                         }

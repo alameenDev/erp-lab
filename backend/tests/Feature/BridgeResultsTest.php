@@ -205,6 +205,32 @@ class BridgeResultsTest extends TestCase
         $this->assertSame('unchanged',$stored[1]['result']);
     }
 
+    public function test_cbc_in_package_group_is_found_when_direct_tests_are_already_saved(): void
+    {
+        [$device, $invoice, $test, $rel, $payload] = $this->cbcFixture();
+        $group = TestGroup::create(['lab_id_fk'=>$device->lab_id_fk,'group_name'=>'Haematology']);
+        $group->tests()->attach($test->id);
+        $package = Package::create(['lab_id_fk'=>$device->lab_id_fk,'name'=>'Checkup','price'=>0]);
+        $package->testGroups()->attach($group->id);
+        $other = LabTest::create(['lab_id_fk'=>$device->lab_id_fk,'name'=>'Other','price'=>0]);
+        $package->tests()->attach($other->id);
+        $rel->update(['test_id_fk'=>null,'package_id_fk'=>$package->id,
+            'package_tests'=>json_encode([['id'=>$other->id,'name'=>'Other','result'=>'unchanged']])]);
+        $this->postJson('/api/device/bridge/results',$payload)->assertCreated()->assertJsonPath('status','applied');
+        $stored = $rel->fresh()->package_tests;
+        $this->assertCount(2,$stored);
+        $this->assertSame('unchanged',$stored[0]['result']);
+        $this->assertSame($test->id,$stored[1]['id']);
+        $this->assertCount(21,$stored[1]['sub_tests']);
+        $this->assertSame($group->id,$stored[1]['test_group_id_fk']);
+        $this->assertFalse($stored[1]['is_done']);
+        // A fresh delivery must find the existing snapshot, not append another CBC.
+        $payload['raw_message'] .= "\r";
+        $payload['delivery_id'] = hash('sha256',$payload['raw_message']);
+        $this->postJson('/api/device/bridge/results',$payload)->assertCreated()->assertJsonPath('status','matched');
+        $this->assertCount(2,$rel->fresh()->package_tests);
+    }
+
     public function test_cbc_unknown_or_repeated_codes_are_held_and_html_is_escaped(): void
     {
         [$device, $invoice, $test, $rel, $payload] = $this->cbcFixture();
