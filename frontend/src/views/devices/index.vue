@@ -209,7 +209,7 @@ const timeAgo = (dateStr) => {
                               <td class="px-5 py-4">
                                    <p class="text-sm font-semibold text-slate-800">{{ device.name }}</p>
                                    <p class="text-xs text-slate-500 mt-0.5">{{ device.lab || '-' }}</p>
-                                   <p class="text-xs text-slate-400 mt-0.5" dir="ltr">{{ device.bridge_settings?.adapter === 'np21h' ? 'Nipigon NP-21H · HL7 / MLLP' : 'Beckman Coulter DxH 500 · ASTM' }}</p>
+                                   <p class="text-xs text-slate-400 mt-0.5" dir="ltr">{{ device.bridge_settings?.adapter === 'bm850' ? 'Boule BM850 · HL7 / MLLP · OBR-4' : device.bridge_settings?.adapter === 'np21h' ? 'Nipigon NP-21H · HL7 / MLLP' : 'Beckman Coulter DxH 500 · ASTM' }}</p>
                                    <p class="text-xs text-slate-400 mt-0.5" dir="ltr">CBC: {{ device.bridge_settings?.cbc_interface_code || '12345678' }} · {{ device.bridge_settings?.automatic_invoice_apply === false ? 'Inbox only' : 'Invoice draft' }}</p>
                               </td>
                               <td class="px-5 py-4 text-sm text-slate-600 capitalize">{{ device.device_type || '-' }}</td>

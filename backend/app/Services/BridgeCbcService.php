@@ -21,13 +21,15 @@ class BridgeCbcService
         'PCT', 'P-LCR', 'P-LCC',
     ];
 
+    private const BM850_CODES = ['WBC','LYMR','MIDR','GRNR','LYMA','MIDA','GRNA','RBC','HGB','HCT','MCV','MCH','MCHC','RDWR','RDWA','PLT','MPV','PCT','PDW','PDWR','P-LCR','P-LCC'];
+
     public function apply(DeviceResult $source): array
     {
         return DB::transaction(function () use ($source) {
             $device = LabDevice::whereKey($source->device_id_fk)->lockForUpdate()->first();
             $result = DeviceResult::whereKey($source->id)->lockForUpdate()->firstOrFail();
             if (! $device || ! $result->delivery_id ||
-                ! in_array($result->instrument_metadata['adapter'] ?? null, ['dxh500', 'np21h'], true)) {
+                ! in_array($result->instrument_metadata['adapter'] ?? null, ['dxh500', 'np21h', 'bm850'], true)) {
                 return ['applied' => false, 'message' => 'هذه الرسالة ليست من ربط جهاز CBC مدعوم.'];
             }
             if ($result->status === 'applied') {
@@ -106,7 +108,8 @@ class BridgeCbcService
             }
 
             $isNp21 = ($result->instrument_metadata['adapter'] ?? '') === 'np21h';
-            $allowedCodes = $isNp21 ? self::NP21_CODES : self::CODES;
+            $isBm850 = ($result->instrument_metadata['adapter'] ?? '') === 'bm850';
+            $allowedCodes = $isBm850 ? self::BM850_CODES : ($isNp21 ? self::NP21_CODES : self::CODES);
             $rows = [];
             $seen = [];
             foreach ($result->parsed_results ?? [] as $observation) {
@@ -126,11 +129,14 @@ class BridgeCbcService
                     'reference_range' => (string) ($observation['reference_range'] ?? ''),
                 ];
             }
+            if ($isBm850 && count($rows) !== 22) {
+                return $this->hold($result, 'BM850: يجب استلام 22 نتيجة CBC كاملة.');
+            }
             if ($isNp21 && count($rows) !== 21) {
                 return $this->hold($result, 'NP-21H: يجب استلام 21 نتيجة CBC كاملة.');
             }
-            if ($isNp21) {
-                usort($rows, fn ($a, $b) => array_search($a['name'], self::NP21_CODES, true) <=> array_search($b['name'], self::NP21_CODES, true));
+            if ($isNp21 || $isBm850) {
+                usort($rows, fn ($a, $b) => array_search($a['name'], $allowedCodes, true) <=> array_search($b['name'], $allowedCodes, true));
             }
             if (! $rows) {
                 return $this->hold($result, 'لا توجد نتائج CBC قابلة للعرض في تقرير المريض.');

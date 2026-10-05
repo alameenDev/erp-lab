@@ -14,6 +14,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from dxh500 import parse_dxh500
 from np21h import parse_np21h, identity as np21_identity, ack as np21_ack
+from bm850 import parse_bm850, identity as bm850_identity, ack as bm850_ack
 from protocols import MLLPStream
 from protocols import ACK, NAK, ENQ, EOT, STX, ETX, CR, LF, validate_astm_frame
 
@@ -24,7 +25,7 @@ PROTOCOL = 'labbridge-v1'
 def validate_config(config, require_destination=True):
     cfg = dict(config)
     cfg['adapter'] = cfg.get('adapter', 'dxh500')
-    if cfg['adapter'] not in ('dxh500','np21h'): raise ValueError('Unsupported analyzer adapter')
+    if cfg['adapter'] not in ('dxh500','np21h','bm850'): raise ValueError('Unsupported analyzer adapter')
     url = urllib.parse.urlsplit(str(cfg.get('api_url', '')).strip().rstrip('/'))
     if url.scheme != 'https' or not url.hostname or url.username or url.password or url.query or url.fragment:
         raise ValueError('Server must be an HTTPS API URL without credentials or query parameters')
@@ -88,6 +89,8 @@ class Api:
             raise DeliveryError('Invalid server device identity', True)
         if self.config.get('device_id') and result['device_id'] != self.config['device_id']:
             raise DeliveryError('Token belongs to a different device; queued records were not sent', True)
+        if self.config.get('adapter') == 'bm850' and 'bm850' not in result.get('adapters', []):
+            raise DeliveryError('Install the BM850 server update and select Boule BM850 for the Izmir device; use its own API token', True)
         if self.config.get('adapter') == 'np21h' and 'np21h' not in result.get('adapters', []):
             if result.get('lab_id'):
                 raise DeliveryError('Select Nipigon NP-21H in this laboratory device settings, then use its own API token', True)
@@ -143,7 +146,7 @@ class Store:
         payload, status, error = None, 'pending', ''
         try:
             if len(raw) > LIMIT: raise ValueError('Message exceeds server limit')
-            parsed = parse_np21h(raw) if cfg.get('adapter') == 'np21h' else parse_dxh500(raw, options={'astm_sample_field': cfg['sample_field']})
+            parsed = parse_bm850(raw) if cfg.get('adapter') == 'bm850' else parse_np21h(raw) if cfg.get('adapter') == 'np21h' else parse_dxh500(raw, options={'astm_sample_field': cfg['sample_field']})
             accessions = {o['accession'] for o in parsed['observations']}
             if len(accessions) != 1 or len(parsed['orders']) != 1:
                 raise ValueError('Multiple orders require manual review; original retained locally')
@@ -157,7 +160,7 @@ class Store:
         except (ValueError, UnicodeError) as exc:
             status, error = 'review', str(exc)
         with self.db() as db:
-            fingerprint = np21_identity(raw) if cfg.get('adapter') == 'np21h' and payload else None
+            fingerprint = bm850_identity(raw) if cfg.get('adapter') == 'bm850' and payload else np21_identity(raw) if cfg.get('adapter') == 'np21h' and payload else None
             if fingerprint:
                 prior = db.execute('SELECT o.id,o.status FROM np21_identity n JOIN outbox o ON o.id=n.outbox_id WHERE n.api_url=? AND n.device_id=? AND n.fingerprint=?', (cfg['api_url'],cfg['device_id'],fingerprint)).fetchone()
                 if prior: return dict(prior)
@@ -242,7 +245,7 @@ class Bridge:
                 conn.settimeout(1)
                 self.notify('الجهاز متصل')
                 try:
-                    if self.cfg.get('adapter') == 'np21h': self.receive_hl7(conn)
+                    if self.cfg.get('adapter') in ('np21h','bm850'): self.receive_hl7(conn)
                     else: self.receive(conn)
                 except Exception as exc: self.notify('توقف اتصال الجهاز: '+type(exc).__name__)
                 self.notify('انتهى الاتصال — الاستقبال ينتظر إعادة الاتصال')
@@ -266,11 +269,11 @@ class Bridge:
                 row = self.store.capture(raw, self.cfg)
                 code = 'AR' if row['status']=='review' else 'AA'
                 explanation = 'Retained for review; unsupported result' if code=='AR' else 'Stored in durable local outbox'
-                reply = np21_ack(raw, code, explanation)
+                reply = (bm850_ack if self.cfg.get('adapter') == 'bm850' else np21_ack)(raw, code, explanation)
                 self.store.wire('TX_PENDING',reply)
                 conn.sendall(reply)
                 self.store.wire('TX',reply)
-                self.notify('NP-21H: local record #'+str(row['id'])+' / '+row['status']+' / ACK '+code)
+                self.notify(self.cfg.get('adapter','').upper()+': local record #'+str(row['id'])+' / '+row['status']+' / ACK '+code)
 
     def receive(self, conn):
         pending, content = bytearray(), bytearray()

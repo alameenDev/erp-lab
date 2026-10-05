@@ -29,6 +29,40 @@ class BridgeResultsTest extends TestCase
                 'comments' => [['scope' => 'sample', 'code' => '', 'text' => 'Lyse Expired']], 'orders' => []]];
     }
 
+    public function test_bm850_obr4_import_is_scoped_complete_preliminary_and_idempotent(): void
+    {
+        [$device, $invoice, $test, $rel] = $this->cbcFixture();
+        $device->update(['connection_config'=>['bridge_adapter'=>'bm850']]);
+        $payload = json_decode(file_get_contents(base_path('../bridge/tests/bm850_payload.json')), true);
+        $payload['device_id'] = $device->id;
+        $invoice->update(['barcode'=>$payload['specimen_barcode']]);
+        $this->postJson('/api/device/bridge/heartbeat')->assertOk()->assertJsonPath('adapters.0', 'bm850');
+        $bad = $payload; $bad['specimen_barcode'] = 'TEST-SEQ';
+        $this->postJson('/api/device/bridge/results', $bad)->assertUnprocessable();
+        $bad = $payload; $bad['parsed_results'][0]['value'] = '99';
+        $this->postJson('/api/device/bridge/results', $bad)->assertUnprocessable();
+        $first = $this->postJson('/api/device/bridge/results', $payload)->assertCreated()->assertJsonPath('status', 'applied');
+        $rel->refresh();
+        $this->assertCount(22, $rel->sub_tests);
+        $this->assertSame('WBC', $rel->sub_tests[0]['name']);
+        $this->assertSame('5.5', $rel->sub_tests[0]['value']);
+        $this->assertSame('10*9/L', $rel->sub_tests[0]['unit']);
+        $this->assertFalse($rel->is_done);
+        $this->assertFalse($invoice->fresh()->is_done);
+        $saved = DeviceResult::findOrFail($first->json('id'));
+        $this->assertSame('P', $saved->parsed_results[0]['result_status']);
+        $this->assertCount(80, $saved->instrument_metadata['orders'][0]['histograms']['WBC']['values']['WBC']);
+        $this->assertContains('Instrument marked results P (preliminary); review before report approval.', $rel->content['review_messages']);
+        $payload['raw_message'] = str_replace('20261005175539', '20261005185539', $payload['raw_message']);
+        $payload['delivery_id'] = hash('sha256', $payload['raw_message']);
+        $this->postJson('/api/device/bridge/results', $payload)->assertOk()->assertJsonPath('duplicate', true);
+        $this->assertDatabaseCount('device_results', 1);
+        $device->update(['connection_config'=>['bridge_adapter'=>'np21h']]);
+        $payload['raw_message'] = str_replace('BM-TEST-1', 'BM-TEST-2', $payload['raw_message']);
+        $payload['delivery_id'] = hash('sha256', $payload['raw_message']);
+        $this->postJson('/api/device/bridge/results', $payload)->assertStatus(409);
+    }
+
     public function test_authenticated_durable_idempotent_receipt_preserves_raw_and_warnings(): void
     {
         $device = $this->device(); $payload = $this->payload($device);
