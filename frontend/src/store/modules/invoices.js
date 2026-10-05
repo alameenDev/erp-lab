@@ -279,10 +279,29 @@ export const useinvoicesStore = defineStore("invoices", {
     async changeInvoiceStatus(id, withBackground = true) {
       try {
         await $http.post(`invoices/send`, { id, with_background: withBackground });
-        await this.Getinvoices();
       } catch (error) {
         console.error("Error changing invoice status:", error);
         throw error;
+      }
+
+      // Reflect the saved status immediately, even if the list refresh fails.
+      const row = this.invoices.find(item => String(item.id) === String(id));
+      if (row && !row.sent_to_patient) {
+        this.stats.sent++;
+        this.stats.completed_sent++;
+        this.stats.pending_sent = Math.max(0, this.stats.pending_sent - 1);
+      }
+      for (const item of [row, this.printRecord, this.record, this.updateResultRecord]) {
+        if (item && String(item.id) === String(id)) {
+          item.sent_to_patient = true;
+          item.public_with_background = withBackground;
+        }
+      }
+      try {
+        await this.Getinvoices();
+      } catch (error) {
+        // Persistence succeeded; a refresh failure must not report it as unsent.
+        console.error("Invoice sent status saved, but list refresh failed:", error);
       }
     },
 

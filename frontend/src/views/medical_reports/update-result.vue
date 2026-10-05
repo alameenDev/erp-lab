@@ -1418,7 +1418,7 @@ import { printMedicalReportPages } from "@/utils/medicalReportPages";
 import { downloadMedicalReportFile } from "@/utils/medicalReportOutput";
 
 import { messageTemplate } from '@/utils/labDocuments';
-import { prepareMedicalReportWhatsApp } from '@/utils/sharePatientPortal';
+import { sendMedicalReportWhatsApp, reportSentStatusError } from '@/utils/sharePatientPortal';
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { storeToRefs } from "pinia";
@@ -2586,11 +2586,12 @@ const handlePrintSelection = async (selection) => {
         if (previewTab) previewTab.location.href = url; else window.open(url, '_blank');
         setTimeout(() => URL.revokeObjectURL(url), 120000);
       } else {
-        const share = await prepareMedicalReportWhatsApp(printRecord.value, labSettingsStore.settings, printRecord.value?.lab?.name, { withBackground: result.withBackground });
-        downloadMedicalReportFile(result);
-        if (whatsappTab) { whatsappTab.opener = null; whatsappTab.location.href = share.whatsappUrl; }
-        else if (!window.open(share.whatsappUrl, '_blank')) throw new Error('اسمح بالنوافذ المنبثقة ثم أعد المحاولة.');
-        toast.success('نُزّل PDF وفُتحت محادثة المريض مع رابط البوابة. أرفق الملف ثم أرسل الرسالة.');
+        const { statusError } = await sendMedicalReportWhatsApp({
+          record: printRecord.value, settings: labSettingsStore.settings, output: result,
+          tab: whatsappTab, markSent: invoicesStore.changeInvoiceStatus,
+        });
+        if (statusError) toast.error(reportSentStatusError);
+        else toast.success('نُزّل PDF وفُتحت محادثة المريض مع رابط البوابة. أرفق الملف ثم أرسل الرسالة.');
       }
     }
     if (selection.action === 'print' || selection.action === 'print-download') {
@@ -2694,4 +2695,3 @@ button[type="button"] {
   transition-duration: 200ms;
 }
 </style>
-

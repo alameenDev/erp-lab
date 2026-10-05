@@ -1,6 +1,30 @@
 import { $http } from '@/plugins/axios';
 import { messageTemplate } from '@/utils/labDocuments';
-import { reportUrlWithForm } from '@/utils/medicalReportOutput';
+import { assertPdfBlob, downloadMedicalReportFile, reportUrlWithForm } from '@/utils/medicalReportOutput';
+
+export const reportSentStatusError = 'فُتح الواتساب، لكن تعذر حفظ حالة الإرسال. أعد المحاولة لتحديث المؤشر.';
+
+// The sent flag records the WhatsApp handoff, not a delivery/read receipt.
+// Keep the conversation open if saving its status fails after the handoff.
+export async function sendMedicalReportWhatsApp({ record, settings, output, tab, markSent }) {
+  const checkTab = () => {
+    if (!tab || tab.closed) throw new Error('اسمح بالنوافذ المنبثقة ثم أعد المحاولة.');
+  };
+  checkTab();
+  await assertPdfBlob(output?.blob);
+  const share = await prepareMedicalReportWhatsApp(record, settings, record?.lab?.name,
+    { withBackground: output.withBackground });
+  checkTab();
+  downloadMedicalReportFile(output);
+  tab.opener = null;
+  tab.location.href = share.whatsappUrl;
+  try {
+    await markSent(record.id, output.withBackground);
+    return { statusError: null };
+  } catch (statusError) {
+    return { statusError };
+  }
+}
 
 export async function prepareMedicalReportWhatsApp(record, settings, fallbackLabName, options = {}) {
   const patientId = record?.patient?.id || record?.patient_id_fk;

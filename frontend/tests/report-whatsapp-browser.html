@@ -1,0 +1,15 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Report sent status verification</title></head><body><div id="app"></div>
+<script type="module">
+import { createApp, h, nextTick } from 'vue';
+import { createPinia } from 'pinia';
+import { useinvoicesStore } from '/src/store/modules/invoices';
+import { $http } from '/src/plugins/axios';
+import { sendMedicalReportWhatsApp } from '/src/utils/sharePatientPortal';
+createApp({
+  setup() {
+    const store = useinvoicesStore();
+    window.fixture = { store, $http, sendMedicalReportWhatsApp, nextTick };
+    return () => h('p', { id: 'sent', class: store.invoices[0]?.sent_to_patient ? 'bg-green-100' : 'bg-red-100' }, 'حالة الإرسال');
+  },
+}).use(createPinia()).mount('#app');
+</script></body></html>
