@@ -4,8 +4,7 @@ import { storeToRefs } from "pinia";
 import { useinvoicesStore } from "@/store/modules/invoices";
 import { useLabSettingsStore } from "@/store/modules/labSettings";
 import { t, alertSuccess } from "@/utils/helper";
-import { prepareMedicalReportWhatsApp } from "@/utils/sharePatientPortal";
-import { downloadMedicalReportFile } from "@/utils/medicalReportOutput";
+import { sendMedicalReportWhatsApp, reportSentStatusError } from "@/utils/sharePatientPortal";
 import printResult from "./print_Result.vue";
 
 const props = defineProps({
@@ -25,11 +24,11 @@ const sendMsg = async () => {
   const tab = window.open('about:blank', '_blank');
   try {
     const output = await report.value.prepareReport({ withBackground: props.withBackground });
-    const share = await prepareMedicalReportWhatsApp(printRecord.value, labSettingsStore.settings,
-      printRecord.value?.lab?.name, { withBackground: output.withBackground });
-    if (!tab) throw new Error('اسمح بالنوافذ المنبثقة ثم أعد المحاولة.');
-    downloadMedicalReportFile(output);
-    tab.opener = null; tab.location.href = share.whatsappUrl;
+    const { statusError } = await sendMedicalReportWhatsApp({
+      record: printRecord.value, settings: labSettingsStore.settings, output,
+      tab, markSent: invoicesStore.changeInvoiceStatus,
+    });
+    if (statusError) { error.value = reportSentStatusError; return; }
     alertSuccess('نُزّل PDF وفُتحت محادثة المريض. أرفق الملف ثم أرسل الرسالة.');
     WhatsUpDialog.value = false;
   } catch (e) { tab?.close(); error.value = e.message || 'تعذر تجهيز التقرير'; }
