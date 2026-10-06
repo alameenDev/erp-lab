@@ -99,7 +99,7 @@ class PatientPortalController extends Controller
         $invoices = Invoice::where('patient_id_fk', $patient->id)
             ->with(['invoiceTestRels.test', 'invoiceTestRels.culture', 'invoiceTestRels.package', 'invoiceTestRels.testGroup'])
             ->orderByDesc('created_at')
-            ->get(['id', 'barcode', 'is_done', 'created_at', 'result_date', 'sub_total', 'total', 'paid', 'loyalty_discount', 'loyalty_points_spent']);
+            ->get(['id', 'barcode', 'is_done', 'deleted_at', 'created_at', 'result_date', 'sub_total', 'total', 'paid', 'loyalty_discount', 'loyalty_points_spent']);
 
         return response()->json([
             'requires_otp' => false,

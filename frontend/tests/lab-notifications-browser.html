@@ -1,5 +1,6 @@
 <!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Lab notification settings test</title></head><body style="background:#f8fafc;margin:0"><div id="app" style="max-width:1180px;margin:auto;padding:24px"></div><script type="module">
 import { createApp } from 'vue';
+import { createPinia } from 'pinia';
 import Settings from '/src/views/lab-settings/NotificationSettings.vue';
 import { $http } from '/src/plugins/axios';
 import '/src/assets/main.css';
@@ -27,5 +28,5 @@ $http.defaults.adapter = async config => {
  else throw new Error('Unexpected settings endpoint '+path);
  return {data,status:200,statusText:'OK',headers:{},config};
 };
-createApp(Settings).mount('#app');
+createApp(Settings).use(createPinia()).mount('#app');
 </script></body></html>

@@ -150,7 +150,9 @@ _axios.interceptors.response.use(
         break;
 
       case 503:
-        router.push("/error/503");
+        // Keep the notification draft and its idempotency key mounted so an
+        // interrupted campaign request can be retried without sending twice.
+        if (!error.config?.url?.startsWith('/lab-notifications/')) router.push("/error/503");
         break;
 
       default:

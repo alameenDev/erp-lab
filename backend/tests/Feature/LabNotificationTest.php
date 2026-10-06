@@ -166,7 +166,7 @@ class LabNotificationTest extends TestCase
         $packageId = DB::table('packages')->insertGetId(['lab_id_fk' => $lab->id, 'name' => 'Synthetic package']);
         $package = InvoiceTestRel::create(['invoice_id_fk' => $invoice->id, 'package_id_fk' => $packageId, 'is_done' => false,
             'package_tests' => [['id' => 9, 'is_done' => false]]]);
-        Permission::findOrCreate('medical reports update', 'web'); $lab->givePermissionTo('medical reports update'); $this->actingAs($lab);
+        $lab->givePermissionTo(Permission::findOrCreate('medical reports update', 'api')); $this->actingAs($lab);
         $this->postJson('/api/invoices/update-result', ['id' => $invoice->id,
             'tests' => [['test_id_fk' => $row->test_id_fk, 'is_done' => true, 'result' => '0']]])->assertOk();
         $this->assertFalse($invoice->fresh()->is_done);
@@ -189,6 +189,22 @@ class LabNotificationTest extends TestCase
         $row->update(['is_done' => true]); $invoice->update(['notes' => 'Approved again']);
         app(PortalNotifications::class)->deliver(); $this->assertCount(1, $this->sent);
         $this->assertDatabaseCount('portal_notifications', 1);
+    }
+
+    public function test_imported_double_encoded_containers_are_supported_and_malformed_or_pending_items_are_not_ready(): void
+    {
+        $lab = $this->lab(); [$patient] = $this->subscriber($lab);
+        [$invoice, $row] = $this->invoice($lab, $patient);
+        $row->update(['is_done' => true]);
+        $packageId = DB::table('packages')->insertGetId(['lab_id_fk' => $lab->id, 'name' => 'Imported package']);
+        $container = InvoiceTestRel::create(['invoice_id_fk' => $invoice->id, 'package_id_fk' => $packageId,
+            'is_done' => true, 'package_tests' => json_encode([['is_done' => true, 'result' => '0']])]);
+        $invoice->update(['is_done' => true]);
+        $this->assertTrue(app(ReportReadiness::class)->isReady($invoice->fresh()));
+        $container->update(['package_tests' => json_encode([['is_done' => false]])]);
+        $this->assertFalse(app(ReportReadiness::class)->isReady($invoice->fresh()));
+        $container->update(['package_tests' => 'malformed']);
+        $this->assertFalse(app(ReportReadiness::class)->isReady($invoice->fresh()));
     }
 
     public function test_lab_pause_blocks_new_and_pending_push_without_deleting_patient_preferences(): void

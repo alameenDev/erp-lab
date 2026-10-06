@@ -41,6 +41,7 @@ return new class extends Migration {
         Schema::table('portal_notifications', function (Blueprint $table) {
             $table->uuid('campaign_id')->nullable()->index();
             $table->timestamp('expires_at')->nullable();
+            $table->index(['lab_id', 'created_at'], 'portal_notice_lab_date');
         });
         Schema::table('portal_push_deliveries', function (Blueprint $table) {
             $table->string('status_reason', 40)->nullable();
@@ -52,6 +53,7 @@ return new class extends Migration {
         Schema::table('portal_push_deliveries', fn (Blueprint $table) => $table->dropColumn('status_reason'));
         Schema::table('portal_notifications', function (Blueprint $table) {
             $table->dropIndex(['campaign_id']);
+            $table->dropIndex('portal_notice_lab_date');
             $table->dropColumn(['campaign_id', 'expires_at']);
         });
         Schema::dropIfExists('portal_notification_campaigns');

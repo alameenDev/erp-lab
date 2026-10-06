@@ -24,9 +24,9 @@ class ReportReadiness
         if (!$row->is_done) return false;
         foreach (['package' => 'package_id_fk', 'test_group' => 'test_group_id_fk'] as $prefix => $field) {
             if (!$row->$field) continue;
-            $tests = $row->{$prefix.'_tests'} ?? [];
-            $cultures = $row->{$prefix.'_cultures'} ?? [];
-            if (!is_array($tests) || !is_array($cultures)) return false;
+            $tests = $this->children($row->{$prefix.'_tests'});
+            $cultures = $this->children($row->{$prefix.'_cultures'});
+            if ($tests === null || $cultures === null) return false;
             $children = array_merge($tests, $cultures);
             if (!$children) return false;
             foreach ($children as $child) {
@@ -34,5 +34,16 @@ class ReportReadiness
             }
         }
         return true;
+    }
+
+    private function children(mixed $value): ?array
+    {
+        // Older imported invoices can contain double-encoded snapshots, which
+        // the report renderer already supports. Malformed data fails closed.
+        for ($depth = 0; is_string($value) && $depth < 2; $depth++) {
+            $value = json_decode($value, true);
+            if (json_last_error() !== JSON_ERROR_NONE) return null;
+        }
+        return $value === null ? [] : (is_array($value) ? $value : null);
     }
 }

@@ -99,6 +99,8 @@ class LoyaltyTest extends TestCase
             ->assertJsonPath('reports.0.tests.0.sample_received',true);
         $this->assertStringNotContainsString('PRIVATE_DRAFT',$response->getContent());
         $invoice->update(['is_done'=>true]);
+        $this->getJson('/api/portal/'.$access->token)->assertOk()->assertJsonPath('reports.0.view_url', null);
+        $invoice->invoiceTestRels()->update(['is_done'=>true]);
         $this->assertStringEndsWith('/result/'.$invoice->id,$this->getJson('/api/portal/'.$access->token)->assertOk()->json('reports.0.view_url'));
     }
 

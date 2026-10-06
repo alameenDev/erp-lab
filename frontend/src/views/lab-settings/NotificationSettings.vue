@@ -132,7 +132,7 @@ onMounted(async () => {
     <button type="button" class="nc-button" :disabled="loading || busy || (isAdmin && !labId)" @click="refresh()"><i class="pi pi-refresh" aria-hidden="true"></i> تحديث الحالة</button>
   </header>
   <label v-if="isAdmin" class="nc-lab">المختبر
-    <select v-model="labId" :disabled="busy"><option value="">اختر المختبر لإدارة إشعاراته</option><option v-for="lab in labs" :key="lab.id" :value="lab.id">{{ lab.name }}</option></select>
+    <select v-model="labId" aria-label="المختبر" :disabled="busy"><option value="">اختر المختبر لإدارة إشعاراته</option><option v-for="lab in labs" :key="lab.id" :value="lab.id">{{ lab.name }}</option></select>
   </label>
   <p v-if="error" class="nc-feedback error" role="alert">{{ error }}</p>
   <p v-if="success" class="nc-feedback success" role="status">{{ success }}</p>
@@ -178,15 +178,15 @@ onMounted(async () => {
     <div v-if="tab === 'send'" class="nc-columns">
       <form class="nc-card" @submit.prevent="preview">
         <h3>رسالة جديدة</h3>
-        <label>نوع الإشعار<select v-model="draft.kind" :disabled="busy"><option value="offer">إعلان للمختبر</option><option value="test">إشعار تجريبي لمريض واحد</option></select></label>
+        <label>نوع الإشعار<select v-model="draft.kind" aria-label="نوع الإشعار" :disabled="busy"><option value="offer">إعلان للمختبر</option><option value="test">إشعار تجريبي لمريض واحد</option></select></label>
         <label>المستلمون<select v-model="draft.audience" :disabled="busy || draft.kind === 'test'"><option value="all">جميع المشتركين بإعلانات هذا المختبر</option><option value="patient">مريض محدد</option></select></label>
         <div v-if="draft.audience === 'patient'" class="nc-recipient">
           <label>بحث باسم المريض أو رقم ملفه<div class="nc-search"><input v-model="search" placeholder="اكتب الاسم أو رقم الملف" :disabled="busy" @keydown.enter.prevent="findPatients"><button type="button" class="nc-button" :disabled="searching || busy" @click="findPatients">{{ searching ? 'بحث…' : 'بحث' }}</button></div></label>
-          <label>المريض المشترك<select v-model="selectedPatient" required :disabled="busy"><option value="">اختر المريض</option><option v-for="patient in patients" :key="patient.id" :value="patient.id">{{ patient.name }} · {{ patient.code }} · {{ patient.devices }} جهاز</option></select></label>
+          <label>المريض المشترك<select v-model="selectedPatient" aria-label="المريض المشترك" required :disabled="busy"><option value="">اختر المريض</option><option v-for="patient in patients" :key="patient.id" :value="patient.id">{{ patient.name }} · {{ patient.code }} · {{ patient.devices }} جهاز</option></select></label>
           <small>تظهر الاشتراكات المسموح لها بهذا النوع، ذات رابط بوابة صالح.</small>
         </div>
         <label>عنوان الرسالة<input v-model="draft.title" required maxlength="120" :disabled="busy" placeholder="مثال: إعلان من المختبر"></label>
-        <label>نص الرسالة<textarea v-model="draft.body" required maxlength="500" rows="5" :disabled="busy" placeholder="اكتب رسالتك للمرضى…"></textarea><small>{{ draft.body.length }}/500</small></label>
+        <label>نص الرسالة<textarea v-model="draft.body" aria-label="نص الرسالة" required maxlength="500" rows="5" :disabled="busy" placeholder="اكتب رسالتك للمرضى…"></textarea><small>{{ draft.body.length }}/500</small></label>
         <p v-if="!canSend" class="nc-feedback warning">هذا النوع متوقف أو خدمة الإشعارات غير جاهزة. راجع الإعدادات أولاً.</p>
         <button class="nc-button primary" :disabled="busy || !canSend">مراجعة الرسالة والمستلمين</button>
       </form>

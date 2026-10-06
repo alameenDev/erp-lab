@@ -27,6 +27,7 @@ try {
  await page.evaluate(()=>notificationMock.failOnce=true);
  await page.getByRole('button',{name:'تأكيد وإرسال الإشعار',exact:true}).click();
  await page.getByRole('alert').waitFor();
+ assert.match(page.url(), /lab-notifications-browser\.html$/, 'temporary failure must preserve the mounted draft');
  await page.getByRole('button',{name:'تأكيد وإرسال الإشعار',exact:true}).click();
  await page.getByText('أُضيف الطلب لطابور الإرسال. ستظهر المحاولات في السجل.',{exact:true}).waitFor();
  const requests=await page.evaluate(()=>notificationMock.posts);
