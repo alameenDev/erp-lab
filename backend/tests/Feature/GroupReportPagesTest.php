@@ -30,7 +30,7 @@ class GroupReportPagesTest extends TestCase
         $package = Package::create(['name' => 'Package', 'lab_id_fk' => $lab->id]);
         $package->testGroups()->attach($group->id);
         $invoice = Invoice::create(['lab_id_fk' => $lab->id, 'patient_id_fk' => $patient->id, 'is_done' => true]);
-        $approved = [['id' => $test->id, 'name' => $test->name, 'result' => '0', 'is_done' => true]];
+        $approved = [['id' => $test->id, 'name' => $test->name, 'result' => '0', 'is_done' => true, 'is_print_alone' => false]];
         InvoiceTestRel::create(['invoice_id_fk' => $invoice->id, 'test_group_id_fk' => $group->id, 'is_done' => true, 'test_group_tests' => $approved]);
         InvoiceTestRel::create(['invoice_id_fk' => $invoice->id, 'package_id_fk' => $package->id, 'is_done' => true, 'package_tests' => $approved]);
 

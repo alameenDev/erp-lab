@@ -165,14 +165,16 @@ class LabNotificationTest extends TestCase
         [$invoice, $row] = $this->invoice($lab, $patient);
         $packageId = DB::table('packages')->insertGetId(['lab_id_fk' => $lab->id, 'name' => 'Synthetic package']);
         $package = InvoiceTestRel::create(['invoice_id_fk' => $invoice->id, 'package_id_fk' => $packageId, 'is_done' => false,
-            'package_tests' => [['id' => 9, 'is_done' => false]]]);
+            'package_tests' => [['id' => 9, 'name' => 'Nested analysis', 'is_done' => false, 'is_print_alone' => false]]]);
         $lab->givePermissionTo(Permission::findOrCreate('medical reports update', 'api')); $this->actingAs($lab);
-        $this->postJson('/api/invoices/update-result', ['id' => $invoice->id,
-            'tests' => [['test_id_fk' => $row->test_id_fk, 'is_done' => true, 'result' => '0']]])->assertOk();
+        $response = $this->postJson('/api/invoices/update-result', ['id' => $invoice->id,
+            'tests' => [['test_id_fk' => $row->test_id_fk, 'is_done' => true, 'result' => '0']]]);
+        $this->assertSame(200, $response->status(), $response->getContent());
         $this->assertFalse($invoice->fresh()->is_done);
         $this->assertDatabaseCount('portal_notifications', 0);
-        $this->postJson('/api/invoices/update-result', ['id' => $invoice->id,
-            'packages' => [['package_id_fk' => $packageId, 'tests' => [['id' => 9, 'is_done' => true, 'result' => 'Negative']]]]])->assertOk();
+        $response = $this->postJson('/api/invoices/update-result', ['id' => $invoice->id,
+            'packages' => [['package_id_fk' => $packageId, 'tests' => [['id' => 9, 'name' => 'Nested analysis', 'is_done' => true, 'result' => 'Negative', 'is_print_alone' => false]]]]]);
+        $this->assertSame(200, $response->status(), $response->getContent());
         $this->assertTrue($invoice->fresh()->is_done);
         $this->assertDatabaseCount('portal_notifications', 1);
         $empty = Invoice::create(['lab_id_fk' => $lab->id, 'patient_id_fk' => $patient->id, 'is_done' => true]);
