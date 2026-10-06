@@ -21,9 +21,21 @@ export function reportUrlWithForm(value, withBackground) {
   return url.href;
 }
 
-export function portalReportUrl(value, invoiceId, query = {}) {
-  if (String(query.report) !== String(invoiceId) || !['0', '1'].includes(query.form)) return value;
-  return reportUrlWithForm(value, query.form === '1');
+export function portalReportUrl(value, invoiceId, query = {}, token = '') {
+  let result = value;
+  if (String(query.report) === String(invoiceId) && ['0', '1'].includes(query.form)) {
+    result = reportUrlWithForm(value, query.form === '1');
+  }
+  if (!/^[A-Za-z0-9]{48}$/.test(token)) return result;
+  const base = typeof window === 'undefined' ? 'https://example.test' : window.location.origin;
+  const url = new URL(result, base);
+  // Carry the existing credential only to our own report viewer. Fragments
+  // stay out of HTTP requests and Referer headers.
+  if (url.origin !== new URL(base).origin || url.pathname !== `/result/${invoiceId}`) return result;
+  const hash = new URLSearchParams(url.hash.slice(1));
+  hash.set('portal', token);
+  url.hash = hash.toString();
+  return url.href;
 }
 
 export function medicalReportFilename(record) {

@@ -4,6 +4,7 @@ on:
     paths:
       - 'frontend/src/utils/medicalReportPages.js'
       - 'frontend/src/utils/medicalReportOutput.js'
+      - 'frontend/src/utils/reportPatientPortal.js'
       - 'frontend/src/utils/medicalReportColumns.js'
       - 'frontend/src/utils/sharePatientPortal.js'
       - 'frontend/src/views/portal/PatientPortal.vue'
@@ -34,11 +35,11 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
         working-directory: frontend
-      - run: npm install --no-save --package-lock=false playwright@1.55.1
+      - run: npm install --no-save --package-lock=false playwright@1.55.1 jsqr@1.4.0
         working-directory: frontend
       - run: npx playwright install --with-deps chromium
         working-directory: frontend
-      - run: node --test tests/result-history.test.mjs tests/medical-report-columns.test.mjs tests/medical-report-pages.test.mjs tests/medical-report-output.test.mjs tests/print-lifecycle.test.mjs
+      - run: node --test tests/result-history.test.mjs tests/medical-report-columns.test.mjs tests/medical-report-pages.test.mjs tests/medical-report-output.test.mjs tests/report-patient-portal.test.mjs tests/print-lifecycle.test.mjs
         working-directory: frontend
       - name: Verify rendered sheets and native print
         working-directory: frontend

@@ -11,5 +11,6 @@ if (mode === 'public') localStorage.removeItem('token'); else localStorage.setIt
 const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/', component: {} }, { path: '/result/:patientId', name: 'result', component: {} }] });
 const app = createApp(Fixture).use(createPinia()).use(router);
 await router.push(mode === 'staff' ? '/' : '/result/14' + (params.has('form') ? '?form=' + params.get('form') : ''));
+if (mode === 'public' && !params.has('legacy')) await router.replace(router.currentRoute.value.fullPath + '#portal=' + 'a'.repeat(48));
 await router.isReady(); app.mount('#app');
 </script></body></html>

@@ -14,6 +14,7 @@ let saved = JSON.parse(sessionStorage.getItem('report-columns-fixture') || 'null
 // Exercise the actual settings page, multipart save and store normalization.
 // All requests are intercepted; this fixture never accesses patient data.
 $http.defaults.adapter = async config => {
+  if (config.url === '/portal/generate') return { data: { url: location.origin + '/portal/' + 'a'.repeat(48) }, status: 200, statusText: 'OK', headers: {}, config };
   if (config.url !== '/lab-settings') throw new Error('Unexpected API: ' + config.url);
   if (config.method === 'post') {
     if (!(config.data instanceof FormData)) throw new Error('Settings must use multipart FormData');
@@ -33,7 +34,7 @@ useTemplatesStore().GetTemplates = async () => {};
 useresultStatusStore().resultStatus = [{ value: 2, label: 'Normal' }];
 const test = (name, extra = {}) => ({ name, result: 'Negative', unit: 'IU/mL', result_status_id_fk: 2,
   test_reference_ranges: [{ notes: 'Negative: less than 0.90; Borderline: 0.90–1.10; Positive: greater than 1.10.\nInterpret with the clinical history.', gender: 'both', age_from: 0, age_to: 120, age_unit: 'Years' }], ...extra });
-useinvoicesStore().printRecord = { id: 1, patient: { name: 'مريض تجريبي', age: 35, age_unit: 'Years', gender: 'Male', code: 'SYNTHETIC-1' }, registration_date: '2026-10-01T09:00:00',
+useinvoicesStore().printRecord = { id: 1, patient: { id: 1, name: 'مريض تجريبي', age: 35, age_unit: 'Years', gender: 'Male', code: 'SYNTHETIC-1' }, registration_date: '2026-10-01T09:00:00',
   tests: [test('Human Immunodeficiency Virus (HIV) Antigen / Antibody')],
   test_groups: [{ group_name: 'Virology', tests: [test('HBsAg')], cultures: [test('Group culture')] }],
   cultures: [test('Standalone culture')],

@@ -4,6 +4,7 @@ import { storeToRefs } from "pinia";
 import { useRoute } from "vue-router";
 import { createMedicalReportPdf, renderMedicalReportPages, printMedicalReportPages } from "@/utils/medicalReportPages";
 import JsBarcode from "jsbarcode";
+import { reportPatientPortalUrl } from "@/utils/reportPatientPortal";
 import { reportFormChoice, reportFormFromRoute, reportUrlWithForm, medicalReportFilename, downloadMedicalReportFile } from "@/utils/medicalReportOutput";
 import { useTemplatesStore } from "@/store/modules/template";
 import { useinvoicesStore } from "@/store/modules/invoices";
@@ -59,6 +60,13 @@ const reportSettings = computed(() => publicLabSettings.value || labSettingsStor
 const modernReport = computed(() => reportSettings.value.report_template === "modern");
 const reportBrand = computed(() => referralReport.value || sharedReferralReport.value ? reportSettings.value : null);
 const reportShareUrl = ref("");
+const patientPortalUrl = ref("");
+const qrRecordKey = computed(() => JSON.stringify([printRecord.value?.id,
+  printRecord.value?.patient?.id || printRecord.value?.patient_id_fk,
+  printRecord.value?.suppress_report_qr, route.hash]));
+watch(qrRecordKey, () => { patientPortalUrl.value = ''; }, { flush: 'sync' });
+const reportQrUrl = computed(() => referralReport.value || sharedReferralReport.value
+  ? reportShareUrl.value : patientPortalUrl.value);
 const shareError = ref("");
 const sharing = ref(false);
 const imageBaseUrl = import.meta.env.VITE_IMAGE_URL || window.location.origin + "/storage";
@@ -634,10 +642,6 @@ const getData = async () => {
 
 const appBaseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
 
-const getPatientReportLink = () => {
-  return reportShareUrl.value || `${appBaseUrl}/result/${patientId.value}`;
-};
-
 const printReferralReport = () => printFromQR();
 const shareReferralReport = async () => {
   if (sharing.value || !reportLoaded.value) return;
@@ -677,9 +681,16 @@ let preparedReport = null;
 let preparingReport = null;
 async function prepareReport(options = {}) {
   if (options.withBackground !== undefined) showWithForm.value = options.withBackground;
+  if (!referralReport.value && !sharedReferralReport.value && !patientPortalUrl.value) {
+    const recordKey = qrRecordKey.value;
+    const url = await reportPatientPortalUrl({ record: printRecord.value, route,
+      authenticated: hasToken, http: $http, appBaseUrl });
+    if (recordKey !== qrRecordKey.value) throw new Error('تغير التقرير المحدد. أعد المحاولة لتجهيز التقرير الصحيح.');
+    patientPortalUrl.value = url;
+  }
   await nextTick();
   const key = JSON.stringify({ record: printRecord.value, settings: reportSettings.value,
-    withBackground: showBackground.value, shareUrl: reportShareUrl.value });
+    withBackground: showBackground.value, shareUrl: reportQrUrl.value });
   if (preparedReport?.key === key) return preparedReport.output;
   if (preparingReport?.key === key) return preparingReport.promise;
   const promise = (async () => {
@@ -854,7 +865,7 @@ const generateBarcodeImage = (value) => {
             class="print-wrapper"
             :style="(tIdx > 0 || cIdx > 0) ? 'page-break-before: always; break-before: page;' : ''"
           >
-            <thead><tr><td class="pw-cell pw-top"><result_section :modern="modernReport" :with-background="showBackground" :lab-name="reportBrand?.lab_display_name" :lab-logo="showBackground && backgroundUrl ? '' : referralLogo" :share-url="reportShareUrl" :is-referral="referralReport || sharedReferralReport" /></td></tr></thead>
+            <thead><tr><td class="pw-cell pw-top"><result_section :modern="modernReport" :with-background="showBackground" :lab-name="reportBrand?.lab_display_name" :lab-logo="showBackground && backgroundUrl ? '' : referralLogo" :share-url="reportQrUrl" :is-referral="referralReport || sharedReferralReport" /></td></tr></thead>
             <tfoot><tr><td class="pw-cell pw-bottom"></td></tr></tfoot>
             <tbody><tr><td class="pw-cell">
               <section class="template-section"><div v-html="chunk"></div><ResultHistoryTable v-if="cIdx === templateChunks(tTest).length - 1" :rows="resultHistoryRows(printRecord, tTest)" /></section>
@@ -872,7 +883,7 @@ const generateBarcodeImage = (value) => {
         class="print-wrapper"
         :style="hasTemplateTest ? 'page-break-before: always; break-before: page;' : ''"
       >
-        <thead><tr><td class="pw-cell pw-top"><result_section :modern="modernReport" :with-background="showBackground" :lab-name="reportBrand?.lab_display_name" :lab-logo="showBackground && backgroundUrl ? '' : referralLogo" :share-url="reportShareUrl" :is-referral="referralReport || sharedReferralReport" /></td></tr></thead>
+        <thead><tr><td class="pw-cell pw-top"><result_section :modern="modernReport" :with-background="showBackground" :lab-name="reportBrand?.lab_display_name" :lab-logo="showBackground && backgroundUrl ? '' : referralLogo" :share-url="reportQrUrl" :is-referral="referralReport || sharedReferralReport" /></td></tr></thead>
         <tfoot><tr><td class="pw-cell pw-bottom"></td></tr></tfoot>
         <tbody><tr><td class="pw-cell">
 
