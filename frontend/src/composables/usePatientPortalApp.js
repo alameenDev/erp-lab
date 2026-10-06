@@ -3,7 +3,9 @@ import { portalDevice, portalPreferenceKey, vapidBytes, portalPushError, waitFor
 
 export function usePatientPortalApp(token) {
   const device = ref(portalDevice()), permission = ref(window.Notification?.permission || 'unsupported');
-  const config = ref(null), subscribed = ref(false), results = ref(true), offers = ref(false);
+  // New patients approve both clearly-described categories with the native
+  // consent. Existing server preferences and explicit opt-outs are preserved.
+  const config = ref(null), subscribed = ref(false), results = ref(true), offers = ref(true);
   const busy = ref(false), preparing = ref(true), workerReady = ref(false), error = ref(''), message = ref('');
   const installEvent = ref(null), inbox = ref([]), unread = ref(0), initialized = ref(false);
   let registration = null, browserSubscription = null, preferenceKey = '', alive = true, refreshing = null, oldAppleTitle, appleTitle;

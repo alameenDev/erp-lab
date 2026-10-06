@@ -16,7 +16,7 @@ const summary = computed(() => {
   if (permission.value === 'denied') return 'السماح متوقف من الجهاز. غيّره من إعدادات الإشعارات ثم ارجع إلى البوابة.';
   if (!device.value.push) return 'هذا المتصفح لا يدعم إشعارات الجهاز. يمكنك متابعة تحديثاتك من الجرس.';
   if (initialized.value && !config.value?.public_key && !error.value) return 'خدمة إشعارات الجهاز غير متاحة حالياً. يمكنك متابعة تحديثاتك من الجرس.';
-  return 'تنبيهات جاهزية النتائج تعمل تلقائياً بعد موافقتك. لا تحتاج إبقاء البوابة مفتوحة.';
+  return 'استلم تنبيهات جاهزية النتائج وأخبار المختبر بعد موافقتك. يمكنك تغيير الأنواع من الإعدادات، ولا تحتاج إبقاء البوابة مفتوحة.';
 });
 async function open(view) {
   panel.value = panel.value === view ? '' : view;
@@ -46,7 +46,7 @@ const date = value => new Intl.DateTimeFormat('ar-IQ', { day: 'numeric', month: 
     <div class="portal-app-banner" :class="{ active }" :aria-busy="busy || preparing">
       <span class="portal-app-feature-icon"><i :class="active ? 'pi pi-check-circle' : 'pi pi-bell'" aria-hidden="true"></i></span>
       <div class="portal-app-banner-copy">
-        <h2>{{ active ? statusText : needsInstall ? 'استلم إشعاراتك على الآيفون' : 'استلم إشعاراً عند جاهزية نتائجك' }}</h2>
+        <h2>{{ active ? statusText : needsInstall ? 'استلم إشعاراتك على الآيفون' : 'إشعارات النتائج وأخبار المختبر' }}</h2>
         <p>{{ summary }}</p>
         <span v-if="!active" class="portal-app-state">{{ statusText }}</span>
       </div>
@@ -78,7 +78,7 @@ const date = value => new Intl.DateTimeFormat('ar-IQ', { day: 'numeric', month: 
 
     <section v-if="panel === 'settings'" id="portal-app-settings" class="portal-app-panel" aria-labelledby="portal-app-settings-title">
       <div class="portal-app-panel-heading"><h3 id="portal-app-settings-title">إعدادات الإشعارات</h3><button type="button" aria-label="إغلاق الإعدادات" @click="panel = ''"><i class="pi pi-times" aria-hidden="true"></i></button></div>
-      <p class="portal-app-help">جاهزية النتائج مفعّلة افتراضياً بعد السماح. العروض اختيارية، ويمكنك إيقاف الإشعارات في أي وقت.</p>
+      <p class="portal-app-help">النتائج وأخبار المختبر محددة افتراضياً للاشتراك الجديد بعد السماح. يمكنك اختيار الأنواع أو إيقاف الإشعارات في أي وقت.</p>
       <div class="portal-app-preferences">
         <label><span><b>جاهزية النتائج</b><small>إشعار عام؛ تفاصيل النتائج تبقى داخل بوابتك.</small></span><input v-model="results" type="checkbox" role="switch" aria-label="إشعارات جاهزية النتائج" :disabled="busy" /></label>
         <label><span><b>العروض والمكافآت</b><small>أخبار مختبرك وبرنامج الولاء، حسب اختيارك.</small></span><input v-model="offers" type="checkbox" role="switch" aria-label="إشعارات العروض والمكافآت" :disabled="busy" /></label>

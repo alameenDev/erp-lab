@@ -100,14 +100,14 @@ try {
   assert.deepEqual(await page.evaluate(() => portalMock.activation), [true], 'subscribe runs directly in the patient click');
   assert.equal(await page.evaluate(() => portalMock.permissionCalls), 1);
   assert.equal(server().results_enabled, true, 'ready-result alerts default on immediately after permission');
-  assert.equal(server().offers_enabled, false);
+  assert.equal(server().offers_enabled, true, 'new subscription includes the advertised lab announcements after consent');
   await settings(page).click();
   assert.equal(await page.getByRole('switch', { name: 'إشعارات جاهزية النتائج' }).isChecked(), true);
-  assert.equal(await page.getByRole('switch', { name: 'إشعارات العروض والمكافآت' }).isChecked(), false);
-  await page.getByRole('switch', { name: 'إشعارات العروض والمكافآت' }).check();
+  assert.equal(await page.getByRole('switch', { name: 'إشعارات العروض والمكافآت' }).isChecked(), true);
+  await page.getByRole('switch', { name: 'إشعارات العروض والمكافآت' }).uncheck();
   await page.getByRole('button', { name: 'حفظ التفضيلات', exact: true }).click();
   await page.getByText('تم حفظ تفضيلات إشعاراتك.').waitFor();
-  assert.equal(server().offers_enabled, true);
+  assert.equal(server().offers_enabled, false);
   await page.screenshot({ path: out + '/settings-mobile.png', fullPage: false });
   await page.evaluate(() => offerPortalInstall());
   await page.getByRole('button', { name: 'إضافة البوابة للجهاز', exact: true }).click();
@@ -178,11 +178,11 @@ try {
     await context.close();
   }
   {
-    const { page, context } = await scenario({ granted: true, bound: true, resultPreference: false, offerPreference: true });
+    const { page, context } = await scenario({ granted: true, bound: true, resultPreference: false, offerPreference: false });
     await active(page).waitFor();
     await settings(page).click();
     assert.equal(await page.getByRole('switch', { name: 'إشعارات جاهزية النتائج' }).isChecked(), false, 'preserve existing opt-out');
-    assert.equal(await page.getByRole('switch', { name: 'إشعارات العروض والمكافآت' }).isChecked(), true);
+    assert.equal(await page.getByRole('switch', { name: 'إشعارات العروض والمكافآت' }).isChecked(), false, 'preserve existing announcement opt-out');
     assert.equal(await page.evaluate(() => portalMock.permissionCalls), 0);
     await context.close();
   }
