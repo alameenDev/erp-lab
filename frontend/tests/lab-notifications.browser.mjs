@@ -54,7 +54,7 @@ try {
  await page.getByLabel('المختبر',{exact:true}).selectOption('24');
  await page.getByRole('button',{name:'حفظ إعدادات الإشعارات',exact:true}).waitFor();
  await page.getByRole('button',{name:'حفظ إعدادات الإشعارات',exact:true}).click();
- assert.equal(await page.evaluate(()=>notificationMock.saves.at(-1).lab_id),'24');
+ assert.equal(await page.evaluate(()=>notificationMock.saves.at(-1).lab_id),24);
  assert.deepEqual(errors,[]);
  console.log('PASS owner settings, preview, single-patient send, safe retry, history, cancellation, responsive layout and explicit admin scope');
 } finally { await browser.close(); }
