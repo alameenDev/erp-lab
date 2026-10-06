@@ -206,6 +206,14 @@ class AuditTrail
     private function operationLabel(): string
     {
         $operation = class_basename($this->request->route()?->getControllerClass() ?? '').'@'.($this->request->route()?->getActionMethod() ?? '');
+        if ($operation === 'InvoiceController@recordReportAction') {
+            return [
+                'print' => 'طباعة التقرير الطبي', 'download' => 'حفظ التقرير الطبي',
+                'print-download' => 'طباعة وحفظ التقرير الطبي',
+                'whatsapp' => 'بدء إرسال النتيجة بالواتساب',
+                'whatsapp-download' => 'حفظ وبدء إرسال التقرير بالواتساب',
+            ][$this->request->input('action')] ?? 'إخراج التقرير الطبي';
+        }
         $labels = [
             'InvoiceController@store' => 'إنشاء فاتورة', 'InvoiceController@update' => 'تعديل فاتورة',
             'InvoiceController@destroy' => 'حذف فاتورة', 'InvoiceController@updateResult' => 'تعديل نتائج التحاليل',

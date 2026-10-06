@@ -53,6 +53,7 @@ jobs:
           node tests/report-group-pages.browser.mjs
           node tests/report-output.browser.mjs
           node tests/report-whatsapp.browser.mjs
+          node tests/report-actions.browser.mjs
           node tests/report-keep-together.browser.mjs
           node tests/report-columns.browser.mjs
       - uses: actions/upload-artifact@v4

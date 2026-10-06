@@ -277,31 +277,30 @@ export const useinvoicesStore = defineStore("invoices", {
 
     // Status and signing
     async changeInvoiceStatus(id, withBackground = true) {
-      try {
-        await $http.post(`invoices/send`, { id, with_background: withBackground });
-      } catch (error) {
-        console.error("Error changing invoice status:", error);
-        throw error;
-      }
+      const { data } = await $http.post('invoices/send', { id, with_background: withBackground });
+      this.applyReportActionStatus(id, data);
+    },
 
-      // Reflect the saved status immediately, even if the list refresh fails.
+    async recordReportAction(id, action, withBackground = true) {
+      const { data } = await $http.post('invoices/report-action', { id, action, with_background: withBackground });
+      this.applyReportActionStatus(id, data);
+      return data;
+    },
+
+    applyReportActionStatus(id, data) {
+      // Only apply server-confirmed status, without replacing an open result form.
       const row = this.invoices.find(item => String(item.id) === String(id));
-      if (row && !row.sent_to_patient) {
+      if (row && !row.sent_to_patient && data.sent_to_patient) {
         this.stats.sent++;
         this.stats.completed_sent++;
         this.stats.pending_sent = Math.max(0, this.stats.pending_sent - 1);
       }
       for (const item of [row, this.printRecord, this.record, this.updateResultRecord]) {
         if (item && String(item.id) === String(id)) {
-          item.sent_to_patient = true;
-          item.public_with_background = withBackground;
+          item.sent_to_patient = data.sent_to_patient;
+          item.report_status = data.report_status;
+          item.public_with_background = data.public_with_background;
         }
-      }
-      try {
-        await this.Getinvoices();
-      } catch (error) {
-        // Persistence succeeded; a refresh failure must not report it as unsent.
-        console.error("Invoice sent status saved, but list refresh failed:", error);
       }
     },
 

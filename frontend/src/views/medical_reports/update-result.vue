@@ -11,9 +11,10 @@
           <div class="min-w-0">
             <p class="text-[11px] font-semibold tracking-wide text-primary-700">{{ t('medical_reports') }} / {{ updateResultRecord?.barcode || route.params.id }}</p>
             <h1 class="truncate text-lg font-bold text-slate-900">{{ t('update_result') }} <span v-if="updateResultRecord?.patient?.name" class="font-medium text-slate-500">· {{ updateResultRecord.patient.name }}</span></h1>
+            <ReportActionStatus v-if="!isLoading" :record="updateResultRecord" class="mt-1" />
           </div>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
           <ResultTrends :endpoint="`/invoices/${route.params.id}/result-trends`" :disabled="isLoading" staff />
           <span v-if="autoSaveReady" class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs" :class="autoSaveState === 'error' ? 'bg-red-50 text-red-700' : autoSaveState === 'saving' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'">
             <span class="h-2 w-2 rounded-full" :class="autoSaveState === 'saving' ? 'animate-pulse bg-amber-500' : autoSaveState === 'error' ? 'bg-red-500' : 'bg-emerald-500'"></span>
@@ -1414,11 +1415,11 @@
 </template>
 
 <script setup>
-import { printMedicalReportPages } from "@/utils/medicalReportPages";
+import { executeReportAction, reportActionStatusError } from "@/utils/executeReportAction";
+import ReportActionStatus from "@/components/ReportActionStatus.vue";
 import { downloadMedicalReportFile } from "@/utils/medicalReportOutput";
 
 import { messageTemplate } from '@/utils/labDocuments';
-import { sendMedicalReportWhatsApp, reportSentStatusError } from '@/utils/sharePatientPortal';
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { storeToRefs } from "pinia";
@@ -2558,7 +2559,7 @@ const handlePrintSelection = async (selection) => {
   if (reportActionBusy.value || !printRecord.value) return;
   reportActionBusy.value = true;
   const previewTab = selection.action === 'preview' ? window.open('about:blank', '_blank') : null;
-  const whatsappTab = selection.action === 'whatsapp' ? window.open('about:blank', '_blank') : null;
+  const whatsappTab = ['whatsapp', 'whatsapp-download'].includes(selection.action) ? window.open('about:blank', '_blank') : null;
   const printTab = ["print", "print-download"].includes(selection.action) ? window.open("about:blank", "_blank") : null;
   const original = {
     tests: [...(printRecord.value.tests || [])], cultures: [...(printRecord.value.cultures || [])],
@@ -2576,26 +2577,20 @@ const handlePrintSelection = async (selection) => {
     await new Promise(resolve => setTimeout(resolve, 200));
     const withBg = selection.withBackground && Boolean(reportBackground.value);
     if (["print", "print-download"].includes(selection.action) && !printTab) throw new Error('اسمح بالنوافذ المنبثقة للطباعة.');
-    const result = await downloadAsPdf(withBg, ["download", "print-download"].includes(selection.action) ? "download" : "blob");
+    const result = await downloadAsPdf(withBg, "blob");
     if (!result) { printTab?.close(); previewTab?.close(); whatsappTab?.close(); return; }
 
-    if (selection.action === 'preview' || selection.action === 'whatsapp') {
-      if (!result) { previewTab?.close(); whatsappTab?.close(); return; }
-      if (selection.action === 'preview') {
-        const url = URL.createObjectURL(result.blob);
-        if (previewTab) previewTab.location.href = url; else window.open(url, '_blank');
-        setTimeout(() => URL.revokeObjectURL(url), 120000);
-      } else {
-        const { statusError } = await sendMedicalReportWhatsApp({
-          record: printRecord.value, settings: labSettingsStore.settings, output: result,
-          tab: whatsappTab, markSent: invoicesStore.changeInvoiceStatus,
-        });
-        if (statusError) toast.error(reportSentStatusError);
-        else toast.success('نُزّل PDF وفُتحت محادثة المريض مع رابط البوابة. أرفق الملف ثم أرسل الرسالة.');
+    if (selection.action === 'preview') {
+      const url = URL.createObjectURL(result.blob);
+      if (previewTab) previewTab.location.href = url; else window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 120000);
+    } else {
+      const { statusError } = await executeReportAction({ action: selection.action, output: result,
+        record: printRecord.value, settings: labSettingsStore.settings, printTab, whatsappTab, store: invoicesStore });
+      if (statusError) toast.error(reportActionStatusError);
+      else if (['whatsapp', 'whatsapp-download'].includes(selection.action)) {
+        toast.success('نُزّل PDF وفُتحت محادثة المريض مع رابط البوابة. أرفق الملف ثم أرسل الرسالة.');
       }
-    }
-    if (selection.action === 'print' || selection.action === 'print-download') {
-      await printMedicalReportPages(result.pages, printTab);
     }
 
     if (selection.action !== 'preview') printSelectVisible.value = false;

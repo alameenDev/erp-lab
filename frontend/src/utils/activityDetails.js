@@ -7,6 +7,7 @@ const fields = {
   sub_tests: 'الفحوصات الفرعية', package_tests: 'تحاليل الباقة', package_cultures: 'زروع الباقة', test_group_tests: 'تحاليل الكروب', test_group_cultures: 'زروع الكروب',
   sub_total: 'المجموع قبل الخصم', total: 'الإجمالي', paid: 'المدفوع', amount: 'مبلغ التسديد', price: 'السعر', discount: 'الخصم',
   is_done: 'اكتمال النتائج', is_signed: 'توقيع التقرير', signed_by_id_fk: 'رقم الموقّع', sent_to_patient: 'بدء إرسال النتيجة',
+  report_printed_at: 'آخر طباعة للتقرير', report_saved_at: 'آخر حفظ PDF', report_sent_at: 'آخر إرسال واتساب',
   is_printed: 'حالة الطباعة', public_with_background: 'فورمة المختبر', notes: 'الملاحظات', comment: 'التعليق',
   result_status_id_fk: 'حالة النتيجة', result_status_text: 'وصف حالة النتيجة', registration_date: 'تاريخ التسجيل', result_date: 'تاريخ النتيجة',
   patient_id_fk: 'رقم المريض', lab_id_fk: 'رقم المختبر', referral_id_fk: 'رقم الإحالة', invoice_id_fk: 'رقم الفاتورة', barcode: 'الباركود',
