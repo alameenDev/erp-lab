@@ -17,6 +17,28 @@ export async function portalPreferenceKey(token) {
   return 'portal-app:' + Array.from(new Uint8Array(hash), n => n.toString(16).padStart(2, '0')).join('');
 }
 
+export function waitForPortalWorker(registration, timeoutMs = 15000) {
+  return new Promise((resolve, reject) => {
+    const watched = new Set();
+    let timer;
+    function finish(error) {
+      clearTimeout(timer);
+      registration.removeEventListener('updatefound', check);
+      watched.forEach(worker => worker.removeEventListener('statechange', check));
+      if (error) reject(error); else resolve(registration);
+    }
+    function check() {
+      if (registration.active?.state === 'activated') { finish(); return; }
+      for (const worker of [registration.installing, registration.waiting, registration.active]) {
+        if (worker && !watched.has(worker)) { watched.add(worker); worker.addEventListener('statechange', check); }
+      }
+    }
+    registration.addEventListener('updatefound', check);
+    timer = setTimeout(() => finish(new Error('تعذر تجهيز خدمة إشعارات البوابة. تحقق من الاتصال واضغط إعادة المحاولة.')), timeoutMs);
+    check();
+  });
+}
+
 export function portalPushError(error) {
   if (error?.name === 'NotAllowedError') return 'لم يتم السماح بالإشعارات. يمكنك تفعيلها من إعدادات الموقع في المتصفح.';
   if (error?.name === 'NotSupportedError') return 'هذا المتصفح لا يدعم الإشعارات. افتح البوابة في Safari أو Chrome واتبع إرشادات التثبيت.';
