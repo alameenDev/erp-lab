@@ -44,6 +44,12 @@ class PortalNotificationTest extends TestCase
             'results_enabled' => $results, 'offers_enabled' => $offers];
     }
 
+    private function approvedAnalysis(Invoice $invoice): void
+    {
+        $test = DB::table('tests')->insertGetId(['name' => 'Approved result', 'lab_id_fk' => $invoice->lab_id_fk]);
+        DB::table('invoice_test_rels')->insert(['invoice_id_fk' => $invoice->id, 'test_id_fk' => $test, 'is_done' => true, 'result' => '0']);
+    }
+
     private function withPortalEntry(callable $check): void
     {
         $original = public_path();
@@ -197,6 +203,7 @@ class PortalNotificationTest extends TestCase
         [$lab, $patient, , $url] = $this->fixture();
         $this->postJson($url.'/push/subscribe', $this->subscription())->assertOk();
         $invoice = Invoice::create(['patient_id_fk' => $patient->id, 'lab_id_fk' => $lab->id, 'is_done' => false]);
+        $this->approvedAnalysis($invoice);
         DB::beginTransaction(); $invoice->update(['is_done' => true]); DB::rollBack();
         $this->assertDatabaseCount('portal_notifications', 0);
         $invoice->refresh()->update(['is_done' => true]);
@@ -220,6 +227,7 @@ class PortalNotificationTest extends TestCase
         [$lab, $patient, $access, $url] = $this->fixture();
         $this->postJson($url.'/push/subscribe', $this->subscription())->assertOk();
         $invoice = Invoice::create(['patient_id_fk' => $patient->id, 'lab_id_fk' => $lab->id, 'is_done' => false]);
+        $this->approvedAnalysis($invoice);
         $invoice->update(['is_done' => true]); $invoice->update(['is_done' => false]);
         app(PortalNotifications::class)->deliver();
         $this->assertDatabaseHas('portal_push_deliveries', ['status' => 'cancelled']);
@@ -257,6 +265,7 @@ class PortalNotificationTest extends TestCase
         [$lab, $patient, , $url] = $this->fixture();
         $this->postJson($url.'/push/subscribe', $this->subscription(false, false))->assertOk();
         $invoice = Invoice::create(['patient_id_fk' => $patient->id, 'lab_id_fk' => $lab->id, 'is_done' => false]);
+        $this->approvedAnalysis($invoice);
         $invoice->update(['is_done' => true]);
         $this->assertDatabaseCount('portal_push_deliveries', 0);
         $args = ['--lab' => $lab->id, '--title' => 'Test offer', '--body' => 'Synthetic offer', '--campaign' => 'test-campaign'];

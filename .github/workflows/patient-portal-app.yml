@@ -8,6 +8,8 @@ on:
       - 'frontend/src/utils/patientPortalHead.js'
       - 'frontend/public/portal/**'
       - 'frontend/tests/patient-portal-*'
+      - 'frontend/src/views/lab-settings/NotificationSettings.vue'
+      - 'frontend/tests/lab-notifications*'
       - '.github/workflows/patient-portal-app.yml'
 permissions:
   contents: read
@@ -37,9 +39,12 @@ jobs:
             sleep 1
           done
           node tests/patient-portal-app.browser.mjs
+          node tests/lab-notifications.browser.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: patient-portal-app-preview
-          path: frontend/test-results/patient-portal
+          path: |
+            frontend/test-results/patient-portal
+            frontend/test-results/lab-notifications
           retention-days: 7

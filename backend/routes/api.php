@@ -532,6 +532,19 @@ Route::group(['middleware' => ['auth:sanctum', \App\Http\Middleware\RestrictRefe
      * Lab Settings Routes
      */
     Route::get('lab-settings', [LabSettingController::class, 'show']);
+    Route::prefix('lab-notifications')->group(function () {
+        $controller = \App\Http\Controllers\LabNotificationController::class;
+        Route::get('labs', [$controller, 'labs']);
+        Route::get('settings', [$controller, 'show']);
+        Route::put('settings', [$controller, 'update']);
+        Route::get('patients', [$controller, 'patients']);
+        Route::get('campaigns', [$controller, 'campaigns']);
+        Route::post('campaigns', [$controller, 'send'])->middleware('throttle:5,1');
+        Route::post('campaigns/{id}/cancel', [$controller, 'cancel']);
+        Route::get('history', [$controller, 'history']);
+        Route::get('history/{id}', [$controller, 'details']);
+        Route::post('history/{id}/retry', [$controller, 'retry'])->middleware('throttle:5,1');
+    });
     Route::post('lab-settings', [LabSettingController::class, 'update']);
     Route::delete('lab-settings/logo', [LabSettingController::class, 'removeLogo']);
     Route::delete('lab-settings/background', [LabSettingController::class, 'removeBackground']);

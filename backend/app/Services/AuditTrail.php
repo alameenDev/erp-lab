@@ -106,7 +106,7 @@ class AuditTrail
         }
         // Push infrastructure contains bearer credentials and UUID subjects;
         // confirmed invoice changes retain their normal detailed audit.
-        if ($model instanceof \App\Models\PortalPushSubscription || $model instanceof \App\Models\PortalNotification || $model instanceof \App\Models\PortalPushDelivery) return;
+        if ($model instanceof \App\Models\PortalPushSubscription || $model instanceof \App\Models\PortalNotification || $model instanceof \App\Models\PortalPushDelivery || $model instanceof \App\Models\PortalNotificationCampaign) return;
         $verb = explode(':', substr($event, strlen('eloquent.')))[0];
         $attrs = $model->getAttributes();
         $invoiceId = $model instanceof Invoice ? $model->getKey() : ($attrs['invoice_id_fk'] ?? null);
@@ -224,6 +224,10 @@ class AuditTrail
             'InvoiceController@sendInvoice' => 'بدء إرسال النتيجة بالواتساب', 'InvoiceController@savePdf' => 'حفظ ملف التقرير',
             'BridgeResultController@receive' => 'استلام نتائج الجهاز', 'DeviceResultController@applyResults' => 'تطبيق نتائج الجهاز',
             'LabSettingController@update' => 'تعديل إعدادات المختبر',
+            'LabNotificationController@update' => 'تعديل إعدادات إشعارات المختبر',
+            'LabNotificationController@send' => 'جدولة إشعار لمرضى المختبر',
+            'LabNotificationController@cancel' => 'إيقاف حملة إشعارات المختبر',
+            'LabNotificationController@retry' => 'إعادة محاولة إشعار فاشل',
             'AuthController@logout' => 'تسجيل الخروج',
         ];
         if (isset($labels[$operation])) {
