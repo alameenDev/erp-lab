@@ -6,6 +6,7 @@ use App\Models\{Invoice, LabSetting, Patient, PortalAccessToken, PortalNotificat
 use App\Services\{PortalNotifications, PortalPushTransport};
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 class PortalNotificationTest extends TestCase
@@ -41,6 +42,79 @@ class PortalNotificationTest extends TestCase
         return ['subscription' => ['endpoint' => 'https://fcm.googleapis.com/fcm/send/synthetic-browser',
             'keys' => ['p256dh' => $encode("\x04".str_repeat('a', 64)), 'auth' => $encode(str_repeat('b', 16))]],
             'results_enabled' => $results, 'offers_enabled' => $offers];
+    }
+
+    private function withPortalEntry(callable $check): void
+    {
+        $original = public_path();
+        $directory = sys_get_temp_dir().'/portal-shell-'.bin2hex(random_bytes(8));
+        File::makeDirectory($directory);
+        // Exercise the real HTML template, including Arabic, JSON-LD, icons
+        // and the module entry. Add representative Vite production assets.
+        $entry = str_replace('</head>', '<link rel="modulepreload" crossorigin href="/assets/vue-hash.js"><link rel="stylesheet" crossorigin href="/assets/app-hash.css"><script type="module" crossorigin src="/assets/app-hash.js"></script></head>', file_get_contents(base_path('../frontend/index.html')));
+        File::put($directory.'/index.html', $entry);
+        $this->app->usePublicPath($directory);
+        try { $check($entry); }
+        finally { $this->app->usePublicPath($original); File::deleteDirectory($directory); }
+    }
+
+    public function test_initial_portal_html_selects_patient_app_before_javascript_and_preserves_build_assets(): void
+    {
+        [, $patient, $access, $api] = $this->fixture();
+        [, , $other] = $this->fixture();
+        $this->withPortalEntry(function ($original) use ($patient, $access, $api, $other) {
+            $response = $this->get('/portal/'.$access->token.'?form=1&report=14')->assertOk()
+                ->assertHeader('Content-Type', 'text/html; charset=UTF-8')->assertHeader('X-Robots-Tag', 'noindex, nofollow')
+                ->assertDontSee('href="/manifest.json"', false)->assertDontSee($patient->code);
+            $this->assertTrue($response->headers->hasCacheControlDirective('private'));
+            $this->assertTrue($response->headers->hasCacheControlDirective('no-store'));
+            $this->assertFalse($response->headers->has('Location'));
+            $document = new \DOMDocument();
+            $previous = libxml_use_internal_errors(true);
+            try { $document->loadHTML($response->getContent()); }
+            finally { libxml_clear_errors(); libxml_use_internal_errors($previous); }
+            $xpath = new \DOMXPath($document);
+            $this->assertSame(1, $xpath->query('//link[@rel="manifest"]')->length);
+            $this->assertSame($api.'/manifest.webmanifest', $xpath->evaluate('string(//link[@rel="manifest"]/@href)'));
+            $this->assertSame('/portal/'.$access->token, $xpath->evaluate('string(//link[@rel="canonical"]/@href)'));
+            $this->assertSame('yes', $xpath->evaluate('string(//meta[@name="apple-mobile-web-app-capable"]/@content)'));
+            $this->assertSame('بوابة المريض', $xpath->evaluate('string(//meta[@name="apple-mobile-web-app-title"]/@content)'));
+            $this->assertSame('بوابة المريض', $xpath->evaluate('string(//title)'));
+            $this->assertSame(1, $xpath->query('//script[@type="module" and @src="/assets/app-hash.js"]')->length);
+            $this->assertSame(1, $xpath->query('//link[@rel="stylesheet" and @href="/assets/app-hash.css"]')->length);
+            $this->assertSame(1, $xpath->query('//link[@rel="modulepreload" and @href="/assets/vue-hash.js"]')->length);
+            $this->assertSame(1, $xpath->query('//link[@rel="apple-touch-icon"]')->length);
+            $this->assertSame(1, $xpath->query('//div[@id="app"]')->length);
+            $this->assertSame(0, $xpath->query('//script[@type="application/ld+json"]')->length);
+            $this->get('/portal/'.$other->token)->assertOk()->assertSee('/api/portal/'.$other->token.'/manifest.webmanifest', false)
+                ->assertDontSee($access->token);
+            $manifest = $this->getJson($api.'/manifest.webmanifest')->assertOk()->assertJsonPath('display', 'standalone')->json();
+            $this->assertSame('https://lab.example.test/portal/'.$access->token, $manifest['start_url']);
+            $this->assertSame($manifest['start_url'], $manifest['id']);
+            $this->get(parse_url($manifest['start_url'], PHP_URL_PATH))->assertOk()->assertDontSee('href="/manifest.json"', false);
+            $this->assertSame($original, File::get(public_path('index.html')), 'Portal rendering must not rewrite the shared staff entry.');
+        });
+    }
+
+    public function test_portal_shell_does_not_bypass_otp_expiry_or_redirect_to_the_staff_site(): void
+    {
+        [$lab, , $access, $api] = $this->fixture();
+        LabSetting::create(['lab_id_fk' => $lab->id, 'loyalty_config' => ['require_otp' => true]]);
+        $this->withPortalEntry(function () use ($access, $api) {
+            $this->get('/portal/'.$access->token)->assertOk()->assertDontSee('href="/manifest.json"', false);
+            $this->getJson($api.'/manifest.webmanifest')->assertForbidden();
+            $this->getJson($api.'/app-config')->assertForbidden();
+            $access->update(['verified_at' => now()]);
+            $this->getJson($api.'/manifest.webmanifest')->assertOk();
+            $access->update(['expires_at' => now()->subMinute()]);
+            $this->get('/portal/'.$access->token)->assertOk()->assertDontSee('href="/manifest.json"', false);
+            $this->getJson($api.'/manifest.webmanifest')->assertNotFound();
+            $this->getJson($api)->assertNotFound();
+            $this->get('/portal/not-a-valid-token')->assertNotFound();
+            $this->get('/portal/sw.js')->assertNotFound(); // Served as a static file by Hostinger.
+            File::delete(public_path('index.html'));
+            $this->get('/portal/'.$access->token)->assertStatus(503);
+        });
     }
 
     public function test_manifest_and_settings_require_valid_verified_access_and_expose_only_public_key(): void

@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
+import { mountPatientPortalHead } from '@/utils/patientPortalHead';
 import { useRoute } from "vue-router";
 import { $http } from "@/plugins/axios";
 import ResultTrends from '@/components/ResultTrends.vue';
@@ -213,20 +214,10 @@ const formatDate = (d) => {
   }
 };
 
-let originalManifest, portalManifest;
-const updateManifest = () => {
-  const base = (import.meta.env.VITE_BASE_URL || '/api').replace(/\/$/, '');
-  portalManifest?.setAttribute('href', `${base}/portal/${encodeURIComponent(token.value)}/manifest.webmanifest`);
-};
-onMounted(() => {
-  portalManifest = document.querySelector('link[rel="manifest"]');
-  originalManifest = portalManifest?.getAttribute('href');
-  if (!portalManifest) { portalManifest = document.createElement('link'); portalManifest.rel = 'manifest'; document.head.appendChild(portalManifest); }
-  updateManifest();
-  load();
-});
-watch(() => route.params.token, value => { token.value = value; updateManifest(); load(); });
-onUnmounted(() => { if (originalManifest) portalManifest?.setAttribute('href', originalManifest); else portalManifest?.remove(); });
+const portalHead = mountPatientPortalHead(token.value, import.meta.env.VITE_BASE_URL || '/api');
+onMounted(load);
+watch(() => route.params.token, value => { token.value = value; portalHead.update(value); load(); });
+onUnmounted(() => portalHead.restore());
 </script>
 
 <template>

@@ -8,7 +8,7 @@ export function usePatientPortalApp(token) {
   const config = ref(null), subscribed = ref(false), results = ref(true), offers = ref(true);
   const busy = ref(false), preparing = ref(true), workerReady = ref(false), error = ref(''), message = ref('');
   const installEvent = ref(null), inbox = ref([]), unread = ref(0), initialized = ref(false);
-  let registration = null, browserSubscription = null, preferenceKey = '', alive = true, refreshing = null, oldAppleTitle, appleTitle;
+  let registration = null, browserSubscription = null, preferenceKey = '', alive = true, refreshing = null;
   const base = (import.meta.env.VITE_BASE_URL || '/api').replace(/\/$/, '');
   const path = base + '/portal/' + encodeURIComponent(token);
   const canSubscribe = computed(() => Boolean(initialized.value && workerReady.value && config.value?.public_key && device.value.push &&
@@ -198,10 +198,6 @@ export function usePatientPortalApp(token) {
     window.addEventListener('beforeinstallprompt', captureInstall);
     window.addEventListener('appinstalled', installed);
     document.addEventListener('visibilitychange', visibility);
-    appleTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
-    oldAppleTitle = appleTitle?.content;
-    if (!appleTitle) { appleTitle = document.createElement('meta'); appleTitle.name = 'apple-mobile-web-app-title'; document.head.appendChild(appleTitle); }
-    appleTitle.content = 'بوابة المريض';
     void prepare();
   });
   onUnmounted(() => {
@@ -209,9 +205,6 @@ export function usePatientPortalApp(token) {
     window.removeEventListener('beforeinstallprompt', captureInstall);
     window.removeEventListener('appinstalled', installed);
     document.removeEventListener('visibilitychange', visibility);
-    if (appleTitle?.content === 'بوابة المريض') {
-      if (oldAppleTitle !== undefined) appleTitle.content = oldAppleTitle; else appleTitle.remove();
-    }
   });
   return { device, permission, config, subscribed, results, offers, busy, preparing, workerReady, error, message, installEvent,
     inbox, unread, initialized, canSubscribe, active, statusText, enable, save, disable, testNotification, install, loadInbox, markRead, prepare };

@@ -75,6 +75,7 @@ RewriteRule ^storage/.*\.(?:php[0-9]*|phtml|phar)(?:/|$) - [F,L,NC]
 RewriteRule (^|/)\.(?!well-known/) - [F,L]
 RewriteCond %{HTTP:Authorization} .
 RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+RewriteRule ^portal/[A-Za-z0-9]{48}/?$ index.php [L,QSA]
 RewriteRule ^(?:api(?:/|$)|sanctum(?:/|$)|up/?$|result/[0-9]+/?$|invoice/[0-9]+/?$) index.php [L,QSA]
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d

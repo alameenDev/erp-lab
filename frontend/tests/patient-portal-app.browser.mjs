@@ -89,6 +89,36 @@ const active = page => page.getByRole('heading', { name: 'مفعّلة على ه
 try {
   const { page, context, server, requests } = await scenario();
   await allow(page).waitFor();
+  assert.equal(await page.locator('link[rel="manifest"]').count(), 1);
+  assert.equal(await page.locator('link[rel="manifest"]').getAttribute('href'), '/api/portal/' + 'a'.repeat(48) + '/manifest.webmanifest');
+  assert.equal(await page.locator('meta[name="apple-mobile-web-app-capable"]').getAttribute('content'), 'yes');
+  assert.equal(await page.locator('meta[name="apple-mobile-web-app-title"]').getAttribute('content'), 'بوابة المريض');
+  // Both a server-rendered first visit and SPA navigation restore the staff
+  // identity on exit. Switching patients must replace the launch manifest.
+  const headCases = await page.evaluate(async () => {
+    const { mountPatientPortalHead } = await import('/src/utils/patientPortalHead.js');
+    return [false, true].map(serverRendered => {
+      const doc = document.implementation.createHTMLDocument('fixture');
+      doc.head.innerHTML = serverRendered
+        ? '<link rel="manifest" href="/api/portal/old/manifest.webmanifest" data-portal-app-head="true"><meta name="apple-mobile-web-app-capable" content="yes" data-portal-app-head="true">'
+        : '<link rel="manifest" href="/manifest.json"><meta name="apple-mobile-web-app-title" content="Staff">';
+      const head = mountPatientPortalHead('a'.repeat(48), '/api', doc);
+      const first = doc.querySelector('[rel="manifest"]').getAttribute('href');
+      head.update('b'.repeat(48));
+      const second = doc.querySelector('[rel="manifest"]').getAttribute('href');
+      head.restore();
+      return { first, second, manifest: doc.querySelector('[rel="manifest"]').getAttribute('href'),
+        capable: Boolean(doc.querySelector('[name="apple-mobile-web-app-capable"]')),
+        title: doc.querySelector('[name="apple-mobile-web-app-title"]')?.content || null };
+    });
+  });
+  for (const [index, state] of headCases.entries()) {
+    assert.equal(state.first, '/api/portal/' + 'a'.repeat(48) + '/manifest.webmanifest');
+    assert.equal(state.second, '/api/portal/' + 'b'.repeat(48) + '/manifest.webmanifest');
+    assert.equal(state.manifest, '/manifest.json');
+    assert.equal(state.capable, false);
+    assert.equal(state.title, index === 0 ? 'Staff' : null);
+  }
   assert.equal(await page.locator('dialog').count(), 0, 'no custom popup, including first visit');
   assert.equal(await page.evaluate(() => portalMock.permissionCalls), 0, 'no permission request without a gesture');
   assert.equal(await page.evaluate(() => portalMock.subscribeCalls), 0);
