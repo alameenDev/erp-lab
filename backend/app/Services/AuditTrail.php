@@ -104,6 +104,9 @@ class AuditTrail
         if (! $this->active() || ! $model instanceof Model || ! str_starts_with(get_class($model), 'App\\Models\\')) {
             return;
         }
+        // Push infrastructure contains bearer credentials and UUID subjects;
+        // confirmed invoice changes retain their normal detailed audit.
+        if ($model instanceof \App\Models\PortalPushSubscription || $model instanceof \App\Models\PortalNotification || $model instanceof \App\Models\PortalPushDelivery) return;
         $verb = explode(':', substr($event, strlen('eloquent.')))[0];
         $attrs = $model->getAttributes();
         $invoiceId = $model instanceof Invoice ? $model->getKey() : ($attrs['invoice_id_fk'] ?? null);

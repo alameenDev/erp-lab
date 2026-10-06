@@ -1,12 +1,13 @@
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useRoute } from "vue-router";
 import { $http } from "@/plugins/axios";
 import ResultTrends from '@/components/ResultTrends.vue';
+import PatientPortalApp from './PatientPortalApp.vue';
 import { portalReportUrl } from '@/utils/medicalReportOutput';
 
 const route = useRoute();
-const token = route.params.token;
+const token = ref(route.params.token);
 
 const loading = ref(true);
 const loadError = ref("");
@@ -64,7 +65,7 @@ const submitBooking = async (doctor) => {
   bookingMessage.value = "";
   bookingError.value = "";
   try {
-    const { data } = await $http.post(`/portal/${token}/book-doctor`, {
+    const { data } = await $http.post(`/portal/${token.value}/book-doctor`, {
       doctor_id: doctor.id,
       phone: bookingForm.value.phone || undefined,
       preferred_date: bookingForm.value.preferred_date || undefined,
@@ -83,7 +84,7 @@ const loadCatalog = async () => {
   if (catalog.value) return; // already loaded once
   catalogLoading.value = true;
   try {
-    const { data } = await $http.get(`/portal/${token}/catalog`);
+    const { data } = await $http.get(`/portal/${token.value}/catalog`);
     catalog.value = { tests: data.tests || [], packages: data.packages || [] };
   } catch (e) {
     catalog.value = { tests: [], packages: [] };
@@ -105,7 +106,7 @@ const sendChatMessage = async () => {
   chatSending.value = true;
   chatError.value = "";
   try {
-    const { data } = await $http.post(`/portal/${token}/ai-chat`, {
+    const { data } = await $http.post(`/portal/${token.value}/ai-chat`, {
       message: text,
       history: chatMessages.value.slice(0, -1),
     });
@@ -118,10 +119,12 @@ const sendChatMessage = async () => {
 };
 
 const load = async () => {
+  const requestedToken = token.value;
   loading.value = true;
   loadError.value = "";
   try {
-    const { data } = await $http.get(`/portal/${token}`);
+    const { data } = await $http.get(`/portal/${requestedToken}`);
+    if (requestedToken !== token.value) return;
     if (data.requires_otp) {
       requiresOtp.value = true;
       patient.value = { name: data.patient_name };
@@ -134,9 +137,10 @@ const load = async () => {
       aiEnabled.value = !!data.ai_enabled;
     }
   } catch (e) {
+    if (requestedToken !== token.value) return;
     loadError.value = e?.response?.data?.message || "تعذر فتح الرابط، تأكد أنه صحيح أو غير منتهي الصلاحية";
   } finally {
-    loading.value = false;
+    if (requestedToken === token.value) loading.value = false;
   }
 };
 
@@ -144,7 +148,7 @@ const requestOtp = async () => {
   otpSending.value = true;
   otpMessage.value = "";
   try {
-    const { data } = await $http.post(`/portal/${token}/otp/request`);
+    const { data } = await $http.post(`/portal/${token.value}/otp/request`);
     otpMessage.value = data?.message || "تم إرسال رمز التحقق عبر واتساب";
     otpSent.value = true;
   } catch (e) {
@@ -159,7 +163,7 @@ const verifyOtp = async () => {
   otpVerifying.value = true;
   otpMessage.value = "";
   try {
-    await $http.post(`/portal/${token}/otp/verify`, { code: otpCode.value });
+    await $http.post(`/portal/${token.value}/otp/verify`, { code: otpCode.value });
     await load();
   } catch (e) {
     otpMessage.value = e?.response?.data?.message || "رمز التحقق غير صحيح";
@@ -173,7 +177,7 @@ const redeem = async (item) => {
   redeemMessage.value = "";
   redeemError.value = "";
   try {
-    const { data } = await $http.post(`/portal/${token}/redeem`, { catalog_key: item.key });
+    const { data } = await $http.post(`/portal/${token.value}/redeem`, { catalog_key: item.key });
     redeemMessage.value = data?.message || "تم الاستبدال بنجاح";
     if (loyalty.value) loyalty.value.balance = data?.balance ?? loyalty.value.balance;
   } catch (e) {
@@ -209,7 +213,20 @@ const formatDate = (d) => {
   }
 };
 
-onMounted(load);
+let originalManifest, portalManifest;
+const updateManifest = () => {
+  const base = (import.meta.env.VITE_BASE_URL || '/api').replace(/\/$/, '');
+  portalManifest?.setAttribute('href', `${base}/portal/${encodeURIComponent(token.value)}/manifest.webmanifest`);
+};
+onMounted(() => {
+  portalManifest = document.querySelector('link[rel="manifest"]');
+  originalManifest = portalManifest?.getAttribute('href');
+  if (!portalManifest) { portalManifest = document.createElement('link'); portalManifest.rel = 'manifest'; document.head.appendChild(portalManifest); }
+  updateManifest();
+  load();
+});
+watch(() => route.params.token, value => { token.value = value; updateManifest(); load(); });
+onUnmounted(() => { if (originalManifest) portalManifest?.setAttribute('href', originalManifest); else portalManifest?.remove(); });
 </script>
 
 <template>
@@ -271,6 +288,7 @@ onMounted(load);
 
       <!-- Dashboard -->
       <div v-else class="space-y-4">
+        <PatientPortalApp :key="token" :token="token" />
         <!-- Patient card -->
         <div class="bg-gradient-to-br from-teal-600 to-teal-800 rounded-2xl shadow-sm p-6 text-white">
           <div class="text-sm opacity-80 mb-1">مرحباً بك</div>

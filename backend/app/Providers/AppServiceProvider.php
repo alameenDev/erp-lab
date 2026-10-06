@@ -32,6 +32,7 @@ class AppServiceProvider extends ServiceProvider
         $this->configureUrl();
         $this->configureRateLimiting();
         InvoiceTestRel::observe(InvoiceTestRelObserver::class);
+        \App\Models\Invoice::observe(\App\Observers\PortalInvoiceObserver::class);
         foreach (['creating', 'created', 'updating', 'updated', 'deleting', 'deleted', 'restoring', 'restored'] as $event) {
             \Illuminate\Support\Facades\Event::listen('eloquent.'.$event.': *', function ($name, $models) {
                 app(\App\Services\AuditTrail::class)->observe($name, $models);
