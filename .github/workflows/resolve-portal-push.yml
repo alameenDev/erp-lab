@@ -1,0 +1,25 @@
+name: Resolve portal push dependencies
+on:
+  push:
+    branches: [feature/patient-portal-push]
+    paths: ['.github/workflows/resolve-portal-push.yml']
+permissions:
+  contents: read
+jobs:
+  lock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, curl, openssl, gd, zip, bcmath
+          tools: composer:v2
+          coverage: none
+      - run: composer update minishlink/web-push --with-dependencies --no-interaction --prefer-dist --no-scripts --no-install
+        working-directory: backend
+      - uses: actions/upload-artifact@v4
+        with:
+          name: portal-push-lock
+          path: backend/composer.lock
+          retention-days: 2
