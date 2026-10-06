@@ -7,6 +7,7 @@ const props = defineProps({
   record: { type: Object, default: () => ({}) },
   reportUrl: { type: String, default: "" },
   showQr: { type: Boolean, default: true },
+  qrLabel: { type: String, default: "patient portal" },
 });
 const printedOn = dateTimeFormat(new Date().toISOString());
 const details = computed(() => [
@@ -39,8 +40,8 @@ const registration = computed(() => [
         </div>
       </div>
       <div v-if="showQr && reportUrl" class="mr-qr">
-        <QrcodeVue :value="reportUrl" :size="90" level="H" render-as="svg" />
-        <span>Scan to view<br />patient report</span>
+        <QrcodeVue :value="reportUrl" :size="90" :margin="4" level="M" render-as="svg" />
+        <span>Scan to view<br />{{ qrLabel }}</span>
       </div>
     </div>
   </div>

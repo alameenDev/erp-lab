@@ -34,12 +34,14 @@ store.settings = direct ? { report_template: 'classic', print_margins: { top: 0,
 invoices.printRecord = sample;
 useresultStatusStore().resultStatus = [{ value: 2, label: 'Normal' }];
 useTemplatesStore().GetTemplates = async () => {};
+const portalToken = 'a'.repeat(48);
 let uploaded = null;
 $http.defaults.adapter = async config => {
   let data;
   if (config.url === '/invoices/public/14' || config.url === '/invoices/14') data = sample;
   else if (config.url === '/lab-settings/1') data = settings;
-  else if (config.url === '/portal/generate') data = { url: location.origin + '/portal/synthetic-token' };
+  else if (config.url === '/portal/generate') data = { url: 'https://lightpink-badger-650079.hostingersite.com/portal/' + portalToken };
+  else if (config.url === '/portal/' + portalToken) data = { reports: [{ id: sample.id }], requires_otp: false };
   else if (config.url === '/invoices/pdf') { uploaded = config.data.get('result_doc'); data = { path: '/synthetic-report.pdf' }; }
   else throw new Error('Unexpected API request: ' + config.url);
   return { data, status: 200, statusText: 'OK', headers: {}, config };

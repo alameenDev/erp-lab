@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { computed } from "vue";
 import { storeToRefs } from "pinia";
 import { useinvoicesStore } from "@/store/modules/invoices";
 import { dateTimeFormat } from "@/utils/helper";
@@ -13,10 +13,11 @@ const props = defineProps({ withBackground: { type: Boolean, default: true }, mo
 
 const patientId = computed(() => printRecord.value?.id);
 
-const appBaseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
-
 const getPatientReportLink = () => {
-     return reportUrlWithForm(props.shareUrl || `${appBaseUrl}/result/${patientId.value}`, props.withBackground);
+     if (!props.shareUrl) return '';
+     const url = new URL(reportUrlWithForm(props.shareUrl, props.withBackground));
+     if (!props.isReferral) url.searchParams.set('report', patientId.value);
+     return url.href;
 };
 </script>
 
@@ -25,7 +26,7 @@ const getPatientReportLink = () => {
                <img v-if="labLogo" :src="labLogo" alt="" style="max-width:60px; max-height:60px; object-fit:contain;" />
                <strong>{{ labName }}</strong>
      </div>
-     <ModernPatientHeader v-if="modern" :record="printRecord" :report-url="getPatientReportLink()" :show-qr="!printRecord?.suppress_report_qr && (!isReferral || !!shareUrl)" />
+     <ModernPatientHeader v-if="modern" :record="printRecord" :qr-label="isReferral ? 'patient report' : 'patient portal'" :report-url="getPatientReportLink()" :show-qr="!printRecord?.suppress_report_qr && !!shareUrl" />
      <div v-else class="rs-header" dir="ltr" style="direction: ltr !important; text-align: left !important; border-bottom: 2px solid #333; padding: 10px 16px; font-family: Arial, sans-serif; display: flex; align-items: flex-start; gap: 16px;">
           <!-- Left: Patient Info -->
           <div class="rs-info" style="flex: 1; font-size: 14px; font-weight: 700; line-height: 1.7;">
@@ -42,8 +43,8 @@ const getPatientReportLink = () => {
           </div>
 
           <!-- Right: QR -->
-          <div v-if="!printRecord?.suppress_report_qr && (!isReferral || shareUrl)" class="rs-qr" style="padding-left: 16px; border-left: 1.5px solid #ccc; display: flex; align-items: center;">
-               <QrcodeVue :value="getPatientReportLink()" :size="60" level="H" render-as="svg" />
+          <div v-if="!printRecord?.suppress_report_qr && shareUrl" class="rs-qr" style="padding-left: 16px; border-left: 1.5px solid #ccc; display: flex; align-items: center;">
+               <QrcodeVue :value="getPatientReportLink()" :size="90" :margin="4" level="M" render-as="svg" />
           </div>
      </div>
 </template>
