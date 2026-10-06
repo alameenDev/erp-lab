@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
-import { portalDevice, portalPreferenceKey, vapidBytes } from '../src/utils/patientPortalApp.js';
+import { portalDevice, portalPreferenceKey, vapidBytes, waitForPortalWorker } from '../src/utils/patientPortalApp.js';
 
 test('iPhone and desktop-mode iPad require the installed app before enabling push', () => {
   const env = { navigator: { userAgent: 'iPhone', serviceWorker: {}, maxTouchPoints: 5 }, isSecureContext: true, PushManager: {}, Notification: {}, matchMedia: () => ({ matches: false }) };
@@ -14,12 +14,25 @@ test('iPhone and desktop-mode iPad require the installed app before enabling pus
   delete env.PushManager; assert.equal(portalDevice(env).push, false);
 });
 
-test('welcome preferences are isolated without storing bearer tokens in keys', async () => {
+test('notification choices are isolated without storing bearer tokens in keys', async () => {
   const key = await portalPreferenceKey('a'.repeat(48));
   assert.notEqual(key, await portalPreferenceKey('b'.repeat(48)));
   assert.equal(key, await portalPreferenceKey('a'.repeat(48)));
   assert.ok(!key.includes('a'.repeat(48)));
   assert.deepEqual(vapidBytes('AAEC_w'), new Uint8Array([0, 1, 2, 255]));
+});
+
+test('worker activation is awaited and failure has a finite timeout', async () => {
+  const worker = Object.assign(new EventTarget(), { state: 'installing' });
+  const registration = Object.assign(new EventTarget(), { active: null, installing: worker });
+  const ready = waitForPortalWorker(registration, 1000);
+  let settled = false; ready.then(() => { settled = true; });
+  await Promise.resolve(); assert.equal(settled, false);
+  worker.state = 'activated'; registration.active = worker; registration.installing = null;
+  worker.dispatchEvent(new Event('statechange'));
+  assert.equal(await ready, registration);
+  assert.equal(await waitForPortalWorker(registration, 100), registration);
+  await assert.rejects(waitForPortalWorker(Object.assign(new EventTarget(), { active: null }), 10), /تعذر تجهيز/);
 });
 
 test('portal service worker does not cache records and opens only the matching patient portal', async () => {
