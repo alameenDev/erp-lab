@@ -32,6 +32,7 @@ class AppServiceProvider extends ServiceProvider
         $this->configureUrl();
         $this->configureRateLimiting();
         InvoiceTestRel::observe(InvoiceTestRelObserver::class);
+        \App\Models\Invoice::observe(\App\Observers\PortalInvoiceObserver::class);
         foreach (['creating', 'created', 'updating', 'updated', 'deleting', 'deleted', 'restoring', 'restored'] as $event) {
             \Illuminate\Support\Facades\Event::listen('eloquent.'.$event.': *', function ($name, $models) {
                 app(\App\Services\AuditTrail::class)->observe($name, $models);
@@ -76,6 +77,13 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('api', function (Request $request) {
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
         });
+
+        // Separate buckets: reading the portal must not consume its opt-in/test limits.
+        RateLimiter::for('portal-app', fn (Request $request) => Limit::perMinute(60)->by($request->ip()));
+        foreach (['portal-subscribe' => 10, 'portal-push-test' => 3] as $name => $maximum) {
+            RateLimiter::for($name, fn (Request $request) => Limit::perMinute($maximum)
+                ->by(hash('sha256', (string) $request->route('token')).'|'.$request->ip()));
+        }
 
         // Strict rate limit for login attempts - 5 per minute
         RateLimiter::for('login', function (Request $request) {

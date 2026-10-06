@@ -1,0 +1,27 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="manifest" href="/manifest.json"><title>Patient portal experience</title></head><body><div id="app"></div><script type="module">
+import { createApp } from 'vue';
+import { createPinia } from 'pinia';
+import { createRouter, createMemoryHistory } from 'vue-router';
+import Portal from '/src/views/portal/PatientPortal.vue';
+import { $http } from '/src/plugins/axios';
+import '/src/assets/main.css';
+import 'primeicons/primeicons.css';
+const token = 'a'.repeat(48);
+const mode = new URLSearchParams(location.search).get('mode');
+$http.defaults.adapter = async config => {
+  let data;
+  if (config.url === '/portal/' + token) {
+    if (mode === 'expired') { const error = new Error('Expired'); error.response = { status: 404, data: { message: 'الرابط منتهي الصلاحية' } }; error.config = config; throw error; }
+    data = mode === 'otp' ? { requires_otp: true, patient_name: 'مريض تجريبي' } : {
+      patient: { name: 'مريض تجريبي', code: 'P-2048' }, reports: [{ id: 14, barcode: 'SAMPLE-14', date: '2026-10-06', status: 'ready', view_url: location.origin + '/result/14', tests: [{ id: 1, name: 'CBC', status: 'ready' }], total: 25000, paid: 25000, due: 0 }],
+      loyalty: { balance: 120, tier: { label_ar: 'المستوى الفضي' }, redemption_catalog: [], transactions: [] }, doctors: [], ai_enabled: false,
+    };
+  } else if (config.url.endsWith('/result-trends')) data = { series: [] };
+  else if (config.url.endsWith('/catalog')) data = { tests: [], packages: [] };
+  else throw new Error('Unexpected synthetic API: ' + config.url);
+  return { data, status: 200, statusText: 'OK', headers: {}, config };
+};
+const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/portal/:token', component: Portal }] });
+const app = createApp(Portal).use(createPinia()).use(router);
+await router.push('/portal/' + token); await router.isReady(); app.mount('#app');
+</script></body></html>
