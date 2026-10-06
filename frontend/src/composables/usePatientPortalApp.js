@@ -13,8 +13,9 @@ export function usePatientPortalApp(token) {
   const path = base + '/portal/' + encodeURIComponent(token);
   const canSubscribe = computed(() => Boolean(initialized.value && workerReady.value && config.value?.public_key && device.value.push &&
     (!device.value.ios || device.value.installed) && permission.value !== 'denied' && !device.value.embedded));
-  const active = computed(() => subscribed.value && permission.value === 'granted');
+  const active = computed(() => subscribed.value && permission.value === 'granted' && config.value?.lab_notifications_enabled !== false);
   const statusText = computed(() => active.value ? 'مفعّلة على هذا الجهاز' :
+    config.value?.lab_notifications_enabled === false ? 'أوقف المختبر إشعارات الجهاز مؤقتاً' :
     permission.value === 'denied' ? 'محظورة من الجهاز' : device.value.ios && !device.value.installed ? 'تحتاج الإضافة للشاشة الرئيسية' :
       preparing.value ? 'جاري تجهيز الإشعارات…' : 'بانتظار السماح من هذا الجهاز');
 

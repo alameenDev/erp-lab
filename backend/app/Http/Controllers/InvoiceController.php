@@ -1951,7 +1951,7 @@ class InvoiceController extends Controller
         $invoice->refresh();
         $userId = $referralId ?? Auth::id();
         abort_unless((int)$invoice->from_lab_id_fk === (int)$userId && \App\Models\Referal::where('referral_id_fk', $userId)->where('lab_id_fk', $invoice->lab_id_fk)->exists(), 403);
-        if ($report) abort_unless($invoice->is_done && !$invoice->invoiceTestRels()->where(fn ($q) => $q->where('is_done', false)->orWhereNull('is_done'))->exists(), 409, 'النتائج لم تكتمل بعد');
+        if ($report) abort_unless(app(\App\Services\ReportReadiness::class)->isReady($invoice), 409, 'النتائج لم تكتمل بعد');
         $invoice->load($this->invoiceRelations());
         $data = $this->transformInvoice($invoice, false);
         unset($data['created_by'], $data['contract'], $data['sample_collector'], $data['promo_code'], $data['attachments'], $data['result_doc'], $data['pdf_qr_code']);
@@ -1998,7 +1998,7 @@ class InvoiceController extends Controller
             return response()->json(['message' => 'Invoice not found'], 404);
         }
 
-        if (! $invoice->is_done) {
+        if (! app(\App\Services\ReportReadiness::class)->isReady($invoice)) {
             return response()->json([
                 'message' => 'Report is not completed yet',
                 'status' => 'pending',
@@ -2446,6 +2446,9 @@ class InvoiceController extends Controller
                     );
                 }
             }
+            // Partial requests and unfinished nested tests must never publish
+            // an entire invoice. Reconcile the persisted rows, not the payload.
+            $is_done = app(\App\Services\ReportReadiness::class)->analysesComplete($invoice);
             $invoice->is_done = $is_done;
             $invoice->result_date = ($is_done && $invoice->result_date == null) ? now()->toDateTimeString() : $invoice->result_date;
             // $invoice->test_group_comment = isset($request->test_group_comment) ? (($request->input('test_group_comment') === 'null' ? null : $request->input('test_group_comment'))) : null;

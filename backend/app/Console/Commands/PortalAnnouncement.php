@@ -32,6 +32,7 @@ class PortalAnnouncement extends Command
         $count = 0;
         $query->orderBy('patient_id')->chunk(200, function ($rows) use ($campaign, $title, $body, &$count) {
             foreach ($rows as $row) {
+                if (!\App\Models\PortalLabNotificationSetting::allows($row->lab_id, 'offer')) continue;
                 $notice = PortalNotification::firstOrCreate(['event_key' => hash('sha256', 'offer:'.$campaign.':'.$row->patient_id.':'.$row->lab_id)],
                     ['patient_id' => $row->patient_id, 'lab_id' => $row->lab_id, 'kind' => 'offer', 'title' => $title, 'body' => $body]);
                 if ($notice->wasRecentlyCreated) { app(PortalNotifications::class)->queue($notice); $count++; }

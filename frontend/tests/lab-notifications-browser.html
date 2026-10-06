@@ -1,0 +1,32 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Lab notification settings test</title></head><body style="background:#f8fafc;margin:0"><div id="app" style="max-width:1180px;margin:auto;padding:24px"></div><script type="module">
+import { createApp } from 'vue';
+import { createPinia } from 'pinia';
+import Settings from '/src/views/lab-settings/NotificationSettings.vue';
+import { $http } from '/src/plugins/axios';
+import '/src/assets/main.css';
+import 'primeicons/primeicons.css';
+localStorage.setItem('user', JSON.stringify({ id: 23, role_id: new URLSearchParams(location.search).has('admin') ? 1 : 2 }));
+const defaults = { enabled:true, results_enabled:true, announcements_enabled:true, result_title:'نتائج فحوصاتك جاهزة', result_body:'اكتملت جميع فحوصاتك وأصبح تقريرك الطبي جاهزاً. يمكنك الاطلاع على نتائجك واستلامها من خلال بوابة المريض.' };
+const state = window.notificationMock = { settings: {...defaults}, posts:[], saves:[], failOnce:false, campaigns:[], cancelled:0, retry:0 };
+$http.defaults.adapter = async config => {
+ let data, payload = typeof config.data === 'string' ? JSON.parse(config.data) : config.data || {};
+ const path = config.url.replace('/lab-notifications/', '');
+ if(path === 'labs') data = [{id:23,name:'مختبر إزمير'},{id:24,name:'مختبر تجريبي آخر'}];
+ else if(path === 'settings' && config.method === 'get') data = {lab:{id:23,name:config.params?.lab_id === 24 ? 'مختبر تجريبي آخر' : 'مختبر إزمير'},settings:state.settings,defaults,health:{push_ready:true,worker_recent:true,last_worker_run:new Date().toISOString()},stats:{patients:148,subscriptions:173,results:148,offers:92,queued:3,accepted:215,failed:1}};
+ else if(path === 'settings') { state.saves.push(payload); state.settings = {...payload}; data = {settings:state.settings}; }
+ else if(path === 'patients') data = [{id:81,name:'مريض تجريبي',code:'P-2048',devices:1}];
+ else if(path === 'campaigns' && config.method === 'get') data = state.campaigns;
+ else if(path === 'campaigns') {
+   state.posts.push(payload);
+   if(state.failOnce) { state.failOnce = false; const error=new Error('Network lost'); error.config=config; error.response={status:503,data:{message:'تعذر تأكيد الطلب. أعد المحاولة.'}}; throw error; }
+   state.campaigns=[{id:'campaign-1',title:payload.title,actor_name:'صاحب المختبر',created_at:new Date().toISOString(),audience_count:payload.audience==='patient'?1:92,queued_patients:0,status:'queued'}];
+   data={campaign:state.campaigns[0],message:'أُضيف الطلب لطابور الإرسال. ستظهر المحاولات في السجل.'};
+ } else if(path.endsWith('/cancel')) {state.cancelled++;state.campaigns[0].status='cancelled';data={message:'أُوقف ما تبقى من الحملة.'};}
+ else if(path.endsWith('/retry')) {state.retry++;data={queued:1};}
+ else if(path === 'history') data={current_page:1,last_page:1,total:1,data:[{id:'notice-1',kind:'result',title:defaults.result_title,body:defaults.result_body,patient_name:'مريض تجريبي',patient_code:'P-2048',invoice_id:1007066,invoice_barcode:'SYNTHETIC-14',created_at:new Date().toISOString(),read_at:null,counts:{queued:0,processing:0,accepted:1,failed:1,cancelled:0,expired:0}}]};
+ else if(path === 'history/notice-1') data=[{id:1,status:'failed',status_reason:'provider_unavailable',attempts:5,next_attempt_at:null,updated_at:new Date().toISOString()}];
+ else throw new Error('Unexpected settings endpoint '+path);
+ return {data,status:200,statusText:'OK',headers:{},config};
+};
+createApp(Settings).use(createPinia()).mount('#app');
+</script></body></html>

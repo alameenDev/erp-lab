@@ -15,8 +15,10 @@ class PortalNotificationController extends Controller
     public function configuration(string $token)
     {
         [, , $lab] = $this->access->resolve($token);
-        $keys = app(PortalPushTransport::class)->keys();
+        $enabled = \App\Models\PortalLabNotificationSetting::forLab($lab->id)['enabled'];
+        $keys = $enabled ? app(PortalPushTransport::class)->keys() : null;
         return response()->json(['public_key' => $keys['publicKey'] ?? null,
+            'lab_notifications_enabled' => $enabled,
             'lab_name' => $lab->labSetting?->lab_display_name ?: $lab->name,
             'manifest_url' => '/api/portal/'.$token.'/manifest.webmanifest']);
     }
@@ -41,6 +43,7 @@ class PortalNotificationController extends Controller
     public function subscribe(Request $request, string $token)
     {
         [$access, $patient, $lab] = $this->access->resolve($token);
+        abort_unless(\App\Models\PortalLabNotificationSetting::forLab($lab->id)['enabled'], 409, 'أوقف المختبر إشعارات الجهاز مؤقتاً.');
         abort_unless(app(PortalPushTransport::class)->keys(), 503, 'الإشعارات غير مفعّلة حالياً. يمكنك متابعة تحديثاتك من داخل البوابة.');
         $data = $request->validate(['subscription' => ['required', 'array', new BrowserPushSubscription],
             'results_enabled' => 'required|boolean', 'offers_enabled' => 'required|boolean']);
@@ -80,6 +83,7 @@ class PortalNotificationController extends Controller
     {
         $subscription = $this->subscription($request, $token);
         abort_unless($subscription, 409, 'فعّل إشعارات هذا الجهاز أولاً');
+        abort_unless(\App\Models\PortalLabNotificationSetting::allows($subscription->lab_id, 'test'), 409, 'أوقف المختبر إشعارات الجهاز مؤقتاً.');
         $notice = PortalNotification::create(['patient_id' => $subscription->patient_id, 'lab_id' => $subscription->lab_id,
             'event_key' => hash('sha256', Str::uuid()), 'kind' => 'test', 'title' => 'إشعارات بوابتك جاهزة',
             'body' => 'هذا إشعار تجريبي من بوابة المريض. يمكنك إدارة تفضيلاتك في أي وقت.']);
