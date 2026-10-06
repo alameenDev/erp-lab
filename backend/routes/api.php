@@ -81,14 +81,14 @@ Route::get('invoices/public/{id}', [InvoiceController::class, 'publicShow']);
 
 // Patient portal (magic link) - public, token-secured, no login required.
 Route::get('portal/{token}', [PatientPortalController::class, 'show']);
-Route::prefix('portal/{token}')->middleware('throttle:60,1')->group(function () {
+Route::prefix('portal/{token}')->middleware('throttle:portal-app')->group(function () {
     $controller = \App\Http\Controllers\PortalNotificationController::class;
     Route::get('app-config', [$controller, 'configuration']);
     Route::get('manifest.webmanifest', [$controller, 'manifest']);
-    Route::post('push/subscribe', [$controller, 'subscribe'])->middleware('throttle:10,1');
+    Route::post('push/subscribe', [$controller, 'subscribe'])->middleware('throttle:portal-subscribe');
     Route::post('push/status', [$controller, 'status']);
     Route::post('push/unsubscribe', [$controller, 'unsubscribe']);
-    Route::post('push/test', [$controller, 'test'])->middleware('throttle:3,1');
+    Route::post('push/test', [$controller, 'test'])->middleware('throttle:portal-push-test');
     Route::get('notifications', [$controller, 'inbox']);
     Route::post('notifications/read', [$controller, 'read']);
 });

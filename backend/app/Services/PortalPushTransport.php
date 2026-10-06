@@ -35,7 +35,9 @@ class PortalPushTransport
         $keys = $this->keys();
         if (!$keys) return 'retry';
         $push = $this->client($keys);
-        $report = $push->sendOneNotification(Subscription::create($subscription), json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+        // Browser toJSON() omits the encoding; explicitly use RFC 8291 (including Safari).
+        $target = Subscription::create(array_merge($subscription, ['contentEncoding' => 'aes128gcm']));
+        $report = $push->sendOneNotification($target, json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
         // Provider acceptance is not proof that a patient received or read it.
         if ($report->isSuccess()) return 'accepted';
         if ($report->isSubscriptionExpired()) return 'expired';

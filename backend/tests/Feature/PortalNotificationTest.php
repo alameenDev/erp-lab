@@ -47,9 +47,11 @@ class PortalNotificationTest extends TestCase
     {
         [$lab, , $access, $url] = $this->fixture();
         $this->getJson($url.'/app-config')->assertOk()->assertJsonPath('public_key', 'public-test-key')->assertDontSee('DO_NOT_EXPOSE');
-        $this->getJson($url.'/manifest.webmanifest')->assertOk()->assertJsonPath('scope', 'https://lab.example.test/portal/')
+        $manifest = $this->getJson($url.'/manifest.webmanifest')->assertOk()->assertJsonPath('scope', 'https://lab.example.test/portal/')
             ->assertJsonPath('start_url', 'https://lab.example.test/portal/'.$access->token)
-            ->assertHeader('Content-Type', 'application/manifest+json')->assertHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+            ->assertHeader('Content-Type', 'application/manifest+json');
+        $this->assertTrue($manifest->headers->hasCacheControlDirective('no-store'));
+        $this->assertTrue($manifest->headers->hasCacheControlDirective('private'));
         LabSetting::create(['lab_id_fk' => $lab->id, 'loyalty_config' => ['require_otp' => true]]);
         $this->getJson($url.'/app-config')->assertForbidden();
         $this->postJson($url.'/push/subscribe', $this->subscription())->assertForbidden();
@@ -95,6 +97,25 @@ class PortalNotificationTest extends TestCase
         $payload['subscription']['endpoint'] = ['not-a-string'];
         $this->postJson($url.'/push/subscribe', $payload)->assertUnprocessable();
         $this->assertDatabaseCount('portal_push_subscriptions', 0);
+    }
+
+    public function test_reading_settings_does_not_consume_opt_in_or_test_limits(): void
+    {
+        [, , , $url] = $this->fixture();
+        for ($attempt = 0; $attempt < 10; $attempt++) {
+            $this->getJson($url.'/app-config')->assertOk();
+        }
+        $this->postJson($url.'/push/subscribe', $this->subscription())->assertOk();
+        $endpoint = ['endpoint' => $this->subscription()['subscription']['endpoint']];
+        for ($attempt = 0; $attempt < 3; $attempt++) {
+            $this->postJson($url.'/push/test', $endpoint)->assertAccepted();
+        }
+        $this->postJson($url.'/push/test', $endpoint)->assertTooManyRequests();
+        $this->postJson($url.'/push/status', $endpoint)->assertOk();
+        [, , , $otherUrl] = $this->fixture();
+        $this->postJson($otherUrl.'/push/subscribe', $this->subscription())->assertOk();
+        $this->postJson($otherUrl.'/push/test', $endpoint)->assertAccepted();
+        $this->assertDatabaseCount('portal_push_deliveries', 4);
     }
 
     public function test_result_ready_is_queued_once_after_commit_and_never_on_rollback(): void

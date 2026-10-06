@@ -12,13 +12,15 @@ class PortalNotifications
         if (!$invoice->is_done || !$invoice->patient || !$invoice->lab) return;
         $lab = app(PatientPortalAccess::class)->lab($invoice->patient);
         if (!$lab || app(InventoryService::class)->labId($invoice->lab) !== (int) $lab->id) return;
-        $notice = PortalNotification::firstOrCreate(['event_key' => hash('sha256', 'ready:'.$invoice->id)], [
-            'patient_id' => $invoice->patient_id_fk, 'lab_id' => $lab->id, 'invoice_id' => $invoice->id,
-            'kind' => 'result', 'title' => 'تقريرك الطبي جاهز',
-            'body' => 'يوجد تقرير جديد في بوابتك. افتح البوابة للاطلاع على التفاصيل.',
-        ]);
-        if (!$notice->wasRecentlyCreated) return;
-        $this->queue($notice);
+        DB::transaction(function () use ($invoice, $lab) {
+            $notice = PortalNotification::firstOrCreate(['event_key' => hash('sha256', 'ready:'.$invoice->id)], [
+                'patient_id' => $invoice->patient_id_fk, 'lab_id' => $lab->id, 'invoice_id' => $invoice->id,
+                'kind' => 'result', 'title' => 'تقريرك الطبي جاهز',
+                'body' => 'يوجد تقرير جديد في بوابتك. افتح البوابة للاطلاع على التفاصيل.',
+            ]);
+            if (!$notice->wasRecentlyCreated) return;
+            $this->queue($notice);
+        });
     }
 
     public function queue(PortalNotification $notice, ?PortalPushSubscription $only = null): void
@@ -36,6 +38,8 @@ class PortalNotifications
     public function deliver(int $limit = 20): int
     {
         if (!app(PortalPushTransport::class)->keys()) return 0;
+        PortalPushDelivery::where('status', 'processing')->where('attempts', '>=', 5)
+            ->where('updated_at', '<', now()->subMinutes(5))->update(['status' => 'failed', 'next_attempt_at' => null]);
         $count = 0;
         while ($count < $limit) {
             $delivery = DB::transaction(function () {

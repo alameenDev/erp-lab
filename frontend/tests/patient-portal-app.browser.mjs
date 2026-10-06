@@ -111,7 +111,7 @@ try {
   }
   for (const mode of ['otp', 'expired']) {
     const { page, context, requests } = await scenario({ mode });
-    await page.getByText(mode === 'otp' ? 'لحماية بياناتك الطبية، يرجى التحقق من رقم هاتفك' : 'الرابط منتهي الصلاحية', { exact: true }).waitFor();
+    await page.locator('#app').getByText(mode === 'otp' ? 'لحماية بياناتك الطبية، يرجى التحقق من رقم هاتفك' : 'الرابط منتهي الصلاحية', { exact: true }).waitFor();
     assert.equal(await page.locator('.portal-app-toolbar').count(), 0);
     assert.equal(requests.filter(path => /app-config|push\/|notifications/.test(path)).length, 0);
     assert.equal(await page.evaluate(() => portalMock.registrations.length), 0);
