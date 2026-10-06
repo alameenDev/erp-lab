@@ -5,6 +5,7 @@ on:
       - 'frontend/src/views/portal/**'
       - 'frontend/src/composables/usePatientPortalApp.js'
       - 'frontend/src/utils/patientPortalApp.js'
+      - 'frontend/src/utils/patientPortalHead.js'
       - 'frontend/public/portal/**'
       - 'frontend/tests/patient-portal-*'
       - '.github/workflows/patient-portal-app.yml'
