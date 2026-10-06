@@ -50,6 +50,9 @@ class Invoice extends Model
     ];
 
     protected $casts = [
+        'report_printed_at' => 'datetime',
+        'report_saved_at' => 'datetime',
+        'report_sent_at' => 'datetime',
         'attachments' => 'json',
         'referral_seen_at' => 'datetime',
         'tests_comment' => 'json',
@@ -144,6 +147,19 @@ class Invoice extends Model
     public function invoiceTestRels()
     {
         return $this->hasMany(InvoiceTestRel::class, 'invoice_id_fk');
+    }
+
+    public function reportActionStatus(): array
+    {
+        return [
+            'printed' => $this->report_printed_at !== null,
+            'saved' => $this->report_saved_at !== null,
+            // Preserve historical sent flags without inventing a timestamp.
+            'sent' => (bool) $this->sent_to_patient || $this->report_sent_at !== null,
+            'printed_at' => $this->report_printed_at?->toISOString(),
+            'saved_at' => $this->report_saved_at?->toISOString(),
+            'sent_at' => $this->report_sent_at?->toISOString(),
+        ];
     }
 
     public static function generateUniqueBarcode()

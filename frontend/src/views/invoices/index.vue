@@ -1,4 +1,5 @@
 <script setup>
+import ReportActionStatus from "@/components/ReportActionStatus.vue";
 import { ref, computed, onMounted, watch, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import { storeToRefs } from "pinia";
@@ -784,18 +785,7 @@ onMounted(async () => {
                   </div>
                 </td>
                 <td class="px-5 py-4">
-                  <span
-                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold"
-                    :class="invoice.sent_to_patient
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-amber-100 text-amber-700'"
-                  >
-                    <span
-                      class="w-2 h-2 rounded-full"
-                      :class="invoice.sent_to_patient ? 'bg-green-500' : 'bg-amber-500'"
-                    ></span>
-                    {{ invoice.sent_to_patient ? t('done') : t('pendening') }}
-                  </span>
+                  <ReportActionStatus :record="invoice" />
                 </td>
                 <td class="px-5 py-4">
                   <div class="flex items-center gap-1">

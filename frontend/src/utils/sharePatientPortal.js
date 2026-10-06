@@ -6,7 +6,7 @@ export const reportSentStatusError = 'فُتح الواتساب، لكن تعذ�
 
 // The sent flag records the WhatsApp handoff, not a delivery/read receipt.
 // Keep the conversation open if saving its status fails after the handoff.
-export async function sendMedicalReportWhatsApp({ record, settings, output, tab, markSent }) {
+export async function sendMedicalReportWhatsApp({ record, settings, output, tab, markSent, afterDownload }) {
   const checkTab = () => {
     if (!tab || tab.closed) throw new Error('اسمح بالنوافذ المنبثقة ثم أعد المحاولة.');
   };
@@ -16,6 +16,8 @@ export async function sendMedicalReportWhatsApp({ record, settings, output, tab,
     { withBackground: output.withBackground });
   checkTab();
   downloadMedicalReportFile(output);
+  if (afterDownload) await afterDownload();
+  checkTab();
   tab.opener = null;
   tab.location.href = share.whatsappUrl;
   try {

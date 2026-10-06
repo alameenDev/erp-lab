@@ -1,5 +1,7 @@
 <script setup>
-import { printMedicalReportPages } from "@/utils/medicalReportPages";
+import { executeReportAction, reportActionStatusError } from "@/utils/executeReportAction";
+import ReportActionStatus from "@/components/ReportActionStatus.vue";
+import { reportActionStatus } from "@/utils/reportActionStatus";
 import { downloadMedicalReportFile } from "@/utils/medicalReportOutput";
 
 import { ref, computed, watch, onMounted, nextTick } from "vue";
@@ -14,7 +16,6 @@ import { usePrint } from "@/composables/usePrint";
 import { useLabSettingsStore } from "@/store/modules/labSettings";
 import { t, dateTimeFormat } from "@/utils/helper";
 import { useToast } from "@/composables/useToast";
-import { sendMedicalReportWhatsApp, reportSentStatusError } from "@/utils/sharePatientPortal";
 import * as XLSX from "xlsx";
 import BarcodeComponent from "@/components/BarcodeComponent.vue";
 import pationtHistoryModal from "./componentes/pationtHistory_modal.vue";
@@ -161,6 +162,7 @@ const exportToExcel = () => {
     created_by: r.created_by?.name,
     signed_by: r.signed_by?.name,
     status: r.is_done ? "Done" : "Pending",
+    report_action: reportActionStatus(r).label,
   }));
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
@@ -253,7 +255,7 @@ const handlePrintSelection = async (selection) => {
   if (reportActionBusy.value || !printRecord.value) return;
   reportActionBusy.value = true;
   const previewTab = selection.action === "preview" ? window.open("about:blank", "_blank") : null;
-  const whatsappTab = selection.action === "whatsapp" ? window.open("about:blank", "_blank") : null;
+  const whatsappTab = ["whatsapp", "whatsapp-download"].includes(selection.action) ? window.open("about:blank", "_blank") : null;
   // Save original data (deep copy arrays)
   const printTab = ["print", "print-download"].includes(selection.action) ? window.open("about:blank", "_blank") : null;
   const original = {
@@ -275,26 +277,20 @@ const handlePrintSelection = async (selection) => {
     await new Promise((r) => setTimeout(r, 200));
     const withBg = selection.withBackground && Boolean(reportBackground.value);
     if (["print", "print-download"].includes(selection.action) && !printTab) throw new Error('اسمح بالنوافذ المنبثقة للطباعة.');
-    const result = await downloadAsPdf(withBg, ["download", "print-download"].includes(selection.action) ? "download" : "blob");
+    const result = await downloadAsPdf(withBg, "blob");
     if (!result) { printTab?.close(); previewTab?.close(); whatsappTab?.close(); return; }
 
-    if (selection.action === "preview") {
-      if (result) {
-        const url = URL.createObjectURL(result.blob);
-        if (previewTab) previewTab.location.href = url;
-        else window.open(url, "_blank");
-        setTimeout(() => URL.revokeObjectURL(url), 120000);
-      } else previewTab?.close();
-    } else if (selection.action === "whatsapp") {
-      const { statusError } = await sendMedicalReportWhatsApp({
-        record: printRecord.value, settings: labSettingsStore.settings, output: result,
-        tab: whatsappTab, markSent: invoicesStore.changeInvoiceStatus,
-      });
-      if (statusError) toast.error(reportSentStatusError);
-      else toast.success("نُزّل PDF وفُتحت محادثة المريض مع رابط البوابة. أرفق الملف ثم أرسل الرسالة.");
-    }
-    if (selection.action === "print" || selection.action === "print-download") {
-      await printMedicalReportPages(result.pages, printTab);
+    if (selection.action === 'preview') {
+      const url = URL.createObjectURL(result.blob);
+      if (previewTab) previewTab.location.href = url; else window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 120000);
+    } else {
+      const { statusError } = await executeReportAction({ action: selection.action, output: result,
+        record: printRecord.value, settings: labSettingsStore.settings, printTab, whatsappTab, store: invoicesStore });
+      if (statusError) toast.error(reportActionStatusError);
+      else if (['whatsapp', 'whatsapp-download'].includes(selection.action)) {
+        toast.success('نُزّل PDF وفُتحت محادثة المريض مع رابط البوابة. أرفق الملف ثم أرسل الرسالة.');
+      }
     }
 
     if (selection.action !== "preview") printSelectVisible.value = false;
@@ -675,7 +671,7 @@ onMounted(async () => {
                 <th v-if="!patientId" class="px-5 py-4 text-start text-xs font-semibold text-slate-600 uppercase tracking-wider">{{ t("Barcode") }}</th>
                 <th class="px-5 py-4 text-start text-xs font-semibold text-slate-600 uppercase tracking-wider">{{ t("sign_by") }}</th>
                 <th class="px-5 py-4 text-start text-xs font-semibold text-slate-600 uppercase tracking-wider">{{ t("theStatus") }}</th>
-                <th class="px-5 py-4 text-start text-xs font-semibold text-slate-600 uppercase tracking-wider">{{ t("is_sent_to_patient") }}</th>
+                <th class="px-5 py-4 text-start text-xs font-semibold text-slate-600 uppercase tracking-wider">حالة إجراء التقرير</th>
                 <th class="px-5 py-4 text-start text-xs font-semibold text-slate-600 uppercase tracking-wider">{{ t("actions") }}</th>
               </tr>
             </thead>
@@ -715,10 +711,7 @@ onMounted(async () => {
                   </span>
                 </td>
                 <td class="px-5 py-4">
-                  <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold" :class="item.sent_to_patient ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'">
-                    <span class="w-2 h-2 rounded-full" :class="item.sent_to_patient ? 'bg-green-500' : 'bg-red-500'"></span>
-                    {{ item.sent_to_patient ? t('done') : t('pendening') }}
-                  </span>
+                  <ReportActionStatus :record="item" />
                 </td>
                 <td class="px-5 py-4">
                   <div class="flex items-center gap-1">

@@ -651,6 +651,7 @@ class InvoiceController extends Controller
             'is_signed' => $invoice->is_signed == 1,
             'is_done' => $invoice->is_done == 1,
             'sent_to_patient' => $invoice->sent_to_patient == 1,
+            'report_status' => $invoice->reportActionStatus(),
             'total' => $invoice->total,
             'sub_total' => $invoice->sub_total,
             'paid' => $invoice->paidDetails->sum('amount'),
@@ -806,6 +807,7 @@ class InvoiceController extends Controller
             'patient_id_fk' => $invoice->patient_id_fk,
             'lab_id_fk' => $invoice->lab_id_fk,
             'sent_to_patient' => $invoice->sent_to_patient == 1,
+            'report_status' => $invoice->reportActionStatus(),
             'patient' => $invoice->patient ? $this->transformPatient($invoice->patient) : null,
             'paidDetails' => $invoice->paidDetails ? $invoice->paidDetails?->map(fn ($detail) => $this->transformPaidDetail($detail)) : null,
             'referral' => $this->transformReferral($invoice->referral),
@@ -1697,30 +1699,53 @@ class InvoiceController extends Controller
      */
     public function sendInvoice(Request $request)
     {
+        $request->validate(['action' => 'sometimes|in:whatsapp,whatsapp-download']);
+        $request->merge(['action' => $request->input('action', 'whatsapp')]);
+        return $this->recordReportAction($request);
+    }
+
+    /** Record a completed browser handoff, not a printer/delivery receipt. */
+    public function recordReportAction(Request $request)
+    {
+        $data = $request->validate([
+            'id' => 'required|integer|min:1',
+            'action' => 'required|in:print,download,print-download,whatsapp,whatsapp-download',
+            'with_background' => 'sometimes|boolean',
+        ]);
         $user = Auth::user();
-        if (! $user->hasPermissionTo(permission: 'invoices send whatsapp')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
-        }
-        $invoice = Invoice::find($request->id);
-        if (! $invoice) {
-            return response()->json(['message' => 'invoice not found'], 404);
+        $sharing = in_array($data['action'], ['whatsapp', 'whatsapp-download'], true);
+        if ($sharing ? ! $user->hasPermissionTo('invoices send whatsapp') :
+            ! $user->hasAnyPermission(['invoices print', 'medical reports results view', 'medical reports update'])) {
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        // Tenant check
-        if ($user->role_id != 1) {
-            $users_ids = $this->getTenantUserIds();
-            if (! in_array($invoice->lab_id_fk, $users_ids)) {
-                return response()->json(['message' => 'Unauthorized'], 403);
+        return DB::transaction(function () use ($request, $data, $user, $sharing) {
+            // Serialize updates so simultaneous print/save/share actions accumulate.
+            $query = Invoice::query();
+            if ($user->role_id != 1) {
+                $query->whereIn('lab_id_fk', $this->getTenantUserIds());
             }
-        }
-
-        $invoice->sent_to_patient = true;
-        $invoice->public_with_background = $request->boolean('with_background', true);
-
-        $invoice->save();
-
-        return response()->json(['message' => 'invoice sent']);
-
+            $invoice = $query->lockForUpdate()->findOrFail($data['id']);
+            $now = now();
+            if (in_array($data['action'], ['print', 'print-download'], true)) {
+                $invoice->report_printed_at = $now;
+            }
+            if (in_array($data['action'], ['download', 'print-download', 'whatsapp-download'], true)) {
+                $invoice->report_saved_at = $now;
+            }
+            if ($sharing) {
+                $invoice->report_sent_at = $now;
+                $invoice->sent_to_patient = true;
+                $invoice->public_with_background = $request->boolean('with_background', true);
+            }
+            $invoice->save();
+            return response()->json([
+                'id' => $invoice->id,
+                'report_status' => $invoice->reportActionStatus(),
+                'sent_to_patient' => (bool) $invoice->sent_to_patient,
+                'public_with_background' => (bool) $invoice->public_with_background,
+            ]);
+        });
     }
 
     /**

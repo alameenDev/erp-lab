@@ -52,7 +52,8 @@ try {
           if (mode === 'delayed-save') await new Promise(resolve => { releaseSave = resolve; });
           database.sent_to_patient = true;
           database.public_with_background = JSON.parse(config.data).with_background;
-          data = { message: 'invoice sent' };
+          data = { id: database.id, sent_to_patient: true, public_with_background: database.public_with_background, report_status: { printed: false, saved: false, sent: true, sent_at: '2026-10-06T08:00:00Z' } };
+          database.report_status = data.report_status;
         } else if (url === 'invoices') {
           check(JSON.stringify(config.params) === JSON.stringify(params), 'refresh keeps filters and pagination');
           if (mode === 'refresh') throw new Error('Refresh unavailable');

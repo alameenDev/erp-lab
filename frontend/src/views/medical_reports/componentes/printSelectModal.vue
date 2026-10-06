@@ -15,6 +15,7 @@ const search = ref("");
 const action = ref("print");
 const withBackground = ref(null);
 const phone = ref("");
+const sharing = value => ["whatsapp", "whatsapp-download"].includes(value);
 const phoneValid = computed(() => phone.value.replace(/\D/g, "").length >= 10);
 const selected = ref(new Set());
 const sections = computed(() => [
@@ -57,7 +58,7 @@ function toggleSection(section) {
 }
 function close() { if (!props.busy) emit("update:modelValue", false); }
 function execute(nextAction = action.value) {
-  if (props.busy || !selectedCount.value || (nextAction === "whatsapp" && !phoneValid.value)) return;
+  if (props.busy || !selectedCount.value || (sharing(nextAction) && (!phoneValid.value || !props.canShare))) return;
   const chosen = key => sections.value.find(section => section.key === key).items.flatMap((_, i) => selected.value.has(keyFor(key, i)) ? [i] : []);
   emit("execute", {
     tests: chosen("tests"), cultures: chosen("cultures"), testGroups: chosen("testGroups"), packages: chosen("packages"),
@@ -102,23 +103,23 @@ function execute(nextAction = action.value) {
             <p v-if="!visibleSections.length" class="p-6 text-center text-sm text-slate-500">لا توجد عناصر تطابق البحث.</p>
           </div>
           <h3 class="mb-3 mt-5 text-sm font-bold text-slate-800">طريقة الإخراج</h3>
-          <div class="grid gap-2 sm:grid-cols-4">
-            <label v-for="option in [{ key:'print', title:'طباعة مباشرة', hint:'إرسال التقرير للطابعة' }, { key:'download', title:'حفظ PDF', hint:'تنزيل التقرير كملف' }, { key:'whatsapp', title:'إرسال واتساب', hint:'رابط البوابة وملف PDF للإرفاق' }, { key:'print-download', title:'طباعة + حفظ', hint:'طباعة وتنزيل PDF' }]" :key="option.key" class="cursor-pointer rounded-xl border p-3 text-sm" :class="[action === option.key ? 'border-blue-600 bg-blue-50' : 'border-slate-200', option.key === 'whatsapp' && !canShare ? 'opacity-50' : '']">
-              <input v-model="action" type="radio" name="report-action" :value="option.key" :disabled="option.key === 'whatsapp' && !canShare" class="accent-blue-600" /><strong class="ms-1">{{ option.title }}</strong><small class="mt-1 block text-slate-500">{{ option.hint }}</small>
+          <div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-5">
+            <label v-for="option in [{ key:'print', title:'طباعة مباشرة', hint:'إرسال التقرير للطابعة' }, { key:'download', title:'حفظ PDF', hint:'تنزيل التقرير كملف' }, { key:'whatsapp', title:'إرسال واتساب', hint:'رابط البوابة وملف PDF للإرفاق' }, { key:'print-download', title:'طباعة + حفظ', hint:'طباعة وتنزيل PDF' }, { key:'whatsapp-download', title:'حفظ + إرسال', hint:'حفظ PDF وفتح واتساب' }]" :key="option.key" class="cursor-pointer rounded-xl border p-3 text-sm" :class="[action === option.key ? 'border-blue-600 bg-blue-50' : 'border-slate-200', sharing(option.key) && !canShare ? 'opacity-50' : '']">
+              <input v-model="action" type="radio" name="report-action" :value="option.key" :disabled="sharing(option.key) && !canShare" class="accent-blue-600" /><strong class="ms-1">{{ option.title }}</strong><small class="mt-1 block text-slate-500">{{ option.hint }}</small>
             </label>
           </div>
           <div class="mt-4 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
-            <label v-if="action === 'whatsapp'" class="text-sm font-medium text-slate-700">رقم هاتف المريض المسجل<input :value="phone" type="tel" dir="ltr" readonly class="mt-1 block w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2" /></label>
+            <label v-if="sharing(action)" class="text-sm font-medium text-slate-700">رقم هاتف المريض المسجل<input :value="phone" type="tel" dir="ltr" readonly class="mt-1 block w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2" /></label>
             <label v-if="hasBackground" class="flex items-center gap-2 text-sm text-slate-700"><input v-model="withBackground" type="checkbox" class="accent-blue-600" /> الطباعة على فورمة المختبر</label>
-            <p class="text-xs text-slate-500 sm:col-span-2">الفورمة والتنسيق المحددان يُطبّقان على المعاينة والطباعة والحفظ وملف الواتساب بنفس الشكل.</p>
-            <p v-if="action === 'whatsapp'" class="text-xs text-slate-500 sm:col-span-2">تُفتح محادثة الرقم المسجل برسالة تحتوي رابط بوابة المريض ويُنزل ملف PDF. أرفق الملف بالمحادثة واضغط إرسال؛ واتساب لا يرفق الملفات تلقائياً من رابط wa.me.</p>
+            <p class="text-xs text-slate-500 sm:col-span-2">تُسجّل الحالة بعد تنفيذ الإجراء. الفورمة والتنسيق المحددان يُطبّقان على المعاينة والطباعة والحفظ وملف الواتساب بنفس الشكل.</p>
+            <p v-if="sharing(action)" class="text-xs text-slate-500 sm:col-span-2">تُفتح محادثة الرقم المسجل برسالة تحتوي رابط بوابة المريض ويُنزل ملف PDF. أرفق الملف بالمحادثة واضغط إرسال؛ واتساب لا يرفق الملفات تلقائياً من رابط wa.me.</p>
           </div>
         </div>
         <div class="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-white px-5 py-4 sm:px-7">
           <button type="button" class="rounded-lg border border-slate-200 px-5 py-2.5 text-sm" @click="close">إلغاء</button>
           <div class="flex gap-2">
             <button type="button" :disabled="!selectedCount || busy" class="rounded-lg border border-blue-600 px-5 py-2.5 text-sm font-semibold text-blue-700 disabled:opacity-50" @click="execute('preview')">معاينة التقرير</button>
-            <button type="button" :disabled="!selectedCount || busy || (action === 'whatsapp' && !phoneValid)" class="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-50" @click="execute()">{{ busy ? 'جاري تجهيز التقرير...' : 'تنفيذ' }}</button>
+            <button type="button" :disabled="!selectedCount || busy || (sharing(action) && (!phoneValid || !canShare))" class="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-50" @click="execute()">{{ busy ? 'جاري تجهيز التقرير...' : 'تنفيذ' }}</button>
           </div>
         </div>
       </div>

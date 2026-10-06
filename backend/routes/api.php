@@ -390,6 +390,7 @@ Route::group(['middleware' => ['auth:sanctum', \App\Http\Middleware\RestrictRefe
     Route::post('invoices/search-phone', [InvoiceController::class, 'searchByPhone']);
     Route::post('invoices/search-code', [InvoiceController::class, 'searchByCode']);
     Route::post('invoices/send', [InvoiceController::class, 'sendInvoice']);
+    Route::post('invoices/report-action', [InvoiceController::class, 'recordReportAction']);
     Route::put('invoices/update', [InvoiceController::class, 'update']);
     Route::post('invoices/update-result', [InvoiceController::class, 'updateResult']);
     Route::post('invoices/add-payment', [InvoiceController::class, 'addPayment']);

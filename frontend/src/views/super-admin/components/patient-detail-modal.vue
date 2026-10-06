@@ -1,4 +1,5 @@
 <script setup>
+import ReportActionStatus from "@/components/ReportActionStatus.vue";
 import { computed, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useSuperAdminStore } from "@/store/modules/superAdmin";
@@ -208,7 +209,7 @@ watch(activeTab, (val) => {
                                         <th class="text-start px-4 py-2.5 font-medium text-gray-600">{{ t("lab/bruanch") }}</th>
                                         <th class="text-start px-4 py-2.5 font-medium text-gray-600">{{ t("Created_By") }}</th>
                                         <th class="text-start px-4 py-2.5 font-medium text-gray-600">{{ t("theStatus") }}</th>
-                                        <th class="text-start px-4 py-2.5 font-medium text-gray-600">{{ t("is_sent_to_patient") }}</th>
+                                        <th class="text-start px-4 py-2.5 font-medium text-gray-600">حالة إجراء التقرير</th>
                                         <th class="text-start px-4 py-2.5 font-medium text-gray-600">{{ t("actions") }}</th>
                                    </tr>
                               </thead>
@@ -228,12 +229,7 @@ watch(activeTab, (val) => {
                                              </span>
                                         </td>
                                         <td class="px-4 py-2.5">
-                                             <span
-                                                  class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
-                                                  :class="report.sent_to_patient ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'"
-                                             >
-                                                  {{ report.sent_to_patient ? t("done") : t("pendening") }}
-                                             </span>
+                                             <ReportActionStatus :record="report" />
                                         </td>
                                         <td class="px-4 py-2.5">
                                              <button

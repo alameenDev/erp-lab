@@ -1,0 +1,25 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>حالة إجراء التقرير</title></head><body><div id="app"></div>
+<script type="module">
+import { createApp, h, nextTick, ref } from 'vue';
+import { createPinia } from 'pinia';
+import { useinvoicesStore } from '/src/store/modules/invoices';
+import { $http } from '/src/plugins/axios';
+import { executeReportAction } from '/src/utils/executeReportAction';
+import { reportActionStatus } from '/src/utils/reportActionStatus';
+import Badge from '/src/components/ReportActionStatus.vue';
+import Modal from '/src/views/medical_reports/componentes/printSelectModal.vue';
+import '/src/assets/main.css';
+createApp({ setup() {
+  const store = useinvoicesStore(), open = ref(false), canShare = ref(true);
+  store.printRecord = { id:14, barcode:'SAMPLE-14', patient:{ id:1,name:'مريض تجريبي',phone:'07700000000' },tests:[{name:'CBC',is_done:true}] };
+  window.fixture = { store, $http, executeReportAction, reportActionStatus, nextTick, canShare, selections:[] };
+  return () => h('main', {class:'mx-auto max-w-4xl space-y-5 p-5'}, [
+    h('h1',{class:'text-xl font-bold'},'حالة إجراء التقرير'),
+    h('p',{class:'text-sm text-slate-500'},'الطباعة والحفظ والإرسال — بيانات تجريبية'),
+    h('section',{class:'rounded-xl border bg-white p-5'},[h('p',{class:'mb-3'},'الفاتورة #14'),h(Badge,{record:store.invoices[0] || {},id:'current-status'})]),
+    h('section',{class:'grid gap-4 rounded-xl border bg-white p-5 sm:grid-cols-2'},Array.from({length:8},(_,mask)=>h(Badge,{record:{report_status:{printed:!!(mask&1),saved:!!(mask&2),sent:!!(mask&4)}}}))),
+    h('button',{class:'rounded-lg bg-blue-600 px-5 py-3 text-white',onClick:()=>open.value=true},'إخراج التقرير'),
+    h(Modal,{modelValue:open.value,'onUpdate:modelValue':value=>open.value=value,canShare:canShare.value,hasBackground:true,onExecute:selection=>{window.fixture.selections.push(selection);open.value=false;}}),
+  ]);
+}}).use(createPinia()).mount('#app');
+</script><style>body{background:#f8fafc;font-family:Arial}</style></body></html>
