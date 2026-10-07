@@ -36,6 +36,9 @@ class PatientMobileAccess
 
     public function db()
     {
+        $name = (string) config('database.connections.patient_mobile.database');
+        $erp = (string) config('database.connections.'.config('database.default').'.database');
+        abort_if($name === '' || $name === $erp, 503, 'خدمة الربط غير مهيأة بعد.');
         return DB::connection('patient_mobile');
     }
 

@@ -8,8 +8,18 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     protected $connection = 'patient_mobile';
 
+    private function assertSeparateDatabase(): void
+    {
+        $name = (string) config('database.connections.patient_mobile.database');
+        $erp = (string) config('database.connections.'.config('database.default').'.database');
+        if ($name === '' || $name === $erp) {
+            throw new \RuntimeException('Pairing requires a separately named database; refusing to modify ERP.');
+        }
+    }
+
     public function up(): void
     {
+        $this->assertSeparateDatabase();
         $schema = Schema::connection($this->getConnection());
         $schema->create('mobile_pairing_codes', function (Blueprint $table) {
             $table->id();
@@ -37,6 +47,7 @@ return new class extends Migration {
 
     public function down(): void
     {
+        $this->assertSeparateDatabase();
         $schema = Schema::connection($this->getConnection());
         $schema->dropIfExists('mobile_patient_sessions');
         $schema->dropIfExists('mobile_pairing_codes');
