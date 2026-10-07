@@ -1,0 +1,431 @@
+[
+  {
+    "name": "digit keypad and dependent formulas",
+    "tests": [
+      {
+        "name": "L%",
+        "shortcut": "L%",
+        "result": 30,
+        "is_done": true
+      },
+      {
+        "name": "MID%",
+        "shortcut": "MID%",
+        "result": 5,
+        "is_done": true
+      },
+      {
+        "name": "WBC",
+        "shortcut": "WBC",
+        "result": 10,
+        "is_done": true
+      }
+    ],
+    "formula": [
+      {
+        "name": "Neutro%",
+        "tokens": [
+          "1",
+          "0",
+          "0",
+          "-",
+          "(",
+          "L%",
+          "+",
+          "MID%",
+          ")"
+        ]
+      },
+      {
+        "name": "N",
+        "tokens": [
+          "WBC",
+          "*",
+          "Neutro%",
+          "/",
+          "1",
+          "0",
+          "0"
+        ]
+      }
+    ],
+    "expected": {
+      "Neutro%": {
+        "value": 65,
+        "complete": true,
+        "reason": null
+      },
+      "N": {
+        "value": 6.5,
+        "complete": true,
+        "reason": null
+      }
+    }
+  },
+  {
+    "name": "reverse chain ignores saved target and supports repeated dependencies",
+    "tests": [
+      {
+        "name": "A",
+        "shortcut": "A",
+        "result": 2,
+        "is_done": true
+      },
+      {
+        "name": "B",
+        "shortcut": "B",
+        "result": 999,
+        "is_done": false
+      }
+    ],
+    "formula": [
+      {
+        "name": "C",
+        "tokens": [
+          "B",
+          "+",
+          "B"
+        ]
+      },
+      {
+        "name": "B",
+        "tokens": [
+          "A",
+          "*",
+          "3"
+        ]
+      }
+    ],
+    "expected": {
+      "B": {
+        "value": 6,
+        "complete": true,
+        "reason": null
+      },
+      "C": {
+        "value": 12,
+        "complete": true,
+        "reason": null
+      }
+    }
+  },
+  {
+    "name": "zero and unary values",
+    "tests": [
+      {
+        "name": "A",
+        "shortcut": "A",
+        "result": "0",
+        "is_done": true
+      }
+    ],
+    "formula": [
+      {
+        "name": "B",
+        "tokens": [
+          "-",
+          "A",
+          "+",
+          "(",
+          "-",
+          "2",
+          ")"
+        ]
+      }
+    ],
+    "expected": {
+      "B": {
+        "value": -2,
+        "complete": true,
+        "reason": null
+      }
+    }
+  },
+  {
+    "name": "unapproved value is preview only",
+    "tests": [
+      {
+        "name": "A",
+        "shortcut": "A",
+        "result": 3,
+        "is_done": false
+      }
+    ],
+    "formula": [
+      {
+        "name": "B",
+        "tokens": [
+          "A",
+          "*",
+          "2"
+        ]
+      },
+      {
+        "name": "C",
+        "tokens": [
+          "B",
+          "+",
+          "1"
+        ]
+      }
+    ],
+    "expected": {
+      "B": {
+        "value": 6,
+        "complete": false,
+        "reason": "unapproved"
+      },
+      "C": {
+        "value": 7,
+        "complete": false,
+        "reason": "unapproved"
+      }
+    }
+  },
+  {
+    "name": "blank input cannot become zero",
+    "tests": [
+      {
+        "name": "A",
+        "shortcut": "A",
+        "result": "",
+        "is_done": true
+      }
+    ],
+    "formula": [
+      {
+        "name": "B",
+        "tokens": [
+          "A",
+          "+",
+          "1"
+        ]
+      }
+    ],
+    "expected": {
+      "B": {
+        "value": null,
+        "complete": false,
+        "reason": "missing"
+      }
+    }
+  },
+  {
+    "name": "division by zero",
+    "tests": [
+      {
+        "name": "A",
+        "shortcut": "A",
+        "result": 0,
+        "is_done": true
+      }
+    ],
+    "formula": [
+      {
+        "name": "B",
+        "tokens": [
+          "1",
+          "/",
+          "A"
+        ]
+      }
+    ],
+    "expected": {
+      "B": {
+        "value": null,
+        "complete": false,
+        "reason": "division_by_zero"
+      }
+    }
+  },
+  {
+    "name": "cycle ignores stale saved targets",
+    "tests": [
+      {
+        "name": "A",
+        "shortcut": "A",
+        "result": 1,
+        "is_done": true
+      },
+      {
+        "name": "B",
+        "shortcut": "B",
+        "result": 2,
+        "is_done": true
+      }
+    ],
+    "formula": [
+      {
+        "name": "A",
+        "tokens": [
+          "B",
+          "+",
+          "1"
+        ]
+      },
+      {
+        "name": "B",
+        "tokens": [
+          "A",
+          "+",
+          "1"
+        ]
+      }
+    ],
+    "expected": {
+      "A": {
+        "value": null,
+        "complete": false,
+        "reason": "cycle"
+      },
+      "B": {
+        "value": null,
+        "complete": false,
+        "reason": "cycle"
+      }
+    }
+  },
+  {
+    "name": "invalid syntax",
+    "tests": [
+      {
+        "name": "A",
+        "shortcut": "A",
+        "result": 2,
+        "is_done": true
+      }
+    ],
+    "formula": [
+      {
+        "name": "B",
+        "tokens": [
+          "A",
+          ")",
+          "+",
+          "1"
+        ]
+      }
+    ],
+    "expected": {
+      "B": {
+        "value": null,
+        "complete": false,
+        "reason": "invalid"
+      }
+    }
+  },
+  {
+    "name": "name alias and repeated shared input",
+    "tests": [
+      {
+        "name": "White blood cells",
+        "shortcut": "WBC",
+        "result": "1.2e1",
+        "is_done": "1"
+      }
+    ],
+    "formula": [
+      {
+        "name": "B",
+        "tokens": [
+          "White blood cells",
+          "+",
+          "WBC"
+        ]
+      }
+    ],
+    "expected": {
+      "B": {
+        "value": 24,
+        "complete": true,
+        "reason": null
+      }
+    }
+  },
+  {
+    "name": "non-numeric results fail closed",
+    "tests": [
+      {
+        "name": "A",
+        "shortcut": "A",
+        "result": "<5",
+        "is_done": true
+      }
+    ],
+    "formula": [
+      {
+        "name": "B",
+        "tokens": [
+          "A",
+          "+",
+          "1"
+        ]
+      }
+    ],
+    "expected": {
+      "B": {
+        "value": null,
+        "complete": false,
+        "reason": "missing"
+      }
+    }
+  },
+  {
+    "name": "negative half rounding",
+    "tests": [],
+    "formula": [
+      {
+        "name": "B",
+        "tokens": [
+          "-",
+          "1",
+          ".",
+          "1",
+          "2",
+          "5"
+        ]
+      }
+    ],
+    "expected": {
+      "B": {
+        "value": -1.12,
+        "complete": true,
+        "reason": null
+      }
+    }
+  },
+  {
+    "name": "duplicate conflicting definitions",
+    "tests": [
+      {
+        "name": "A",
+        "shortcut": "A",
+        "result": 2,
+        "is_done": true
+      }
+    ],
+    "formula": [
+      {
+        "name": "B",
+        "tokens": [
+          "A"
+        ]
+      },
+      {
+        "name": "B",
+        "tokens": [
+          "A",
+          "*",
+          "2"
+        ]
+      }
+    ],
+    "expected": {
+      "B": {
+        "value": null,
+        "complete": false,
+        "reason": "invalid"
+      }
+    }
+  }
+]

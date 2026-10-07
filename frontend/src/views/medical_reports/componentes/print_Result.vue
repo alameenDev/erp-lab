@@ -1,4 +1,5 @@
 <script setup>
+import { reportFormulaValue, isFormulaTarget, findFormulaTest, formulaDefinitions } from '@/utils/reportFormulas';
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useRoute } from "vue-router";
@@ -450,13 +451,14 @@ const allTestsMerged = computed(() => {
   // Standalone tests
   groupedTests.value.forEach(g => addTests(g.category, g.tests, false, g.bundle));
   // Test group tests
-  printRecord.value?.test_groups?.forEach(g => addTests(g.category, g.tests?.filter(t => !hasRealTemplate(t) && !isFormulaTarget(g, t)), g.is_print_alone));
+  printRecord.value?.test_groups?.forEach(g => addTests(g.category, formulaRows(g, g.tests?.filter(t => !hasRealTemplate(t))), g.is_print_alone));
+  printRecord.value?.packages?.forEach((pkg, index) => addTests(null, formulaRows(pkg, (pkg.tests || []).filter(t => isFormulaTarget(pkg, t))), false, `package:${index}`));
   // A package's own tests are already flattened into groupedTests above; the
   // group-sourced ones come through here. Pass a null category: show_test_names
   // is OFF in merged mode, so emitting the group NAME as a heading would leak
   // exactly what the setting hides. Formula targets are NOT filtered out —
   // merged mode renders no formula rows, so excluding them would print nothing.
-  packageGroupSections.value.forEach((sec) => addTests(null, sec.rows || [], sec.is_print_alone, sec.bundle));
+  packageGroupSections.value.forEach((sec) => addTests(null, formulaRows(sec, sec.rows || []), sec.is_print_alone, sec.bundle));
   return sections;
 });
 
@@ -495,6 +497,7 @@ const packageGroupSections = computed(() => {
         bundle: `package:${packageIndex}`,
         is_print_alone: meta?.is_print_alone == 1,
         formula,
+        calculation_formulas: formulaDefinitions(pkg),
         // `tests` feeds the formula helpers, so it must span the WHOLE package:
         // a group formula may reference a test that is also a package member and
         // was deduped out of the tagged set — otherwise the row evaluates blank.
@@ -506,16 +509,7 @@ const packageGroupSections = computed(() => {
   return sections;
 });
 
-const isFormulaTarget = (parent, test) => {
-  const formulas = Array.isArray(parent?.formula) ? parent.formula : [];
-  if (!formulas.length) return false;
-  const key = test.shortcut || test.name;
-  return formulas.some(f => f?.name === key);
-};
-
-const findTestByKey = (parent, key) => {
-  return (parent?.tests || []).find(t => (t.shortcut || t.name) === key);
-};
+const findTestByKey = findFormulaTest;
 
 const getTestLabel = (parent, key) => {
   const t = findTestByKey(parent, key);
@@ -545,44 +539,14 @@ const getFormulaStatusId = (parent, f) => {
   return 2;
 };
 
-// Recursive evaluator with cycle guard. Tokens resolve against child test
-// results first, then against sibling formulas (so D=A-C resolves once A is
-// computed). visited set breaks circular deps (A=B+1, B=A+1 → both return "").
-const evalFormulaValue = (parent, f, visited) => {
-  if (!f?.tokens?.length) return "";
-  const tests = parent?.tests || [];
-  const formulas = Array.isArray(parent?.formula) ? parent.formula : [];
-  const seen = visited || new Set();
-  const fKey = f.name || "";
-  if (fKey && seen.has(fKey)) return ""; // cycle
-  if (fKey) seen.add(fKey);
+// Merged tables have no separate formula rows, so project the same calculated
+// values into their targets instead of printing an old saved number or hiding it.
+const formulaRows = (parent, rows = []) => rows.map(test => {
+  const f = (parent.formula || []).find(f => isFormulaTarget({formula:[f]}, test));
+  return f ? {...test, result:reportFormulaValue(parent, f), result_status_id_fk:getFormulaStatusId(parent, f)} : test;
+});
 
-  let expr = "";
-  for (const tok of f.tokens) {
-    if (/^[+\-*/()]$/.test(tok)) { expr += tok; continue; }
-    if (/^[\d.]+$/.test(tok)) { expr += tok; continue; }
-    let val = NaN;
-    const t2 = tests.find(t => (t.shortcut || t.name) === tok);
-    if (t2) val = parseFloat(t2.result);
-    if (isNaN(val)) {
-      const sibling = formulas.find(x => x?.name === tok);
-      if (sibling) {
-        const sub = evalFormulaValue(parent, sibling, seen);
-        val = sub === "" ? NaN : parseFloat(sub);
-      }
-    }
-    if (isNaN(val)) return "";
-    expr += `(${val})`;
-  }
-  if (!/^[\d+\-*/().\s]+$/.test(expr)) return "";
-  try {
-    const r = Function(`"use strict"; return (${expr});`)();
-    if (typeof r === "number" && !isNaN(r)) return Math.round(r * 100) / 100;
-  } catch (_) { /* ignore */ }
-  return "";
-};
-
-const computeAllFormulas = () => { /* no-op, computed inline */ };
+const evalFormulaValue = reportFormulaValue;
 
 const getData = async () => {
   try {
@@ -601,7 +565,6 @@ const getData = async () => {
       const { data } = await $http.get(`/invoices/public/${patientId.value}`);
       printRecord.value = data;
     }
-    computeAllFormulas();
   } catch (err) {
     if ((sharedReferralReport.value && [403, 404, 409].includes(err?.response?.status)) || (!hasToken && err?.response?.status === 403) || (referralReport.value && err?.response?.status === 409)) {
       reportNotReady.value = true;

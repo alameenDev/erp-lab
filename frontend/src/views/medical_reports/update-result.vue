@@ -758,7 +758,7 @@
                       inputmode="decimal"
                       pattern="-?[0-9]*\.?[0-9]*"
                       v-model="test.result"
-                      @input="autoDetectStatus(test); evalPkgFormulas(pkg, pIndex)"
+                      @input="autoDetectStatus(test)"
                       @change="autoDetectStatus(test)"
                       @keydown.enter.prevent="confirmAndNextPackage(test, $event)"
                       data-pkg-row
@@ -768,7 +768,7 @@
                     <select
                       v-else-if="Number(test.result_type_id_fk) === 4"
                       v-model="test.result"
-                      @change="evalPkgFormulas(pkg, pIndex)"
+                      @change="autoDetectStatus(test)"
                       @keydown.enter.prevent="confirmAndNextPackage(test, $event)"
                       data-pkg-row
                       class="w-36 px-2.5 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none bg-white"
@@ -780,7 +780,7 @@
                       v-else
                       type="text"
                       v-model="test.result"
-                      @input="autoDetectStatus(test); evalPkgFormulas(pkg, pIndex)"
+                      @input="autoDetectStatus(test)"
                       @change="autoDetectStatus(test)"
                       @keydown.enter.prevent="confirmAndNextPackage(test, $event)"
                       data-pkg-row
@@ -839,23 +839,25 @@
                 class="p-4 bg-amber-50/40 border-t border-amber-100 space-y-2"
               >
                 <div class="text-xs font-bold text-amber-700">{{ sec.group_name }}</div>
-                <div v-for="(f, fi) in sec.formula" :key="'pgf-' + fi" class="flex items-center gap-3">
+                <div v-for="(f, fi) in sec.formula" :key="'pgf-' + fi" class="flex flex-wrap items-center gap-3" :data-formula-name="f.name">
                   <span class="text-sm font-semibold text-emerald-700 min-w-[80px]">{{ f.name || t("formula") }}:</span>
-                  <span class="text-xs font-mono text-emerald-600 flex-1">{{ (f.tokens || []).join(" ") }}</span>
+                  <span class="text-xs font-mono text-emerald-600 flex-1" dir="ltr">{{ (f.tokens || []).join(" ") }}</span>
                   <span class="text-sm text-slate-500">=</span>
                   <span class="px-3 py-1.5 bg-white border border-emerald-200 rounded-lg text-sm font-mono font-bold text-emerald-700 min-w-[80px] text-center">
-                    {{ sec.formula_results?.[f.name || "result"] ?? "—" }}
+                    {{ formulaValue(sec, f) === "" ? "—" : formulaValue(sec, f) }}
                   </span>
+                    <small v-if="formulaHint(sec, f)" class="text-xs text-amber-700">{{ formulaHint(sec, f) }}</small>
                 </div>
               </div>
               <div v-if="Array.isArray(pkg.formula) && pkg.formula.length" class="p-4 bg-emerald-50/50 border-t border-emerald-100 space-y-2">
-                <div v-for="(f, fi) in pkg.formula" :key="'pkg-f-' + fi" class="flex items-center gap-3">
+                <div v-for="(f, fi) in pkg.formula" :key="'pkg-f-' + fi" class="flex flex-wrap items-center gap-3" :data-formula-name="f.name">
                   <span class="text-sm font-semibold text-emerald-700 min-w-[80px]">{{ f.name || t("formula") }}:</span>
-                  <span class="text-xs font-mono text-emerald-600 flex-1">{{ (f.tokens || []).join(" ") }}</span>
+                  <span class="text-xs font-mono text-emerald-600 flex-1" dir="ltr">{{ (f.tokens || []).join(" ") }}</span>
                   <span class="text-sm text-slate-500">=</span>
                   <span class="px-3 py-1.5 bg-white border border-emerald-200 rounded-lg text-sm font-mono font-bold text-emerald-700 min-w-[80px] text-center">
-                    {{ pkg.formula_results?.[f.name || "result"] ?? "—" }}
+                    {{ formulaValue(pkg, f) === "" ? "—" : formulaValue(pkg, f) }}
                   </span>
+                    <small v-if="formulaHint(pkg, f)" class="text-xs text-amber-700">{{ formulaHint(pkg, f) }}</small>
                 </div>
               </div>
 
@@ -944,7 +946,7 @@
                       inputmode="decimal"
                       pattern="-?[0-9]*\.?[0-9]*"
                       v-model="test.result"
-                      @input="autoDetectStatus(test); evalFormula(group)"
+                      @input="autoDetectStatus(test)"
                       @change="autoDetectStatus(test)"
                       @keydown.enter.prevent="confirmAndNextGroup(test, $event)"
                       :data-tg-row="gIndex + '-' + tIndex"
@@ -954,7 +956,7 @@
                     <select
                       v-else-if="Number(test.result_type_id_fk) === 4"
                       v-model="test.result"
-                      @change="evalFormula(group)"
+                      @change="autoDetectStatus(test)"
                       @keydown.enter.prevent="confirmAndNextGroup(test, $event)"
                       :data-tg-row="gIndex + '-' + tIndex"
                       class="w-36 px-2.5 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none bg-white"
@@ -966,7 +968,7 @@
                       v-else
                       type="text"
                       v-model="test.result"
-                      @input="autoDetectStatus(test); evalFormula(group)"
+                      @input="autoDetectStatus(test)"
                       @change="autoDetectStatus(test)"
                       @keydown.enter.prevent="confirmAndNextGroup(test, $event)"
                       :data-tg-row="gIndex + '-' + tIndex"
@@ -989,13 +991,14 @@
                   </div>
                 </div><ResultHistoryTable :rows="resultHistoryRows(updateResultRecord, test, 'test')" /></template>
                 <div v-if="Array.isArray(group.formula) && group.formula.length" class="p-4 bg-emerald-50/50 border-t border-emerald-100 space-y-2">
-                  <div v-for="(f, fi) in group.formula" :key="'g-f-' + fi" class="flex items-center gap-3">
+                  <div v-for="(f, fi) in group.formula" :key="'g-f-' + fi" class="flex flex-wrap items-center gap-3" :data-formula-name="f.name">
                     <span class="text-sm font-semibold text-emerald-700 min-w-[80px]">{{ f.name || t("formula") }}:</span>
-                    <span class="text-xs font-mono text-emerald-600 flex-1">{{ (f.tokens || []).join(" ") }}</span>
+                    <span class="text-xs font-mono text-emerald-600 flex-1" dir="ltr">{{ (f.tokens || []).join(" ") }}</span>
                     <span class="text-sm text-slate-500">=</span>
                     <span class="px-3 py-1.5 bg-white border border-emerald-200 rounded-lg text-sm font-mono font-bold text-emerald-700 min-w-[80px] text-center">
-                      {{ group.formula_results?.[f.name || "result"] ?? "—" }}
+                      {{ formulaValue(group, f) === "" ? "—" : formulaValue(group, f) }}
                     </span>
+                    <small v-if="formulaHint(group, f)" class="text-xs text-amber-700">{{ formulaHint(group, f) }}</small>
                   </div>
                 </div>
               </div>
@@ -1415,6 +1418,7 @@
 </template>
 
 <script setup>
+import { evaluateReportFormulas, reportFormulaValue, formulaResultHint, formulaDefinitions, formulaApproved, formulaKey, isFormulaTarget } from '@/utils/reportFormulas';
 import { executeReportAction, reportActionStatusError } from "@/utils/executeReportAction";
 import ReportActionStatus from "@/components/ReportActionStatus.vue";
 import { downloadMedicalReportFile } from "@/utils/medicalReportOutput";
@@ -1480,9 +1484,6 @@ const quickTestSource = (item) => {
 };
 const quickResultChanged = (item) => {
   autoDetectStatus(item);
-  const source = quickTestSource(item);
-  if (source?.section === "packages") evalPkgFormulas(updateResultRecord.value.packages[source.index], source.index);
-  if (source?.section === "test_groups") evalFormula(updateResultRecord.value.test_groups[source.index]);
 };
 const openQuickTest = (item) => {
   const source = quickTestSource(item);
@@ -1508,7 +1509,19 @@ const resultItems = computed(() => {
     ...(record.test_groups || []).flatMap(group => [...(group.tests || []), ...(group.cultures || [])]),
   ];
 });
-const completedCount = computed(() => resultItems.value.filter(item => item.is_done).length);
+const completedCount = computed(() => {
+  const record = updateResultRecord.value || {};
+  let count = [...(record.tests || []), ...(record.cultures || [])].filter(t => formulaApproved(t.is_done)).length;
+  for (const parent of [...(record.packages || []), ...(record.test_groups || [])]) {
+    const results = evaluateReportFormulas(parent);
+    for (const test of parent.tests || []) {
+      const f = formulaDefinitions(parent).find(f => isFormulaTarget({ formula: [f] }, test));
+      if (f ? results[formulaKey(f.name)]?.complete : formulaApproved(test.is_done)) count++;
+    }
+    count += (parent.cultures || []).filter(t => formulaApproved(t.is_done)).length;
+  }
+  return count;
+});
 const completionPercent = computed(() => resultItems.value.length ? Math.round(100 * completedCount.value / resultItems.value.length) : 0);
 const previousResults = ref({});
 const previousLoading = ref(false);
@@ -1795,63 +1808,10 @@ const displayRanges = (t) => {
 
 // Auto-detect result status based on result value vs reference ranges
 // Status IDs: 1=high, 2=normal, 3=abnormal, 4=low, 5=ask doctor
-const isFormulaTarget = (parent, test) => {
-  const formulas = Array.isArray(parent?.formula) ? parent.formula : [];
-  if (!formulas.length) return false;
-  const key = test.shortcut || test.name;
-  return formulas.some(f => f?.name === key);
-};
-
-// Fixed-point evaluator: repeats passes until no new formula resolves.
-// Lets formula 2 reference formula 1's `name` (e.g. A=B-C, D=A-C → D resolves
-// once A is computed). Tokens resolve against child test results first, then
-// against already-computed formula_results. Max passes capped at formula count
-// to short-circuit cycles (e.g. A=B+1, B=A+1).
-const evalFormula = (parent) => {
-  const formulas = Array.isArray(parent?.formula) ? parent.formula : [];
-  if (!formulas.length) return;
-  const tests = parent.tests || [];
-  // Reset on every call — child test values may have changed; stale results
-  // would block recomputation in the "already resolved" guard below.
-  parent.formula_results = {};
-  const results = parent.formula_results;
-
-  const tryEval = (f) => {
-    if (!f?.tokens?.length) return false;
-    let expr = "";
-    for (const tok of f.tokens) {
-      if (/^[+\-*/()]$/.test(tok)) { expr += tok; continue; }
-      if (/^[\d.]+$/.test(tok)) { expr += tok; continue; }
-      const test = tests.find(t => (t.shortcut || t.name) === tok);
-      let val = test ? parseFloat(test.result) : NaN;
-      if (isNaN(val)) {
-        const prior = results[tok];
-        val = prior != null ? parseFloat(prior) : NaN;
-      }
-      if (isNaN(val)) return false;
-      expr += `(${val})`;
-    }
-    if (!/^[\d+\-*/().\s]+$/.test(expr)) return false;
-    try {
-      const r = Function(`"use strict"; return (${expr});`)();
-      if (typeof r === "number" && !isNaN(r)) {
-        results[f.name || "result"] = Math.round(r * 100) / 100;
-        return true;
-      }
-    } catch (_) { /* ignore */ }
-    return false;
-  };
-
-  for (let pass = 0; pass < formulas.length; pass++) {
-    let progress = false;
-    for (const f of formulas) {
-      const key = f?.name || "result";
-      if (results[key] != null) continue; // already resolved
-      if (tryEval(f)) progress = true;
-    }
-    if (!progress) break;
-  }
-};
+// Formula values are derived reactively on load, edits, and approval changes.
+// This does not mark an ordinary analysis as approved or save on page opening.
+const formulaValue = (parent, f) => reportFormulaValue(parent, f);
+const formulaHint = (parent, f) => formulaResultHint(parent, f);
 
 const confirmAndNext = async (item, index) => {
   if (item) item.is_done = true;
@@ -1888,15 +1848,9 @@ const subOptionColor = (sub, rawValue) => {
 
 const isCustomTemplateTest = (t) => t?.sub_tests?.length > 0 && !!t?.content?.html;
 
-// Test groups attached to a package, rebuilt as real objects so evalFormula()
-// (which writes parent.formula_results) has somewhere persistent to write.
-// Held in a ref rather than a computed: a computed would hand back a fresh
-// object each render and every result it wrote would be discarded.
-// Indexed to match updateResultRecord.packages.
-const pkgGroupSections = ref([]);
-
-const buildPkgGroupSections = () => {
-  pkgGroupSections.value = (updateResultRecord.value?.packages || []).map((pkg) => {
+// Formula sections are derived from the current package. Evaluation uses all
+// package inputs and definitions, including dependencies in an attached group.
+const pkgGroupSections = computed(() => (updateResultRecord.value?.packages || []).map((pkg) => {
     const byGroup = new Map();
     (pkg.tests || []).forEach((t) => {
       const g = t.test_group_name;
@@ -1916,23 +1870,17 @@ const buildPkgGroupSections = () => {
           // Whole package, so a formula operand that is also a package member
           // (deduped out of the tagged set) still resolves.
           tests: pkg.tests || [],
-          formula_results: {},
+          calculation_formulas: formulaDefinitions(pkg),
         };
       })
       .filter((sec) => sec.formula.length);
-  });
-  pkgGroupSections.value.forEach((secs) => secs.forEach((sec) => evalFormula(sec)));
-};
+  })
+);
 
 // A test computed by its own group's formula is not entered by hand — same rule
 // standalone groups already follow via groupVisibleTests.
 const isPkgGroupFormulaTarget = (pkg, t, pIndex) =>
   (pkgGroupSections.value[pIndex] || []).some((sec) => isFormulaTarget(sec, t));
-
-const evalPkgFormulas = (pkg, pIndex) => {
-  evalFormula(pkg);
-  (pkgGroupSections.value[pIndex] || []).forEach((sec) => evalFormula(sec));
-};
 
 const packageVisibleTests = (pkg) =>
   (pkg?.tests || []).filter((t) => !isCustomTemplateTest(t) && !isFormulaTarget(pkg, t));
@@ -2453,10 +2401,6 @@ onMounted(async () => {
   } else {
     activeSection.value = 'extras';
   }
-
-  // Rebuild the per-package group-formula sections and evaluate them once, so
-  // the boxes show computed values on load rather than only after an edit.
-  buildPkgGroupSections();
 
   // Open on all-tab when it has rows; else first test tab.
   activeTestTab.value = allTabTests.value.length ? "all" : 0;

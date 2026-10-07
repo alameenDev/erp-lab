@@ -2446,6 +2446,12 @@ class InvoiceController extends Controller
                     );
                 }
             }
+            // Formula targets are hidden from manual entry. Calculate them from
+            // trusted definitions and approved inputs before publishing the invoice.
+            $completion = app(\App\Services\ContainerResultCompletion::class);
+            $invoice->invoiceTestRels()->with(['testGroup.tests', 'package.tests', 'package.testGroups.tests'])
+                ->get()->each(fn (InvoiceTestRel $row) => $completion->reconcile($row));
+            $invoice->unsetRelation('invoiceTestRels');
             // Partial requests and unfinished nested tests must never publish
             // an entire invoice. Reconcile the persisted rows, not the payload.
             $is_done = app(\App\Services\ReportReadiness::class)->analysesComplete($invoice);
