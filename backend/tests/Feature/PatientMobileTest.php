@@ -78,7 +78,9 @@ class PatientMobileTest extends TestCase
         $this->assertNotSame($code,$row->code_digest);
         $this->assertNotSame('07701234567',$row->phone_digest);
         $response = $this->postJson('/api/patient-mobile/v1/exchange',['phone'=>'+٩٦٤ ٧٧٠ ١٢٣ ٤٥٦٧','code'=>$code])
-            ->assertCreated()->assertHeader('Cache-Control','no-store, private');
+            ->assertCreated();
+        $this->assertTrue($response->headers->hasCacheControlDirective('no-store'));
+        $this->assertTrue($response->headers->hasCacheControlDirective('private'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $response->json('token'));
         $this->postJson('/api/patient-mobile/v1/exchange',['phone'=>'07701234567','code'=>$code])->assertStatus(422);
         $this->assertSame(1, DB::connection('patient_mobile')->table('mobile_patient_sessions')->count());
