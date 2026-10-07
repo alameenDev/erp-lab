@@ -26,9 +26,9 @@ const loyalty = ref(null);
 const doctors = ref([]);
 const aiEnabled = ref(false);
 
-const catalog = ref(null); // lazy-loaded { tests, packages }
+const catalog = ref(null); // lazy-loaded package names and prices
 const catalogLoading = ref(false);
-const catalogTab = ref("tests"); // tests | packages
+const catalogError = ref("");
 
 const chatMessages = ref([]); // [{role:'user'|'assistant', content}]
 const chatInput = ref("");
@@ -83,14 +83,17 @@ const submitBooking = async (doctor) => {
 
 const loadCatalog = async () => {
   if (catalog.value) return; // already loaded once
+  const requestedToken = token.value;
   catalogLoading.value = true;
+  catalogError.value = "";
   try {
-    const { data } = await $http.get(`/portal/${token.value}/catalog`);
-    catalog.value = { tests: data.tests || [], packages: data.packages || [] };
+    const { data } = await $http.get(`/portal/${requestedToken}/catalog`);
+    if (requestedToken !== token.value) return;
+    catalog.value = { packages: data.packages || [] };
   } catch (e) {
-    catalog.value = { tests: [], packages: [] };
+    if (requestedToken === token.value) catalogError.value = "تعذر تحميل الباقات. يرجى المحاولة مرة أخرى.";
   } finally {
-    catalogLoading.value = false;
+    if (requestedToken === token.value) catalogLoading.value = false;
   }
 };
 
@@ -216,7 +219,12 @@ const formatDate = (d) => {
 
 const portalHead = mountPatientPortalHead(token.value, import.meta.env.VITE_BASE_URL || '/api');
 onMounted(load);
-watch(() => route.params.token, value => { token.value = value; portalHead.update(value); load(); });
+watch(() => route.params.token, value => {
+  token.value = value;
+  catalog.value = null; catalogError.value = ""; catalogLoading.value = false;
+  activeTab.value = 'reports';
+  portalHead.update(value); load();
+});
 onUnmounted(() => portalHead.restore());
 </script>
 
@@ -336,7 +344,7 @@ onUnmounted(() => portalHead.restore());
               activeTab === 'catalog' ? 'bg-teal-600 text-white' : 'text-gray-500',
             ]"
           >
-            الأسعار
+            الباقات
           </button>
           <button
             v-if="aiEnabled"
@@ -477,40 +485,21 @@ onUnmounted(() => portalHead.restore());
           </div>
         </div>
 
-        <!-- Catalog tab: test/package prices -->
-        <div v-else-if="activeTab === 'catalog'" class="space-y-3">
+        <!-- Public catalog: actual packages only -->
+        <div v-else-if="activeTab === 'catalog'" class="space-y-3" data-portal-packages>
           <div v-if="catalogLoading" class="text-center text-gray-400 py-8">جاري التحميل...</div>
+          <div v-else-if="catalogError" role="alert" class="rounded-xl bg-red-50 p-4 text-sm text-red-700">
+            {{ catalogError }} <button type="button" @click="loadCatalog" class="font-bold underline">إعادة المحاولة</button>
+          </div>
           <template v-else>
-            <div class="flex gap-2 bg-white rounded-xl p-1 shadow-sm border border-gray-100 w-fit">
-              <button
-                @click="catalogTab = 'tests'"
-                :class="['px-4 py-2 rounded-lg text-xs font-bold', catalogTab === 'tests' ? 'bg-teal-600 text-white' : 'text-gray-500']"
-              >
-                التحاليل
-              </button>
-              <button
-                @click="catalogTab = 'packages'"
-                :class="['px-4 py-2 rounded-lg text-xs font-bold', catalogTab === 'packages' ? 'bg-teal-600 text-white' : 'text-gray-500']"
-              >
-                الباقات والعروض
-              </button>
-            </div>
-
-            <div v-if="catalogTab === 'tests'" class="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y divide-gray-50">
-              <div v-if="!catalog?.tests?.length" class="p-6 text-center text-gray-400 text-sm">لا توجد أسعار متاحة حالياً</div>
-              <div v-for="t in catalog?.tests" :key="t.id" class="flex items-center justify-between px-4 py-3">
-                <span class="text-sm text-gray-700">{{ t.name }}</span>
-                <span class="text-sm font-bold text-gray-800">{{ money(t.price) }} د.ع</span>
-              </div>
-            </div>
-
-            <div v-else class="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y divide-gray-50">
+            <h2 class="text-base font-bold text-gray-800">باقات المختبر</h2>
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y divide-gray-50">
               <div v-if="!catalog?.packages?.length" class="p-6 text-center text-gray-400 text-sm">لا توجد باقات متاحة حالياً</div>
-              <div v-for="p in catalog?.packages" :key="p.id" class="flex items-center justify-between px-4 py-3">
-                <span class="text-sm text-gray-700">{{ p.name }}</span>
-                <div class="text-left">
-                  <span class="text-sm font-bold text-emerald-700">{{ money(p.price) }} د.ع</span>
-                  <span v-if="p.has_offer" class="text-xs text-gray-400 line-through mr-2">{{ money(p.original_price) }}</span>
+              <div v-for="p in catalog?.packages" :key="p.id" class="flex flex-wrap items-center justify-between gap-3 px-4 py-4">
+                <span class="text-sm font-semibold text-gray-700 break-words">{{ p.name }}</span>
+                <div class="text-left shrink-0">
+                  <span v-if="p.price !== null && p.price !== undefined" class="text-sm font-bold text-emerald-700">{{ money(p.price) }} د.ع</span>
+                  <span v-else class="text-xs text-gray-500">اسأل المختبر عن السعر</span>
                 </div>
               </div>
             </div>

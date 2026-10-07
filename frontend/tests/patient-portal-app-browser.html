@@ -8,6 +8,7 @@ import '/src/assets/main.css';
 import 'primeicons/primeicons.css';
 const token = 'a'.repeat(48);
 const mode = new URLSearchParams(location.search).get('mode');
+let catalogAttempts = 0;
 $http.defaults.adapter = async config => {
   let data;
   if (config.url === '/portal/' + token) {
@@ -17,7 +18,11 @@ $http.defaults.adapter = async config => {
       loyalty: { balance: 120, tier: { label_ar: 'المستوى الفضي' }, redemption_catalog: [], transactions: [] }, doctors: [], ai_enabled: false,
     };
   } else if (config.url.endsWith('/result-trends')) data = { series: [] };
-  else if (config.url.endsWith('/catalog')) data = { tests: [], packages: [] };
+  else if (config.url.endsWith('/catalog')) {
+    if(mode==='catalog-error' && catalogAttempts++===0) {const error=new Error('Unavailable');error.config=config;throw error;}
+    data = { tests: [{id:90,name:'Hidden individual analysis',price:7654}], test_groups:[{id:91,name:'Hidden group',price:8765}],
+      packages: mode==='catalog-empty' ? [] : [{id:1,name:'باقة الفحص الشامل',price:25000},{id:2,name:'باقة بدون سعر محدد',price:null},{id:3,name:'باقة بسعر صفري',price:0}] };
+  }
   else throw new Error('Unexpected synthetic API: ' + config.url);
   return { data, status: 200, statusText: 'OK', headers: {}, config };
 };
