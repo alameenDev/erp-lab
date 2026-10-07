@@ -56,6 +56,18 @@ class PackageResource extends JsonResource
             'is_constant_price' => $this->is_constant_price,
             'formula' => $this->formula,
             'tests' => TestResource::collection($this->whenLoaded('tests')),
+            'test_groups' => $this->whenLoaded('testGroups', fn () => $this->testGroups->map(fn ($group) => [
+                'id' => $group->id,
+                'group_name' => $group->group_name,
+                'shortcut' => $group->shortcut,
+                // Keep membership explicit: group children are not direct package tests.
+                'tests' => $group->tests->map(fn ($test) => [
+                    'id' => $test->id, 'name' => $test->name, 'shortcut' => $test->shortcut,
+                ])->values(),
+                'cultures' => $group->culture->map(fn ($culture) => [
+                    'id' => $culture->id, 'name' => $culture->name,
+                ])->values(),
+            ])->values()),
             'cultures' => CultureResource::collection($this->whenLoaded('cultures')),
         ];
     }
