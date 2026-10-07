@@ -1232,7 +1232,7 @@ class InvoiceController extends Controller
             'to_lab' => $rel->toLab?->name,
             'is_done' => $rel->is_done == 1,
             'price' => $rel->price,
-            'cultures' => $hasStoredCultures ? $this->enrichStoredCultures($rel->test_group_cultures, $rel->testGroup?->cultures) : CultureResource::collection($rel->testGroup?->cultures ?? []),
+            'cultures' => $hasStoredCultures ? $this->enrichStoredCultures($rel->test_group_cultures, $rel->testGroup?->culture) : CultureResource::collection($rel->testGroup?->culture ?? []),
             'tests' => $hasStoredTests ? $this->enrichStoredTests($rel->test_group_tests, $rel->testGroup?->tests) : TestResource::collection($rel->testGroup?->tests ?? []),
             'is_sample_received' => $rel->is_sample_received == 1,
             'questions' => $rel->questions,
