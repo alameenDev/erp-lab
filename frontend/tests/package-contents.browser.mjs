@@ -17,7 +17,7 @@ try {
   assert.equal(await modal.getByText('Complete Blood Count',{exact:true}).count(),[1,2].includes(id)?1:0);
   assert.equal(await modal.getByText('Hemoglobin',{exact:true}).count(),[1,2].includes(id)?1:0);
   assert.equal(await modal.getByText('Group culture',{exact:true}).count(),[1,2].includes(id)?1:0);
-  if(id===1){await modal.getByText('لا توجد تحاليل مضافة داخل هذا الكروب.',{exact:true}).waitFor();await page.screenshot({path:'test-results/package-contents/desktop.png'});}
+  if(id===1){await modal.getByText('لا توجد تحاليل مضافة داخل هذا الكروب.',{exact:true}).waitFor();await page.screenshot({path:'test-results/package-contents/desktop.png',animations:'disabled'});}
   if(id===4)await modal.getByText('لا توجد تحاليل أو كروبات في هذه الباقة',{exact:true}).waitFor();
   await close();
  }
@@ -28,6 +28,6 @@ try {
  await page.evaluate(()=>{packageFixture.dialog=false;});
  await page.setViewportSize({width:390,height:844});await page.locator('[data-package-contents="2"]').click();await modal.waitFor();
  const box=await modal.boundingBox();assert.ok(box.x>=0&&box.x+box.width<=390,'dialog fits a phone viewport');
- await page.screenshot({path:'test-results/package-contents/mobile.png'});await close();
+ await page.screenshot({path:'test-results/package-contents/mobile.png',animations:'disabled'});await close();
  assert.deepEqual(errors,[]);console.log('PASS package button shows direct tests, nested groups/cultures, empty states and membership on desktop/mobile');
 } finally {await browser.close();}
