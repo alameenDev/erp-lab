@@ -5,6 +5,8 @@ import { useRoute } from "vue-router";
 import { $http } from "@/plugins/axios";
 import ResultTrends from '@/components/ResultTrends.vue';
 import PatientPortalApp from './PatientPortalApp.vue';
+import PatientMobileLink from './PatientMobileLink.vue';
+const mobileLinkEnabled = import.meta.env.VITE_PATIENT_MOBILE_ENABLED === 'true';
 import { portalReportUrl } from '@/utils/medicalReportOutput';
 
 const route = useRoute();
@@ -288,6 +290,7 @@ onUnmounted(() => portalHead.restore());
       <!-- Dashboard -->
       <div v-else class="space-y-4">
         <PatientPortalApp :key="token" :token="token" />
+        <PatientMobileLink v-if="mobileLinkEnabled" :key="`mobile-${token}`" :token="token" />
         <!-- Patient card -->
         <div class="bg-gradient-to-br from-teal-600 to-teal-800 rounded-2xl shadow-sm p-6 text-white">
           <div class="text-sm opacity-80 mb-1">مرحباً بك</div>

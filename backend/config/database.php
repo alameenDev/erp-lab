@@ -31,6 +31,24 @@ return [
 
     'connections' => [
 
+        // Pairing data only. Never fall back to the laboratory database.
+        'patient_mobile' => [
+            'driver' => 'mysql',
+            'host' => env('PATIENT_MOBILE_DB_HOST', '127.0.0.1'),
+            'port' => env('PATIENT_MOBILE_DB_PORT', '3306'),
+            'database' => env('PATIENT_MOBILE_DB_DATABASE', ''),
+            'username' => env('PATIENT_MOBILE_DB_USERNAME', ''),
+            'password' => env('PATIENT_MOBILE_DB_PASSWORD', ''),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'strict' => true,
+            'engine' => 'InnoDB',
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                PDO::MYSQL_ATTR_SSL_CA => env('PATIENT_MOBILE_DB_SSL_CA'),
+            ]) : [],
+        ],
+
         'sqlite' => [
             'driver' => 'sqlite',
             'url' => env('DB_URL'),
