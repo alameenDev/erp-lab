@@ -2,6 +2,9 @@ name: Report page rendering
 on:
   pull_request:
     paths:
+      - 'frontend/src/utils/reportFormulas.js'
+      - 'tests/fixtures/report-formulas.json'
+      - 'frontend/tests/ReportFormulaEditorFixture.vue'
       - 'frontend/src/utils/medicalReportPages.js'
       - 'frontend/src/utils/medicalReportOutput.js'
       - 'frontend/src/utils/reportPatientPortal.js'
@@ -39,7 +42,7 @@ jobs:
         working-directory: frontend
       - run: npx playwright install --with-deps chromium
         working-directory: frontend
-      - run: node --test tests/result-history.test.mjs tests/medical-report-columns.test.mjs tests/medical-report-pages.test.mjs tests/medical-report-output.test.mjs tests/report-patient-portal.test.mjs tests/print-lifecycle.test.mjs
+      - run: node --test tests/report-formulas.test.mjs tests/result-history.test.mjs tests/medical-report-columns.test.mjs tests/medical-report-pages.test.mjs tests/medical-report-output.test.mjs tests/report-patient-portal.test.mjs tests/print-lifecycle.test.mjs
         working-directory: frontend
       - name: Verify rendered sheets and native print
         working-directory: frontend
@@ -49,6 +52,7 @@ jobs:
             curl -fsS http://127.0.0.1:5173/tests/report-background-browser.html > /dev/null && break
             sleep 1
           done
+          node tests/report-formula-editor.browser.mjs
           node tests/report-background.browser.mjs
           node tests/report-template.browser.mjs
           node tests/report-group-pages.browser.mjs

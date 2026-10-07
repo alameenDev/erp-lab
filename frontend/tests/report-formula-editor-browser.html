@@ -1,0 +1,9 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Formula editor regression</title></head><body><div id="app"></div><script type="module">
+import {createApp} from 'vue';import {createPinia} from 'pinia';import {createRouter,createMemoryHistory} from 'vue-router';
+import PrimeVue from 'primevue/config';
+import Mixins from '/src/utils/mixins.js';
+import Fixture from './ReportFormulaEditorFixture.vue';import '/src/assets/main.css';
+localStorage.setItem('token','synthetic-fixture');localStorage.setItem('locale','ar');
+const router=createRouter({history:createMemoryHistory(),routes:[{path:'/fixture/:id',component:{template:'<div />'}}]});
+const app=createApp(Fixture);app.use(createPinia()).use(PrimeVue).use(router).mixin(Mixins);await router.push('/fixture/1');await router.isReady();app.mount('#app');
+</script></body></html>

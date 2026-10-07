@@ -493,9 +493,11 @@ export const useinvoicesStore = defineStore("invoices", {
       const existing = (rec.attachments || []).filter((a) => typeof a.file === "string" && a.file);
       if (existing.length) formData.append("existing_attachments", JSON.stringify(existing));
 
-      await $http.post(`/invoices/update-result?silent=1`, formData, {
+      const { data } = await $http.post(`/invoices/update-result?silent=1`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
+      // Refresh server-derived completion without replacing edits made in flight.
+      if (this.updateResultRecord?.id === rec.id) this.updateResultRecord.is_done = data.is_done;
     },
   },
 });
