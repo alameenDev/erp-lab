@@ -13,6 +13,7 @@ class ContainerResultCompletion
         $tests = ReportFormulas::children($row->{$prefix.'_tests'});
         $cultures = ReportFormulas::children($row->{$prefix.'_cultures'});
         if ($tests === null || $cultures === null) return ['complete' => false, 'tests' => null, 'prefix' => $prefix];
+        $row->loadMissing($prefix === 'package' ? ['package.tests', 'package.testGroups.tests'] : ['testGroup.tests']);
         $parent = $prefix === 'package' ? $row->package : $row->testGroup;
         $definitions = ReportFormulas::children($parent?->formula) ?? [];
         $models = $parent?->tests ?? collect();

@@ -15,6 +15,7 @@ class ReportReadiness
     {
         $rows = $invoice->relationLoaded('invoiceTestRels') ? $invoice->invoiceTestRels : $invoice->invoiceTestRels()->get();
         if ($rows->isEmpty()) return false;
+        $rows->loadMissing(['testGroup.tests', 'package.tests', 'package.testGroups.tests']);
         foreach ($rows as $row) if (!$this->relationComplete($row)) return false;
         return true;
     }

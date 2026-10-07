@@ -3,10 +3,14 @@ await mkdir('test-results/report-pages',{recursive:true});
 const browser=await chromium.launch();const errors=[];
 try{
  for(const mode of ['group','package','attached']){
-  const page=await browser.newPage({viewport:{width:1360,height:1000}});page.on('pageerror',e=>errors.push(e.message));
+  const page=await browser.newPage({viewport:{width:1360,height:1000}});page.on('pageerror',e=>{errors.push(e.message);console.error(e.stack);});
+  page.on('console',msg=>{if(msg.type()==='error')console.error(msg.text());});
   await page.goto('http://127.0.0.1:5173/tests/report-formula-editor-browser.html?mode='+mode);
   const b=page.locator('[data-formula-name="B"]'),c=page.locator('[data-formula-name="C"]');
-  await b.waitFor();
+  try { await b.waitFor(); } catch (error) {
+   await page.screenshot({path:'test-results/report-pages/formula-editor-failure-'+mode+'.png',fullPage:true});
+   console.error(await page.locator('body').innerText());throw error;
+  }
   const number=loc=>loc.locator('span').last().textContent().then(s=>s.trim());
   assert.equal(await number(b),'8');assert.equal(await number(c),'16');
   const printValue=async name=>page.locator('#print-check #Result table tbody tr').evaluateAll((rows,label)=>{
