@@ -564,3 +564,6 @@ Route::group(['middleware' => ['auth:sanctum', \App\Http\Middleware\RestrictRefe
     });
 
 });
+
+// Optional patient app pairing; every endpoint is disabled by default.
+require __DIR__.'/patient-mobile.php';
