@@ -41,7 +41,7 @@ class PatientMobileRead
             'status'=>$ready ? 'ready' : 'pending', 'total'=>(float)$invoice->total,
             'paid'=>(float)$invoice->paid, 'due'=>max(0, (float)$invoice->total - (float)$invoice->paid),
             'tests'=>$invoice->invoiceTestRels->map(fn ($row) => [
-                'name'=>$row->test?->name ?? $row->culture?->name ?? $row->package?->name ?? $row->testGroup?->name ?? 'فحص',
+                'name'=>$row->test?->name ?? $row->culture?->name ?? $row->package?->name ?? $row->testGroup?->group_name ?? 'فحص',
             ])->values()->all()];
     }
 
@@ -72,7 +72,7 @@ class PatientMobileRead
 
     private function text($value): string
     {
-        return is_scalar($value) ? trim(html_entity_decode(strip_tags((string)$value), ENT_QUOTES | ENT_HTML5, 'UTF-8')) : '';
+        return is_scalar($value) ? trim((string)$value) : '';
     }
 
     private function ranges($value): array
@@ -101,7 +101,7 @@ class PatientMobileRead
         }
         return ['name'=>$this->text($item['name'] ?? 'فحص'), 'value'=>$this->text($item['result'] ?? ''),
             'unit'=>$this->text($item['unit'] ?? ''), 'comment'=>$this->text($item['comment'] ?? ''),
-            'ranges'=>$this->ranges($item['test_reference_ranges'] ?? []), 'parts'=>$parts];
+            'ranges'=>$this->ranges($item['test_reference_ranges'] ?? []), 'range_source'=>$item['range_source'] ?? 'stored', 'parts'=>$parts];
     }
 
     public function report(Patient $patient, User $lab, int $id): array
@@ -112,7 +112,7 @@ class PatientMobileRead
         abort_unless(app(ReportReadiness::class)->isReady($invoice), 409, 'التقرير قيد الإجراء ولم يُعتمد للنشر بعد.');
         $sections = [];
         foreach ($invoice->invoiceTestRels as $row) {
-            $name = $row->test?->name ?? $row->culture?->name ?? $row->package?->name ?? $row->testGroup?->name ?? 'فحص';
+            $name = $row->test?->name ?? $row->culture?->name ?? $row->package?->name ?? $row->testGroup?->group_name ?? 'فحص';
             $items = [];
             if ($row->test_id_fk || $row->culture_id_fk) {
                 $ranges = $row->test?->testReferenceRanges
@@ -122,7 +122,7 @@ class PatientMobileRead
                         'age_unit'=>$r->ageUnit?->unit_name,'test_reference_options'=>$r->selection_type_options])->values()->all() ?? [];
                 $items[] = $this->measurement(['name'=>$name, 'result'=>$row->result, 'unit'=>$row->test?->unit,
                     'comment'=>$row->comment, 'sub_tests'=>$row->sub_tests, 'attribute'=>$row->attribute,
-                    'test_reference_ranges'=>$ranges]);
+                    'test_reference_ranges'=>$ranges, 'range_source'=>'current']);
             } else {
                 $container = app(ContainerResultCompletion::class)->resolve($row);
                 foreach (['package_tests', 'package_cultures', 'test_group_tests', 'test_group_cultures'] as $column) {

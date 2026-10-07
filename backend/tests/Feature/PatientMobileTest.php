@@ -174,6 +174,34 @@ class PatientMobileTest extends TestCase
         $this->getJson('/api/patient-mobile/v1/reports/'.$crossLab->id,$headers)->assertNotFound();
     }
 
+    public function test_group_formula_values_are_read_without_saving_and_comparison_symbols_survive(): void
+    {
+        [$lab,$patient,$access] = $this->fixture();
+        $group = \App\Models\TestGroup::create(['lab_id_fk'=>$lab->id, 'group_name'=>'Metabolic group',
+            'formula'=>[['name'=>'B','tokens'=>['A','*','2']]]]);
+        foreach (['A','B'] as $name) {
+            $test = \App\Models\Test::create(['name'=>$name,'shortcut'=>$name,'lab_id_fk'=>$lab->id]);
+            $group->tests()->attach($test->id);
+        }
+        $invoice = Invoice::create(['patient_id_fk'=>$patient->id,'lab_id_fk'=>$lab->id,'is_done'=>true]);
+        $snapshot = [
+            ['name'=>'A','shortcut'=>'A','result'=>'4','is_done'=>true],
+            ['name'=>'B','shortcut'=>'B','result'=>'999','is_done'=>true],
+            ['name'=>'Detection limit','result'=>'<5','unit'=>'mg/L','is_done'=>true],
+            ['name'=>'Zero result','result'=>'0','is_done'=>true],
+        ];
+        $id = DB::table('invoice_test_rels')->insertGetId(['invoice_id_fk'=>$invoice->id,'test_group_id_fk'=>$group->id,
+            'test_group_tests'=>json_encode($snapshot),'test_group_cultures'=>'[]','is_done'=>true]);
+        $headers = ['Authorization'=>'Bearer '.$this->pair($access)];
+        $before = (array) DB::table('invoice_test_rels')->find($id);
+        $this->getJson('/api/patient-mobile/v1/reports/'.$invoice->id,$headers)->assertOk()
+            ->assertJsonPath('sections.0.name','Metabolic group')
+            ->assertJsonPath('sections.0.items.1.value','8')
+            ->assertJsonPath('sections.0.items.2.value','<5')
+            ->assertJsonPath('sections.0.items.3.value','0');
+        $this->assertSame($before,(array)DB::table('invoice_test_rels')->find($id));
+    }
+
     public function test_pending_or_partly_approved_reports_do_not_expose_values(): void
     {
         [$lab,$patient,$access] = $this->fixture();
