@@ -6,7 +6,7 @@ export const usePackagesStore = defineStore("packages", {
      state: () => ({
           packagesList: [],
           dialog: false,
-          tests: [],
+          testsPackage: null,
           cultures: [],
           totalCount: "",
           resdialog: false,

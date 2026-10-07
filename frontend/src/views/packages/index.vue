@@ -21,7 +21,7 @@ const testsStore = usetestsStore();
 const culturesStore = useculturesStore();
 
 const { havePermission } = authStore;
-const { packagesList, record, tests, cultures, dialog, resdialog, testdialog, totalCount } = storeToRefs(packagesStore);
+const { packagesList, record, testsPackage, cultures, dialog, resdialog, testdialog, totalCount } = storeToRefs(packagesStore);
 const { Getpackages, Removepackage } = packagesStore;
 const { TestLists } = testsStore;
 const { cultureLists } = culturesStore;
@@ -138,7 +138,7 @@ const editRecord = (rec) => {
   record.value.tests = rec.tests?.map((t) => testOptions.find((o) => o.id === t.id) || t) || [];
   const cultureOptions = cultureLists().map((c) => c.value);
   record.value.cultures = rec.cultures?.map((c) => cultureOptions.find((o) => o.id === c.id) || c) || [];
-  // API returns the pivot relation as testGroups; the form/store uses test_groups
+  // Retain every existing group when editing a package.
   record.value.test_groups = (rec.test_groups || rec.testGroups || []).map((g) => ({
     id: g.id,
     group_name: g.group_name || g.name,
@@ -156,8 +156,9 @@ const deleteRecord = (rec) => {
   });
 };
 
-const showTests = (t) => {
-  tests.value = t;
+const packageGroups = (pkg) => pkg.test_groups || pkg.testGroups || [];
+const showTests = (pkg) => {
+  testsPackage.value = pkg;
   testdialog.value = true;
 };
 
@@ -580,14 +581,20 @@ onMounted(async () => {
                 <!-- Tests -->
                 <td class="px-5 py-4 text-center">
                   <button
-                    @click="showTests(pkg.tests)"
+                    @click="showTests(pkg)"
+                    :data-package-contents="pkg.id"
+                    :aria-label="`${t('tests')} — ${pkg.name}`"
                     class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary-50 text-primary-700 hover:bg-primary-100 rounded-lg transition-colors"
                   >
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                       <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                     </svg>
-                    <span class="text-xs font-medium">{{ pkg.tests?.length || 0 }}</span>
+                    <span class="text-xs font-medium">
+                      <span v-if="pkg.tests?.length || !packageGroups(pkg).length">{{ pkg.tests?.length || 0 }} {{ t('tests') }}</span>
+                      <span v-if="pkg.tests?.length && packageGroups(pkg).length"> · </span>
+                      <span v-if="packageGroups(pkg).length">{{ packageGroups(pkg).length }} {{ t('test-groups') }}</span>
+                    </span>
                   </button>
                 </td>
 

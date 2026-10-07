@@ -1,0 +1,20 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Package contents regression</title></head><body style="background:#f8fafc;padding:16px"><div id="app"></div><script type="module">
+import {createApp} from 'vue';import {createPinia} from 'pinia';
+import View from '/src/views/packages/index.vue';import Mixins from '/src/utils/mixins.js';
+import {usePackagesStore} from '/src/store/modules/packages';import {useAuthStore} from '/src/store/modules/auth';
+import {usetestsStore} from '/src/store/modules/tests';import {useculturesStore} from '/src/store/modules/cultures';import {usetestGroupsStore} from '/src/store/modules/testGroups';
+import {$http} from '/src/plugins/axios';import '/src/assets/main.css';
+localStorage.setItem('locale','ar');localStorage.setItem('token','synthetic-package-fixture');
+const app=createApp(View);const pinia=createPinia();app.use(pinia).mixin(Mixins);
+const test={id:11,name:'Glucose',shortcut:'GLU',price:5000};
+const group={id:21,group_name:'Complete Blood Count',shortcut:'CBC',tests:[{id:12,name:'Hemoglobin',shortcut:'HGB'},{id:13,name:'White Blood Cells',shortcut:'WBC'}],cultures:[{id:31,name:'Group culture'}]};
+const empty={id:22,group_name:'Empty group',tests:[],cultures:[]};
+const packages=[{id:1,name:'Mixed package',tests:[test],test_groups:[group,empty]},{id:2,name:'Groups only',tests:[],test_groups:[group]},{id:3,name:'Tests only',tests:[test],test_groups:[]},{id:4,name:'Empty package',tests:[],test_groups:[]}].map(p=>({...p,cultures:[],is_constant_price:true,price:10000,shortcut:'SYNTHETIC',lab:'Synthetic Lab'}));
+$http.defaults.adapter=async config=>{
+ if(config.url!=='/packages')throw new Error('Unexpected request '+config.url);
+ return {data:JSON.parse(JSON.stringify(packages)),status:200,statusText:'OK',headers:{},config};
+};
+usetestsStore(pinia).GetTests=async()=>{};useculturesStore(pinia).Getcultures=async()=>{};usetestGroupsStore(pinia).GettestGroups=async()=>{};
+useAuthStore(pinia).havePermission=()=>true;
+window.packageFixture=usePackagesStore(pinia);app.mount('#app');
+</script></body></html>
