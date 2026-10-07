@@ -145,11 +145,7 @@ class PatientPortalController extends Controller
         ]);
     }
 
-    /**
-     * Public: list of the lab's tests and packages with prices, so a
-     * patient can check pricing/offers before booking. Lazy-loaded
-     * separately from show() since it can be a long list.
-     */
+    /** Approved result history for this patient. */
     public function resultTrends(string $token)
     {
         $access = PortalAccessToken::where('token', $token)->first();
@@ -166,36 +162,22 @@ class PatientPortalController extends Controller
 
     public function catalog(string $token)
     {
-        $access = PortalAccessToken::where('token', $token)->first();
-        if (! $access || $access->isExpired()) {
-            return response()->json(['message' => 'الرابط غير صالح أو منتهي الصلاحية'], 404);
-        }
+        [, , $lab] = app(\App\Services\PatientPortalAccess::class)->resolve($token);
 
-        $patient = Patient::find($access->patient_id_fk);
-        $lab = $patient ? $this->patientLab($patient) : null;
-        if (! $lab) {
-            return response()->json(['tests' => [], 'packages' => []]);
-        }
+        return response()->json(['packages' => $this->portalPackages($lab)]);
+    }
 
-        $tests = \App\Models\Test::where('lab_id_fk', $lab->id)
-            ->whereNotNull('price')
-            ->orderBy('name')
-            ->get(['id', 'name', 'price', 'category_id_fk'])
-            ->map(fn ($t) => ['id' => $t->id, 'name' => $t->name, 'price' => $t->price]);
-
-        $packages = \App\Models\TestGroup::where('lab_id_fk', $lab->id)
-            ->whereNotNull('for_customer_price')
-            ->orderBy('group_name')
-            ->get(['id', 'group_name', 'original_price', 'for_customer_price'])
+    /** Public package names and prices only; never flatten tests or groups. */
+    private function portalPackages(\App\Models\User $lab): \Illuminate\Support\Collection
+    {
+        return \App\Models\Package::where('lab_id_fk', $lab->id)
+            ->orderBy('name')->orderBy('id')
+            ->get(['id', 'name', 'price'])
             ->map(fn ($p) => [
                 'id' => $p->id,
-                'name' => $p->group_name,
-                'price' => $p->for_customer_price,
-                'original_price' => $p->original_price,
-                'has_offer' => $p->original_price && $p->original_price > $p->for_customer_price,
+                'name' => $p->name,
+                'price' => $p->price === null ? null : (float) $p->price,
             ]);
-
-        return response()->json(['tests' => $tests, 'packages' => $packages]);
     }
 
     /**
@@ -226,17 +208,13 @@ class PatientPortalController extends Controller
             ->where('is_active', true)->where('bookable', true)
             ->get(['name', 'specialty'])->toArray();
 
-        $tests = \App\Models\Test::where('lab_id_fk', $lab->id)->whereNotNull('price')
-            ->limit(200)->get(['name', 'price'])->toArray();
-
-        $packages = \App\Models\TestGroup::where('lab_id_fk', $lab->id)->whereNotNull('for_customer_price')
-            ->get(['group_name as name', 'for_customer_price as price'])->toArray();
+        $packages = $this->portalPackages($lab)->all();
 
         try {
             $reply = $this->ai->chat($settings, $validated['message'], [
                 'lab_name' => $lab->labSetting?->lab_display_name ?? $lab->name,
                 'doctors' => $doctors,
-                'tests' => $tests,
+                'tests' => [],
                 'packages' => $packages,
             ], $validated['history'] ?? []);
         } catch (\RuntimeException $e) {

@@ -75,7 +75,7 @@ class AiAssistantService
             ->implode("\n") ?: 'لا توجد بيانات أسعار متاحة حالياً.';
 
         $packagesList = collect($context['packages'] ?? [])
-            ->map(fn ($p) => "- {$p['name']}: {$p['price']}")
+            ->map(fn ($p) => "- {$p['name']}: ".($p['price'] === null ? 'اسأل المختبر عن السعر' : $p['price']))
             ->implode("\n") ?: 'لا توجد باقات متاحة حالياً.';
 
         $labName = $context['lab_name'] ?? 'المختبر';

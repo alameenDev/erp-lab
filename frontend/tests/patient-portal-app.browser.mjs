@@ -235,6 +235,29 @@ try {
     await context.close();
     console.log('PASS worker errors are visible and recoverable');
   }
+  for (const mode of ['catalog', 'catalog-empty', 'catalog-error']) {
+    const {page,context}=await scenario({mode});
+    await page.getByRole('button',{name:'الباقات',exact:true}).click();
+    const catalog=page.locator('[data-portal-packages]');
+    if(mode==='catalog-error') {
+      await catalog.getByRole('alert').waitFor();
+      assert.equal(await catalog.getByText('لا توجد باقات متاحة حالياً',{exact:true}).count(),0);
+      await catalog.getByRole('button',{name:'إعادة المحاولة',exact:true}).click();
+    }
+    if(mode==='catalog-empty') await catalog.getByText('لا توجد باقات متاحة حالياً',{exact:true}).waitFor();
+    else {
+      await catalog.getByText('باقة الفحص الشامل',{exact:true}).waitFor();
+      await catalog.getByText('اسأل المختبر عن السعر',{exact:true}).waitFor();
+      await catalog.getByText('٠ د.ع',{exact:true}).waitFor();
+      await page.screenshot({path:out+'/packages-'+mode+'.png',fullPage:true,animations:'disabled'});
+    }
+    assert.equal(await catalog.getByText(/Hidden/).count(),0,'individual tests and groups are never displayed');
+    assert.equal(await catalog.getByRole('button',{name:'التحاليل',exact:true}).count(),0);
+    await page.getByRole('button',{name:'الفواتير والتحاليل',exact:true}).click();
+    assert.equal(await page.getByRole('link',{name:'عرض التقرير والنتائج'}).isVisible(),true);
+    await context.close();
+  }
+  console.log('PASS actual package catalog only, zero/null prices, empty state, retry and report access');
   for (const mode of ['otp', 'expired']) {
     const { page, context, requests } = await scenario({ mode });
     await page.locator('#app').getByText(mode === 'otp' ? 'لحماية بياناتك الطبية، يرجى التحقق من رقم هاتفك' : 'الرابط منتهي الصلاحية', { exact: true }).waitFor();
