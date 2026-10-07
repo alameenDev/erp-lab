@@ -2,6 +2,8 @@
 
 return [
     // Deployment is opt-in, per laboratory. An empty allowlist enables nobody.
+    // Stable even while Artisan temporarily selects the pairing migration connection.
+    'erp_connection' => env('DB_CONNECTION', 'mysql'),
     'enabled' => (bool) env('PATIENT_MOBILE_ENABLED', false),
     'lab_ids' => array_values(array_filter(array_map('intval',
         explode(',', (string) env('PATIENT_MOBILE_LAB_IDS', ''))))),

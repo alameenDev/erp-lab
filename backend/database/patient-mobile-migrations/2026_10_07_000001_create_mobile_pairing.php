@@ -11,7 +11,7 @@ return new class extends Migration {
     private function assertSeparateDatabase(): void
     {
         $name = (string) config('database.connections.patient_mobile.database');
-        $erp = (string) config('database.connections.'.config('database.default').'.database');
+        $erp = (string) config('database.connections.'.config('patient_mobile.erp_connection', 'mysql').'.database');
         if ($name === '' || $name === $erp) {
             throw new \RuntimeException('Pairing requires a separately named database; refusing to modify ERP.');
         }

@@ -62,6 +62,17 @@ class PatientMobileTest extends TestCase
         $this->getJson('/api/patient-mobile/v1/me')->assertNotFound();
     }
 
+    public function test_documented_migration_command_uses_only_the_pairing_database(): void
+    {
+        $migration = require database_path('patient-mobile-migrations/2026_10_07_000001_create_mobile_pairing.php');
+        $migration->down();
+        $this->artisan('migrate', ['--database'=>'patient_mobile',
+            '--path'=>'database/patient-mobile-migrations','--force'=>true])->assertExitCode(0);
+        $this->assertTrue(Schema::connection('patient_mobile')->hasTable('mobile_pairing_codes'));
+        $this->assertFalse(Schema::connection('mysql')->hasTable('mobile_pairing_codes'));
+        Schema::connection('patient_mobile')->dropIfExists('migrations');
+    }
+
     public function test_pairing_refuses_a_connection_pointing_at_the_erp_database(): void
     {
         [,, $access] = $this->fixture();
