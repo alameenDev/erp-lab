@@ -81,11 +81,14 @@ class AccountingReportController extends Controller
         $section = $request->input('section');
         $columns = AccountingReportService::COLUMNS[$section];
         $print = $request->input('format') === 'print';
+        if ($print && $section === 'invoices') {
+            $columns = array_intersect_key($columns, array_flip(['id','date','patient_name','lab_name','referral_lab','doctor','created_by','total','paid','balance','credit','payment_status']));
+        }
         // Every matching row is streamed, not merely the current table page.
         return response()->stream(function () use ($service, $section, $columns, $print, $request) {
             $out = fopen('php://output', 'w');
             if ($print) {
-                echo '<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><title>تقرير المحاسبة</title><style>body{font:12px Arial,sans-serif;color:#172b40;margin:24px}h1{font-size:23px}p{line-height:1.7}table{border-collapse:collapse;width:100%;font-size:11px}th,td{border:1px solid #d5dce3;padding:8px;text-align:right;overflow-wrap:anywhere}th{background:#eef3f7}thead{display:table-header-group}tr{break-inside:avoid}small{color:#526173}button{padding:12px 20px;cursor:pointer}@page{size:A4 landscape;margin:12mm}@media print{button{display:none}body{margin:0}}</style><body><button onclick="window.print()">طباعة / حفظ PDF</button><h1>تقارير المحاسبة — '.e(AccountingReportService::TITLES[$section]).'</h1><p>'.e($service->reportLabel()).' | من '.e($request->input('from')).' إلى '.e($request->input('to')).'<br>أُعد في '.e(now()->format('Y-m-d H:i')).' — '.e(config('app.timezone')).' | المبالغ بالدينار العراقي</p><p>'.e($service->filterLabel()).'</p><p><small>'.e(AccountingReportService::BASIS_NOTE).'</small></p><table><thead><tr>';
+                echo '<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><title>تقرير المحاسبة</title><style>body{font:12px Arial,sans-serif;color:#172b40;margin:24px}h1{font-size:23px}p{line-height:1.7}table{border-collapse:collapse;table-layout:fixed;width:100%;font-size:11px}th,td{border:1px solid #d5dce3;padding:8px;text-align:right;overflow-wrap:anywhere}th{background:#eef3f7}thead{display:table-header-group}tr{break-inside:avoid}small{color:#526173}button{padding:12px 20px;cursor:pointer}@page{size:A4 landscape;margin:12mm}@media print{button{display:none}body{margin:0}}</style><body><button onclick="window.print()">طباعة / حفظ PDF</button><h1>تقارير المحاسبة — '.e(AccountingReportService::TITLES[$section]).'</h1><p>'.e($service->reportLabel()).' | من '.e($request->input('from')).' إلى '.e($request->input('to')).'<br>أُعد في '.e(now()->format('Y-m-d H:i')).' — '.e(config('app.timezone')).' | المبالغ بالدينار العراقي</p><p>'.e($service->filterLabel()).'</p><p><small>'.e(AccountingReportService::BASIS_NOTE).'</small></p><table><thead><tr>';
                 foreach ($columns as $label) echo '<th>'.e($label).'</th>';
                 echo '</tr></thead><tbody>';
             } else {

@@ -139,7 +139,7 @@ class AccountingReportService
             $owner = $this->owner((int)$invoice->lab_id_fk);
             $doctor = (int)$invoice->referral?->role_id===5 ? $invoice->referral : null;
             $refLab = $invoice->fromLab ?? (in_array((int)$invoice->referral?->role_id,[2,4]) ? $invoice->referral : null);
-            $rate = $doctor ? ($rates->get($owner?->id.':'.$doctor->id)?->commission) : 0;
+            $rate = $invoice->referral_id_fk ? ($rates->get($owner?->id.':'.$invoice->referral_id_fk)?->commission) : 0;
             $rate = is_numeric($rate) && $rate >= 0 && $rate <= 100 ? (float)$rate : null;
             $net = (int)($invoice->total ?? 0); $paid = (int)$invoice->recorded_paid;
             $commission = $rate === null ? null : (int)round($net * $rate / 100);
@@ -244,7 +244,7 @@ class AccountingReportService
             'cost_estimate'=>$cost,'known_cost'=>$cost??$known,'analysis_count'=>count($leaves),'analyses'=>array_values($leaves),'membership_estimated'=>$estimated];
     }
 
-    public const BASIS_NOTE = 'الفواتير غير المحذوفة حسب تاريخ الإنشاء. المدفوع والمتبقي رصيد حالي من سجل الدفعات، والتحصيل حسب تاريخ الدفعة وقد يخص فاتورة أقدم. الربح تقديري = صافي الفاتورة − تكلفة الفحوص المسجلة/الحالية − عمولة الطبيب الحالية؛ لا يشمل المصروفات التشغيلية ولا يمثل صافي الربح المحاسبي. غير مكتمل يعني وجود تكلفة أو عمولة غير مسجلة. أسماء المدخل تعتمد سجل الإنشاء عند توفره، وإلا حساب الفاتورة. الإحالات تعرض رصيد الفواتير وليست إثبات تسوية عمولات أو مستحقات مختبر خارجي.';
+    public const BASIS_NOTE = 'الفواتير غير المحذوفة حسب تاريخ الإنشاء. المدفوع والمتبقي رصيد حالي من سجل الدفعات، والتحصيل حسب تاريخ الدفعة وقد يخص فاتورة أقدم. الربح تقديري = صافي الفاتورة − تكلفة الفحوص المسجلة/الحالية − عمولة الإحالة الحالية؛ لا يشمل المصروفات التشغيلية ولا يمثل صافي الربح المحاسبي. غير مكتمل يعني وجود تكلفة أو عمولة غير مسجلة. أسماء المدخل تعتمد سجل الإنشاء عند توفره، وإلا حساب الفاتورة. الإحالات تعرض رصيد الفواتير وليست إثبات تسوية عمولات أو مستحقات مختبر خارجي.';
     public const TITLES = ['overview'=>'ملخص حركة المختبر','invoices'=>'كشف الفواتير','payments'=>'حركة التحصيل','lab_referrals'=>'إحالات المختبرات','doctor_referrals'=>'إحالات الأطباء','items'=>'إيراد وربح البنود','analyses'=>'عدد الفحوصات','operators'=>'حركة الموظفين','contracts'=>'العقود','patients'=>'حسابات المرضى','outbound'=>'الفحوص المحولة للخارج'];
     private const ACCOUNT_COLUMNS = ['name'=>'الاسم','lab_name'=>'المختبر','invoice_count'=>'عدد الفواتير','total'=>'صافي الفواتير','paid'=>'المدفوع','balance'=>'المتبقي','credit'=>'الرصيد الزائد','commission_estimate'=>'عمولة تقديرية','profit_estimate'=>'ربح تقديري'];
     public const COLUMNS = [

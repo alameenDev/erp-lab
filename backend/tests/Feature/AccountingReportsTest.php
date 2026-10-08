@@ -110,6 +110,16 @@ class AccountingReportsTest extends TestCase
         $this->assertSame(1,$this->report(['created_by'=>$staff->id,'doctor_id'=>$doctor->id,'lab_referral_id'=>$refLab->id])['summary']['invoice_count']);
     }
 
+    public function test_explicit_laboratory_referral_commission_is_included_and_portal_creator_has_an_honest_fallback(): void
+    {
+        $refLab=$this->user('Partner Lab',2,$this->lab->id);
+        Referal::create(['lab_id_fk'=>$this->lab->id,'referral_id_fk'=>$refLab->id,'commission'=>10]);
+        $invoice=$this->invoice(['referral_id_fk'=>$refLab->id,'from_lab_id_fk'=>$refLab->id,'referral_request_uuid'=>(string) \Illuminate\Support\Str::uuid()]);
+        $r=$this->report();$this->assertEquals(1000,$r['summary']['commission_estimate']);$this->assertEquals(7000,$r['summary']['profit_estimate']);
+        $this->getJson('/api/accounting-reports/invoices/'.$invoice->id)->assertOk()->assertJsonPath('created_by','Partner Lab')->assertJsonPath('creator_source','portal_account');
+        $this->assertSame([], $r['doctor_referrals']);$this->assertSame('Partner Lab',$r['lab_referrals'][0]['name']);
+    }
+
     public function test_groups_packages_and_flattened_snapshots_count_leaves_once_and_allocate_exact_revenue(): void
     {
         $nested=LabTest::create(['name'=>'Hemoglobin','shortcut'=>'HGB','price'=>1000,'lab_id_fk'=>$this->lab->id]);

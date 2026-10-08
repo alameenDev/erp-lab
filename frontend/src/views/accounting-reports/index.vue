@@ -314,7 +314,7 @@
                          المختبر الخارجي.
                     </p>
                     <p>
-                         الربح المعروض تقديري: صافي الفاتورة ناقص تكلفة الفحوص المسجلة أو الحالية وعمولة الطبيب الحالية.
+                         الربح المعروض تقديري: صافي الفاتورة ناقص تكلفة الفحوص المسجلة أو الحالية وعمولة الإحالة الحالية.
                          لا يشمل المصروفات التشغيلية. لا تُحتسب نتيجة نهائية عند نقص بيانات التكلفة أو العمولة.
                     </p>
                     <p v-if="summary.incomplete_profit_invoices" class="ar-coverage">
@@ -591,7 +591,7 @@
           { key: "adjustment", label: "فرق التسوية المسجل" },
           { key: "total", label: "صافي الفواتير" },
           { key: "cost_estimate", label: "تكلفة الفحوص التقديرية" },
-          { key: "commission_estimate", label: "عمولات الأطباء التقديرية" },
+          { key: "commission_estimate", label: "عمولات الإحالات التقديرية" },
           { key: "profit_estimate", label: "الربح التقديري" },
      ];
      const sectionTitle = computed(() => sections.find((s) => s.key === tab.value)?.label);

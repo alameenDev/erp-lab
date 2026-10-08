@@ -14,7 +14,7 @@ $http.defaults.adapter=async config=>{
  else if(config.url==='/accounting-reports')data=structuredClone(report);
  else if(config.url==='/accounting-reports/invoices'||config.url==='/accounting-reports/payments'){const page=Number(params.page||1);data={data:fixture.empty?[]:[config.url.endsWith('/payments')?payment:{...invoice,id:invoice.id+page-1}],current_page:page,last_page:fixture.empty?1:2,total:fixture.empty?0:26};}
  else if(config.url.match(/\/accounting-reports\/invoices\/\d+$/))data={...invoice,id:Number(config.url.split('/').pop()),items:[item],payments:[payment],activity:[{id:1,date:invoice.date,actor:'مريم أحمد',description:'إضافة تسديد',changes:[{field:'paid',label:'المبلغ المدفوع',before:20000,after:30000}]}]};
- else if(config.url==='/accounting-reports/export')data=new Blob([params.format==='csv'?'الفاتورة,المريض\n1007011,أحمد علي':'<!doctype html><html lang="ar" dir="rtl"><body><button onclick="print()">طباعة / حفظ PDF</button><h1>كشف الفواتير</h1></body></html>'],{type:params.format==='csv'?'text/csv':'text/html'});
+ else if(config.url==='/accounting-reports/export')data=new Blob([params.format==='csv'?'الفاتورة,المريض\n1007011,أحمد علي':'<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><body><button onclick="print()">طباعة / حفظ PDF</button><h1>كشف الفواتير</h1></body></html>'],{type:params.format==='csv'?'text/csv':'text/html'});
  else throw Error('Unexpected request '+config.url);
  return{data,status:200,statusText:'OK',headers:{},config};
 };
