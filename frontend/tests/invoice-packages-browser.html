@@ -1,0 +1,32 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Invoice package contents</title></head><body><div id="app"></div><script type="module">
+import {createApp,h} from 'vue';import {createPinia} from 'pinia';
+import View from '/src/views/invoices/componentes/invoices_modal.vue';import Mixins from '/src/utils/mixins.js';
+import {useinvoicesStore} from '/src/store/modules/invoices';import {usePackagesStore} from '/src/store/modules/packages';
+import {$http} from '/src/plugins/axios';import '/src/assets/main.css';
+import PrimeVue from 'primevue/config';import Aura from '@primevue/themes/aura';
+import AutoComplete from 'primevue/autocomplete';import Dropdown from 'primevue/dropdown';import Checkbox from 'primevue/checkbox';
+import InputText from 'primevue/inputtext';import InputNumber from 'primevue/inputnumber';import Calendar from 'primevue/calendar';
+import Textarea from 'primevue/textarea';import Button from 'primevue/button';import RadioButton from 'primevue/radiobutton';
+localStorage.setItem('locale','ar');localStorage.setItem('token','synthetic-invoice-package');localStorage.setItem('user',JSON.stringify({id:1,name:'Synthetic Lab',role_id:2}));
+const test={id:11,name:'Glucose',shortcut:'GLU',price:5000};
+const group={id:21,type:'group',name:'Complete Blood Count',group_name:'Complete Blood Count',shortcut:'CBC',price:2000,tests:[{id:12,name:'Hemoglobin',shortcut:'HGB'},{id:13,name:'White Blood Cells',shortcut:'WBC'},{id:14,name:'Analysis without abbreviation'}],culture:[{id:31,name:'Group culture'}]};
+const empty={id:22,group_name:'Empty group',tests:[],cultures:[]};
+const nested={...group,cultures:group.culture};
+const packages=[{id:1,name:'Mixed package',tests:[test],test_groups:[nested,empty],cultures:[{id:32,name:'Direct culture',price:1000}]},{id:2,name:'Groups only',tests:[],test_groups:[nested]},{id:3,name:'Tests only',tests:[test],test_groups:[]},{id:4,name:'Empty package',tests:[],test_groups:[]}].map(p=>({cultures:[],...p,is_constant_price:true,price:10000,shortcut:'PKG-'+p.id}));
+const requests=[];
+$http.defaults.adapter=async config=>{
+ requests.push({url:config.url,method:config.method});
+ let data=[];
+ if(config.url==='/packages')data=packages;
+ else if(config.url==='/tests')data=[test,group];
+ else if(config.url==='/tests/questions')data={questions:[],result_comments:[]};
+ else if(config.method!=='get')throw new Error('Unexpected write '+config.url);
+ return {data:JSON.parse(JSON.stringify(data)),status:200,statusText:'OK',headers:{},config};
+};
+const app=createApp({render:()=>h(View,{isPageMode:true,ref:'form'})});const pinia=createPinia();
+app.use(pinia).use(PrimeVue,{theme:{preset:Aura}}).mixin(Mixins);
+for(const [name,component] of Object.entries({AutoComplete,Dropdown,Checkbox,InputText,InputNumber,Calendar,Textarea,Button,RadioButton}))app.component(name,component);
+app.config.globalProperties.$route={path:'/invoices/create',params:{}};app.config.globalProperties.$router={push:()=>{}};
+const root=app.mount('#app');
+window.invoiceFixture={form:()=>root.$refs.form,store:useinvoicesStore(pinia),catalog:usePackagesStore(pinia),packages,test,group,requests};
+</script></body></html>
