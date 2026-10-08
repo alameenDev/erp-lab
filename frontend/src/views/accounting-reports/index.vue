@@ -314,8 +314,8 @@
                          المختبر الخارجي.
                     </p>
                     <p>
-                         الربح المعروض تقديري: صافي الفاتورة ناقص تكلفة الفحوص المسجلة أو الحالية وعمولة الإحالة الحالية.
-                         لا يشمل المصروفات التشغيلية. لا تُحتسب نتيجة نهائية عند نقص بيانات التكلفة أو العمولة.
+                         الربح المعروض تقديري: صافي الفاتورة ناقص تكلفة الفحوص المسجلة أو الحالية وعمولة الإحالة
+                         الحالية. لا يشمل المصروفات التشغيلية. لا تُحتسب نتيجة نهائية عند نقص بيانات التكلفة أو العمولة.
                     </p>
                     <p v-if="summary.incomplete_profit_invoices" class="ar-coverage">
                          {{ money(summary.incomplete_profit_invoices) }} فاتورة ببيانات تكلفة أو عمولة غير مكتملة ·
@@ -445,6 +445,7 @@
           { key: "year", label: "هذه السنة" },
      ];
      const dimensions = [
+          { key: "owner_id", label: "المختبر", options: "owner_labs" },
           { key: "lab_referral_id", label: "المختبر المحيل", options: "labs" },
           { key: "doctor_id", label: "الطبيب المحيل", options: "doctors" },
           { key: "created_by", label: "مدخل العملية", options: "operators" },
@@ -705,9 +706,10 @@
           tab.value = "overview";
           apply();
      }
-     function filterInvoices(key, value) {
+     function filterInvoices(key, value, ownerId = null) {
           Object.assign(draft, store.filters);
           draft[key] = value;
+          if (ownerId) draft.owner_id = ownerId;
           tab.value = "invoices";
           apply();
      }
@@ -721,7 +723,7 @@
                contracts: "contract_id",
                patients: "patient_id",
           }[tab.value];
-          if (key) filterInvoices(key, row.id);
+          if (key) filterInvoices(key, row.id, row.lab_id);
      }
      async function exportReport(format) {
           const section = tab.value;
@@ -732,23 +734,33 @@
                     exportError.value = "اسمح بفتح نافذة الطباعة من المتصفح ثم أعد المحاولة.";
                     return;
                }
-               popup.document.body.textContent = "جارٍ تجهيز التقرير للطباعة…";
+               popup.document.open();
+               popup.document.write(
+                    '<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><body>جارٍ تجهيز التقرير للطباعة…</body></html>'
+               );
+               popup.document.close();
                popup.opener = null;
           }
           exporting.value = true;
           exportError.value = "";
           try {
                const blob = await store.export(section, format);
-               const url = URL.createObjectURL(blob);
                if (popup) {
-                    popup.location.replace(url);
+                    // All dynamic values in this server-rendered document are HTML-escaped.
+                    // Writing the prepared document also avoids popup/Blob navigation races.
+                    const html = await blob.text();
+                    if (popup.closed) return;
+                    popup.document.open();
+                    popup.document.write(html);
+                    popup.document.close();
                } else {
+                    const url = URL.createObjectURL(blob);
                     const link = document.createElement("a");
                     link.href = url;
                     link.download = `accounting-${section}-${store.filters.from}.csv`;
                     link.click();
+                    setTimeout(() => URL.revokeObjectURL(url), 60000);
                }
-               setTimeout(() => URL.revokeObjectURL(url), 60000);
           } catch {
                popup?.close();
                exportError.value = "تعذر تجهيز التقرير. أعد المحاولة أو اختر فترة أقصر.";

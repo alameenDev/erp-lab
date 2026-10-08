@@ -19,7 +19,7 @@ class AccountingReportController extends Controller
             'from' => 'required|date_format:Y-m-d', 'to' => 'required|date_format:Y-m-d|after_or_equal:from',
             'search' => 'nullable|string|max:100', 'status' => ['nullable', Rule::in(['paid', 'partial', 'unpaid', 'credit'])],
             'referral_type' => ['nullable', Rule::in(['lab', 'doctor'])],
-            'branch_id' => 'nullable|integer|min:1', 'created_by' => 'nullable|integer|min:1',
+            'owner_id' => 'nullable|integer|min:1', 'branch_id' => 'nullable|integer|min:1', 'created_by' => 'nullable|integer|min:1',
             'lab_referral_id' => 'nullable|integer|min:1', 'doctor_id' => 'nullable|integer|min:1',
             'contract_id' => 'nullable|integer|min:1', 'patient_id' => 'nullable|integer|min:1',
             'sample_collector_id' => 'nullable|integer|min:1', 'page' => 'nullable|integer|min:1', 'per_page' => 'nullable|integer|min:1|max:100',

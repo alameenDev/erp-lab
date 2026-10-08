@@ -154,6 +154,17 @@ class AccountingReportsTest extends TestCase
         $this->getJson('/api/accounting-reports?from=2026-10-08&to=2026-10-01')->assertUnprocessable();$this->getJson('/api/accounting-reports/invoices?per_page=101')->assertUnprocessable();
     }
 
+    public function test_admin_drill_down_keeps_the_selected_laboratory_including_its_staff(): void
+    {
+        $other=$this->user('Second Lab');$staff=$this->user('Reception Branch',6,$this->lab->id);$doctor=$this->user('Shared Doctor',5);
+        Referal::create(['lab_id_fk'=>$this->lab->id,'referral_id_fk'=>$doctor->id,'commission'=>10]);
+        Referal::create(['lab_id_fk'=>$other->id,'referral_id_fk'=>$doctor->id,'commission'=>90]);
+        $this->invoice(['lab_id_fk'=>$staff->id,'referral_id_fk'=>$doctor->id]);$this->invoice(['lab_id_fk'=>$other->id,'referral_id_fk'=>$doctor->id]);
+        $this->actingAs($this->user('Administrator',1));$all=$this->report();$this->assertCount(2,$all['doctor_referrals']);
+        $filtered=$this->report(['owner_id'=>$this->lab->id,'doctor_id'=>$doctor->id]);$this->assertEquals(1,$filtered['summary']['invoice_count']);$this->assertEquals(1000,$filtered['summary']['commission_estimate']);
+        $this->actingAs($this->lab);$this->assertEquals(0,$this->report(['owner_id'=>$other->id])['summary']['invoice_count']);
+    }
+
     public function test_allocation_is_conservative_for_discounts_zero_prices_and_negative_adjustments(): void
     {
         foreach([[999,[100,200,300]],[1,[1,1,1]],[100,[0,0,0]],[-17,[5,6,7]],[0,[1,2]]]as[$amount,$weights])$this->assertSame($amount,array_sum(AccountingReportService::allocate($amount,$weights)));

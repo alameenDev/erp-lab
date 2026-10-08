@@ -12,24 +12,28 @@ use Illuminate\Support\Facades\DB;
 class AccountingReportService
 {
     private array $owners = [];
-    private ?array $tenantIds = null;
+    private array $accountScopes = [];
     public function __construct(private User $actor, private array $filters) {}
+
+    private function accounts(int $owner): array
+    {
+        if (isset($this->accountScopes[$owner])) return $this->accountScopes[$owner];
+        // Include deleted staff without crossing an independent child lab.
+        $ids = [$owner]; $frontier = [$owner];
+        while ($frontier) {
+            $frontier = User::withTrashed()->whereIn('creator_id', $frontier)
+                ->whereNotIn('role_id', [1, 2, 3, 5])->where('referral_portal_only', false)
+                ->whereNotIn('id', $ids)->pluck('id')->all();
+            $ids = array_merge($ids, $frontier);
+        }
+        return $this->accountScopes[$owner] = $ids;
+    }
 
     public function scope(): Builder
     {
         $query = Invoice::query();
         if ((int) $this->actor->role_id !== 1) {
-            $owner = app(InventoryService::class)->labId($this->actor);
-            // Include deleted staff so their financial history does not disappear.
-            $ids = $this->tenantIds ?? [$owner]; $frontier = $this->tenantIds === null ? [$owner] : [];
-            while ($frontier) {
-                $frontier = User::withTrashed()->whereIn('creator_id', $frontier)
-                    ->whereNotIn('role_id', [1, 2, 3, 5])->where('referral_portal_only', false)
-                    ->whereNotIn('id', $ids)->pluck('id')->all();
-                $ids = array_merge($ids, $frontier);
-            }
-            $this->tenantIds = $ids;
-            $query->whereIn('invoices.lab_id_fk', $ids);
+            $query->whereIn('invoices.lab_id_fk', $this->accounts(app(InventoryService::class)->labId($this->actor)));
         }
         return $query;
     }
@@ -51,6 +55,7 @@ class AccountingReportService
             ->selectRaw('accounting_actor.name AS entry_actor_name, accounting_audit.id AS entry_audit_id');
         if ($invoiceDates) $this->dateRange($query, 'invoices.created_at');
         if (! $dimensions) return $query;
+        if (!empty($this->filters['owner_id'])) $query->whereIn('invoices.lab_id_fk', $this->accounts((int)$this->filters['owner_id']));
         foreach (['branch_id'=>'lab_id_fk', 'sample_collector_id'=>'sample_collector_id_fk', 'contract_id'=>'contract_id_fk', 'patient_id'=>'patient_id_fk'] as $filter=>$column) {
             if (! empty($this->filters[$filter])) $query->where('invoices.'.$column, $this->filters[$filter]);
         }
@@ -103,6 +108,7 @@ class AccountingReportService
         $users = User::withTrashed()->whereIn('id',$userIds)->get()->keyBy('id');
         $pairs = fn($ids)=>collect($ids)->filter()->unique()->map(fn($id)=>['id'=>(int)$id,'name'=>$users->get($id)?->name ?? 'حساب محذوف'])->sortBy('name')->values();
         return [
+            'owner_labs'=>$rows->pluck('lab_id_fk')->unique()->map(fn($id)=>$this->owner((int)$id))->filter()->unique('id')->map(fn($u)=>['id'=>$u->id,'name'=>$u->name])->values(),
             'branches'=>$pairs($rows->pluck('lab_id_fk')),
             'operators'=>$pairs($rows->pluck('entry_actor_id')),
             'labs'=>$pairs($rows->flatMap(fn($i)=>[$i->from_lab_id_fk,in_array((int)$users->get($i->referral_id_fk)?->role_id,[2,4])?$i->referral_id_fk:null])),
@@ -264,8 +270,8 @@ class AccountingReportService
 
     public function filterLabel(): string
     {
-        $labels=['search'=>'البحث','status'=>'حالة التسديد','referral_type'=>'نوع الإحالة','branch_id'=>'حساب الفاتورة','created_by'=>'مدخل العملية','lab_referral_id'=>'المختبر المحيل','doctor_id'=>'الطبيب','contract_id'=>'العقد','patient_id'=>'المريض','sample_collector_id'=>'جامع العينة'];
-        $options=$this->options();$lists=['branch_id'=>'branches','created_by'=>'operators','lab_referral_id'=>'labs','doctor_id'=>'doctors','contract_id'=>'contracts','sample_collector_id'=>'collectors'];$parts=[];
+        $labels=['owner_id'=>'المختبر','search'=>'البحث','status'=>'حالة التسديد','referral_type'=>'نوع الإحالة','branch_id'=>'حساب الفاتورة','created_by'=>'مدخل العملية','lab_referral_id'=>'المختبر المحيل','doctor_id'=>'الطبيب','contract_id'=>'العقد','patient_id'=>'المريض','sample_collector_id'=>'جامع العينة'];
+        $options=$this->options();$lists=['owner_id'=>'owner_labs','branch_id'=>'branches','created_by'=>'operators','lab_referral_id'=>'labs','doctor_id'=>'doctors','contract_id'=>'contracts','sample_collector_id'=>'collectors'];$parts=[];
         foreach($labels as $key=>$label)if(!empty($this->filters[$key])){
             $value=$this->filters[$key];
             if(isset($lists[$key]))$value=collect($options[$lists[$key]])->firstWhere('id',$value)['name']??$value;

@@ -11,6 +11,7 @@ export const defaultAccountingFilters = () => {
           status: "",
           referral_type: "",
           branch_id: "",
+          owner_id: "",
           created_by: "",
           lab_referral_id: "",
           doctor_id: "",
