@@ -448,6 +448,11 @@ Route::group(['middleware' => ['auth:sanctum', \App\Http\Middleware\RestrictRefe
     Route::get('/reports', [ReportsController::class, 'getReports']);
     Route::get('/reports/dashboard-stats', [ReportsController::class, 'getDashboardStats']);
     Route::get('/accounting-reports', [AccountingReportController::class, 'report']);
+    Route::get('/accounting-reports/options', [AccountingReportController::class, 'options']);
+    Route::get('/accounting-reports/invoices', [AccountingReportController::class, 'invoices']);
+    Route::get('/accounting-reports/payments', [AccountingReportController::class, 'payments']);
+    Route::get('/accounting-reports/export', [AccountingReportController::class, 'export']);
+    Route::get('/accounting-reports/invoices/{id}', [AccountingReportController::class, 'detail'])->whereNumber('id');
 
     /**
      @ Templates Routes

@@ -21,6 +21,7 @@ const _axios = axios.create(config);
 const shouldHideLoader = (url) => {
   if (!url) return false;
   const silentPatterns = [
+    "/accounting-reports",
     "/search",
     "/invoices/search-name",
     "/invoices/search-code",
