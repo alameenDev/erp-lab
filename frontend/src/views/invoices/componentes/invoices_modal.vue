@@ -238,6 +238,7 @@
                 <div
                   v-for="(item, index) in selectedTests"
                   :key="index"
+                  :data-invoice-analysis="item.id ?? item.test_id_fk"
                   class="p-3 bg-slate-50 border border-slate-200 rounded-xl hover:border-primary-200 transition-all group space-y-2"
                 >
                   <!-- Top row: # badge + name + price + delete -->

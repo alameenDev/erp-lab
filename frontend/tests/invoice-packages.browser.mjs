@@ -40,7 +40,8 @@ try {
  const analysisOption=page.getByRole('option').filter({has:page.getByText('Glucose',{exact:true})});
  await analysisOption.getByText('GLU',{exact:true}).waitFor();await analysisOption.click();
  await page.waitForFunction(()=>invoiceFixture.store.selectedTests.length===1);
- assert.equal(await page.getByText('GLU',{exact:true}).count(),2,'abbreviation appears in selected individual analysis and direct package analysis');
+ await page.locator('[data-invoice-analysis="11"]').getByText('GLU',{exact:true}).waitFor();
+ await card(3).getByText('GLU',{exact:true}).waitFor();
  // Existing invoices may flatten group children alongside the nested membership.
  await page.evaluate(()=>{const p=structuredClone(invoiceFixture.packages[0]);p.package_id_fk=p.id;delete p.id;p.tests.push(...p.test_groups[0].tests);invoiceFixture.store.selectedPackages=[p];invoiceFixture.form().expandedContents={'package:1':true};});
  assert.equal(await card(1).getByText('Hemoglobin',{exact:true}).count(),1,'flattened edit response does not duplicate group tests');
