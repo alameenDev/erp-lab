@@ -213,6 +213,7 @@
             <div class="p-5 space-y-4">
               <AutoComplete
                 v-model="selectedTest"
+                data-invoice-picker="analysis"
                 :suggestions="tests"
                 optionLabel="name"
                 :minLength="0"
@@ -227,8 +228,7 @@
                 <template #option="slotProps">
                   <div class="flex items-center gap-2">
                     <span v-if="slotProps.option.type === 'group'" class="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded">{{ t("group") || "Group" }}</span>
-                    <span>{{ slotProps.option.name }}</span>
-                    <span v-if="slotProps.option.shortcut" class="text-xs text-slate-400">({{ slotProps.option.shortcut }})</span>
+                    <AnalysisName :name="slotProps.option.name" :shortcut="slotProps.option.shortcut" />
                   </div>
                 </template>
               </AutoComplete>
@@ -238,6 +238,7 @@
                 <div
                   v-for="(item, index) in selectedTests"
                   :key="index"
+                  :data-invoice-analysis="item.id ?? item.test_id_fk"
                   class="p-3 bg-slate-50 border border-slate-200 rounded-xl hover:border-primary-200 transition-all group space-y-2"
                 >
                   <!-- Top row: # badge + name + price + delete -->
@@ -246,7 +247,7 @@
                       {{ index + 1 }}
                     </div>
                     <div class="flex-1 min-w-0">
-                      <p class="font-medium text-slate-800 text-sm truncate">{{ item.name }}</p>
+                      <AnalysisName :name="item.name" :shortcut="item.shortcut" class="text-sm text-slate-800" />
                       <p class="text-xs text-slate-500">{{ t("price") }}: {{ resolveItemPrice(item) }}</p>
                     </div>
                     <button type="button" @click="removeSelection('test', index)" :aria-label="t('remove') || 'حذف'" class="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0 cursor-pointer focus:outline-none focus:ring-4 focus:ring-red-200 min-w-[36px] min-h-[36px]">
@@ -268,7 +269,7 @@
 
               <!-- Selected Test Groups -->
               <div v-if="selectedtestGroups?.length" class="space-y-2">
-                <div v-for="(item, index) in selectedtestGroups" :key="'group-' + index" class="border border-blue-200 rounded-xl overflow-hidden">
+                <div v-for="(item, index) in selectedtestGroups" :key="contentsKey('group', item)" :data-invoice-group="item.id ?? item.test_group_id_fk" class="border border-blue-200 rounded-xl overflow-hidden">
                   <div class="flex items-center gap-3 p-3 bg-gradient-to-r from-blue-50 to-white group">
                     <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 font-semibold text-xs shrink-0">
                       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -276,18 +277,18 @@
                       </svg>
                     </div>
                     <div class="flex-1 min-w-0">
-                      <p class="font-medium text-slate-800 text-sm truncate">
+                      <div class="text-sm text-slate-800">
                         <span class="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded me-1.5">{{ t("group") }}</span>
-                        {{ item.group_name || item.name }}
-                      </p>
+                        <AnalysisName :name="item.group_name || item.name" :shortcut="item.shortcut" />
+                      </div>
                       <p class="text-xs text-slate-500">
                         {{ t("price") }}: {{ resolveGroupPrice(item).toLocaleString() }}
                         • {{ item.tests?.length || 0 }} {{ t("tests") }}
                       </p>
                     </div>
                     <div class="flex items-center gap-2 shrink-0">
-                      <button type="button" @click="toggletests(index)" :aria-label="t('toggle_tests') || 'إظهار/إخفاء'" :aria-expanded="showTests[index] ? 'true' : 'false'" class="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer focus:outline-none focus:ring-4 focus:ring-blue-200 min-w-[36px] min-h-[36px]">
-                        <svg :class="['w-4 h-4 transition-transform', showTests[index] ? 'rotate-180' : '']" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                      <button type="button" @click="toggleContents('group', item)" :aria-label="t('toggle_tests') || 'إظهار/إخفاء'" :aria-expanded="!!expandedContents[contentsKey('group', item)]" class="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer focus:outline-none focus:ring-4 focus:ring-blue-200 min-w-[36px] min-h-[36px]">
+                        <svg :class="['w-4 h-4 transition-transform', expandedContents[contentsKey('group', item)] ? 'rotate-180' : '']" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
                           <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
                         </svg>
                       </button>
@@ -298,14 +299,14 @@
                       </button>
                     </div>
                   </div>
-                  <div v-show="showTests[index]" class="p-3 bg-slate-50 border-t border-blue-100">
+                  <div v-show="expandedContents[contentsKey('group', item)]" class="p-3 bg-slate-50 border-t border-blue-100">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-1.5">
                       <div v-for="test in item.tests" :key="`test-${test.id}`" class="flex items-center justify-between p-2 bg-white rounded-lg text-sm">
-                        <span class="text-slate-700">{{ test.name }}</span>
+                        <AnalysisName :name="test.name" :shortcut="test.shortcut" class="text-slate-700" />
                         <span class="text-slate-400 text-xs">{{ test.for_customer_price ?? test.price }}</span>
                       </div>
-                      <div v-for="culture in item.culture" :key="`culture-${culture.id}`" class="flex items-center justify-between p-2 bg-purple-50 rounded-lg text-sm">
-                        <span class="text-purple-700">{{ culture.name }}</span>
+                      <div v-for="culture in (item.cultures ?? item.culture)" :key="`culture-${culture.id}`" class="flex items-center justify-between gap-2 p-2 bg-purple-50 rounded-lg text-sm">
+                        <AnalysisName :name="culture.name" :shortcut="culture.shortcut" class="text-purple-700" />
                         <span class="text-purple-400 text-xs">{{ culture.for_customer_price ?? culture.price }}</span>
                       </div>
                     </div>
@@ -378,7 +379,7 @@
                     {{ index + 1 }}
                   </div>
                   <div class="flex-1 min-w-0">
-                    <p class="font-medium text-slate-800 text-sm truncate">{{ item.name }}</p>
+                    <AnalysisName :name="item.name" :shortcut="item.shortcut" class="text-sm text-slate-800" />
                     <p class="text-xs text-slate-500">
                       {{ t("price") }}: {{ resolveItemPrice(item) }}
                     </p>
@@ -418,6 +419,7 @@
             <div class="p-5 space-y-4">
               <AutoComplete
                 v-model="selectedPackage"
+                data-invoice-picker="package"
                 :suggestions="filteredPackages"
                 optionLabel="name"
                 :minLength="0"
@@ -430,21 +432,22 @@
               />
 
               <div v-if="selectedPackages?.length" class="space-y-2">
-                <div v-for="(item, index) in selectedPackages" :key="index" class="border border-amber-200 rounded-xl overflow-hidden">
+                <div v-for="(item, index) in selectedPackages" :key="contentsKey('package', item)" :data-invoice-package="item.id ?? item.package_id_fk" class="border border-amber-200 rounded-xl overflow-hidden">
                   <div class="flex items-center gap-3 p-3 bg-gradient-to-r from-amber-50 to-white group">
                     <div class="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center text-amber-600 font-semibold text-xs shrink-0">
                       {{ index + 1 }}
                     </div>
                     <div class="flex-1 min-w-0">
-                      <p class="font-medium text-slate-800 text-sm truncate">{{ item.name }}</p>
+                      <AnalysisName :name="item.name" :shortcut="item.shortcut" class="text-sm text-slate-800" />
                       <p class="text-xs text-slate-500">
                         {{ t("price") }}: {{ resolveItemPrice(item) }}
-                        • {{ item.tests?.length || 0 }} {{ t("tests") }} • {{ item.cultures?.length || 0 }} {{ t("cultures") }}
+                        • {{ item.test_groups?.length || 0 }} {{ t("group") }}
+                        • {{ packageContents(item).testCount }} {{ t("tests") }} • {{ packageContents(item).cultureCount }} {{ t("cultures") }}
                       </p>
                     </div>
                     <div class="flex items-center gap-2 shrink-0">
-                      <button type="button" @click="toggletests(index)" :aria-label="t('toggle_tests') || 'إظهار/إخفاء'" :aria-expanded="showTests[index] ? 'true' : 'false'" class="p-2 text-amber-600 hover:bg-amber-100 rounded-lg transition-colors cursor-pointer focus:outline-none focus:ring-4 focus:ring-amber-200 min-w-[36px] min-h-[36px]">
-                        <svg :class="['w-4 h-4 transition-transform', showTests[index] ? 'rotate-180' : '']" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                      <button type="button" @click="toggleContents('package', item)" :aria-label="t('toggle_tests') || 'إظهار/إخفاء'" :aria-expanded="!!expandedContents[contentsKey('package', item)]" class="p-2 text-amber-600 hover:bg-amber-100 rounded-lg transition-colors cursor-pointer focus:outline-none focus:ring-4 focus:ring-amber-200 min-w-[36px] min-h-[36px]">
+                        <svg :class="['w-4 h-4 transition-transform', expandedContents[contentsKey('package', item)] ? 'rotate-180' : '']" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
                           <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
                         </svg>
                       </button>
@@ -455,17 +458,8 @@
                       </button>
                     </div>
                   </div>
-                  <div v-show="showTests[index]" class="p-3 bg-slate-50 border-t border-amber-100">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-1.5">
-                      <div v-for="test in item.tests" :key="`test-${test.id}`" class="flex items-center justify-between p-2 bg-white rounded-lg text-sm">
-                        <span class="text-slate-700">{{ test.name }}</span>
-                        <span class="text-slate-400 text-xs">{{ test.for_customer_price ?? test.price }}</span>
-                      </div>
-                      <div v-for="culture in item.cultures" :key="`culture-${culture.id}`" class="flex items-center justify-between p-2 bg-purple-50 rounded-lg text-sm">
-                        <span class="text-purple-700">{{ culture.name }}</span>
-                        <span class="text-purple-400 text-xs">{{ culture.for_customer_price ?? culture.price }}</span>
-                      </div>
-                    </div>
+                  <div v-show="expandedContents[contentsKey('package', item)]" class="p-3 bg-slate-50 border-t border-amber-100">
+                    <InvoicePackageContents :item="item" />
                   </div>
                 </div>
               </div>
@@ -775,6 +769,9 @@ import { usepaymentMethodstore } from "@/store/modules/payment-methods";
 import { useresultStatusStore } from "@/store/modules/result-status";
 import { usePatientsStore } from "@/store/modules/patients";
 import PreviousInvoice from './PreviousInvoice.vue';
+import AnalysisName from './AnalysisName.vue';
+import InvoicePackageContents from './InvoicePackageContents.vue';
+import { invoicePackageContents } from '@/utils/invoicePackageContents';
 import { showAlertWithConfirm } from "@/utils/helper";
 import printInvoiceModal from "./printInvoice_modal.vue";
 import { $http } from "@/plugins/axios";
@@ -802,7 +799,7 @@ export default {
       filteredCultures: [],
       filteredPackages: [],
       perceInput: false,
-      showTests: [],
+      expandedContents: {},
       showCultures: [],
       valueInput: false,
       promoCodeInput: "",
@@ -826,6 +823,8 @@ export default {
   },
   components: {
     PreviousInvoice,
+    AnalysisName,
+    InvoicePackageContents,
     printInvoiceModal,
     Dialog,
   },
@@ -1155,8 +1154,13 @@ export default {
         this.$nextTick(() => { this.selectedPackage = null; });
       }
     },
-    toggletests(index) {
-      this.showTests[index] = !this.showTests[index];
+    packageContents: invoicePackageContents,
+    contentsKey(type, item) {
+      return `${type}:${item.id ?? item.package_id_fk ?? item.test_group_id_fk ?? item.name ?? item.group_name}`;
+    },
+    toggleContents(type, item) {
+      const key = this.contentsKey(type, item);
+      this.expandedContents[key] = !this.expandedContents[key];
     },
     toggleCultures(index) {
       this.showCultures[index] = !this.showCultures[index];
@@ -1396,7 +1400,10 @@ export default {
           }
         } else if (type === "package") {
           const exists = this.selectedPackages.find((pkg) => pkg.id === item.id);
-          if (!exists) this.selectedPackages.push(selectedItem);
+          if (!exists) {
+            this.selectedPackages.push(selectedItem);
+            this.expandedContents[this.contentsKey('package', selectedItem)] = true;
+          }
         } else if (type === "culture") {
           const exists = this.selectedCultures.find((pkg) => pkg.id === item.id);
           if (!exists) this.selectedCultures.push(selectedItem);
