@@ -1050,6 +1050,7 @@
   "summary": "ملخص",
   "generated_at": "تاريخ الإنشاء",
   "inventory": "المخزون",
+     "edit": "تعديل",
      "renew_subscription": "تجديد الاشتراك",
      "current_expiry": "تاريخ الانتهاء الحالي",
      "new_expiry": "تاريخ الانتهاء الجديد",

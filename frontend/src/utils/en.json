@@ -1044,6 +1044,7 @@
   "summary": "Summary",
   "generated_at": "Generated at",
   "inventory": "Inventory",
+     "edit": "Edit",
      "renew_subscription": "Renew subscription",
      "current_expiry": "Current expiry date",
      "new_expiry": "New expiry date",

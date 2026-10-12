@@ -66,6 +66,9 @@ class SubscriptionRenewalTest extends TestCase
         $this->assertSame('trial', $changes->firstWhere('field', 'status')['before']);
         $this->assertSame('active', $changes->firstWhere('field', 'status')['after']);
         $this->assertNotNull($changes->firstWhere('field', 'end_date'));
+        // API middleware selects Sanctum for the previous request. A real
+        // login request starts with the web guard in a fresh application.
+        Auth::shouldUse('web');
         Auth::forgetGuards();
         $this->postJson('/api/user/login', $login)->assertOk();
         $this->actingAs($this->lab)->getJson('/api/subscription/my')->assertOk()->assertJsonPath('has_subscription', true)->assertJsonPath('expired', false);
@@ -110,7 +113,7 @@ class SubscriptionRenewalTest extends TestCase
         $this->postJson($url.'/renew', [])->assertUnauthorized();
         foreach ([2, 3, 4, 5, 6] as $role) {
             $user = User::create(['name' => 'Other user', 'email' => "renew-role-$role@example.test", 'password' => 'test-password', 'role_id' => $role]);
-            $this->actingAs($user)->getJson($url.'/renewal')->assertForbidden();
+            $this->actingAs($user->fresh())->getJson($url.'/renewal')->assertForbidden();
             $this->postJson($url.'/renew', [])->assertForbidden();
         }
         $this->assertSame('trial', $this->subscription->fresh()->status);

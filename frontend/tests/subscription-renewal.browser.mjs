@@ -26,7 +26,7 @@ try {
  assert.equal(posts.length,1);assert.deepEqual(posts[0].body,{months:3,version:'a'.repeat(64)});
  await page.locator('tbody').getByText('2027-01-11',{exact:true}).waitFor();
  // Original edit and delete controls remain.
- await page.locator('tbody').getByRole('button',{name:'edit',exact:true}).waitFor();
+ await page.locator('tbody').getByRole('button',{name:'تعديل',exact:true}).waitFor();
  await page.locator('tbody').getByRole('button',{name:'حذف',exact:true}).waitFor();
  await page.setViewportSize({width:390,height:844});
  await renew().click();await page.getByLabel('مدة التجديد').waitFor();
