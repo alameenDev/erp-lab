@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted } from "vue";
 import AppTopbar from "./AppTopbar.vue";
 import AppSidebar from "./AppSidebar.vue";
 import AppFooter from "./AppFooter.vue";
+import LabAnnouncements from "@/components/announcements/LabAnnouncements.vue";
 import { useLayout } from "@/layout/composables/layout";
 
 const { isSidebarActive, closeSidebar, isSidebarCollapsed } = useLayout();
@@ -77,6 +78,7 @@ const contentMargin = computed(() => isSidebarCollapsed?.value ? "5rem" : "16rem
       :class="['lg:block']"
     >
       <div class="p-4 lg:p-6 min-h-[calc(100vh-8rem)]">
+        <LabAnnouncements />
         <!-- Page content with smooth transitions -->
         <router-view v-slot="{ Component }">
           <Transition name="page" mode="out-in">
