@@ -84,6 +84,7 @@ export const useSuperAdminStore = defineStore("superAdmin", {
           },
 
           async GetLabDetail(labId) {
+               this.labDetail = null;
                try {
                     const { data } = await $http.get(`/super-admin/lab-detail/${labId}`);
                     this.labDetail = data;

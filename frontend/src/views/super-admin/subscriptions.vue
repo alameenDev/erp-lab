@@ -3,10 +3,19 @@ import { ref, onMounted } from "vue";
 import { storeToRefs } from "pinia";
 import { useSuperAdminStore } from "@/store/modules/superAdmin";
 import { t, formatNum as commaFormat } from "@/utils/helper";
+import SubscriptionRenewalModal from "./components/subscription-renewal-modal.vue";
 import SubscriptionModal from "./components/subscription-modal.vue";
 
 const store = useSuperAdminStore();
 const { subscriptions, subscriptionsPagination, subscriptionDialog } = storeToRefs(store);
+
+const renewalId = ref(null);
+const renewalSuccess = ref("");
+const onRenewed = (sub) => {
+     renewalId.value = null;
+     renewalSuccess.value = `${sub.lab?.name || ""}: ${t("renewal_success")} ${sub.end_date?.split("T")[0]}`;
+     loadSubscriptions();
+};
 
 const statusFilter = ref("");
 const searchFilter = ref("");
@@ -42,6 +51,7 @@ const openEdit = (sub) => {
      store.subscriptionRecord = {
           id: sub.id,
           lab_id_fk: sub.lab_id_fk,
+          plan_id_fk: sub.plan_id_fk,
           plan_name: sub.plan_name,
           start_date: sub.start_date?.split("T")[0] || sub.start_date,
           end_date: sub.end_date?.split("T")[0] || sub.end_date,
@@ -89,6 +99,8 @@ onMounted(loadSubscriptions);
                <h1 class="text-2xl font-bold text-gray-900">{{ t("subscriptions") }}</h1>
                <UiButton @click="openAdd">+ {{ t("add_subscription") }}</UiButton>
           </div>
+
+          <p v-if="renewalSuccess" role="status" class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-800">{{ renewalSuccess }}</p>
 
           <!-- Filters -->
           <div class="bg-white rounded-xl border border-gray-100 p-4 shadow-sm flex flex-wrap gap-4 items-end">
@@ -149,9 +161,9 @@ onMounted(loadSubscriptions);
                                    <td class="px-4 py-3">
                                         <span
                                              class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
-                                             :class="statusBadge(sub.status).class"
+                                             :class="statusBadge(sub.effective_status || sub.status).class"
                                         >
-                                             {{ statusBadge(sub.status).text }}
+                                             {{ statusBadge(sub.effective_status || sub.status).text }}
                                         </span>
                                    </td>
                                    <td class="px-4 py-3 text-gray-600">{{ sub.start_date?.split("T")[0] || sub.start_date }}</td>
@@ -159,13 +171,16 @@ onMounted(loadSubscriptions);
                                    <td class="px-4 py-3 text-gray-600">{{ sub.max_users || "-" }}</td>
                                    <td class="px-4 py-3 text-gray-600">{{ sub.max_invoices_per_month || "-" }}</td>
                                    <td class="px-4 py-3 text-gray-600">{{ commaFormat(sub.price) }} {{ sub.currency }}</td>
-                                   <td class="px-4 py-3 flex gap-2">
-                                        <button @click="openEdit(sub)" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
-                                             {{ t("edit") }}
-                                        </button>
-                                        <button @click="deleteSubscription(sub)" class="text-red-600 hover:text-red-800 text-sm font-medium">
-                                             {{ t("delete") }}
-                                        </button>
+                                   <td class="px-4 py-3">
+                                        <div class="flex items-center gap-3 whitespace-nowrap">
+                                             <UiButton size="sm" variant="outline" @click="renewalSuccess = ''; renewalId = sub.id">{{ t("renew_subscription") }}</UiButton>
+                                             <button @click="openEdit(sub)" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                                                  {{ t("edit") }}
+                                             </button>
+                                             <button @click="deleteSubscription(sub)" class="text-red-600 hover:text-red-800 text-sm font-medium">
+                                                  {{ t("delete") }}
+                                             </button>
+                                        </div>
                                    </td>
                               </tr>
                               <tr v-if="!subscriptions.length">
@@ -195,5 +210,6 @@ onMounted(loadSubscriptions);
           </div>
 
           <SubscriptionModal @saved="onSaved" />
+          <SubscriptionRenewalModal v-if="renewalId" :subscription-id="renewalId" @close="renewalId = null" @saved="onRenewed" />
      </div>
 </template>

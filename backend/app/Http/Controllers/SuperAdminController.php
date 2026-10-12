@@ -141,7 +141,7 @@ class SuperAdminController extends Controller
             ->get();
 
         $recentInvoices = Invoice::where('lab_id_fk', $labId)
-            ->with('patient:id,first_name,middle_name,last_name')
+            ->with('patient:id,user_id', 'patient.user:id,name')
             ->select('id', 'patient_id_fk', 'total', 'paid', 'is_done', 'created_at', 'barcode')
             ->latest()
             ->limit(10)
@@ -195,7 +195,7 @@ class SuperAdminController extends Controller
         if ($request->subscription_status) {
             $status = $request->subscription_status;
             $query->whereHas('subscription', function ($q) use ($status) {
-                $q->where('status', $status);
+                $q->effectiveStatus($status);
             });
         }
 

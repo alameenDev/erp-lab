@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Plan;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Services\SubscriptionRenewal;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -33,7 +34,7 @@ class SubscriptionController extends Controller
         $query = Subscription::with(['lab:id,name,email,phone_number', 'plan:id,name,name_ar']);
 
         if ($request->status) {
-            $query->where('status', $request->status);
+            $query->effectiveStatus($request->status);
         }
 
         if ($request->lab_id) {
@@ -77,6 +78,28 @@ class SubscriptionController extends Controller
         $subscription = Subscription::with('lab:id,name,email,phone_number')->findOrFail($id);
 
         return response()->json($subscription);
+    }
+
+    public function renewalPreview(int $id, SubscriptionRenewal $renewal)
+    {
+        $this->assertAdmin();
+
+        return response()->json($renewal->preview(Subscription::findOrFail($id)))
+            ->header('Cache-Control', 'no-store');
+    }
+
+    public function renew(Request $request, int $id, SubscriptionRenewal $renewal)
+    {
+        $this->assertAdmin();
+        $data = $request->validate([
+            'months' => 'required|integer|in:'.implode(',', SubscriptionRenewal::MONTHS),
+            'version' => 'required|string|size:64',
+        ]);
+
+        return response()->json([
+            'message' => 'تم تجديد الاشتراك بنجاح',
+            'subscription' => $renewal->renew($id, (int) $data['months'], $data['version']),
+        ]);
     }
 
     public function store(Request $request)
@@ -173,6 +196,7 @@ class SubscriptionController extends Controller
         $labId = $user->role_id == 2 ? $user->id : $user->creator_id;
         $subscription = Subscription::where('lab_id_fk', $labId)
             ->with('plan:id,name,name_ar')
+            ->orderByRaw("CASE WHEN status IN ('active', 'trial') AND end_date >= ? THEN 0 ELSE 1 END", [today()->toDateString()])
             ->orderByDesc('end_date')
             ->first();
 

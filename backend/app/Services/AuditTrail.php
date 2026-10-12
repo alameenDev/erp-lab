@@ -224,6 +224,7 @@ class AuditTrail
             'InvoiceController@sendInvoice' => 'بدء إرسال النتيجة بالواتساب', 'InvoiceController@savePdf' => 'حفظ ملف التقرير',
             'BridgeResultController@receive' => 'استلام نتائج الجهاز', 'DeviceResultController@applyResults' => 'تطبيق نتائج الجهاز',
             'LabSettingController@update' => 'تعديل إعدادات المختبر',
+            'SubscriptionController@renew' => 'تجديد اشتراك المختبر',
             'LabNotificationController@update' => 'تعديل إعدادات إشعارات المختبر',
             'LabNotificationController@send' => 'جدولة إشعار لمرضى المختبر',
             'LabNotificationController@cancel' => 'إيقاف حملة إشعارات المختبر',
