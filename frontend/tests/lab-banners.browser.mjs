@@ -4,7 +4,7 @@ const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright')
 const output = 'test-results/lab-banners';
 await fs.mkdir(output, { recursive: true });
 // Entire test uses synthetic accounts, mocked API responses and generated image fixtures.
-const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j1xkAAAAASUVORK5CYII=', 'base64');
+const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGO49/knAAV9Ass5DYo8AAAAAElFTkSuQmCC', 'base64');
 const sample = { name: 'banner.png', mimeType: 'image/png', buffer: png };
 const state = { banners: [], keys: [], failCreateOnce: true, failFeed: false, reads: 0 };
 const contexts = [], pages = [], errors = [];
@@ -16,7 +16,7 @@ async function pageFor(id, role, locale = 'ar') {
     if (id) { localStorage.setItem('token', `synthetic-${id}`); localStorage.setItem('user', JSON.stringify({ id, role_id: role, name: 'Synthetic Lab', creator_id: role === 7 ? 11 : null })); }
   }, { id, role, locale });
   const page = await context.newPage(); pages.push(page);
-  page.on('pageerror', (error) => errors.push(error.message));
+  page.on('pageerror', (error) => { errors.push(error.message); console.error('Browser error:', error.message); });
   await page.route(/\/storage\/lab-banners\//, (route) => route.fulfill({ status: 200, contentType: 'image/png', body: png }));
   await page.route(/\/api\/lab-banners(?:[/?]|$)/, async (route) => {
     const request = route.request(), url = new URL(request.url()), path = url.pathname, method = request.method();
@@ -139,6 +139,7 @@ try {
   assert.deepEqual(errors, []);
   console.log('PASS: multipart image uploads, mobile preview, targeted/all audience, retry, edit/delete, escaped text, responsive 1440/768/390/320, picture sources, CTA, print exclusion, route lifecycle, logout, patient exclusion and silent feed failure.');
 } catch (error) {
+  console.error('Browser page errors:', errors);
   await fs.writeFile(`${output}/failure.txt`, `${error.stack}\nPage errors:\n${errors.join('\n')}`);
   for (let i = 0; i < pages.length; i++) await pages[i].screenshot({ path: `${output}/failure-${i}.png`, fullPage: true }).catch(() => {});
   throw error;
