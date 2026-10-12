@@ -10,6 +10,27 @@ class Subscription extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected $appends = ['effective_status'];
+
+    public function getEffectiveStatusAttribute(): string
+    {
+        return in_array($this->status, ['active', 'trial'], true) && $this->end_date?->lt(today())
+            ? 'expired' : $this->status;
+    }
+
+    public function scopeEffectiveStatus($query, string $status)
+    {
+        if ($status === 'expired') {
+            return $query->where(fn ($q) => $q->where('status', 'expired')
+                ->orWhere(fn ($dated) => $dated->whereIn('status', ['active', 'trial'])
+                    ->where('end_date', '<', today()->toDateString())));
+        }
+
+        return $query->where('status', $status)
+            ->when(in_array($status, ['active', 'trial'], true), fn ($q) =>
+                $q->where('end_date', '>=', today()->toDateString()));
+    }
+
     protected $fillable = [
         'lab_id_fk',
         'plan_id_fk',

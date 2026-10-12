@@ -1049,5 +1049,22 @@
   "preset_all": "كل البيانات",
   "summary": "ملخص",
   "generated_at": "تاريخ الإنشاء",
-  "inventory": "المخزون"
+  "inventory": "المخزون",
+     "edit": "تعديل",
+     "renew_subscription": "تجديد الاشتراك",
+     "current_expiry": "تاريخ الانتهاء الحالي",
+     "new_expiry": "تاريخ الانتهاء الجديد",
+     "renewal_duration": "مدة التجديد",
+     "renewal_start": "بداية المدة المضافة",
+     "renewal_months_1": "شهر واحد",
+     "renewal_months_3": "3 أشهر",
+     "renewal_months_6": "6 أشهر",
+     "renewal_months_12": "سنة كاملة",
+     "renewal_keeps_days": "تُضاف المدة بعد انتهاء الاشتراك الحالي للحفاظ على الأيام المتبقية.",
+     "renewal_starts_today": "يبدأ التجديد من اليوم ويصبح الاشتراك فعّالاً عند التأكيد.",
+     "renewal_keeps_plan": "تبقى الخطة والسعر وحدود الاستخدام كما هي.",
+     "confirm_renewal": "تأكيد التجديد",
+     "renewal_success": "تم تجديد الاشتراك بنجاح حتى",
+     "renewal_refresh": "تحديث تفاصيل الاشتراك",
+     "renewal_request_failed": "تعذر إكمال الطلب. حدّث تفاصيل الاشتراك وتحقق من حالته قبل المحاولة مجدداً."
 }

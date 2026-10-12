@@ -18,6 +18,7 @@ import {
 
 ChartJS.register(Title, Tooltip, Legend, PointElement, LineElement, CategoryScale, LinearScale, Filler);
 
+const emit = defineEmits(["renew"]);
 const visible = defineModel({ type: Boolean });
 
 const store = useSuperAdminStore();
@@ -85,10 +86,15 @@ const revenueChart = computed(() => ({
                          <p class="text-sm text-gray-500">{{ t("subscription_status") }}</p>
                          <span
                               class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mt-1"
-                              :class="statusBadge(subscription?.status).class"
+                              :class="statusBadge(subscription?.effective_status || subscription?.status).class"
                          >
-                              {{ statusBadge(subscription?.status).text }}
+                              {{ statusBadge(subscription?.effective_status || subscription?.status).text }}
                          </span>
+                         <template v-if="subscription">
+                              <p class="text-sm text-slate-700 mt-2">{{ subscription.plan_name }}</p>
+                              <p class="text-sm text-slate-500 mt-1">{{ t("end_date") }}: <bdi>{{ subscription.end_date?.split("T")[0] }}</bdi></p>
+                              <UiButton size="sm" class="mt-3" @click="emit('renew', subscription)">{{ t("renew_subscription") }}</UiButton>
+                         </template>
                     </div>
                </div>
 
@@ -161,7 +167,7 @@ const revenueChart = computed(() => ({
                                    <tr v-for="inv in recentInvoices" :key="inv.id">
                                         <td class="px-3 py-2 font-mono text-xs">{{ inv.barcode }}</td>
                                         <td class="px-3 py-2">
-                                             {{ [inv.patient?.first_name, inv.patient?.middle_name, inv.patient?.last_name].filter(Boolean).join(" ") }}
+                                             {{ inv.patient?.user?.name || "-" }}
                                         </td>
                                         <td class="px-3 py-2">{{ commaFormat(inv.total) }}</td>
                                         <td class="px-3 py-2">{{ commaFormat(inv.paid) }}</td>

@@ -507,6 +507,8 @@ Route::group(['middleware' => ['auth:sanctum', \App\Http\Middleware\RestrictRefe
     Route::get('subscription/my', [SubscriptionController::class, 'mySubscription']);
     Route::get('subscriptions', [SubscriptionController::class, 'index']);
     Route::get('subscriptions/{id}', [SubscriptionController::class, 'show']);
+    Route::get('subscriptions/{id}/renewal', [SubscriptionController::class, 'renewalPreview']);
+    Route::post('subscriptions/{id}/renew', [SubscriptionController::class, 'renew']);
     Route::post('subscriptions/create', [SubscriptionController::class, 'store']);
     Route::put('subscriptions/update', [SubscriptionController::class, 'update']);
     Route::delete('subscriptions/delete', [SubscriptionController::class, 'destroy']);

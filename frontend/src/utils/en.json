@@ -1043,5 +1043,22 @@
   "preset_all": "All data",
   "summary": "Summary",
   "generated_at": "Generated at",
-  "inventory": "Inventory"
+  "inventory": "Inventory",
+     "edit": "Edit",
+     "renew_subscription": "Renew subscription",
+     "current_expiry": "Current expiry date",
+     "new_expiry": "New expiry date",
+     "renewal_duration": "Renewal duration",
+     "renewal_start": "Added term starts",
+     "renewal_months_1": "One month",
+     "renewal_months_3": "3 months",
+     "renewal_months_6": "6 months",
+     "renewal_months_12": "One year",
+     "renewal_keeps_days": "The new term starts after the current expiry date, preserving all remaining days.",
+     "renewal_starts_today": "Renewal starts today and activates the subscription on confirmation.",
+     "renewal_keeps_plan": "The plan, price and usage limits stay the same.",
+     "confirm_renewal": "Confirm renewal",
+     "renewal_success": "Subscription renewed successfully until",
+     "renewal_refresh": "Refresh subscription details",
+     "renewal_request_failed": "Unable to complete the request. Refresh and check the subscription before trying again."
 }

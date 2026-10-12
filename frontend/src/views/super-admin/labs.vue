@@ -3,6 +3,7 @@ import { ref, onMounted } from "vue";
 import { storeToRefs } from "pinia";
 import { useSuperAdminStore } from "@/store/modules/superAdmin";
 import { t, formatNum as commaFormat } from "@/utils/helper";
+import SubscriptionRenewalModal from "./components/subscription-renewal-modal.vue";
 import LabDetailModal from "./components/lab-detail-modal.vue";
 
 const store = useSuperAdminStore();
@@ -11,6 +12,26 @@ const { labs, labsPagination } = storeToRefs(store);
 const search = ref("");
 const subscriptionStatus = ref("");
 const labDetailVisible = ref(false);
+const renewalId = ref(null);
+const renewalSuccess = ref("");
+const returnToDetail = ref(false);
+const openRenewal = (sub, fromDetail = false) => {
+     renewalSuccess.value = "";
+     returnToDetail.value = fromDetail;
+     labDetailVisible.value = false;
+     renewalId.value = sub.id;
+};
+const closeRenewal = () => {
+     renewalId.value = null;
+     labDetailVisible.value = returnToDetail.value;
+};
+const onRenewed = async (sub) => {
+     renewalId.value = null;
+     renewalSuccess.value = `${sub.lab?.name || ""}: ${t("renewal_success")} ${sub.end_date?.split("T")[0]}`;
+     if (returnToDetail.value) await store.GetLabDetail(sub.lab_id_fk);
+     closeRenewal();
+     loadLabs();
+};
 
 const filters = () => ({
      page: labsPagination.value.current_page,
@@ -45,7 +66,7 @@ const statusBadge = (sub) => {
           expired: { text: t("subscription_expired"), class: "bg-red-100 text-red-700" },
           suspended: { text: t("subscription_suspended"), class: "bg-amber-100 text-amber-700" },
      };
-     return map[sub.status] || { text: sub.status, class: "bg-gray-100 text-gray-600" };
+     return map[sub.effective_status || sub.status] || { text: sub.status, class: "bg-gray-100 text-gray-600" };
 };
 
 onMounted(loadLabs);
@@ -57,6 +78,8 @@ onMounted(loadLabs);
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                <h1 class="text-2xl font-bold text-gray-900">{{ t("lab_management") }}</h1>
           </div>
+
+          <p v-if="renewalSuccess" role="status" class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-800">{{ renewalSuccess }}</p>
 
           <!-- Filters -->
           <div class="bg-white rounded-xl border border-gray-100 p-4 shadow-sm flex flex-wrap gap-4 items-end">
@@ -112,12 +135,14 @@ onMounted(loadLabs);
                                    <td class="px-4 py-3 text-gray-600">{{ lab.email }}</td>
                                    <td class="px-4 py-3 text-gray-600">{{ lab.phone_number }}</td>
                                    <td class="px-4 py-3">
-                                        <span
+                                        <button
+                                             type="button" @click="viewLabDetail(lab.id)"
                                              class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
                                              :class="statusBadge(lab.subscription).class"
                                         >
                                              {{ statusBadge(lab.subscription).text }}
-                                        </span>
+                                        </button>
+                                        <button v-if="lab.subscription" type="button" class="block mt-2 text-blue-700 text-xs font-semibold whitespace-nowrap hover:underline" @click="openRenewal(lab.subscription)">{{ t("renew_subscription") }}</button>
                                    </td>
                                    <td class="px-4 py-3 text-gray-600">{{ commaFormat(lab.invoice_count) }}</td>
                                    <td class="px-4 py-3 text-gray-600">{{ commaFormat(lab.patient_count) }}</td>
@@ -160,6 +185,7 @@ onMounted(loadLabs);
                </div>
           </div>
 
-          <LabDetailModal v-model="labDetailVisible" />
+          <LabDetailModal v-model="labDetailVisible" @renew="openRenewal($event, true)" />
+          <SubscriptionRenewalModal v-if="renewalId" :subscription-id="renewalId" @close="closeRenewal" @saved="onRenewed" />
      </div>
 </template>
