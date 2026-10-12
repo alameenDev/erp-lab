@@ -30,6 +30,8 @@ try {
  await page.locator('tbody').getByRole('button',{name:'حذف',exact:true}).waitFor();
  await page.setViewportSize({width:390,height:844});
  await renew().click();await page.getByLabel('مدة التجديد').waitFor();
+ assert.equal((await dialog.locator('[data-testid="renewal-start"]').textContent()).trim(),'2027-01-12');
+ assert.equal((await dialog.locator('[data-testid="renewal-end"]').textContent()).trim(),'2027-02-11');
  const box=await dialog.boundingBox();assert.ok(box.x>=0&&box.x+box.width<=390,'dialog fits mobile viewport');
  assert.ok(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth),'dialog has no horizontal overflow');
  await dialog.screenshot({path:'test-results/subscription-renewal/mobile.png',animations:'disabled'});
