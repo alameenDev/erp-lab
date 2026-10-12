@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
-import { chromium } from 'playwright';
+const { chromium } = await import(process.env.ANNOUNCEMENT_PLAYWRIGHT_MODULE || 'playwright');
 
 const output = 'test-results/lab-announcements';
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ headless: true });
-const notices = [], receipts = new Set(), payloads = [], pageErrors = [];
+const notices = [], receipts = new Set(), payloads = [], pageErrors = [], requestLog = [], pages = [];
 let failNextSend = false;
 let releaseDelayedPoll = null, delayNextPoll = false;
 const labs = [{ id: 11, name: 'مختبر تجريبي أول' }, { id: 12, name: 'مختبر تجريبي ثانٍ' }];
@@ -18,7 +18,7 @@ async function contextFor(id, role) {
     localStorage.setItem('user', JSON.stringify({ id, role_id: role, name: 'Synthetic account' }));
     localStorage.setItem('locale', 'ar');
   }, { id, role });
-  await context.route('**/api/lab-announcements**', async (route) => {
+  await context.route(/\/api\/lab-announcements(?:[/?]|$)/, async (route) => {
     const request = route.request(), path = new URL(request.url()).pathname;
     const send = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
     if (path.endsWith('/labs')) return send(labs);
@@ -48,6 +48,8 @@ async function contextFor(id, role) {
     return send({ message: 'Unexpected route' }, 404);
   });
   const page = await context.newPage();
+  pages.push(page);
+  page.on('request', (request) => { if (request.url().includes('/api/')) requestLog.push(`${id} ${request.method()} ${request.url()}`); });
   page.on('pageerror', (error) => pageErrors.push(error.message));
   await page.goto(url);
   return { context, page };
@@ -135,6 +137,16 @@ try {
   assert.equal(await patient.locator('.lab-announcements-bar').count(), 0);
   assert.deepEqual(pageErrors, []);
   console.log('PASS: compose, targeted/all delivery, retry idempotency, XSS escaping, persistent receipts, inbox, live polling, stale-response race, logout and patient exclusion.');
+} catch (error) {
+  console.error('Browser errors:', pageErrors);
+  console.error('API requests:', requestLog);
+  for (const [index, page] of pages.entries()) {
+    if (!page.isClosed()) {
+      console.error(`Page ${index} body:`, (await page.locator('body').innerText()).slice(0, 4000));
+      await page.screenshot({ path: `${output}/failure-${index}.png`, fullPage: true });
+    }
+  }
+  throw error;
 } finally {
   releaseDelayedPoll?.();
   await browser.close();
