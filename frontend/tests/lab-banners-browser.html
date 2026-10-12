@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Lab banner test harness</title></head>
+<body style="margin:0;background:#f5f8fc;font-family:Arial,sans-serif"><div id="app"></div>
+<script type="module">
+import { createApp, ref } from 'vue';
+import PrimeVue from 'primevue/config';
+import Aura from '@primevue/themes/aura';
+import LabHomeBanners from '../src/components/banners/LabHomeBanners.vue';
+const view = ref('dashboard');
+window.setBannerView = (value) => { view.value = value; };
+const app = createApp({ components: { LabHomeBanners }, setup: () => ({ view }), template: `<main style="padding:16px;box-sizing:border-box;width:100%"><div data-testid="notifications" style="padding:16px;margin-bottom:16px;background:white">إشعارات الإدارة</div><LabHomeBanners v-if="view === 'dashboard' || view === 'admin'" :key="view" /><h1 data-testid="welcome">مرحباً بكم في المختبر</h1></main>` });
+app.use(PrimeVue, { theme: { preset: Aura } }); app.mount('#app');
+</script></body></html>
