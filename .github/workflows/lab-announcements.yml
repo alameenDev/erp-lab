@@ -63,6 +63,7 @@ jobs:
         working-directory: frontend
     env:
       VITE_BASE_URL: /api
+      ANNOUNCEMENT_PLAYWRIGHT_MODULE: /tmp/announcement-browser-tools/node_modules/playwright/index.mjs
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -70,8 +71,9 @@ jobs:
           node-version: '22'
       - run: npm ci
       - run: npm run build
-      - run: npm install --no-save --package-lock=false playwright@1.55.1
-      - run: npx playwright install --with-deps chromium
+      # Keep application dependencies exactly as locked; install browser tooling separately.
+      - run: npm install --prefix /tmp/announcement-browser-tools --no-save --package-lock=false playwright@1.55.1
+      - run: /tmp/announcement-browser-tools/node_modules/.bin/playwright install --with-deps chromium
       - run: |
           npm run dev -- --host 127.0.0.1 --port 5173 > /tmp/announcements-vite.log 2>&1 &
           for attempt in $(seq 1 30); do
