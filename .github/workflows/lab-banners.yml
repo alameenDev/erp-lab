@@ -1,0 +1,91 @@
+name: Lab banner verification
+on:
+  pull_request:
+    paths:
+      - 'backend/app/Http/Controllers/LabBannerController.php'
+      - 'backend/app/Models/LabBanner.php'
+      - 'backend/app/Providers/LabBannerServiceProvider.php'
+      - 'backend/bootstrap/providers.php'
+      - 'backend/database/migrations/*create_lab_banners.php'
+      - 'backend/routes/lab-banners.php'
+      - 'backend/tests/Feature/LabBannerTest.php'
+      - 'frontend/src/components/banners/**'
+      - 'frontend/src/utils/labBanners.js'
+      - 'frontend/src/layout/AppLayout.vue'
+      - 'frontend/tests/lab-banners*'
+      - '.github/workflows/lab-banners.yml'
+permissions:
+  contents: read
+jobs:
+  database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: test-only-password
+          MARIADB_DATABASE: erp_lab_banner_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      APP_ENV: testing
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: erp_lab_banner_test
+      DB_USERNAME: root
+      DB_PASSWORD: test-only-password
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_mysql, mbstring, xml, gd, zip, bcmath, intl
+          tools: composer:v2
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist
+      - run: cp .env.example .env && php artisan key:generate
+      - run: find app database routes tests -name '*.php' -print0 | xargs -0 -n1 php -l
+      - run: php artisan test --filter='LabBannerTest|LabAnnouncementTest'
+      - run: php artisan route:list --path=lab-banners
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      VITE_BASE_URL: /api
+      PLAYWRIGHT_MODULE: /tmp/banner-browser-tools/node_modules/playwright/index.mjs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - run: npm run build
+      - run: npm install --prefix /tmp/banner-browser-tools --no-save --package-lock=false playwright@1.55.1
+      - run: /tmp/banner-browser-tools/node_modules/.bin/playwright install --with-deps chromium
+      - run: |
+          npm run dev -- --host 127.0.0.1 --port 5173 > /tmp/banner-vite.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:5173/tests/lab-banners-browser.html > /dev/null && break
+            sleep 1
+          done
+          node tests/lab-banners.browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lab-banner-browser
+          path: |
+            frontend/test-results/lab-banners
+            /tmp/banner-vite.log
+          retention-days: 7
