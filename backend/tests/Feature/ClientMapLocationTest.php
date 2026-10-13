@@ -80,11 +80,15 @@ class ClientMapLocationTest extends TestCase
         $admin = $this->user();
         $this->actingAs($admin)->post('/api/super-admin/client-labs', $this->payload([
             'latitude' => 91,
-        ]))->assertSessionHasErrors('latitude');
+        ]), ['Accept' => 'application/json'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('latitude');
 
         $this->post('/api/super-admin/client-labs', $this->payload([
             'longitude' => 181,
-        ]))->assertSessionHasErrors('longitude');
+        ]), ['Accept' => 'application/json'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('longitude');
     }
 
     public function test_create_retry_update_conflict_and_soft_delete_are_safe(): void
