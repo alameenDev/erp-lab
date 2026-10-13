@@ -500,6 +500,7 @@ const packageGroupSections = computed(() => {
         is_print_alone: meta?.is_print_alone == 1,
         formula,
         calculation_formulas: formulaDefinitions(pkg),
+        report_calculation_tests: pkg.report_calculation_tests,
         // `tests` feeds the formula helpers, so it must span the WHOLE package:
         // a group formula may reference a test that is also a package member and
         // was deduped out of the tagged set — otherwise the row evaluates blank.

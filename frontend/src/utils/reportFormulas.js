@@ -47,7 +47,7 @@ function arithmetic(tokens) {
 }
 
 export function evaluateReportFormulas(parent) {
-  const definitions = formulaDefinitions(parent), tests = Array.isArray(parent?.tests) ? parent.tests : [];
+  const definitions = formulaDefinitions(parent), tests = parent?.report_calculation_tests ?? (Array.isArray(parent?.tests) ? parent.tests : []);
   const results = Object.create(null), byName = new Map(), visiting = new Set();
   for (const f of definitions) {
     const key = formulaKey(f?.name);

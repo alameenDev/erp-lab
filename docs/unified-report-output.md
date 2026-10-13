@@ -23,3 +23,11 @@ The invoice PDF upload accepts only actual PDF blobs, keeps the original bytes, 
 ![Synthetic three-page report with a fixed lab form](qa/unified-report-output.jpg)
 
 GitHub's Hostinger build produces deployment artifacts. The production site only changes after its normal Hostinger deployment step.
+
+## Selecting report contents
+
+The staff report action dialog opens with all analyses selected, including pending results, cultures, and members of groups/packages. A parent checkbox toggles all its members; an indeterminate checkbox means only some are selected. Search does not reset hidden selections. Every new opening starts with all items checked. Compound/template analyses remain one complete selectable analysis.
+
+`reportItemSelection.js` supplies the same output-only projection to the report list and result editor. It handles flattened package results and nested group membership without printing catalog duplicates. Excluded formula targets are removed from formula rows as well. Selected calculated results retain their full calculation context when their input analyses are hidden. The original invoice data is restored after preview/export and is never edited by selection.
+
+Preview, print, PDF download and WhatsApp use the same selected PDF. Partial reports suppress the full-report QR and omit the portal link from the WhatsApp message, so that sharing selected results does not also link to excluded results. Full selections keep the existing patient portal message. This is an output selection, not a change to what an already-authorized patient can see in their portal.

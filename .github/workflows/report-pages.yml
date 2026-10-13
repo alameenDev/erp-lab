@@ -8,6 +8,8 @@ on:
       - 'frontend/src/store/modules/labSettings.js'
       - 'frontend/tests/ReportHistoryFixture.vue'
       - 'frontend/src/utils/reportFormulas.js'
+      - 'frontend/src/utils/reportItemSelection.js'
+      - 'frontend/tests/ReportSelectionFixture.vue'
       - 'tests/fixtures/report-formulas.json'
       - 'frontend/tests/ReportFormulaEditorFixture.vue'
       - 'frontend/src/utils/medicalReportPages.js'
@@ -47,7 +49,7 @@ jobs:
         working-directory: frontend
       - run: npx playwright install --with-deps chromium
         working-directory: frontend
-      - run: node --test tests/report-formulas.test.mjs tests/result-history.test.mjs tests/medical-report-columns.test.mjs tests/medical-report-pages.test.mjs tests/medical-report-output.test.mjs tests/report-patient-portal.test.mjs tests/print-lifecycle.test.mjs
+      - run: node --test tests/report-item-selection.test.mjs tests/report-formulas.test.mjs tests/result-history.test.mjs tests/medical-report-columns.test.mjs tests/medical-report-pages.test.mjs tests/medical-report-output.test.mjs tests/report-patient-portal.test.mjs tests/print-lifecycle.test.mjs
         working-directory: frontend
       - name: Verify rendered sheets and native print
         working-directory: frontend
@@ -57,6 +59,7 @@ jobs:
             curl -fsS http://127.0.0.1:5173/tests/report-background-browser.html > /dev/null && break
             sleep 1
           done
+          node tests/report-selection.browser.mjs
           node tests/report-history.browser.mjs
           node tests/report-formula-editor.browser.mjs
           node tests/report-background.browser.mjs

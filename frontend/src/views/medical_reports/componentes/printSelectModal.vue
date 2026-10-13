@@ -3,6 +3,9 @@ import { computed, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useinvoicesStore } from "@/store/modules/invoices";
 
+import ReportSelectionNode from './ReportSelectionNode.vue';
+import { reportSelectionModel, reportNodeKeys, searchReportNodes } from '@/utils/reportItemSelection';
+
 const props = defineProps({
   modelValue: Boolean,
   canShare: { type: Boolean, default: false },
@@ -18,50 +21,43 @@ const phone = ref("");
 const sharing = value => ["whatsapp", "whatsapp-download"].includes(value);
 const phoneValid = computed(() => phone.value.replace(/\D/g, "").length >= 10);
 const selected = ref(new Set());
-const sections = computed(() => [
-  { key: "tests", label: "التحاليل", items: printRecord.value?.tests || [] },
-  { key: "cultures", label: "الزروع", items: printRecord.value?.cultures || [] },
-  { key: "testGroups", label: "الكروبات", items: printRecord.value?.test_groups || [] },
-  { key: "packages", label: "الباقات", items: printRecord.value?.packages || [] },
-]);
-const keyFor = (section, index) => `${section}:${index}`;
-const allKeys = computed(() => sections.value.flatMap(section => section.items.map((_, index) => keyFor(section.key, index))));
-const selectedCount = computed(() => selected.value.size);
-const itemName = item => item.report_name || item.group_name || item.name || "فحص";
-const details = item => [...(item.tests || []), ...(item.cultures || [])].map(itemName).filter(Boolean).join("، ");
-const visibleSections = computed(() => sections.value.map(section => ({
-  ...section,
-  visible: section.items.map((item, index) => ({ item, index })).filter(({ item }) =>
-    !search.value.trim() || `${itemName(item)} ${details(item)}`.toLocaleLowerCase().includes(search.value.trim().toLocaleLowerCase())),
+// Freeze the dialog's source while preview/export temporarily filters printRecord.
+const snapshot = ref({});
+const selectionModel = computed(() => reportSelectionModel(snapshot.value));
+const sections = computed(() => selectionModel.value.sections);
+const allKeys = computed(() => selectionModel.value.keys);
+const selectedCount = computed(() => allKeys.value.filter(k => selected.value.has(k)).length);
+const visibleSections = computed(() => sections.value.map(section => ({ ...section,
+  visible: searchReportNodes(section.nodes, search.value),
 })).filter(section => section.visible.length));
+const sectionKeys = section => section.nodes.flatMap(reportNodeKeys);
+const sectionCount = section => sectionKeys(section).filter(k => selected.value.has(k)).length;
 
 watch(() => props.modelValue, open => {
   if (!open) return;
+  snapshot.value = JSON.parse(JSON.stringify(printRecord.value || {}));
   search.value = "";
   action.value = "print";
   // Keep the selected form when changing actions or reopening this dialog.
   if (withBackground.value === null) withBackground.value = Boolean(props.hasBackground);
   phone.value = printRecord.value?.patient?.phone || "";
   selected.value = new Set(allKeys.value);
-});
-function toggle(key) {
-  const next = new Set(selected.value);
-  if (next.has(key)) next.delete(key); else next.add(key);
-  selected.value = next;
-}
-function toggleSection(section) {
-  const keys = section.visible.map(({ index }) => keyFor(section.key, index));
+}, { immediate: true });
+function toggle(keys) {
+  if (props.busy) return;
   const next = new Set(selected.value);
   const remove = keys.every(key => next.has(key));
   keys.forEach(key => remove ? next.delete(key) : next.add(key));
   selected.value = next;
 }
+function toggleSection(section) { toggle(sectionKeys(section)); }
 function close() { if (!props.busy) emit("update:modelValue", false); }
 function execute(nextAction = action.value) {
   if (props.busy || !selectedCount.value || (sharing(nextAction) && (!phoneValid.value || !props.canShare))) return;
-  const chosen = key => sections.value.find(section => section.key === key).items.flatMap((_, i) => selected.value.has(keyFor(key, i)) ? [i] : []);
+  const chosen = key => sections.value.find(section => section.key === key).nodes.flatMap((node, i) => reportNodeKeys(node).some(k => selected.value.has(k)) ? [i] : []);
   emit("execute", {
-    tests: chosen("tests"), cultures: chosen("cultures"), testGroups: chosen("testGroups"), packages: chosen("packages"),
+    tests: chosen("tests"), cultures: chosen("cultures"), testGroups: chosen("test_groups"), packages: chosen("packages"),
+    selectedKeys: [...selected.value],
     action: nextAction, withBackground: props.hasBackground && Boolean(withBackground.value), phone: phone.value.trim(),
   });
 }
@@ -85,20 +81,17 @@ function execute(nextAction = action.value) {
           </div>
           <div class="mb-3 flex flex-wrap gap-2">
             <input v-model="search" type="search" placeholder="بحث في التحاليل والكروبات والباقات..." aria-label="بحث في عناصر التقرير" class="min-w-0 flex-1 rounded-lg border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500" />
-            <button type="button" class="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white" @click="selected = new Set(allKeys)">تحديد الكل</button>
-            <button type="button" class="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700" @click="selected = new Set()">إلغاء تحديد الكل</button>
+            <button type="button" :disabled="busy" class="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white" @click="selected = new Set(allKeys)">تحديد الكل</button>
+            <button type="button" :disabled="busy" class="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700" @click="selected = new Set()">إلغاء تحديد الكل</button>
           </div>
-          <div class="max-h-64 overflow-y-auto rounded-xl border border-slate-200">
+          <p class="mb-3 text-sm text-slate-600">كل العناصر محددة تلقائياً. أزل علامة الصح عن التحاليل التي لا تريد إظهارها؛ اختيار الكروب أو الباقة يشمل كل التحاليل بداخلها.</p>
+          <div class="max-h-[40vh] overflow-y-auto rounded-xl border border-slate-200">
             <template v-for="section in visibleSections" :key="section.key">
               <div class="flex items-center justify-between bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700">
-                <span>{{ section.label }} ({{ section.visible.filter(({ index }) => selected.has(keyFor(section.key, index))).length }}/{{ section.items.length }})</span>
-                <button type="button" class="text-blue-700" @click="toggleSection(section)">{{ section.visible.every(({ index }) => selected.has(keyFor(section.key, index))) ? 'إلغاء تحديد القسم' : 'تحديد القسم' }}</button>
+                <span>{{ section.label }} ({{ sectionCount(section) }}/{{ sectionKeys(section).length }})</span>
+                <button type="button" :disabled="busy" class="text-blue-700" @click="toggleSection(section)">{{ sectionCount(section) === sectionKeys(section).length ? 'إلغاء تحديد القسم' : 'تحديد القسم' }}</button>
               </div>
-              <label v-for="{ item, index } in section.visible" :key="keyFor(section.key, index)" class="flex cursor-pointer items-center gap-3 border-t border-slate-100 px-4 py-2.5 hover:bg-blue-50/40">
-                <input type="checkbox" class="h-4 w-4 accent-blue-600" :checked="selected.has(keyFor(section.key, index))" @change="toggle(keyFor(section.key, index))" />
-                <span class="min-w-0 flex-1"><strong class="block text-sm text-slate-800">{{ itemName(item) }}</strong><small v-if="details(item)" class="block whitespace-normal text-slate-500">{{ details(item) }}</small></span>
-                <span class="text-xs" :class="item.is_done ? 'text-emerald-700' : 'text-amber-700'">{{ item.is_done ? 'مكتمل' : 'قيد الإجراء' }}</span>
-              </label>
+              <ReportSelectionNode v-for="node in section.visible" :key="node.key" :node="node" :selected="selected" :busy="busy" @toggle="toggle" />
             </template>
             <p v-if="!visibleSections.length" class="p-6 text-center text-sm text-slate-500">لا توجد عناصر تطابق البحث.</p>
           </div>
@@ -111,8 +104,8 @@ function execute(nextAction = action.value) {
           <div class="mt-4 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
             <label v-if="sharing(action)" class="text-sm font-medium text-slate-700">رقم هاتف المريض المسجل<input :value="phone" type="tel" dir="ltr" readonly class="mt-1 block w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2" /></label>
             <label v-if="hasBackground" class="flex items-center gap-2 text-sm text-slate-700"><input v-model="withBackground" type="checkbox" class="accent-blue-600" /> الطباعة على فورمة المختبر</label>
-            <p class="text-xs text-slate-500 sm:col-span-2">تُسجّل الحالة بعد تنفيذ الإجراء. الفورمة والتنسيق المحددان يُطبّقان على المعاينة والطباعة والحفظ وملف الواتساب بنفس الشكل.</p>
-            <p v-if="sharing(action)" class="text-xs text-slate-500 sm:col-span-2">تُفتح محادثة الرقم المسجل برسالة تحتوي رابط بوابة المريض ويُنزل ملف PDF. أرفق الملف بالمحادثة واضغط إرسال؛ واتساب لا يرفق الملفات تلقائياً من رابط wa.me.</p>
+            <p class="text-xs text-slate-500 sm:col-span-2">تظهر العناصر المحددة فقط في المعاينة والطباعة والحفظ وملف الواتساب. تُسجّل الحالة بعد تنفيذ الإجراء. الفورمة والتنسيق المحددان يُطبّقان على المعاينة والطباعة والحفظ وملف الواتساب بنفس الشكل.</p>
+            <p v-if="sharing(action)" class="text-xs text-slate-500 sm:col-span-2">يُنزل ملف PDF بالعناصر المحددة وتُفتح محادثة الرقم المسجل. عند اختيار جزء من التقرير لا يُضاف رابط البوابة الذي يعرض باقي النتائج. أرفق الملف بالمحادثة واضغط إرسال؛ واتساب لا يرفق الملفات تلقائياً من رابط wa.me.</p>
           </div>
         </div>
         <div class="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-white px-5 py-4 sm:px-7">
