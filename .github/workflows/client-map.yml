@@ -1,0 +1,75 @@
+name: Client laboratory map verification
+on:
+  pull_request:
+    paths:
+      - 'backend/app/Http/Controllers/ClientMapLocationController.php'
+      - 'backend/app/Models/ClientMapLocation.php'
+      - 'backend/app/Providers/ClientMapServiceProvider.php'
+      - 'backend/bootstrap/providers.php'
+      - 'backend/database/migrations/*create_client_map_locations.php'
+      - 'backend/routes/client-map.php'
+      - 'backend/tests/Feature/ClientMapLocationTest.php'
+      - 'frontend/src/components/client-map/**'
+      - 'frontend/src/utils/clientMap.js'
+      - 'frontend/src/views/welcome/index.vue'
+      - 'frontend/src/views/super-admin/dashboard.vue'
+      - '.github/workflows/client-map.yml'
+permissions:
+  contents: read
+
+jobs:
+  database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: test-only-password
+          MARIADB_DATABASE: erp_lab_client_map_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      APP_ENV: testing
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: erp_lab_client_map_test
+      DB_USERNAME: root
+      DB_PASSWORD: test-only-password
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_mysql, mbstring, xml, gd, zip, bcmath, intl
+          tools: composer:v2
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist
+      - run: cp .env.example .env && php artisan key:generate
+      - run: find app database routes tests -name '*.php' -print0 | xargs -0 -n1 php -l
+      - run: php artisan test --filter='ClientMapLocationTest|LabBannerTest|LabAnnouncementTest'
+      - run: php artisan route:list --path=client-labs
+
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      VITE_BASE_URL: /api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - run: npm run build
