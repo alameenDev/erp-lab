@@ -101,7 +101,9 @@ class ClientMapLocationTest extends TestCase
             ->assertCreated()
             ->json('location');
 
-        $this->post('/api/super-admin/client-labs', $payload)
+        $retry = $payload;
+        $retry['logo'] = UploadedFile::fake()->image('logo.png', 120, 120);
+        $this->post('/api/super-admin/client-labs', $retry)
             ->assertCreated()
             ->assertJsonPath('location.id', $created['id']);
 
