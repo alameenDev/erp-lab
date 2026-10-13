@@ -451,7 +451,10 @@ const allTestsMerged = computed(() => {
     ...formulaRows(g, g.tests?.filter(t => !hasRealTemplate(t))),
     ...(g.cultures || []).map(culture => ({ ...culture, report_history_type: 'culture' })),
   ], g.is_print_alone));
-  printRecord.value?.packages?.forEach((pkg, index) => addTests(null, formulaRows(pkg, (pkg.tests || []).filter(t => isFormulaTarget(pkg, t))), false, `package:${index}`));
+  printRecord.value?.packages?.forEach((pkg, index) => addTests(null, [
+    ...formulaRows(pkg, (pkg.tests || []).filter(t => isFormulaTarget(pkg, t))),
+    ...(pkg.cultures || []).map(culture => ({ ...culture, report_history_type: 'culture' })),
+  ], false, `package:${index}`));
   // A package's own tests are already flattened into groupedTests above; the
   // group-sourced ones come through here. Pass a null category: show_test_names
   // is OFF in merged mode, so emitting the group NAME as a heading would leak
