@@ -8,6 +8,8 @@ on:
       - 'frontend/src/views/invoices/**'
       - 'frontend/src/utils/invoicePackageContents.js'
       - 'frontend/tests/invoice-packages*'
+      - 'frontend/tests/invoice-referrals*'
+      - 'frontend/src/utils/invoiceReferralOptions.js'
       - '.github/workflows/package-contents.yml'
 permissions:
   contents: read
@@ -33,6 +35,8 @@ jobs:
           done
           node tests/package-contents.browser.mjs
           node tests/invoice-packages.browser.mjs
+          node --test tests/invoice-referrals.test.mjs
+          node tests/invoice-referrals.browser.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -40,4 +44,5 @@ jobs:
           path: |
             frontend/test-results/package-contents
             frontend/test-results/invoice-packages
+            frontend/test-results/invoice-referrals
           retention-days: 7
