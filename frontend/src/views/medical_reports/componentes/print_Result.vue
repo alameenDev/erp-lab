@@ -447,7 +447,10 @@ const allTestsMerged = computed(() => {
   // Standalone tests
   groupedTests.value.forEach(g => addTests(g.category, g.tests, false, g.bundle));
   // Test group tests
-  printRecord.value?.test_groups?.forEach(g => addTests(g.category, formulaRows(g, g.tests?.filter(t => !hasRealTemplate(t))), g.is_print_alone));
+  printRecord.value?.test_groups?.forEach(g => addTests(g.category, [
+    ...formulaRows(g, g.tests?.filter(t => !hasRealTemplate(t))),
+    ...(g.cultures || []).map(culture => ({ ...culture, report_history_type: 'culture' })),
+  ], g.is_print_alone));
   printRecord.value?.packages?.forEach((pkg, index) => addTests(null, formulaRows(pkg, (pkg.tests || []).filter(t => isFormulaTarget(pkg, t))), false, `package:${index}`));
   // A package's own tests are already flattened into groupedTests above; the
   // group-sourced ones come through here. Pass a null category: show_test_names
@@ -876,10 +879,10 @@ const generateBarcodeImage = (value) => {
                       <p v-for="option in range.test_reference_options" :key="option">{{ option }}</p>
                     </span>
                   </td>
-                  <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center"><ReportPreviousResults :rows="previousRows(item, 'test', 'scalar')" /></td>
+                  <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center"><ReportPreviousResults :rows="previousRows(item, item.report_history_type || 'test', 'scalar')" /></td>
                   <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(item.result_status_id_fk) }}</td>
                 </tr>
-                <tr v-if="previousRows(item, 'test', 'components').length" :data-report-block="section.blocks[idx]" :data-report-bundle="section.bundles[idx]"><td :colspan="colCount"><ResultHistoryTable :rows="previousRows(item, 'test', 'components')" /></td></tr></template>
+                <tr v-if="previousRows(item, item.report_history_type || 'test', 'components').length" :data-report-block="section.blocks[idx]" :data-report-bundle="section.bundles[idx]"><td :colspan="colCount"><ResultHistoryTable :rows="previousRows(item, item.report_history_type || 'test', 'components')" /></td></tr></template>
               </tbody>
             </table>
           </section>
