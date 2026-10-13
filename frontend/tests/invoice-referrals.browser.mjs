@@ -29,7 +29,7 @@ try {
   assert.equal(await page.evaluate(() => invoiceFixture.form().patientStore.record.phone), '7700000001');
   await doctor.click(); assert.equal(await search().inputValue(), '', 'search resets on reopening');
   assert.equal(await options().count(), 47);
-  await search().fill('لايوجداسم'); await page.getByText('لا توجد نتائج مطابقة', { exact: true }).waitFor();
+  await search().fill('لايوجداسم'); await page.locator('.p-select-empty-message').filter({ hasText: 'لا توجد نتائج مطابقة' }).waitFor();
   await search().press('Escape');
   assert.equal(await page.evaluate(() => invoiceFixture.store.record.referral_id_fk), 1001, 'search never changes the selection');
 
