@@ -369,7 +369,7 @@ const resetBranding = async () => {
                                         <p id="reportHistoryHint" class="text-xs text-slate-500 leading-relaxed">{{ lang === 'en' ? 'Applies to printing, saved PDFs and WhatsApp reports. Each previous result includes its date.' : 'يُطبّق على الطباعة وحفظ PDF وإرسال التقرير بالواتساب، مع تاريخ كل نتيجة سابقة.' }}</p>
                                         <div class="flex flex-wrap items-center gap-3">
                                              <label for="previousResultsCount" class="text-sm text-slate-700">{{ lang === 'en' ? 'Previous results per analysis' : 'عدد النتائج السابقة لكل تحليل' }}</label>
-                                             <select id="previousResultsCount" v-model.number="settings.previous_results_count" :disabled="!settings.show_last_result" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                                             <select id="previousResultsCount" dir="ltr" v-model.number="settings.previous_results_count" :disabled="!settings.show_last_result" class="min-w-[5rem] rounded-lg border border-slate-300 bg-white pl-3 pr-8 py-2 text-sm focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed">
                                                   <option v-for="count in 10" :key="count" :value="count">{{ count }}</option>
                                              </select>
                                         </div>
