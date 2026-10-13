@@ -1419,6 +1419,7 @@
 
 <script setup>
 import { evaluateReportFormulas, reportFormulaValue, formulaResultHint, formulaDefinitions, formulaApproved, formulaKey, isFormulaTarget } from '@/utils/reportFormulas';
+import { selectReportItems } from "@/utils/reportItemSelection";
 import { executeReportAction, reportActionStatusError } from "@/utils/executeReportAction";
 import ReportActionStatus from "@/components/ReportActionStatus.vue";
 import { downloadMedicalReportFile } from "@/utils/medicalReportOutput";
@@ -2511,12 +2512,7 @@ const handlePrintSelection = async (selection) => {
     suppress_report_qr: printRecord.value.suppress_report_qr,
   };
   try {
-    printRecord.value.tests = original.tests.filter((_, i) => selection.tests.includes(i));
-    printRecord.value.cultures = original.cultures.filter((_, i) => selection.cultures.includes(i));
-    printRecord.value.packages = original.packages.filter((_, i) => selection.packages.includes(i));
-    printRecord.value.test_groups = original.test_groups.filter((_, i) => selection.testGroups.includes(i));
-    printRecord.value.suppress_report_qr = ['tests', 'cultures', 'packages', 'test_groups'].some((key, i) =>
-      (selection[['tests', 'cultures', 'packages', 'testGroups'][i]] || []).length !== original[key].length);
+    Object.assign(printRecord.value, selectReportItems(printRecord.value, selection));
     await nextTick();
     await new Promise(resolve => setTimeout(resolve, 200));
     const withBg = selection.withBackground && Boolean(reportBackground.value);

@@ -37,6 +37,13 @@ export async function prepareMedicalReportWhatsApp(record, settings, fallbackLab
   if (!phone.startsWith('964')) phone = '964' + phone;
   if (phone.length < 12 || phone.length > 15) throw new Error('رقم هاتف المريض المسجل غير صالح.');
 
+  // A partial report must not lead back to the excluded results through a portal link.
+  if (record?.suppress_report_qr) {
+    const lab = settings?.lab_display_name || fallbackLabName || 'المختبر';
+    const message = `عزيزي/عزيزتي ${record?.patient?.name || 'المريض'}،\nنرفق لك النتائج المحددة من تقريرك الطبي رقم ${record.id} لدى ${lab}.\nنتمنى لك دوام الصحة والعافية.`;
+    return { phone, message, whatsappUrl: `https://wa.me/${phone}?text=${encodeURIComponent(message)}` };
+  }
+
   const { data } = await $http.post('/portal/generate', { patient_id: patientId });
   if (!data?.url || !new URL(data.url).pathname.startsWith('/portal/')) throw new Error('تعذر إنشاء رابط بوابة المريض.');
   if (options.withBackground !== undefined) {
