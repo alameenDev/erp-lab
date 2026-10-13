@@ -49,7 +49,7 @@ jobs:
         working-directory: frontend
       - run: npx playwright install --with-deps chromium
         working-directory: frontend
-      - run: node --test tests/report-item-selection.test.mjs tests/report-formulas.test.mjs tests/result-history.test.mjs tests/medical-report-columns.test.mjs tests/medical-report-pages.test.mjs tests/medical-report-output.test.mjs tests/report-patient-portal.test.mjs tests/print-lifecycle.test.mjs
+      - run: node --test tests/invoice-selection-order.test.mjs tests/report-item-selection.test.mjs tests/report-formulas.test.mjs tests/result-history.test.mjs tests/medical-report-columns.test.mjs tests/medical-report-pages.test.mjs tests/medical-report-output.test.mjs tests/report-patient-portal.test.mjs tests/print-lifecycle.test.mjs
         working-directory: frontend
       - name: Verify rendered sheets and native print
         working-directory: frontend
@@ -59,6 +59,7 @@ jobs:
             curl -fsS http://127.0.0.1:5173/tests/report-background-browser.html > /dev/null && break
             sleep 1
           done
+          node tests/report-selection-order.browser.mjs
           node tests/report-selection.browser.mjs
           node tests/report-history.browser.mjs
           node tests/report-formula-editor.browser.mjs

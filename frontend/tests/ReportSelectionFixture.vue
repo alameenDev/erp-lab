@@ -11,7 +11,12 @@ import { useresultStatusStore } from '@/store/modules/result-status';
 import { $http } from '@/plugins/axios';
 import { selectionSample } from './report-selection-data.mjs';
 const invoices = useinvoicesStore(), settings = useLabSettingsStore();
-const source = selectionSample(); invoices.printRecord = JSON.parse(JSON.stringify(source));
+const source = selectionSample();
+if (new URLSearchParams(location.search).has('order')) source.selection_order = [
+  {field:'tests',id:2}, {field:'packages',id:60}, {field:'cultures',id:40},
+  {field:'tests',id:3}, {field:'test_groups',id:50}, {field:'tests',id:1}, {field:'test_groups',id:51},
+];
+invoices.printRecord = JSON.parse(JSON.stringify(source));
 settings.settings = { report_template: new URLSearchParams(location.search).get('template') || 'classic', show_test_names: !new URLSearchParams(location.search).has('merged'), show_categories: true, show_status: false, show_last_result: true,
   print_margins: { top: 12, bottom: 12, left: 12, right: 12 } };
 useTemplatesStore().GetTemplates = async () => {};

@@ -191,6 +191,14 @@
 
           <!-- 3-col row: Tests / Cultures / Packages -->
           <PreviousInvoice v-if="!isEditMode && !isReferralMode" :patient-id="responseData?.id" :selected="previousInvoiceSelections" @add="addPreviousInvoiceItems" />
+          <div v-if="orderedSelections.length" class="bg-white rounded-xl border border-slate-200 p-4" data-invoice-selection-order>
+            <h3 class="font-semibold text-slate-800 mb-2">ترتيب الفحوصات في النتائج والتقرير</h3>
+            <ol class="flex flex-wrap gap-2">
+              <li v-for="({ field, item }, index) in orderedSelections" :key="field + ':' + item.id" class="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-sm">
+                <span class="font-bold text-primary-700">{{ index + 1 }}.</span> {{ item.group_name || item.name }}
+              </li>
+            </ol>
+          </div>
           <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           <!-- ==================== TESTS & GROUPS SECTION ==================== -->
@@ -755,6 +763,7 @@
 </template>
 
 <script>
+import { selectedInvoiceItems, selectionOrder, nextSelectionPosition } from "@/utils/invoiceSelectionOrder";
 import { withDefaultResults } from "@/utils/defaultTestResults";
 import { mapActions, mapWritableState, mapGetters } from "pinia";
 import { useinvoicesStore } from "@/store/modules/invoices";
@@ -831,6 +840,8 @@ export default {
     Dialog,
   },
   computed: {
+    selectionRecord() { return { tests: this.selectedTests, cultures: this.selectedCultures, test_groups: this.selectedtestGroups, packages: this.selectedPackages }; },
+    orderedSelections() { return selectedInvoiceItems(this.selectionRecord); },
     isReferralMode() { return this.$route.path.startsWith("/referral-portal"); },
     loyaltyDiscount() { return this.isEditMode ? Number(this.record.loyalty_discount || 0) : Number(this.loyalty?.rewards?.find(x => x.key === this.loyaltyKey)?.discount_amount || 0); },
     ...mapWritableState(LoaderStore, ["hideLoading"]),
@@ -1387,6 +1398,7 @@ export default {
         const selectedItem = {
           ...withDefaultResults(JSON.parse(JSON.stringify(item))),
           thePrice: this.resolveItemPrice(item),
+          selection_position: nextSelectionPosition(this.selectionRecord),
         };
         if (type === "test") {
           // If item is a test group (merged from backend), route to selectedtestGroups
@@ -1473,6 +1485,7 @@ export default {
         this.record.discount = null;
         this.record.discount_type_id_fk = null;
       }
+      this.record.selection_order = selectionOrder(this.selectionRecord);
       this.record.sub_total = Math.round(Number(this.record.sub_total) || 0);
       this.record.total = Math.round(Number(this.record.total) || 0);
       const getPrice = (item) => this.resolveItemPrice(item);
@@ -1618,6 +1631,7 @@ export default {
         this.record.discount = null;
         this.record.discount_type_id_fk = null;
       }
+      this.record.selection_order = selectionOrder(this.selectionRecord);
       this.record.sub_total = Math.round(Number(this.record.sub_total) || 0);
       this.record.total = Math.round(Number(this.record.total) || 0);
       this.record.tests = this.selectedTests?.map((test) => ({

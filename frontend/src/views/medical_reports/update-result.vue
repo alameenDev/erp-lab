@@ -128,6 +128,16 @@
           </div>
         </details>
 
+        <nav v-if="orderedResultItems.length" aria-label="الفحوصات حسب ترتيب الفاتورة" class="bg-white border border-slate-200 rounded-xl p-4 mb-4" data-result-selection-order>
+          <h2 class="font-semibold text-slate-800 mb-2">الفحوصات حسب ترتيب الفاتورة</h2>
+          <ol class="flex flex-wrap gap-2">
+            <li v-for="(entry, index) in orderedResultItems" :key="entry.field + ':' + entry.index">
+              <button type="button" @click="openOrderedResult(entry)" class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm hover:bg-primary-50">
+                <span class="font-bold text-primary-700">{{ index + 1 }}.</span> {{ entry.item.group_name || entry.item.name }}
+              </button>
+            </li>
+          </ol>
+        </nav>
         <!-- ==================== PATIENT INFO (full width) ==================== -->
         <div class="grid grid-cols-1 gap-4">
 
@@ -1418,6 +1428,7 @@
 </template>
 
 <script setup>
+import { orderedInvoiceItems } from "@/utils/invoiceSelectionOrder";
 import { evaluateReportFormulas, reportFormulaValue, formulaResultHint, formulaDefinitions, formulaApproved, formulaKey, isFormulaTarget } from '@/utils/reportFormulas';
 import { selectReportItems } from "@/utils/reportItemSelection";
 import { executeReportAction, reportActionStatusError } from "@/utils/executeReportAction";
@@ -1466,15 +1477,20 @@ const reportBackground = computed(() => labSettingsStore.settings.report_backgro
 
 // The quick-entry table includes regular tests from invoices, packages and groups.
 // Template tests keep their detailed HTML editors in their respective sections.
-const allTabTests = computed(() => {
-  const record = updateResultRecord.value || {};
-  return [
-    ...(record.tests || []).filter(t => !t.is_special_test && !isCustomTemplateTest(t)),
-    ...(record.packages || []).flatMap((pkg, index) =>
-      packageVisibleTests(pkg).filter(t => !isPkgGroupFormulaTarget(pkg, t, index))),
-    ...(record.test_groups || []).flatMap(group => groupVisibleTests(group)),
-  ];
-});
+const orderedResultItems = computed(() => orderedInvoiceItems(updateResultRecord.value || {}));
+const allTabTests = computed(() => orderedResultItems.value.flatMap(({ field, item, index }) => {
+  if (field === 'tests') return !item.is_special_test && !isCustomTemplateTest(item) ? [item] : [];
+  if (field === 'packages') return packageVisibleTests(item).filter(t => !isPkgGroupFormulaTarget(item, t, index));
+  if (field === 'test_groups') return groupVisibleTests(item);
+  return [];
+}));
+const openOrderedResult = ({ field, index }) => {
+  activeSection.value = field;
+  if (field === 'tests') activeTestTab.value = index;
+  if (field === 'cultures') activeCultureTab.value = index;
+  if (field === 'test_groups') activeTestGroupTab.value = index;
+  if (field === 'packages') activePackageTab.value = index;
+};
 const quickTestSource = (item) => {
   const record = updateResultRecord.value || {};
   const packageIndex = (record.packages || []).findIndex(pkg => (pkg.tests || []).includes(item));

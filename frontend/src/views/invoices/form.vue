@@ -73,6 +73,7 @@
 </template>
 
 <script setup>
+import { restoreSelectionPositions } from "@/utils/invoiceSelectionOrder";
 import { computed, onMounted, onBeforeUnmount, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useinvoicesStore } from "@/store/modules/invoices";
@@ -164,6 +165,7 @@ const loadInvoice = async (id) => {
     record.value.registration_date = dateFormat(data.registration_date);
     record.value.result_date = dateFormat(data.result_date);
 
+    restoreSelectionPositions(data);
     // Set selected items
     selectedTests.value = data.tests || [];
     selectedPackages.value = data.packages || [];
