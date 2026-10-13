@@ -7,7 +7,7 @@ const english = computed(() => props.lang === 'en');
 const enabled = computed(() => customReportColumns(props.settings.print_table_config));
 const keys = computed(() => reportColumnKeys(props.settings));
 const widths = computed(() => reportColumnWidths(props.settings));
-const labels = { test: ['اسم التحليل', 'Test name'], result: ['النتيجة', 'Result'], unit: ['الوحدة', 'Unit'], reference: ['المدى الطبيعي', 'Reference range'], status: ['حالة النتيجة', 'Status / Flag'], last_result: ['النتيجة السابقة', 'Last result'] };
+const labels = { test: ['اسم التحليل', 'Test name'], result: ['النتيجة', 'Result'], unit: ['الوحدة', 'Unit'], reference: ['المدى الطبيعي', 'Reference range'], status: ['حالة النتيجة', 'Status / Flag'], last_result: ['النتائج السابقة', 'Previous results'] };
 const label = key => labels[key][english.value ? 1 : 0];
 const update = values => emit('update:config', { ...props.settings.print_table_config, ...values });
 const toggle = event => update({ custom_column_widths: event.target.checked, column_widths: { ...reportColumnDefaults, ...props.settings.print_table_config?.column_widths } });

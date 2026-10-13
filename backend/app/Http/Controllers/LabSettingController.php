@@ -37,6 +37,7 @@ class LabSettingController extends Controller
                 'show_test_names' => true,
                 'show_status' => true,
                 'show_last_result' => false,
+                'previous_results_count' => 1,
                 'print_black_white' => false,
             ]
         );
@@ -142,6 +143,7 @@ class LabSettingController extends Controller
             'show_test_names' => 'nullable|boolean',
             'show_status' => 'nullable|boolean',
             'show_last_result' => 'nullable|boolean',
+            'previous_results_count' => 'sometimes|required|integer|min:1|max:10',
             'print_black_white' => 'nullable|boolean',
             'barcode_config' => 'nullable|array:label_width,label_height,name_size,info_size,number_size,barcode_height,sample_size,tests_size,version,width_mm,height_mm,dpi,format,quiet_modules,offset_x,offset_y,copies,custom_text,elements',
             'barcode_config.label_width' => 'nullable|numeric|min:1|max:10',
@@ -248,6 +250,10 @@ class LabSettingController extends Controller
             }
         }
 
+        if (array_key_exists('previous_results_count', $validated)) {
+            $setting->previous_results_count = $validated['previous_results_count'];
+        }
+
         // Update barcode config
         if (isset($validated['barcode_config'])) {
             $setting->barcode_config = $validated['barcode_config'];
@@ -331,6 +337,7 @@ class LabSettingController extends Controller
                 'show_test_names' => true,
                 'show_status' => true,
                 'show_last_result' => false,
+                'previous_results_count' => 1,
                 'print_black_white' => false,
                 'barcode_config' => ['label_width' => 3, 'label_height' => 1.5, 'name_size' => 9, 'info_size' => 7, 'number_size' => 6, 'barcode_height' => 40, 'sample_size' => 8, 'tests_size' => 7],
                 'report_background' => null,
@@ -433,6 +440,7 @@ class LabSettingController extends Controller
                 'show_test_names' => true,
                 'show_status' => true,
                 'show_last_result' => false,
+                'previous_results_count' => 1,
                 'print_black_white' => false,
                 'barcode_config' => null,
                 'patient_header_config' => null,

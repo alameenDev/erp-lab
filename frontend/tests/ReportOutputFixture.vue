@@ -18,7 +18,7 @@ const report = ref(null), pages = ref([]), status = ref('Loading'), checks = ref
 const bg = document.createElement('canvas'); bg.width = 794; bg.height = 1123;
 const context = bg.getContext('2d'); context.fillStyle = '#fff'; context.fillRect(0, 0, 794, 1123);
 context.fillStyle = '#007c83'; context.fillRect(0, 0, 794, 80); context.fillRect(0, 1080, 794, 43);
-const settings = { report_template: params.get('template') || 'modern', show_test_names: true, show_categories: true, show_status: true,
+const settings = { report_template: params.get('template') || 'modern', show_test_names: true, show_categories: true, show_status: true, show_last_result: true, previous_results_count: 1,
   print_margins: { top: 35, bottom: 25, left: 12, right: 18 }, report_background: bg.toDataURL(),
   patient_header_config: { name_size: 18, info_size: 12, qr_size: 70 },
   print_table_config: { header_font_size: 12, body_font_size: 12, cell_padding: 6 } };
@@ -26,7 +26,7 @@ const sample = { id: 14, lab_id_fk: 1, patient: { id: 1, name: 'مريض تجر�
   registration_date: '2026-10-01T09:00:00', tests: [], cultures: [], packages: [], tests_last_results: [],
   test_groups: [{ group_name: 'Test group', tests: Array.from({ length: 40 }, (_, i) => ({ test_id_fk: i + 1, name: 'Test ' + (i + 1), result: i, unit: 'mg/dL', result_status_id_fk: 2,
     test_reference_ranges: [{ from: 0, to: 100, gender: 'both', age_from: 0, age_to: 120, age_unit: 'Years' }] })) }] };
-sample.result_history = { test_1: Array.from({ length: 35 }, (_, i) => ({ date: '2026-09-01', date_source: 'result', field: 'Test 1', value: String(i), unit: 'mg/dL' })) };
+sample.result_history = { test_1: Array.from({ length: 35 }, (_, i) => ({ invoice_id: 13, date: '2026-09-01', date_source: 'result', field: 'Component ' + (i + 1), value: String(i), unit: 'mg/dL', is_component: true })) };
 const store = useLabSettingsStore(), invoices = useinvoicesStore();
 // A direct report must load the invoice lab settings even if the current
 // browser has a stale/different lab's settings in Pinia.
@@ -61,7 +61,7 @@ onMounted(async () => {
     assert(output.withBackground === chosenForm, 'form selection survives the entry point');
     pages.value = output.pages;
     assert(document.querySelectorAll('#Result .result-history').length === 1, 'history appears only below the matching analysis');
-    assert(document.querySelectorAll('#Result .result-history tbody tr').length === 35, 'all previous measurements are included in the report source');
+    assert(document.querySelectorAll('#Result .result-history tbody tr').length === 35, 'all 35 components of the selected previous examination are retained');
     assert(document.querySelector('#Result .result-history').textContent.includes('01/09/2026'), 'history displays the recorded calendar date');
     assert(pages.value.length > 1, 'report spans multiple sheets');
     if (direct) assert([...document.querySelectorAll('.report-page-preview img')].every((img, i) => img.src === output.pages[i]), 'direct preview uses the exact export pages');

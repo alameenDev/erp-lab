@@ -49,7 +49,9 @@ function record(scenario) {
   if (scenario === 'culture') { data.test_groups = [a]; data.cultures = [test('N culture')]; }
   if (scenario === 'history') {
     data.test_groups = [a];
-    data.tests_last_results = [{ name: 'N history', result: 3, result_date: '2026-09-01' }];
+    a.tests[0].id = 101;
+    data.result_history = { test_101: [1, 2, 3].map(i => ({ invoice_id:10+i, date:`2026-09-0${i}`, field:'A result 1', value:`Previous ${i}`, unit:'mg/dL', is_component:false })) };
+    data.cultures = [test('N culture')];
   }
   return data;
 }
@@ -59,9 +61,12 @@ const colors = { N: [238, 103, 11], A: [217, 19, 173], B: [29, 91, 231] };
 async function render() {
   busy.value = true; status.value = 'Rendering'; checks.value = [];
   try {
+    store.settings.show_last_result = mode.value === 'history';
+    store.settings.previous_results_count = 3;
     invoices.printRecord = record(mode.value);
     report.value.beginCapture(); await nextTick();
     const source = document.getElementById('Result');
+    if (mode.value === 'history') assert(source.querySelectorAll('.report-previous-result').length === 3, 'history stays with its isolated analysis instead of a detached footer');
     // Synthetic markers identify which results really appear on each rasterized
     // sheet. Assertions inspect output pixels, not just the DOM break flags.
     const visibleLabels = new Set();

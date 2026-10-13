@@ -10,6 +10,39 @@ class LabSettingsTest extends TestCase
 {
     use DatabaseMigrations;
 
+    public function test_report_history_defaults_and_selection_persist_per_laboratory(): void
+    {
+        $owner = $this->owner();
+        $other = User::create(['name'=>'Other history lab', 'email'=>'other-history-settings@example.test', 'password'=>'Test-password-123', 'role_id'=>2]);
+        $this->getJson('/api/lab-settings/'.$owner->id)->assertOk()
+            ->assertJsonPath('show_last_result', false)->assertJsonPath('previous_results_count', 1);
+        $this->actingAs($owner)->getJson('/api/lab-settings')->assertOk()->assertJsonPath('previous_results_count', 1);
+        $this->postJson('/api/lab-settings', ['show_last_result'=>true, 'previous_results_count'=>3])->assertOk()
+            ->assertJsonPath('setting.show_last_result', true)->assertJsonPath('setting.previous_results_count', 3);
+        $this->getJson('/api/lab-settings/'.$owner->id)->assertOk()->assertJsonPath('previous_results_count', 3);
+        $this->postJson('/api/lab-settings', ['show_last_result'=>false])->assertOk()
+            ->assertJsonPath('setting.show_last_result', false)->assertJsonPath('setting.previous_results_count', 3);
+        $this->postJson('/api/lab-settings', ['lab_display_name'=>'Preserve history'])->assertOk()->assertJsonPath('setting.previous_results_count', 3);
+        $this->actingAs($other)->getJson('/api/lab-settings')->assertOk()
+            ->assertJsonPath('show_last_result', false)->assertJsonPath('previous_results_count', 1);
+        $this->actingAs($owner)->postJson('/api/lab-settings/reset', ['section'=>'print'])->assertOk()
+            ->assertJsonPath('setting.show_last_result', false)->assertJsonPath('setting.previous_results_count', 1);
+        $this->assertSame('Preserve history', LabSetting::where('lab_id_fk', $owner->id)->value('lab_display_name'));
+    }
+
+    public function test_report_history_count_validation_and_staff_permissions(): void
+    {
+        $owner = $this->owner();
+        $this->actingAs($owner);
+        foreach ([0, -1, 11, 1.5, null, '', 'invalid'] as $count) {
+            $this->postJson('/api/lab-settings', ['previous_results_count'=>$count])->assertUnprocessable()->assertJsonValidationErrors('previous_results_count');
+        }
+        $this->postJson('/api/lab-settings', ['previous_results_count'=>'10'])->assertOk()->assertJsonPath('setting.previous_results_count', 10);
+        $staff = User::create(['name'=>'History staff', 'email'=>'history-staff@example.test', 'password'=>'Test-password-123', 'role_id'=>7, 'creator_id'=>$owner->id]);
+        $this->actingAs($staff)->postJson('/api/lab-settings', ['show_last_result'=>true, 'previous_results_count'=>3])->assertForbidden();
+        $this->assertSame(10, LabSetting::where('lab_id_fk', $owner->id)->first()->previous_results_count);
+    }
+
     private function barcodeLayout(): array
     {
         $item = ['x'=>2, 'y'=>6, 'width'=>46, 'height'=>8, 'font'=>8, 'visible'=>true, 'align'=>'center', 'bold'=>false, 'rotation'=>0];

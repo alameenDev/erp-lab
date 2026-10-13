@@ -43,6 +43,7 @@ class ResultHistoryTest extends TestCase
         $history = app(ResultHistoryService::class)->forInvoice($current);
         $rows = $history['test_'.$test->id];
         $this->assertSame(['Negative','11.10','0'], array_column($rows,'value'));
+        $this->assertSame([false, true, false], array_column($rows, 'is_component'));
         $this->assertSame('WBC',$rows[1]['field']);
         $this->assertSame('10*3/uL',$rows[1]['unit']);
         $this->assertSame('same-name',$history['test_'.$sameName->id][0]['value']);
