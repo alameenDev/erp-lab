@@ -19,6 +19,10 @@ if(mode==='attached'){
  for(const test of container.tests){test.test_group_name='Attached group';test.test_group_id_fk=21;}
 }
 const record={id:1,barcode:'SYNTHETIC',is_done:false,patient:{id:1,name:'مريض تجريبي',age:30,age_unit:'Years',gender:'Male'},tests:[],cultures:[],packages:mode==='group'?[]:[container],test_groups:mode==='group'?[container]:[],attachments:[],registration_date:'2026-10-07T09:00:00'};
+if(new URLSearchParams(location.search).has('order')) {
+ record.tests=[{...input,id:81,test_id_fk:81,name:'First chosen',shortcut:'FIRST'},{...input,id:82,test_id_fk:82,name:'Last chosen',shortcut:'LAST'}];
+ record.selection_order=[{field:'tests',id:81},{field:mode==='group'?'test_groups':'packages',id:mode==='group'?21:31},{field:'tests',id:82}];
+}
 const invoices=useinvoicesStore();invoices.GetinvoicesById=async()=>JSON.parse(JSON.stringify(record));
 useTemplatesStore().GetTemplates=async()=>{};
 const statuses=useresultStatusStore();statuses.resultStatus=[{value:2,label:'normal'}];statuses.GetresultStatus=async()=>{};

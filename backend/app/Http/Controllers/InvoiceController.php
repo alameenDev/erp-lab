@@ -857,6 +857,7 @@ class InvoiceController extends Controller
             'cultures' => array_values(array_filter($cultures)),
             'packages' => array_values(array_filter($packages)),
             'test_groups' => array_values(array_filter($test_groups)),
+            'selection_order' => $invoice->selection_order ?? [],
             'test_groups_all' => $test_groups_data,
             'test_group_comments' => array_values(array_filter($test_group_comments)),
             'result_history' => $includeHistory && $includeHistoryTables ? app(\App\Services\ResultHistoryService::class)->forInvoice($invoice) : [],
@@ -1388,6 +1389,9 @@ class InvoiceController extends Controller
             'questions' => 'nullable|array',
             'tests' => 'nullable|array',
             'cultures' => 'nullable|array',
+            'selection_order' => 'nullable|array|max:2000',
+            'selection_order.*.field' => 'required|in:tests,cultures,test_groups,packages',
+            'selection_order.*.id' => 'required|integer|min:1',
             'packages' => 'nullable|array',
             'test_groups' => 'nullable|array',
         ]);
@@ -1397,6 +1401,7 @@ class InvoiceController extends Controller
             $invoice = new Invoice;
             // Frontend dropdown now sends users.id directly (optionValue="user_id").
             // referral_id_fk column is FK → users.id, so no remap needed.
+            if ($request->has('selection_order')) $invoice->selection_order = $request->input('selection_order');
             $invoice->patient_id_fk = $request->patient_id_fk;
             $invoice->referral_id_fk = $request->referral_id_fk ?: null;
             $invoice->sub_total = $request->sub_total;
@@ -2522,6 +2527,9 @@ class InvoiceController extends Controller
             'questions' => 'nullable|array',
             'tests' => 'nullable|array',
             'cultures' => 'nullable|array',
+            'selection_order' => 'nullable|array|max:2000',
+            'selection_order.*.field' => 'required|in:tests,cultures,test_groups,packages',
+            'selection_order.*.id' => 'required|integer|min:1',
             'packages' => 'nullable|array',
             'test_groups' => 'nullable|array',
         ]);
@@ -2549,6 +2557,7 @@ class InvoiceController extends Controller
             $oldInvoice = $invoice->replicate();
             // Frontend dropdown now sends users.id directly (optionValue="user_id").
             // referral_id_fk column is FK → users.id, so no remap needed.
+            if ($request->has('selection_order')) $invoice->selection_order = $request->input('selection_order');
             $invoice->patient_id_fk = $request->patient_id_fk;
             $invoice->referral_id_fk = $request->referral_id_fk ?: null;
             $invoice->sub_total = $request->sub_total;

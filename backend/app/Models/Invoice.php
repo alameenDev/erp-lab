@@ -12,6 +12,7 @@ class Invoice extends Model
     protected $table = 'invoices';
 
     protected $fillable = [
+        'selection_order',
         'patient_id_fk',
         'from_lab_id_fk',
         'sample_collector_id_fk',
@@ -50,6 +51,7 @@ class Invoice extends Model
     ];
 
     protected $casts = [
+        'selection_order' => 'array',
         'report_printed_at' => 'datetime',
         'report_saved_at' => 'datetime',
         'report_sent_at' => 'datetime',

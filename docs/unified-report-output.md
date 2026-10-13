@@ -31,3 +31,11 @@ The staff report action dialog opens with all analyses selected, including pendi
 `reportItemSelection.js` supplies the same output-only projection to the report list and result editor. It handles flattened package results and nested group membership without printing catalog duplicates. Excluded formula targets are removed from formula rows as well. Selected calculated results retain their full calculation context when their input analyses are hidden. The original invoice data is restored after preview/export and is never edited by selection.
 
 Preview, print, PDF download and WhatsApp use the same selected PDF. Partial reports suppress the full-report QR and omit the portal link from the WhatsApp message, so that sharing selected results does not also link to excluded results. Full selections keep the existing patient portal message. This is an output selection, not a change to what an already-authorized patient can see in their portal.
+
+## Invoice selection order
+
+New invoices save a `selection_order` manifest of typed catalog IDs on the invoice. The selection counter spans standalone tests, cultures, groups and packages; ignoring a duplicate does not move it, and removing/re-adding an item appends it. Editing restores positions before new selections are added. Result saves leave the manifest untouched.
+
+The invoice shows a numbered summary, the result editor exposes the same ordered navigation and quick-entry list, and the canonical report renders ordered sections before pagination. Both templates and merged tables use that stream, so preview, print, PDF and WhatsApp attachments agree. A package's blocks share its rank; isolated groups and template analyses keep their page-boundary rules. Partial report selection retains the original manifest and only filters its members.
+
+Existing invoices with no manifest retain the existing type-based fallback; their historical click sequence was never recorded and cannot be reconstructed. Missing/stale manifest members do not produce report rows. Migration `2026_10_13_230000_add_selection_order_to_invoices.php` is additive and nullable.

@@ -20,8 +20,9 @@ try {
  const noShortcut=mixed.locator('[data-analysis-name]').filter({has:page.getByText('Analysis without abbreviation',{exact:true})});
  assert.equal(await noShortcut.locator('[data-analysis-shortcut]').count(),0);
  const label=mixed.locator('[data-analysis-name]').filter({has:page.getByText('Hemoglobin',{exact:true})});
- const nameBox=await label.getByText('Hemoglobin',{exact:true}).boundingBox();const shortcutBox=await label.getByText('HGB',{exact:true}).boundingBox();
- assert.ok(shortcutBox.y>=nameBox.y+nameBox.height,'abbreviation is below the full analysis name');
+ // Read both rectangles in one frame; dropdown closing may scroll the page.
+ const below=await label.evaluate(el=>{const name=el.querySelector('span').getBoundingClientRect();const shortcut=el.querySelector('[data-analysis-shortcut]').getBoundingClientRect();return shortcut.top>=name.bottom;});
+ assert.ok(below,'abbreviation is below the full analysis name');
  const snapshot=await page.evaluate(()=>JSON.stringify(invoiceFixture.store.selectedPackages));
  assert.equal(await page.evaluate(()=>invoiceFixture.form().baseTotal),10000,'nested tests are not billed separately');
  await page.evaluate(()=>invoiceFixture.form().addSelection('testGroup',invoiceFixture.group,false));
