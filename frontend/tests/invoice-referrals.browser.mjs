@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 await mkdir('test-results/invoice-referrals', { recursive: true });
 const browser = await chromium.launch();
+let page;
 try {
-  const page = await browser.newPage({ viewport: { width: 1360, height: 1000 } });
+  page = await browser.newPage({ viewport: { width: 1360, height: 1000 } });
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('http://127.0.0.1:5173/tests/invoice-referrals-browser.html');
@@ -12,7 +13,7 @@ try {
   const doctor = page.locator('#invoice-referral-doctor');
   const lab = page.locator('#invoice-referral-lab');
   const search = () => page.getByRole('searchbox');
-  const options = () => page.getByRole('option');
+  const options = () => page.getByRole('listbox').getByRole('option');
   const choose = async (field, term, name) => {
     await field.click(); await search().fill(term);
     await options().filter({ hasText: name }).click();
@@ -87,4 +88,7 @@ try {
   await doctor.click(); await page.screenshot({ path: 'test-results/invoice-referrals/mobile.png' });
   assert.deepEqual(errors, []);
   console.log('PASS real invoice form: Arabic search, usage order, scroll, keyboard, clear, branch labs, pricing, user IDs, save/failure/edit refresh, desktop/mobile');
+} catch (error) {
+  await page?.screenshot({ path: 'test-results/invoice-referrals/failure.png' });
+  throw error;
 } finally { await browser.close(); }
