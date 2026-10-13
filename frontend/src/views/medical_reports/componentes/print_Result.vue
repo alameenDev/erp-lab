@@ -523,7 +523,13 @@ const orderedReportSections = computed(() => {
     ...(showTestName.value ? (printRecord.value?.packages || []).filter(p => p.cultures?.length || p.formula?.length)
       .map(pkg => ({ kind: 'package', pkg, rank: itemRank('packages', pkg) })) : []),
   ];
-  return sections.sort((a, b) => a.rank - b.rank);
+  const shownCategories = new Set();
+  return sections.sort((a, b) => a.rank - b.rank).map(section => {
+    if (section.kind !== 'test') return section;
+    const showCategory = !shownCategories.has(section.group.category);
+    if (section.group.category) shownCategories.add(section.group.category);
+    return { ...section, group: { ...section.group, showCategory } };
+  });
 });
 
 const findTestByKey = findFormulaTest;
