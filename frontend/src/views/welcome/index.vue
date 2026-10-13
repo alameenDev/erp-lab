@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
+import ClientLabsMap from "@/components/client-map/ClientLabsMap.vue";
 
 const router = useRouter();
 const lang = computed(() => localStorage.getItem("locale") || "ar");
@@ -1670,6 +1671,8 @@ const mobileMenuOpen = ref(false);
         </div>
       </div>
     </section>
+
+    <ClientLabsMap />
 
     <!-- ===================== TESTIMONIALS ===================== -->
     <section id="testimonials" class="py-16 sm:py-20 lg:py-28 bg-slate-50 relative overflow-hidden">
