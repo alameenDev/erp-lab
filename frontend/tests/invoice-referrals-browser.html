@@ -1,0 +1,54 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Invoice referral search</title></head><body><div id="app"></div><script type="module">
+import {createApp,h} from 'vue';import {createPinia} from 'pinia';
+import View from '/src/views/invoices/componentes/invoices_modal.vue';import Mixins from '/src/utils/mixins.js';
+import {useReferralsStore} from '/src/store/modules/referrals';
+import {useinvoicesStore} from '/src/store/modules/invoices';import {usePackagesStore} from '/src/store/modules/packages';
+import {$http} from '/src/plugins/axios';import '/src/assets/main.css';
+import PrimeVue from 'primevue/config';import Aura from '@primevue/themes/aura';
+import AutoComplete from 'primevue/autocomplete';import Dropdown from 'primevue/dropdown';import Checkbox from 'primevue/checkbox';
+import InputText from 'primevue/inputtext';import InputNumber from 'primevue/inputnumber';import Calendar from 'primevue/calendar';
+import Textarea from 'primevue/textarea';import Button from 'primevue/button';import RadioButton from 'primevue/radiobutton';
+localStorage.setItem('locale','ar');localStorage.setItem('token','synthetic-invoice-referral');localStorage.setItem('user',JSON.stringify({id:1,name:'Synthetic Lab',role_id:2}));
+const test={id:11,name:'Glucose',shortcut:'GLU',price:5000};
+const group={id:21,type:'group',name:'Complete Blood Count',group_name:'Complete Blood Count',shortcut:'CBC',price:2000,tests:[{id:12,name:'Hemoglobin',shortcut:'HGB'},{id:13,name:'White Blood Cells',shortcut:'WBC'},{id:14,name:'Analysis without abbreviation'}],culture:[{id:31,name:'Group culture'}]};
+const empty={id:22,group_name:'Empty group',tests:[],cultures:[]};
+const nested={...group,cultures:group.culture};
+const packages=[{id:1,name:'Mixed package',tests:[test],test_groups:[nested,empty],cultures:[{id:32,name:'Direct culture',price:1000}]},{id:2,name:'Groups only',tests:[],test_groups:[nested]},{id:3,name:'Tests only',tests:[test],test_groups:[]},{id:4,name:'Empty package',tests:[],test_groups:[]}].map(p=>({cultures:[],...p,is_constant_price:true,price:10000,shortcut:'PKG-'+p.id}));
+const referrals=[
+ ...Array.from({length:45},(_,i)=>({id:i+1,user_id:1100+i,name:'طبيب تجريبي '+i,role:'Doctor',invoice_usage_count:0})),
+ ...Array.from({length:45},(_,i)=>({id:i+51,user_id:2100+i,name:'مختبر تجريبي '+i,role:'Lab',invoice_usage_count:0})),
+ {id:201,user_id:1001,name:'د. أَحمـد علي',role:'Doctor',invoice_usage_count:12,commission:1500,price_list_id_fk:31,phone_number:'+9647700000001'},
+ {id:202,user_id:1002,name:'د. مصطفى',role:'Doctor',invoice_usage_count:2},
+ {id:203,user_id:2001,name:'مختبر إزمير',role:'Lab',invoice_usage_count:9,lab_price_list_id_fk:41,lab_discount_percentage:10,phone_number:'+9647700000002'},
+ {id:204,user_id:2002,name:'مختبر الفرع',role:'Branch Lab',invoice_usage_count:8},
+];
+const state={failSave:false,lastSaved:null,saved:0,alerts:[]};
+const requests=[];
+$http.defaults.adapter=async config=>{
+ requests.push({url:config.url,method:config.method,body:config.data?JSON.parse(config.data):null});
+ let data=[];
+ if(config.url==='/referrals')data=referrals;
+ else if(config.url==='/packages')data=packages;
+ else if(config.url==='/tests')data=[test,group];
+ else if(config.url==='/tests/questions')data={questions:[],result_comments:[]};
+ else if(config.url==='/invoices/create'||config.url==='/invoices/update'){
+  if(state.failSave)throw {config,response:{status:422,data:{message:'Synthetic save failure'}}};
+  const payload=JSON.parse(config.data);
+  for(const [field,roles] of [['from_lab_id_fk',['Lab','Branch Lab']],['referral_id_fk',['Doctor']]]){
+   if(config.method==='put'&&state.lastSaved?.[field])referrals.find(r=>r.user_id===state.lastSaved[field]).invoice_usage_count--;
+   const chosen=referrals.find(r=>r.user_id===payload[field]&&roles.includes(r.role));
+   if(chosen)chosen.invoice_usage_count++;
+  }
+  state.lastSaved=payload;state.saved++;data={id:301,patient:{name:'Synthetic Patient'},tests:[],packages:[],cultures:[],test_groups:[]};
+ }
+ else if(config.method!=='get')throw new Error('Unexpected write '+config.url);
+ return {data:JSON.parse(JSON.stringify(data)),status:200,statusText:'OK',headers:{},config};
+};
+const app=createApp({render:()=>h(View,{isPageMode:true,ref:'form'})});const pinia=createPinia();
+app.use(pinia).use(PrimeVue,{theme:{preset:Aura}}).mixin(Mixins);
+for(const [name,component] of Object.entries({AutoComplete,Dropdown,Checkbox,InputText,InputNumber,Calendar,Textarea,Button,RadioButton}))app.component(name,component);
+app.config.globalProperties.$route={path:'/invoices/create',params:{}};app.config.globalProperties.$router={push:()=>{}};
+const root=app.mount('#app');
+root.$refs.form.alertSuccess=message=>state.alerts.push(message);root.$refs.form.alertError=message=>state.alerts.push(message);
+window.invoiceFixture={form:()=>root.$refs.form,store:useinvoicesStore(pinia),catalog:usePackagesStore(pinia),packages,test,group,requests,referrals:useReferralsStore(pinia),state};
+</script></body></html>

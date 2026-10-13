@@ -489,8 +489,8 @@
               </div>
               <div class="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                 <div v-if="!isReferralMode">
-                  <label class="block text-sm font-medium text-slate-700 mb-1.5">{{ t("from_lab") }}</label>
-                  <Dropdown showClear class="w-full" v-model="record.from_lab_id_fk" :options="fromLap" @change="price_list(record.from_lab_id_fk); autofillPhoneFromReferral()" optionValue="user_id" optionLabel="name" :placeholder="t('select')" />
+                  <label for="invoice-referral-lab" class="block text-sm font-medium text-slate-700 mb-1.5">{{ t("from_lab") }}</label>
+                  <InvoiceReferralSelect inputId="invoice-referral-lab" kind="lab" :lang="lang" v-model="record.from_lab_id_fk" :options="fromLap" @change="price_list(record.from_lab_id_fk); autofillPhoneFromReferral()" :placeholder="t('select')" />
                 </div>
                 <div v-if="!isReferralMode">
                   <label class="block text-sm font-medium text-slate-700 mb-1.5">{{ t("sample_collector") }}</label>
@@ -502,8 +502,8 @@
                   <Message severity="warn" v-if="ErrorMessage" class="mt-2 text-sm">{{ ErrorMessage }}</Message>
                 </div>
                 <div v-if="!isReferralMode">
-                  <label class="block text-sm font-medium text-slate-700 mb-1.5">{{ t("referrals") }}</label>
-                  <Dropdown class="w-full" showClear v-model="record.referral_id_fk" @change="applyReferralPriceList(); getTotal(); autofillPhoneFromReferral()" :options="theDoctorReferal" optionLabel="name" optionValue="user_id" :placeholder="t('select')" />
+                  <label for="invoice-referral-doctor" class="block text-sm font-medium text-slate-700 mb-1.5">{{ t("referrals") }}</label>
+                  <InvoiceReferralSelect inputId="invoice-referral-doctor" :lang="lang" v-model="record.referral_id_fk" @change="applyReferralPriceList(); getTotal(); autofillPhoneFromReferral()" :options="theDoctorReferal" :placeholder="t('select')" />
                 </div>
                 <div>
                   <label class="block text-sm font-medium text-slate-700 mb-1.5">{{ t("Registration_date") }}</label>
@@ -771,6 +771,7 @@ import { usePatientsStore } from "@/store/modules/patients";
 import PreviousInvoice from './PreviousInvoice.vue';
 import AnalysisName from './AnalysisName.vue';
 import InvoicePackageContents from './InvoicePackageContents.vue';
+import InvoiceReferralSelect from './InvoiceReferralSelect.vue';
 import { invoicePackageContents } from '@/utils/invoicePackageContents';
 import { showAlertWithConfirm } from "@/utils/helper";
 import printInvoiceModal from "./printInvoice_modal.vue";
@@ -825,6 +826,7 @@ export default {
     PreviousInvoice,
     AnalysisName,
     InvoicePackageContents,
+    InvoiceReferralSelect,
     printInvoiceModal,
     Dialog,
   },
@@ -1537,6 +1539,7 @@ export default {
       if (this.isReferralMode && !this.record.request_id) this.record.request_id = crypto.randomUUID();
       this.Addinvoices()
         .then(async (createdInvoice) => {
+          this.GetReferrals();
           await this.commitPromoCode(createdInvoice?.id);
           this.alertSuccess(this.t("invoice_created_successfully") || this.t("alertSuccess"));
           this.clearObjectValues(this.record);
@@ -1677,6 +1680,7 @@ export default {
       this.Updateinvoices()
         .then(async () => {
           await this.commitPromoCode(_updatingInvoiceId);
+          this.GetReferrals();
           this.alertSuccess(this.t("invoice_updated_successfully") || this.t("alertSuccess"));
           this.clearObjectValues(this.record);
           this.promoCodeInput = "";

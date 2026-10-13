@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Referal;
+use App\Models\Invoice;
 use App\Models\User;
 use DateTime;
 use Illuminate\Http\Request;
@@ -66,18 +67,30 @@ class ReferalController extends Controller
             return response()->json(['message' => 'Unauthorized'], 401);
         }
         $query = Referal::with(['user.role', 'user.lab.priceList', 'lab', 'priceList']);
+        $invoiceQuery = Invoice::query();
 
         // Admin (role_id = 1) can see all referrals
         if ($user->role_id != 1) {
             $users_ids = $this->getTenantUserIds();
             $query->whereIn('lab_id_fk', $users_ids);
+            // Older staff invoices store the employee ID here, not the lab owner ID.
+            $invoiceQuery->whereIn('lab_id_fk', $users_ids);
         }
 
         $referals = $query->orderBy('created_at', 'desc')->get();
         if ($referals == null || empty($referals)) {
             return response()->json(['message' => 'No referals found'], 404);
         }
-        $referals = $referals->map(function ($referral) {
+        // Count saved, non-deleted invoices, never searches or unsubmitted selections.
+        // Keep the two referral fields separate: outgoing tests are not incoming referrals.
+        $referralUserIds = $referals->pluck('referral_id_fk')->unique();
+        $doctorUsage = (clone $invoiceQuery)->whereIn('referral_id_fk', $referralUserIds)
+            ->selectRaw('referral_id_fk, COUNT(*) AS invoice_count')->groupBy('referral_id_fk')
+            ->pluck('invoice_count', 'referral_id_fk');
+        $labUsage = (clone $invoiceQuery)->whereIn('from_lab_id_fk', $referralUserIds)
+            ->selectRaw('from_lab_id_fk, COUNT(*) AS invoice_count')->groupBy('from_lab_id_fk')
+            ->pluck('invoice_count', 'from_lab_id_fk');
+        $referals = $referals->map(function ($referral) use ($doctorUsage, $labUsage) {
             // For Lab-role referrals, surface the partner-lab's own discount
             // and price-list (from the labs table) so /invoices/create can apply
             // them automatically when the user picks this referral as from_lab.
@@ -86,6 +99,7 @@ class ReferalController extends Controller
             return [
                 'id' => $referral->id,
                 'user_id' => $referral->user->id,
+                'invoice_usage_count' => (int) ((in_array((int) $referral->user->role_id, [2, 4]) ? $labUsage : $doctorUsage)[$referral->referral_id_fk] ?? 0),
                 'name' => $referral->user->name,
                 'email' => $referral->user->email,
                 'phone_number' => $referral->user->phone_number,
