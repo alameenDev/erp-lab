@@ -27,6 +27,7 @@ class ResultHistoryService
                     'date' => $point['date'], 'date_source' => $point['date_source'],
                     'invoice_id' => $point['invoice_id'], 'item_id' => $point['item_id'],
                     'field' => $series['field'] ?: $series['name'],
+                    'is_component' => $series['field'] !== '',
                     'value' => $point['value'], 'unit' => $series['unit'],
                 ];
             }

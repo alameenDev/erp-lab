@@ -89,7 +89,7 @@ class ReferralWorkspaceTest extends TestCase
     public function test_shared_report_requires_a_valid_signature_and_only_exposes_completed_results(): void
     {
         [$lab,,$other,$test]=$this->fixture();
-        $this->postJson('/api/referral-portal/workspace/lab-settings',['report_template'=>'modern'])->assertOk();
+        $this->postJson('/api/referral-portal/workspace/lab-settings',['report_template'=>'modern', 'previous_results_count'=>3])->assertOk()->assertJsonPath('setting.previous_results_count', 3);
         $id=$this->postJson('/api/referral-portal/workspace/invoices/create',$this->payload($lab,$test))->assertCreated()->json('id');
         $this->postJson('/api/referral-portal/workspace/invoices/'.$id.'/share-report')->assertStatus(409);
         InvoiceTestRel::where('invoice_id_fk',$id)->firstOrFail()->update(['result'=>'19','is_done'=>true]);
@@ -101,7 +101,7 @@ class ReferralWorkspaceTest extends TestCase
         $this->postJson('/api/referral-portal/workspace/invoices/'.$id.'/share-report')->assertNotFound();
         $this->getJson('/api/referral-report/'.$id.'?'.$query)->assertOk()
             ->assertJsonPath('report.tests.0.result','19')
-            ->assertJsonPath('settings.report_template','modern')
+            ->assertJsonPath('settings.report_template','modern')->assertJsonPath('settings.previous_results_count',3)
             ->assertJsonMissingPath('report.total');
         $this->getJson('/api/referral-report/'.($id+1).'?'.$query)->assertForbidden();
         $this->travel(8)->days();

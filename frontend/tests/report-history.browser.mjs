@@ -1,0 +1,42 @@
+import { chromium } from 'playwright';
+import { mkdir } from 'node:fs/promises';
+import assert from 'node:assert/strict';
+const out='test-results/report-pages';await mkdir(out,{recursive:true});
+const browser=await chromium.launch();
+const page=await browser.newPage({viewport:{width:1440,height:1100}}),errors=[];
+page.on('pageerror',error=>errors.push(error.message));
+page.on('console',message=>{if(message.type()==='error')errors.push(message.text());});
+const toggle=()=>page.getByRole('checkbox',{name:'إظهار النتائج السابقة في التقرير',exact:true});
+const count=()=>page.getByLabel('عدد النتائج السابقة لكل تحليل',{exact:true});
+const layout=async()=>{await page.getByRole('button',{name:'إعدادات الطباعة',exact:true}).click();};
+const verify=async label=>{
+  await page.getByRole('button',{name:'فحص سجل التقرير',exact:true}).click();
+  await page.waitForFunction(()=>/^(PASS|FAIL)/.test(document.getElementById('status')?.textContent||''),null,{timeout:120000});
+  assert.equal(await page.locator('#status').innerText(),'PASS',await page.locator('#checks').textContent());console.log('PASS '+label);
+};
+try {
+  await page.goto('http://127.0.0.1:5173/tests/report-history-browser.html');await layout();
+  assert.equal(await count().isDisabled(),true);
+  await verify('hidden by default across tests/groups/packages/cultures/templates');
+  await toggle().check();await count().selectOption('3');
+  await page.getByRole('button',{name:'حفظ',exact:true}).click();
+  await page.waitForFunction(()=>document.getElementById('save-count').textContent==='1');
+  await page.reload();await layout();
+  assert.equal(await toggle().isChecked(),true);assert.equal(await count().inputValue(),'3');
+  await verify('persisted last three examinations with dates, unique identities and all compound fields');
+  await page.locator('[data-report-history-settings]').scrollIntoViewIfNeeded();
+  await page.screenshot({path:`${out}/history-settings-desktop.png`});
+  await page.locator('#pages img').first().screenshot({path:`${out}/history-report.png`});
+  await page.getByRole('radio',{name:/النموذج الجديد/}).check();await count().selectOption('1');
+  await verify('modern template uses last one including formula histories');
+  await page.getByRole('checkbox',{name:'إظهار اسم التحليل في الطباعة',exact:true}).uncheck();
+  await verify('merged result layout respects the selected limit');
+  await toggle().uncheck();assert.equal(await count().isDisabled(),true);
+  await verify('disabling history removes it from every output');
+  await toggle().check();await count().selectOption('3');
+  await page.setViewportSize({width:390,height:844});
+  await page.locator('[data-report-history-settings]').scrollIntoViewIfNeeded();
+  assert.equal(await page.locator('[data-report-history-settings]').evaluate(el=>el.scrollWidth<=el.clientWidth+1),true);
+  await page.screenshot({path:`${out}/history-settings-mobile.png`});
+  assert.deepEqual(errors,[]);
+} catch(error) {console.log(await page.locator('#status').textContent());await page.screenshot({path:`${out}/history-failure.png`,fullPage:true});throw error;} finally {await browser.close();}

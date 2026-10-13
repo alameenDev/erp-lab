@@ -145,6 +145,7 @@ const save = async () => {
           formData.append("show_test_names", settings.value.show_test_names ? "1" : "0");
           formData.append("show_status", settings.value.show_status ? "1" : "0");
           formData.append("show_last_result", settings.value.show_last_result ? "1" : "0");
+          formData.append("previous_results_count", settings.value.previous_results_count ?? 1);
           formData.append("print_black_white", settings.value.print_black_white ? "1" : "0");
           const bc = labelConfig(settings.value.barcode_config, settings.value.show_tests_on_barcode !== false);
           const appendBarcode = (prefix, value) => {
@@ -360,9 +361,19 @@ const resetBranding = async () => {
                                         <input type="checkbox" id="showStatus" v-model="settings.show_status" class="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-primary-500" />
                                         <label for="showStatus" class="text-sm font-medium text-slate-700 cursor-pointer select-none">{{ t("show_status_print") || "إظهار الحالة في الطباعة" }}</label>
                                    </div>
-                                   <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                                        <input type="checkbox" id="showLastResult" v-model="settings.show_last_result" class="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-primary-500" />
-                                        <label for="showLastResult" class="text-sm font-medium text-slate-700 cursor-pointer select-none">{{ t("show_last_result_print") || "إظهار النتيجة السابقة في الطباعة" }}</label>
+                                   <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3" data-report-history-settings>
+                                        <div class="flex items-center gap-3">
+                                             <input type="checkbox" id="showLastResult" v-model="settings.show_last_result" aria-describedby="reportHistoryHint" class="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-primary-500" />
+                                             <label for="showLastResult" class="text-sm font-semibold text-slate-700 cursor-pointer select-none">{{ lang === 'en' ? 'Show previous results in reports' : 'إظهار النتائج السابقة في التقرير' }}</label>
+                                        </div>
+                                        <p id="reportHistoryHint" class="text-xs text-slate-500 leading-relaxed">{{ lang === 'en' ? 'Applies to printing, saved PDFs and WhatsApp reports. Each previous result includes its date.' : 'يُطبّق على الطباعة وحفظ PDF وإرسال التقرير بالواتساب، مع تاريخ كل نتيجة سابقة.' }}</p>
+                                        <div class="flex flex-wrap items-center gap-3">
+                                             <label for="previousResultsCount" class="text-sm text-slate-700">{{ lang === 'en' ? 'Previous results per analysis' : 'عدد النتائج السابقة لكل تحليل' }}</label>
+                                             <select id="previousResultsCount" v-model.number="settings.previous_results_count" :disabled="!settings.show_last_result" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                                                  <option v-for="count in 10" :key="count" :value="count">{{ count }}</option>
+                                             </select>
+                                        </div>
+                                        <p class="text-xs text-slate-500 leading-relaxed">{{ lang === 'en' ? 'Newest examinations first. Compound tests keep all their previous fields together. This does not change the patient’s history in the system.' : 'الأحدث أولاً. التحاليل ذات النتائج الفرعية تحتفظ بجميع تفاصيل الفحص السابق معاً. هذا الخيار لا يغيّر سجل المريض داخل النظام.' }}</p>
                                    </div>
                                    <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
                                         <input type="checkbox" id="printBlackWhite" v-model="settings.print_black_white" class="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-primary-500" />

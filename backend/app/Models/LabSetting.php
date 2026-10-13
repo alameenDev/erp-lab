@@ -8,7 +8,7 @@ class LabSetting extends Model
 {
     protected $table = 'lab_settings';
 
-    protected $attributes = ['report_template' => 'classic'];
+    protected $attributes = ['report_template' => 'classic', 'previous_results_count' => 1];
 
     protected $fillable = [
         'lab_id_fk',
@@ -31,6 +31,7 @@ class LabSetting extends Model
         'show_test_names',
         'show_status',
         'show_last_result',
+        'previous_results_count',
         'print_black_white',
         'barcode_config',
         'patient_header_config',
@@ -51,6 +52,7 @@ class LabSetting extends Model
             'show_test_names' => 'boolean',
             'show_status' => 'boolean',
             'show_last_result' => 'boolean',
+            'previous_results_count' => 'integer',
             'print_black_white' => 'boolean',
             'barcode_config' => 'json',
             'patient_header_config' => 'json',

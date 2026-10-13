@@ -4,6 +4,8 @@ import { usePrint } from '@/composables/usePrint';
 import ModernPatientHeader from '@/views/medical_reports/componentes/ModernPatientHeader.vue';
 import ReportResultFlag from '@/views/medical_reports/componentes/ReportResultFlag.vue';
 import ReportTableColumns from '@/views/medical_reports/componentes/ReportTableColumns.vue';
+import ReportPreviousResults from '@/components/ReportPreviousResults.vue';
+import { reportHistoryRows } from '@/utils/resultHistory';
 import { customReportColumns } from '@/utils/medicalReportColumns';
 const props = defineProps({ settings: { type: Object, required: true } });
 const modern = computed(() => props.settings.report_template === 'modern');
@@ -33,6 +35,9 @@ const rows = [
   { name: 'Cholesterol', result: '207', status: 1, label: 'High', range: '0–200' },
   { name: 'HDL', result: '36.3', status: 2, label: 'Normal', range: '35–80' },
 ];
+const previewHistory = row => reportHistoryRows({ result_history: { test_1: Array.from({ length: 10 }, (_, i) => ({
+  invoice_id: 10 - i, date: `2025-${String(12 - i).padStart(2, '0')}-01`, value: String(Number(row.result) - i - 1), unit: 'mg/dL', is_component: false,
+})) } }, { id: 1 }, 'test', props.settings);
 </script>
 
 <template>
@@ -44,8 +49,8 @@ const rows = [
     <div v-if="settings.show_test_names !== false" class="section-header border border-slate-300 bg-slate-100 p-2 font-bold"><i v-if="modern" class="pi pi-filter mr-section-icon" aria-hidden="true"></i><span>Lipid Profile</span><small v-if="modern" class="mr-section-caption">TEST RESULTS</small></div>
     <table class="report-results-table w-full" style="table-layout:fixed; border-collapse:collapse" :class="{ 'report-column-widths': customReportColumns(settings.print_table_config) }">
       <ReportTableColumns :settings="settings" />
-      <thead><tr><th>Test</th><th>Result</th><th v-if="modern && settings.show_status !== false">Flag</th><th>Unit</th><th>Reference Range</th><th v-if="settings.show_last_result">Last Result</th><th v-if="!modern && settings.show_status !== false">Status</th></tr></thead>
-      <tbody><tr v-for="row in rows" :key="row.name"><td>{{ row.name }}</td><td :style="settings.print_black_white ? {} : { color: row.status === 1 ? '#dc2626 !important' : '#16a34a !important' }">{{ row.result }}</td><td v-if="modern && settings.show_status !== false"><ReportResultFlag :status-id="row.status" :label="row.label" /></td><td>mg/dL</td><td><span class="whitespace-pre-line">{{ row.range }}</span></td><td v-if="settings.show_last_result">—</td><td v-if="!modern && settings.show_status !== false">{{ row.label }}</td></tr></tbody>
+      <thead><tr><th>Test</th><th>Result</th><th v-if="modern && settings.show_status !== false">Flag</th><th>Unit</th><th>Reference Range</th><th v-if="settings.show_last_result">Previous Results</th><th v-if="!modern && settings.show_status !== false">Status</th></tr></thead>
+      <tbody><tr v-for="row in rows" :key="row.name"><td>{{ row.name }}</td><td :style="settings.print_black_white ? {} : { color: row.status === 1 ? '#dc2626 !important' : '#16a34a !important' }">{{ row.result }}</td><td v-if="modern && settings.show_status !== false"><ReportResultFlag :status-id="row.status" :label="row.label" /></td><td>mg/dL</td><td><span class="whitespace-pre-line">{{ row.range }}</span></td><td v-if="settings.show_last_result"><ReportPreviousResults :rows="previewHistory(row)" /></td><td v-if="!modern && settings.show_status !== false">{{ row.label }}</td></tr></tbody>
     </table>
   </div>
   </div>

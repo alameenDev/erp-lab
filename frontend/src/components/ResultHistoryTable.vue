@@ -1,12 +1,8 @@
 <script setup>
 import { computed } from 'vue';
+import { historyDisplayDate as displayDate } from '@/utils/resultHistory';
 const props = defineProps({ rows: { type: Array, default: () => [] } });
 const visibleRows = computed(() => props.rows.filter(row => row.value !== null && row.value !== undefined && String(row.value).trim() !== ''));
-// Preserve the recorded calendar date; do not shift a date-only result across time zones.
-const displayDate = raw => {
-  const match = String(raw || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
-  return match ? `${match[3]}/${match[2]}/${match[1]}` : String(raw || '—');
-};
 </script>
 <template>
   <div v-if="visibleRows.length" class="result-history" dir="ltr" style="margin:8px 0 12px;color:#334155;font-size:11px;text-align:left;">

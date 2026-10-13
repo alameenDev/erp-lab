@@ -2,6 +2,11 @@ name: Report page rendering
 on:
   pull_request:
     paths:
+      - 'frontend/src/utils/resultHistory.js'
+      - 'frontend/src/components/ReportPreviousResults.vue'
+      - 'frontend/src/components/ResultHistoryTable.vue'
+      - 'frontend/src/store/modules/labSettings.js'
+      - 'frontend/tests/ReportHistoryFixture.vue'
       - 'frontend/src/utils/reportFormulas.js'
       - 'tests/fixtures/report-formulas.json'
       - 'frontend/tests/ReportFormulaEditorFixture.vue'
@@ -61,6 +66,7 @@ jobs:
           node tests/report-actions.browser.mjs
           node tests/report-keep-together.browser.mjs
           node tests/report-columns.browser.mjs
+          node tests/report-history.browser.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

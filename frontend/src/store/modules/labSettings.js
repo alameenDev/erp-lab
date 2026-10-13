@@ -1,9 +1,12 @@
 import { defineStore } from "pinia";
 import { $http } from "@/plugins/axios";
+import { previousResultsCount } from "@/utils/resultHistory";
 import { applyBranding } from "@/utils/branding";
 
 const normalizeSettings = (data = {}) => ({
  ...data,
+ show_last_result: data?.show_last_result === true,
+ previous_results_count: previousResultsCount(data),
  report_template: data?.report_template === "modern" ? "modern" : "classic",
  print_margins: {top:20,bottom:20,left:15,right:15,...data?.print_margins},
  barcode_config: {label_width:3,label_height:1.5,name_size:9,info_size:7,number_size:6,barcode_height:40,sample_size:8,tests_size:7,...data?.barcode_config},
@@ -14,6 +17,8 @@ export const useLabSettingsStore = defineStore("labSettings", {
      state: () => ({
           settings: {
                report_template: "classic",
+               show_last_result: false,
+               previous_results_count: 1,
                logo: null,
                primary_color: "#0d9488",
                secondary_color: "#14b8a6",

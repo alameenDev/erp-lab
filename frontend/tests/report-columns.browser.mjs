@@ -40,7 +40,7 @@ try {
   await layoutSection();
   await page.getByRole('checkbox', { name: 'إظهار الحالة في الطباعة', exact: true }).uncheck();
   await verify('hidden status reserves no column space');
-  await page.getByRole('checkbox', { name: 'إظهار النتيجة السابقة في الطباعة', exact: true }).uncheck();
+  await page.getByRole('checkbox', { name: 'إظهار النتائج السابقة في التقرير', exact: true }).uncheck();
   await verify('four visible columns use the entire table');
   await page.getByRole('checkbox', { name: 'إظهار اسم التحليل في الطباعة', exact: true }).uncheck();
   await verify('merged groups and packages retain semantic column widths');
