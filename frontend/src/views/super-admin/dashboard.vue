@@ -4,6 +4,7 @@ import { storeToRefs } from "pinia";
 import { useSuperAdminStore } from "@/store/modules/superAdmin";
 import { t, formatNum as commaFormat } from "@/utils/helper";
 import { Bar, Line, Doughnut } from "vue-chartjs";
+import ClientMapManager from "@/components/client-map/ClientMapManager.vue";
 import {
      Chart as ChartJS,
      Title,
@@ -165,6 +166,8 @@ onMounted(async () => {
                <h1 class="text-2xl font-bold">{{ t("super_admin_panel") }}</h1>
                <p class="text-blue-200 mt-1">{{ t("system_overview") }}</p>
           </div>
+
+          <ClientMapManager />
 
           <!-- KPI Cards -->
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
