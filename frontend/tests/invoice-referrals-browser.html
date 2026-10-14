@@ -1,5 +1,7 @@
 <!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Invoice referral search</title></head><body><div id="app"></div><script type="module">
 import {createApp,h} from 'vue';import {createPinia} from 'pinia';
+import {createRouter,createMemoryHistory,RouterView} from 'vue-router';
+import InvoicePage from '/src/views/invoices/form.vue';
 import View from '/src/views/invoices/componentes/invoices_modal.vue';import Mixins from '/src/utils/mixins.js';
 import {useReferralsStore} from '/src/store/modules/referrals';
 import {useinvoicesStore} from '/src/store/modules/invoices';import {usePackagesStore} from '/src/store/modules/packages';
@@ -22,33 +24,43 @@ const referrals=[
  {id:203,user_id:2001,name:'مختبر إزمير',role:'Lab',invoice_usage_count:9,lab_price_list_id_fk:41,lab_discount_percentage:10,phone_number:'+9647700000002'},
  {id:204,user_id:2002,name:'مختبر الفرع',role:'Branch Lab',invoice_usage_count:8},
 ];
-const state={failSave:false,lastSaved:null,saved:0,alerts:[]};
+const state={failSave:false,lastSaved:null,saved:0,alerts:[],patientSeq:501,document:null};
 const requests=[];
 $http.defaults.adapter=async config=>{
- requests.push({url:config.url,method:config.method,body:config.data?JSON.parse(config.data):null});
+ const body=config.data instanceof FormData?Object.fromEntries(config.data):config.data?JSON.parse(config.data):null;
+ requests.push({url:config.url,method:config.method,body});
  let data=[];
  if(config.url==='/referrals')data=referrals;
  else if(config.url==='/packages')data=packages;
  else if(config.url==='/tests')data=[test,group];
+ else if(config.url==='/patients/create')data={id:state.patientSeq++,name:body.name,phone:body.phone};
+ else if(config.url==='/invoices/301')data=state.document;
  else if(config.url==='/tests/questions')data={questions:[],result_comments:[]};
  else if(config.url==='/invoices/create'||config.url==='/invoices/update'){
   if(state.failSave)throw {config,response:{status:422,data:{message:'Synthetic save failure'}}};
-  const payload=JSON.parse(config.data);
+  const payload=body;
   for(const [field,roles] of [['from_lab_id_fk',['Lab','Branch Lab']],['referral_id_fk',['Doctor']]]){
    if(config.method==='put'&&state.lastSaved?.[field])referrals.find(r=>r.user_id===state.lastSaved[field]).invoice_usage_count--;
    const chosen=referrals.find(r=>r.user_id===payload[field]&&roles.includes(r.role));
    if(chosen)chosen.invoice_usage_count++;
   }
-  state.lastSaved=payload;state.saved++;data={id:301,patient:{name:'Synthetic Patient'},tests:[],packages:[],cultures:[],test_groups:[]};
+  state.lastSaved=payload;state.saved++;
+  state.document={...payload,id:301,patient:{id:payload.patient_id_fk,name:'Synthetic Patient'},paidDetails:payload.payment_details,tests:(payload.tests||[]).map(t=>({...test,...t,id:t.test_id_fk})),cultures:[],packages:[],test_groups:[]};
+  data=state.document;
  }
  else if(config.method!=='get')throw new Error('Unexpected write '+config.url);
  return {data:JSON.parse(JSON.stringify(data)),status:200,statusText:'OK',headers:{},config};
 };
-const app=createApp({render:()=>h(View,{isPageMode:true,ref:'form'})});const pinia=createPinia();
+const pageMode=new URLSearchParams(location.search).has('page');
+const router=createRouter({history:createMemoryHistory(),routes:[{path:'/invoices/create',component:InvoicePage},{path:'/invoices/:id/edit',component:InvoicePage},{path:'/invoices',component:{template:'<p>Invoice list</p>'}}]});
+const app=createApp({render:()=>pageMode?h(RouterView):h(View,{isPageMode:true,ref:'form'})});const pinia=createPinia();
 app.use(pinia).use(PrimeVue,{theme:{preset:Aura}}).mixin(Mixins);
 for(const [name,component] of Object.entries({AutoComplete,Dropdown,Checkbox,InputText,InputNumber,Calendar,Textarea,Button,RadioButton}))app.component(name,component);
-app.config.globalProperties.$route={path:'/invoices/create',params:{}};app.config.globalProperties.$router={push:()=>{}};
+if(pageMode){app.use(router);await router.push('/invoices/create');await router.isReady();
+ const invoice=useinvoicesStore(pinia);invoice.payment_details=[{amount:88000,contract_id_fk:9,payment_method_id_fk:2}];invoice.discountValue=123;
+}else{app.config.globalProperties.$route={path:'/invoices/create',params:{}};app.config.globalProperties.$router={push:()=>{}};}
 const root=app.mount('#app');
-root.$refs.form.alertSuccess=message=>state.alerts.push(message);root.$refs.form.alertError=message=>state.alerts.push(message);
-window.invoiceFixture={form:()=>root.$refs.form,store:useinvoicesStore(pinia),catalog:usePackagesStore(pinia),packages,test,group,requests,referrals:useReferralsStore(pinia),state};
+const form=()=>{if(!pageMode)return root.$refs.form;let c=document.querySelector('.invoice-page-form')?.__vueParentComponent;while(c && c.type!==View)c=c.parent;return c?.proxy;};
+if(!pageMode){form().alertSuccess=message=>state.alerts.push(message);form().alertError=message=>state.alerts.push(message);}
+window.invoiceFixture={form,router,store:useinvoicesStore(pinia),catalog:usePackagesStore(pinia),packages,test,group,requests,referrals:useReferralsStore(pinia),state};
 </script></body></html>

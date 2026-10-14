@@ -1,6 +1,8 @@
 <script setup>
 import { computed, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
+import { useLabSettingsStore } from "@/store/modules/labSettings";
+import { reportFormChoice } from "@/utils/medicalReportOutput";
 import { useinvoicesStore } from "@/store/modules/invoices";
 
 import ReportSelectionNode from './ReportSelectionNode.vue';
@@ -17,6 +19,16 @@ const { printRecord } = storeToRefs(useinvoicesStore());
 const search = ref("");
 const action = ref("print");
 const withBackground = ref(null);
+const labSettings = useLabSettingsStore();
+const formContext = computed(() => JSON.stringify([printRecord.value?.id, labSettings.settings.lab_id_fk,
+  reportFormChoice(labSettings.settings.report_form_default), props.hasBackground]));
+let lastFormContext;
+function initializeFormChoice() {
+  if (lastFormContext === formContext.value) return;
+  lastFormContext = formContext.value;
+  withBackground.value = props.hasBackground && reportFormChoice(labSettings.settings.report_form_default);
+}
+watch(formContext, () => { if (props.modelValue && !props.busy) initializeFormChoice(); });
 const phone = ref("");
 const sharing = value => ["whatsapp", "whatsapp-download"].includes(value);
 const phoneValid = computed(() => phone.value.replace(/\D/g, "").length >= 10);
@@ -38,8 +50,8 @@ watch(() => props.modelValue, open => {
   snapshot.value = JSON.parse(JSON.stringify(printRecord.value || {}));
   search.value = "";
   action.value = "print";
-  // Keep the selected form when changing actions or reopening this dialog.
-  if (withBackground.value === null) withBackground.value = Boolean(props.hasBackground);
+  // Keep manual choices for this report; a new invoice/lab/default starts fresh.
+  initializeFormChoice();
   phone.value = printRecord.value?.patient?.phone || "";
   selected.value = new Set(allKeys.value);
 }, { immediate: true });

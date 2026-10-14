@@ -182,7 +182,7 @@
                       <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
                     <span class="text-sm font-medium truncate">{{ patientStore.selectedFile?.name || t('choose_file') || 'اختر ملف...' }}</span>
-                    <input type="file" @change="onPatientFileChange" accept=".png,.jpg,.jpeg" class="hidden" />
+                    <input ref="patientFileInput" type="file" @change="onPatientFileChange" accept=".png,.jpg,.jpeg" class="hidden" />
                   </label>
                 </div>
               </div>
@@ -591,7 +591,7 @@
                         <Dropdown showClear v-model="payment.payment_method_id_fk" :options="paymentMethods" optionLabel="name" optionValue="id" :placeholder="t('method') || 'Method'" class="w-full text-sm" />
                       </div>
                       <div class="w-24 shrink-0">
-                        <InputNumber v-model.number="payment.amount" @input="checkpaid(index)" :placeholder="t('amount')" class="w-full text-sm" />
+                        <InputNumber :data-invoice-payment="index" v-model.number="payment.amount" @input="checkpaid(index)" :placeholder="t('amount')" class="w-full text-sm" />
                       </div>
                       <button type="button" @click="removeRow(index)" :aria-label="t('remove') || 'حذف'" class="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0 cursor-pointer focus:outline-none focus:ring-4 focus:ring-red-200 min-w-[36px] min-h-[36px]">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -801,6 +801,7 @@ export default {
   emits: ['saved', 'cancelled'],
   data() {
     return {
+      draftRevision: 0,
       loyalty: null, loyaltyLoading: false, loyaltyError: "", loyaltyKey: "",
       errorMessage: "",
       selectedTest: null,
@@ -992,7 +993,31 @@ export default {
     this.nationalitiesStore.GetNationalities();
     this.$nextTick(() => this.autoGrowNotes());
   },
+  beforeUnmount() {
+    clearTimeout(this.patientNameBlurTimer);
+    clearTimeout(this.searchTimeout);
+    this.draftRevision++;
+  },
   methods: {
+    resetDraft() {
+      this.draftRevision++;
+      clearTimeout(this.patientNameBlurTimer);
+      clearTimeout(this.searchTimeout);
+      useinvoicesStore().resetRecord();
+      this.patientStore.resetPatientForm();
+      Object.assign(this, {
+        selectedTest: null, selectedCulture: null, selectedPackage: null, selectedPatient: null,
+        filteredCultures: [], filteredPackages: [], expandedContents: {}, showCultures: [],
+        localQuestions: [], localResultComments: [], questionsLoading: false,
+        perceInput: false, valueInput: false, price_list_id: null, paid: 0,
+        Contract_payment: 0, paymentPercent: 0, index: 0,
+        promoCodeInput: '', promoCodeApplied: null, promoCodeMessage: '', promoCodeError: '', promoCodeApplying: false,
+        loyalty: null, loyaltyKey: '', loyaltyError: '', loyaltyLoading: false,
+        errorMessage: '', patientSearchLoading: false, isPatientNameDropdownShow: false,
+      });
+      if (this.$refs.patientFileInput) this.$refs.patientFileInput.value = '';
+      this.record.registration_date = useinvoicesStore().getTodayDate();
+    },
     ...mapActions(usepaymentMethodstore, ["GetpaymentMethods"]),
     ...mapActions(useresultStatusStore, ["GetresultStatus"]),
     ...mapActions(usetestsStore, ["GetTests"]),
@@ -1028,6 +1053,7 @@ export default {
       }, 200);
     },
     selectExistingPatient(p) {
+      if (!this.isEditMode && this.responseData?.id && String(this.responseData.id) !== String(p.id)) this.resetDraft();
       this.isPatientNameDropdownShow = false;
       this.responseData = p;
       // strip +964 prefix for display
@@ -1035,16 +1061,8 @@ export default {
       Object.assign(this.patientStore.record, p, { phone: ph });
     },
     clearPatientSelection() {
-      this.responseData = null;
-      this.patientStore.searchRecords = [];
-      this.patientStore.selectedFile = "";
-      // clear form
-      Object.keys(this.patientStore.record).forEach((key) => {
-        if (typeof this.patientStore.record[key] === "string") this.patientStore.record[key] = "";
-        else if (typeof this.patientStore.record[key] === "number") this.patientStore.record[key] = 0;
-        else this.patientStore.record[key] = null;
-      });
-      this.patientStore.record.id = "";
+      if (!this.isEditMode) this.resetDraft();
+      else this.patientStore.resetPatientForm();
     },
     changePatientTitle(value) {
       if (value == 1) this.patientStore.record.title_id_fk = 1;
@@ -1256,6 +1274,7 @@ export default {
     },
     async previewPromoCode() {
       if (!this.promoCodeInput) return;
+      const revision = this.draftRevision;
       this.promoCodeApplying = true;
       this.promoCodeMessage = "";
       this.promoCodeError = "";
@@ -1265,6 +1284,7 @@ export default {
           invoice_amount: Math.round(Number(this.baseTotal) || 0),
           patient_id_fk: this.record.patient_id_fk || null,
         });
+        if (revision !== this.draftRevision) return;
         this._updatingDiscount = true;
         if (data.discount_type === "percentage") {
           this.discountPercentage = Number(data.discount_value);
@@ -1282,10 +1302,11 @@ export default {
         this.promoCodeApplied = this.promoCodeInput.trim();
         this.promoCodeMessage = `تم تطبيق الخصم (-${data.discount_amount})`;
       } catch (e) {
+        if (revision !== this.draftRevision) return;
         this.promoCodeApplied = null;
         this.promoCodeError = e?.response?.data?.message || "تعذر تطبيق البروموكود";
       } finally {
-        this.promoCodeApplying = false;
+        if (revision === this.draftRevision) this.promoCodeApplying = false;
       }
     },
     clearPromoCode() {
@@ -1327,20 +1348,23 @@ export default {
       this.recalcTotal();
     },
     async show_Questions() {
+      const revision = this.draftRevision;
       const ids = this.selectedTests.map((test) => test.id ?? test.test_id_fk);
       if (ids.length > 0) {
         this.questionsLoading = true;
         try {
           const response = await $http.post(`/tests/questions`, { tests_ids: ids });
+          if (revision !== this.draftRevision) return;
           this.localQuestions = response.data?.questions || [];
           this.localResultComments = response.data?.result_comments || [];
           this.testQuesions = this.localQuestions;
           this.tests_ids = ids;
         } catch (error) {
+          if (revision !== this.draftRevision) return;
           this.localQuestions = [];
           this.localResultComments = [];
         } finally {
-          this.questionsLoading = false;
+          if (revision === this.draftRevision) this.questionsLoading = false;
         }
       }
     },
@@ -1550,27 +1574,12 @@ export default {
       }));
 
       if (this.isReferralMode && !this.record.request_id) this.record.request_id = crypto.randomUUID();
-      this.Addinvoices()
+      return this.Addinvoices()
         .then(async (createdInvoice) => {
           this.GetReferrals();
           await this.commitPromoCode(createdInvoice?.id);
           this.alertSuccess(this.t("invoice_created_successfully") || this.t("alertSuccess"));
-          this.clearObjectValues(this.record);
-          // Clear patient form + selection so next invoice starts fresh
-          this.clearObjectValues(this.patientStore.record);
-          this.patientStore.selectedFile = "";
-          this.responseData = null;
-          this.selectedTests = [];
-          this.selectedCultures = [];
-          this.selectedPackages = [];
-          this.selectedtestGroups = [];
-          this.payment_details = [{ amount: null, contract_id_fk: null, payment_method_id_fk: null }];
-          this.discountPercentage = 0;
-          this.discountValue = 0;
-          this.promoCodeInput = "";
-          this.promoCodeApplied = null;
-          this.promoCodeMessage = "";
-          this.promoCodeError = "";
+          this.resetDraft();
           if (this.isPageMode) {
             this.printInvoiceDialog = true;
           } else {
@@ -1691,16 +1700,12 @@ export default {
       }));
 
       const _updatingInvoiceId = this.record.id;
-      this.Updateinvoices()
+      return this.Updateinvoices()
         .then(async () => {
           await this.commitPromoCode(_updatingInvoiceId);
           this.GetReferrals();
           this.alertSuccess(this.t("invoice_updated_successfully") || this.t("alertSuccess"));
-          this.clearObjectValues(this.record);
-          this.promoCodeInput = "";
-          this.promoCodeApplied = null;
-          this.promoCodeMessage = "";
-          this.promoCodeError = "";
+          this.resetDraft();
           if (this.isPageMode) {
             this.$emit('saved');
           } else {
@@ -1713,18 +1718,7 @@ export default {
         });
     },
     close() {
-      this.selectedContract = [];
-      this.selectedreferal = [];
-      this.selectedTests = [];
-      this.selectedPackages = [];
-      this.selectedCultures = [];
-      this.selectedPatient = null;
-      this.searchRecords = [];
-      this.payment_details = [{ amount: null, contract_id_fk: null, payment_method_id_fk: null }];
-      this.discountPercentage = 0;
-      this.discountValue = 0;
-      this.errorMessage = "";
-      this.clearObjectValues(this.record);
+      this.resetDraft();
       if (this.isPageMode) {
         this.$emit('cancelled');
       } else {

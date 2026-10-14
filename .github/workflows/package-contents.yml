@@ -9,6 +9,9 @@ on:
       - 'frontend/src/utils/invoicePackageContents.js'
       - 'frontend/tests/invoice-packages*'
       - 'frontend/tests/invoice-referrals*'
+      - 'frontend/tests/invoice-reset*'
+      - 'frontend/src/store/modules/invoices.js'
+      - 'frontend/src/store/modules/patients.js'
       - 'frontend/src/utils/invoiceReferralOptions.js'
       - '.github/workflows/package-contents.yml'
 permissions:
@@ -37,6 +40,7 @@ jobs:
           node tests/invoice-packages.browser.mjs
           node --test tests/invoice-referrals.test.mjs
           node tests/invoice-referrals.browser.mjs
+          node tests/invoice-reset.browser.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

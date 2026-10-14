@@ -39,3 +39,9 @@ New invoices save a `selection_order` manifest of typed catalog IDs on the invoi
 The invoice shows a numbered summary, the result editor exposes the same ordered navigation and quick-entry list, and the canonical report renders ordered sections before pagination. Both templates and merged tables use that stream, so preview, print, PDF and WhatsApp attachments agree. A package's blocks share its rank; isolated groups and template analyses keep their page-boundary rules. Partial report selection retains the original manifest and only filters its members.
 
 Existing invoices with no manifest retain the existing type-based fallback; their historical click sequence was never recorded and cannot be reconstructed. Missing/stale manifest members do not produce report rows. Migration `2026_10_13_230000_add_selection_order_to_invoices.php` is additive and nullable.
+
+## Default letterhead per laboratory
+
+`lab_settings.report_form_default` controls the initial “lab letterhead” selection for each report. Existing labs default to enabled for compatibility; owners can turn it off in Print → Paper & visibility and still enable it for an individual report. The modal keeps a manual override when changing actions/reopening the same invoice, but starts from the configured default for another invoice/lab or when the setting changes. Missing backgrounds always produce a report without a letterhead. Direct viewers use the invoice lab's preference unless the shared URL explicitly carries `form=0/1`; that explicit choice continues to take precedence.
+
+Invoice drafts now reset their standalone payment editor as well as the invoice record, patient/image, discounts, referrals, selections and questions. This runs after successful saves/cancel, on entering create mode (including reuse of the edit route), and when explicitly clearing/switching patients. Saved printable records and failed-save drafts are retained.

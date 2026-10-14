@@ -1,0 +1,26 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Lab form preference</title></head><body><div id="app"></div><script type="module">
+import {createApp,h,ref} from 'vue';import {createPinia} from 'pinia';
+import Settings from '/src/views/lab-settings/index.vue';
+import Modal from '/src/views/medical_reports/componentes/printSelectModal.vue';
+import {useLabSettingsStore} from '/src/store/modules/labSettings';
+import {useinvoicesStore} from '/src/store/modules/invoices';
+import {$http} from '/src/plugins/axios';import '/src/assets/main.css';
+localStorage.setItem('locale','ar');localStorage.setItem('user',JSON.stringify({id:1,role_id:2}));
+const base={lab_id_fk:1,report_template:'classic',report_form_default:true,show_test_names:true,show_categories:true,show_status:true,report_background:'/synthetic-background.png'};
+let saved=JSON.parse(localStorage.getItem('synthetic-form-default')||'null')||base;const requests=[];
+$http.defaults.adapter=async config=>{
+ let data;
+ if(config.url==='/lab-settings' && config.method==='get')data=saved;
+ else if(config.url==='/lab-settings' && config.method==='post'){
+  requests.push(Object.fromEntries(config.data));saved={...saved,report_form_default:config.data.get('report_form_default')==='1'};
+  localStorage.setItem('synthetic-form-default',JSON.stringify(saved));data={setting:saved};
+ }else if(config.method==='get')data={};else throw new Error('Unexpected write '+config.url);
+ return {data,status:200,config,headers:{}};
+};
+createApp({setup(){
+ const settings=useLabSettingsStore(), invoices=useinvoicesStore(), open=ref(false), hasBackground=ref(true), events=[];
+ invoices.printRecord={id:14,patient:{id:1,name:'Synthetic',phone:'07700000000'},tests:[{id:1,name:'CBC',is_done:true}]};
+ window.formFixture={settings,invoices,requests,open,events,hasBackground};
+ return ()=>h('main',{},[h(Settings),h('button',{id:'open-report',onClick:()=>open.value=true},'فتح تقرير تجريبي'),h(Modal,{modelValue:open.value,'onUpdate:modelValue':v=>open.value=v,hasBackground:hasBackground.value,canShare:true,onExecute:s=>{events.push(s);open.value=false;}})]);
+}}).use(createPinia()).mount('#app');
+</script></body></html>

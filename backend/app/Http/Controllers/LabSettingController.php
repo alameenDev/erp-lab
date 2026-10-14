@@ -32,6 +32,7 @@ class LabSettingController extends Controller
                 'font_family' => 'Tajawal',
                 'print_margins' => ['top' => 20, 'bottom' => 20, 'left' => 15, 'right' => 15],
                 'report_template' => 'classic',
+                'report_form_default' => true,
                 'show_categories' => true,
                 'show_tests_on_barcode' => true,
                 'show_test_names' => true,
@@ -133,6 +134,7 @@ class LabSettingController extends Controller
             'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
             // Print settings
             'report_template' => 'sometimes|required|in:classic,modern',
+            'report_form_default' => 'sometimes|required|boolean',
             'print_margins' => 'nullable|array',
             'print_margins.top' => 'nullable|numeric|min:0|max:100',
             'print_margins.bottom' => 'nullable|numeric|min:0|max:100',
@@ -244,7 +246,7 @@ class LabSettingController extends Controller
         if (isset($validated['print_margins'])) {
             $setting->print_margins = $validated['print_margins'];
         }
-        foreach (['show_categories', 'show_tests_on_barcode', 'show_test_names', 'show_status', 'show_last_result', 'print_black_white'] as $field) {
+        foreach (['report_form_default', 'show_categories', 'show_tests_on_barcode', 'show_test_names', 'show_status', 'show_last_result', 'print_black_white'] as $field) {
             if (array_key_exists($field, $request->all())) {
                 $setting->$field = filter_var($request->$field, FILTER_VALIDATE_BOOLEAN);
             }
@@ -332,6 +334,7 @@ class LabSettingController extends Controller
                 'tagline' => null,
                 'print_margins' => ['top' => 20, 'bottom' => 20, 'left' => 15, 'right' => 15],
                 'report_template' => 'classic',
+                'report_form_default' => true,
                 'show_categories' => true,
                 'show_tests_on_barcode' => true,
                 'show_test_names' => true,
@@ -435,6 +438,7 @@ class LabSettingController extends Controller
             $setting->update([
                 'print_margins' => null,
                 'report_template' => 'classic',
+                'report_form_default' => true,
                 'show_categories' => true,
                 'show_tests_on_barcode' => true,
                 'show_test_names' => true,

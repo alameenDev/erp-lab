@@ -8,7 +8,7 @@ class LabSetting extends Model
 {
     protected $table = 'lab_settings';
 
-    protected $attributes = ['report_template' => 'classic', 'previous_results_count' => 1];
+    protected $attributes = ['report_form_default' => true, 'report_template' => 'classic', 'previous_results_count' => 1];
 
     protected $fillable = [
         'lab_id_fk',
@@ -25,6 +25,7 @@ class LabSetting extends Model
         'lab_display_name',
         'tagline',
         'report_template',
+        'report_form_default',
         'print_margins',
         'show_categories',
         'show_tests_on_barcode',
@@ -47,6 +48,7 @@ class LabSetting extends Model
             'loyalty_config' => 'array',
             'printer_config' => 'array',
             'ai_config' => 'encrypted:array',
+            'report_form_default' => 'boolean',
             'show_categories' => 'boolean',
             'show_tests_on_barcode' => 'boolean',
             'show_test_names' => 'boolean',

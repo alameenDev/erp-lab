@@ -1,10 +1,12 @@
 import { defineStore } from "pinia";
 import { $http } from "@/plugins/axios";
+import { reportFormChoice } from "@/utils/medicalReportOutput";
 import { previousResultsCount } from "@/utils/resultHistory";
 import { applyBranding } from "@/utils/branding";
 
 const normalizeSettings = (data = {}) => ({
  ...data,
+ report_form_default: reportFormChoice(data?.report_form_default),
  show_last_result: data?.show_last_result === true,
  previous_results_count: previousResultsCount(data),
  report_template: data?.report_template === "modern" ? "modern" : "classic",
@@ -17,6 +19,7 @@ export const useLabSettingsStore = defineStore("labSettings", {
      state: () => ({
           settings: {
                report_template: "classic",
+               report_form_default: true,
                show_last_result: false,
                previous_results_count: 1,
                logo: null,

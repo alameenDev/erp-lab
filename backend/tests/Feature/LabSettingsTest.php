@@ -10,6 +10,23 @@ class LabSettingsTest extends TestCase
 {
     use DatabaseMigrations;
 
+    public function test_report_form_default_is_optional_per_lab_and_can_be_changed_or_reset(): void
+    {
+        $owner = $this->owner();
+        $other = User::create(['name'=>'Other form lab','email'=>'other-form@example.test','password'=>'Test-password-123','role_id'=>2]);
+        $this->getJson('/api/lab-settings/'.$owner->id)->assertOk()->assertJsonPath('report_form_default', true);
+        $this->actingAs($owner)->getJson('/api/lab-settings')->assertOk()->assertJsonPath('report_form_default', true);
+        $this->postJson('/api/lab-settings', ['report_form_default'=>false])->assertOk()->assertJsonPath('setting.report_form_default', false);
+        $this->getJson('/api/lab-settings/'.$owner->id)->assertOk()->assertJsonPath('report_form_default', false);
+        $this->postJson('/api/lab-settings', ['lab_display_name'=>'Preserved form setting'])->assertOk()->assertJsonPath('setting.report_form_default', false);
+        $this->actingAs($other)->getJson('/api/lab-settings')->assertOk()->assertJsonPath('report_form_default', true);
+        $staff = User::create(['name'=>'Form staff','email'=>'form-staff@example.test','password'=>'Test-password-123','role_id'=>7,'creator_id'=>$owner->id]);
+        $this->actingAs($staff)->getJson('/api/lab-settings')->assertOk()->assertJsonPath('report_form_default', false);
+        $this->postJson('/api/lab-settings', ['report_form_default'=>true])->assertForbidden();
+        $this->actingAs($owner)->postJson('/api/lab-settings', ['report_form_default'=>'invalid'])->assertUnprocessable()->assertJsonValidationErrors('report_form_default');
+        $this->postJson('/api/lab-settings/reset', ['section'=>'print'])->assertOk()->assertJsonPath('setting.report_form_default', true);
+    }
+
     public function test_report_history_defaults_and_selection_persist_per_laboratory(): void
     {
         $owner = $this->owner();

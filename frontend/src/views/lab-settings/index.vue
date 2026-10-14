@@ -135,6 +135,7 @@ const save = async () => {
           formData.append("font_family", settings.value.font_family || "Tajawal");
           formData.append("lab_display_name", settings.value.lab_display_name || "");
           formData.append("tagline", settings.value.tagline || "");
+          formData.append("report_form_default", settings.value.report_form_default ? "1" : "0");
           formData.append("report_template", settings.value.report_template || "classic");
           formData.append("print_margins[top]", settings.value.print_margins?.top ?? 20);
           formData.append("print_margins[bottom]", settings.value.print_margins?.bottom ?? 20);
@@ -318,6 +319,16 @@ const resetBranding = async () => {
 <button v-for="section in sections" :key="section.id" @click="printSection = section.id" :aria-pressed="printSection === section.id" :class="['rounded-xl px-3 py-2 text-sm transition-colors', printSection === section.id ? 'bg-primary-600 text-white' : 'text-slate-600 hover:bg-slate-100']">{{ section.label }}</button>
 </nav>
                          <ReportTemplatePicker v-show="printSection === 'layout'" v-model="settings.report_template" :lang="lang" />
+                         <section v-show="printSection === 'layout'" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                              <label for="reportFormDefault" class="flex cursor-pointer items-start gap-3">
+                                   <input id="reportFormDefault" v-model="settings.report_form_default" type="checkbox" class="mt-1 h-5 w-5 rounded border-slate-300 accent-teal-600" aria-describedby="reportFormDefaultHint" />
+                                   <span>
+                                        <span class="block font-semibold text-slate-800">{{ lang === 'en' ? 'Use lab letterhead by default' : 'تفعيل الطباعة بفورمة المختبر تلقائياً' }}</span>
+                                        <span id="reportFormDefaultHint" class="mt-1 block text-sm leading-6 text-slate-500">{{ lang === 'en' ? 'New reports start with the lab letterhead selected. Turn this off to start without it. You can change the choice for each report; preview, print, PDF and WhatsApp use the same choice.' : 'عند التفعيل تبدأ التقارير الجديدة بفورمة المختبر، وعند إلغاء التفعيل تبدأ بدونها. تقدر تغيّر الاختيار لكل تقرير، ويُطبّق نفسه على المعاينة والطباعة والحفظ والواتساب.' }}</span>
+                                        <span v-if="!settings.report_background" class="mt-2 block text-xs text-amber-700">{{ lang === 'en' ? 'Upload a lab letterhead in the Background section to use this option.' : 'ارفع صورة فورمة المختبر من قسم الخلفية حتى تظهر في التقرير.' }}</span>
+                                   </span>
+                              </label>
+                         </section>
                          <!-- Margins -->
                          <div v-show="printSection === 'layout'" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
                               <h3 class="text-base font-semibold text-slate-800 mb-4">{{ t("print_margins") || "هوامش الطباعة" }}</h3>

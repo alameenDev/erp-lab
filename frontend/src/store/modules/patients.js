@@ -2,6 +2,26 @@ import { defineStore } from "pinia";
 import { $http } from "@/plugins/axios";
 import { checkObjectParams } from "@/utils/helper";
 
+const freshPatientRecord = () => ({
+     id: "",
+     code: "",
+     title_id_fk: "",
+     name: "",
+     email: "",
+     phone: "",
+     phone_number: "",
+     contract_id_fk: "",
+     national_id_no: "",
+     passport_no: "",
+     address: "",
+     nationality_id_fk: "",
+     dob: "",
+     gender_id_fk: "",
+     gender_type_id_fk: "",
+     age: "",
+     age_unit_id_fk: "",
+});
+
 export const usePatientsStore = defineStore("patient", {
      state: () => ({
           totalCount: 0,
@@ -16,27 +36,18 @@ export const usePatientsStore = defineStore("patient", {
           responseData: [],
           searchNameTotalCount: "",
           dialog: false,
-          record: {
-               id: "",
-               code: "",
-               title_id_fk: "",
-               name: "",
-               email: "",
-               phone: "",
-               phone_number: "",
-               contract_id_fk: "",
-               national_id_no: "",
-               passport_no: "",
-               address: "",
-               nationality_id_fk: "",
-               dob: "",
-               gender_id_fk: "",
-               gender_type_id_fk: "",
-               age: "",
-               age_unit_id_fk: "",
-          },
+          record: freshPatientRecord(),
+          searchRequestId: 0,
      }),
      actions: {
+          resetPatientForm() {
+               this.record = freshPatientRecord();
+               this.responseData = null;
+               this.selectedFile = "";
+               this.searchRecords = [];
+               this.searchNameTotalCount = "";
+               this.searchRequestId++;
+          },
           resetFilter() {
                this.filter = {
                     pageSize: 10,
@@ -46,9 +57,11 @@ export const usePatientsStore = defineStore("patient", {
                };
           },
           async searchByname(name) {
+               const requestId = ++this.searchRequestId;
                if (name) {
                     const { data } = await $http.post(`/patients/search-name`, { name: name });
 
+                    if (requestId !== this.searchRequestId) return;
                     this.searchRecords = data;
 
                     this.searchNameTotalCount = this.searchRecords.length;

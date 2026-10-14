@@ -79,7 +79,7 @@ const referralLogo = computed(() => {
 });
 const backgroundUrl = computed(() => reportSettings.value.report_background || null);
 const serverMargins = computed(() => reportSettings.value.print_margins || _defaultMargins);
-const showBackground = computed(() => Boolean(backgroundUrl.value) && reportFormChoice(showWithForm.value));
+const showBackground = computed(() => Boolean(backgroundUrl.value) && reportFormChoice(showWithForm.value, reportFormChoice(reportSettings.value.report_form_default)));
 let previewTimer;
 onUnmounted(() => clearTimeout(previewTimer));
 
