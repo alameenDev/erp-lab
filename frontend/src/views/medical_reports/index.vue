@@ -22,7 +22,7 @@ import BarcodeComponent from "@/components/BarcodeComponent.vue";
 import pationtHistoryModal from "./componentes/pationtHistory_modal.vue";
 import patientModal from "./componentes/patient_modal.vue";
 import DueModal from "./componentes/due_modal.vue";
-import parcodModal from "./componentes/parcodeModal.vue";
+import parcodModal from "@/components/barcode/InvoiceBarcodeLabels.vue";
 import PrintMarginDialog from "./componentes/PrintMarginDialog.vue";
 import attachment from "./componentes/attachment.vue";
 import job_orderModal from "./componentes/job_orderModal.vue";
@@ -229,10 +229,8 @@ const openprintResultTemplate = async (data) => {
   printSelectVisible.value = true;
 };
 
-const printParcode = async (data) => {
-  await labSettingsStore.GetSettings();
-  printWithIframe("parcode", printStyles.getBarcodeCss(labSettingsStore.settings.barcode_config), "Print Barcode", 100, () => invoicesStore.GetinvoicesById(data.id));
-};
+const barcodePrinter = ref(null);
+const printParcode = (data) => barcodePrinter.value?.open(data);
 
 
 // Prepare complete A4 sheets once for every report action.
@@ -694,7 +692,7 @@ onMounted(async () => {
                   <span v-else class="text-slate-400">-</span>
                 </td>
                 <td v-if="!patientId" class="px-5 py-4">
-                  <button @click.stop="printParcode(item)" class="text-center hover:opacity-80 transition-opacity">
+                  <button @click.stop="printParcode(item)" :disabled="barcodePrinter?.busy" class="text-center hover:opacity-80 transition-opacity">
                     <span class="text-xs text-slate-500 block mb-1">{{ item.barcode }}</span>
                     <BarcodeComponent :value="item.barcode" />
                   </button>
@@ -869,7 +867,7 @@ onMounted(async () => {
     <DueModal />
     <job_orderModal />
     <printResult ref="printResultRef" />
-    <parcodModal />
+    <parcodModal ref="barcodePrinter" />
     <workSheetModal :with-background="printWithBgMode" :background-image="reportBackground" />
     <attachment />
     <printSelectModal v-model="printSelectVisible" :can-share="authStore.havePermission('invoices send whatsapp') && !patientId" :has-background="!!reportBackground" :busy="reportActionBusy" @execute="handlePrintSelection" />

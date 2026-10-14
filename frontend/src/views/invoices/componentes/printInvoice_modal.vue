@@ -9,7 +9,7 @@ import { documentCss } from "@/utils/labDocuments";
 import { t, dateTimeFormat } from "@/utils/helper";
 import JsBarcode from "jsbarcode";
 import QrcodeVue from "qrcode.vue";
-import parcodModal from "./parcodeModal.vue";
+import parcodModal from "@/components/barcode/InvoiceBarcodeLabels.vue";
 import thermalReciptModal from "./thermal_reciptModal.vue";
 import BarcodeComponent from "@/components/BarcodeComponent.vue";
 
@@ -77,17 +77,8 @@ const close = () => {
 
 const due = computed(() => (printRecord.value?.total || 0) - (printRecord.value?.paid || 0));
 
-const printParcode = async (data) => {
-  printRecord.value = data;
-  await nextTick();
-  const content = document.getElementById("parcode")?.innerHTML;
-  if (!content) return;
-  await printWithCustomContent(
-    content,
-    printStyles.getBarcodeCss(labSettingsStore.settings.barcode_config),
-    "Print Barcode"
-  );
-};
+const barcodePrinter = ref(null);
+const printParcode = (data) => barcodePrinter.value?.open(data);
 
 const openprintINvoiceTemplate = (data) => {
   printRecord.value = data;
@@ -178,7 +169,7 @@ const openthermalRecord = (data) => {
                 <section class="bg-white rounded-2xl border border-slate-200 p-4 space-y-3"><h3 class="font-bold text-slate-800">الطباعة</h3>
                   <button type="button" @click="openthermalRecord(printRecord)" class="w-full rounded-xl bg-slate-900 text-white p-3 font-semibold hover:bg-slate-800">طباعة الوصل الحراري</button>
                   <button type="button" @click="openprintINvoiceTemplate(printRecord)" class="w-full rounded-xl border border-slate-300 p-3 text-slate-700 hover:bg-slate-50">طباعة الفاتورة الورقية</button>
-                  <button type="button" @click="printParcode(printRecord)" class="w-full rounded-xl border border-slate-300 p-3 text-slate-700 hover:bg-slate-50">طباعة ملصق الباركود</button>
+                  <button type="button" @click="printParcode(printRecord)" :disabled="barcodePrinter?.busy" class="w-full rounded-xl border border-slate-300 p-3 text-slate-700 hover:bg-slate-50">طباعة ملصق الباركود</button>
                   <div v-if="printRecord?.barcode" class="flex flex-col items-center overflow-hidden pt-2" dir="ltr"><BarcodeComponent :value="printRecord.barcode" /><span class="text-xs text-slate-500">{{ printRecord.barcode }}</span></div>
                 </section>
                 <section class="bg-teal-50 rounded-2xl border border-teal-100 p-4"><h3 class="font-bold text-teal-900">بوابة المريض</h3><p class="text-sm text-teal-800 my-2 leading-6">رسالة ترحيبية ورابط خاص لمتابعة النقاط والفواتير والتحاليل والنتائج.</p>
@@ -193,7 +184,7 @@ const openthermalRecord = (data) => {
       </div>
     </Transition>
   </Teleport>
-  <parcodModal></parcodModal>
+  <parcodModal ref="barcodePrinter" />
   <thermalReciptModal></thermalReciptModal>
 
   <!-- Hidden printable invoice -->

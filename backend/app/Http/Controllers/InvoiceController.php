@@ -303,6 +303,8 @@ class InvoiceController extends Controller
             'invoiceTestRels.package.testGroups.tests.questions.answerType',
             'invoiceTestRels.package.testGroups.tests.price_list_rel.priceList:id,name',
             'invoiceTestRels.package.testGroups.culture.attribute.resultType',
+            'invoiceTestRels.package.testGroups.culture.category:id,name',
+            'invoiceTestRels.package.testGroups.culture.sample',
             'invoiceTestRels.package.tests.testReferenceRanges.gender',
             'invoiceTestRels.package.tests.testReferenceRanges.ageUnit',
             'invoiceTestRels.package.tests.sample',
@@ -542,6 +544,8 @@ class InvoiceController extends Controller
             'invoiceTestRels.package.testGroups.tests.questions.answerType',
             'invoiceTestRels.package.testGroups.tests.price_list_rel.priceList:id,name',
             'invoiceTestRels.package.testGroups.culture.attribute.resultType',
+            'invoiceTestRels.package.testGroups.culture.category:id,name',
+            'invoiceTestRels.package.testGroups.culture.sample',
             'invoiceTestRels.package.tests.testReferenceRanges.gender',
             'invoiceTestRels.package.tests.testReferenceRanges.ageUnit',
             'invoiceTestRels.package.tests.sample',
@@ -1090,6 +1094,8 @@ class InvoiceController extends Controller
             if ($fresh) {
                 $item['sample_name'] = $item['sample_name'] ?? $fresh['sample_name'] ?? null;
                 $item['sample_id_fk'] = $item['sample_id_fk'] ?? $fresh['sample_id_fk'] ?? null;
+                $item['category_id_fk'] = $item['category_id_fk'] ?? $fresh['category_id_fk'] ?? null;
+                $item['category'] = ($item['category'] ?? null) ?: ($fresh['category'] ?? null);
                 $item['shortcut'] = $item['shortcut'] ?? $fresh['shortcut'] ?? null;
                 $item['report_name'] = $item['report_name'] ?? $fresh['report_name'] ?? null;
                 $item['test_reference_ranges'] = $preferStored($item['test_reference_ranges'] ?? null, $fresh['test_reference_ranges'] ?? null, []);
@@ -1130,6 +1136,8 @@ class InvoiceController extends Controller
             if ($fresh) {
                 $item['sample_name'] = $item['sample_name'] ?? ($fresh['sample'] ?? null);
                 $item['sample_id_fk'] = $item['sample_id_fk'] ?? $fresh['sample_id_fk'] ?? null;
+                $item['category_id_fk'] = $item['category_id_fk'] ?? $fresh['category_id_fk'] ?? null;
+                $item['category'] = ($item['category'] ?? null) ?: ($fresh['category'] ?? null);
                 $item['attribute'] = $item['attribute'] ?? $fresh['attribute'] ?? null;
                 $item['result_comments'] = $item['result_comments'] ?? $fresh['result_comments'] ?? null;
             }
@@ -1152,8 +1160,11 @@ class InvoiceController extends Controller
      */
     private function packageTestsWithGroups($rel, bool $hasStoredTests)
     {
+        $catalogTests = collect($rel->package?->tests ?? [])->concat(
+            collect($rel->package?->testGroups ?? [])->flatMap(fn ($group) => $group->tests)
+        );
         $tests = $hasStoredTests
-            ? collect($this->enrichStoredTests($rel->package_tests, $rel->package?->tests))
+            ? collect($this->enrichStoredTests($rel->package_tests, $catalogTests))
             : collect(TestResource::collection($rel->package?->tests ?? [])->resolve());
 
         $seen = $tests->pluck('name')->filter()->all();
@@ -1177,6 +1188,9 @@ class InvoiceController extends Controller
     {
         $hasStoredTests = $rel->package_tests != null && $rel->package_tests != 'null';
         $hasStoredCultures = $rel->package_cultures != null && $rel->package_cultures != 'null';
+        $catalogCultures = collect($rel->package?->cultures ?? [])->concat(
+            collect($rel->package?->testGroups ?? [])->flatMap(fn ($group) => $group->culture)
+        );
 
         return [
 
@@ -1188,7 +1202,7 @@ class InvoiceController extends Controller
             'is_done' => $rel->is_done == 1,
             'sample_name' => null,
             'price' => $rel->price,
-            'cultures' => $hasStoredCultures ? $this->enrichStoredCultures($rel->package_cultures, $rel->package?->cultures) : CultureResource::collection($rel->package?->cultures ?? []),
+            'cultures' => $hasStoredCultures ? $this->enrichStoredCultures($rel->package_cultures, $catalogCultures) : CultureResource::collection($rel->package?->cultures ?? []),
             'tests' => $this->packageTestsWithGroups($rel, $hasStoredTests),
             'test_groups' => collect($rel->package?->testGroups ?? [])->map(fn ($g) => [
                 'test_group_id_fk' => $g->id,

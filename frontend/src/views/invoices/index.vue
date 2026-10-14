@@ -23,7 +23,7 @@ import JobOrderModal from "./componentes/job_orderModal.vue";
 import ThermalReciptModal from "./componentes/thermal_reciptModal.vue";
 import PrintInvoice from "./componentes/print_invoice.vue";
 import WhatsUpModal from "./componentes/whatsUp_moadal.vue";
-import ParcodeModal from "./componentes/parcodeModal.vue";
+import ParcodeModal from "@/components/barcode/InvoiceBarcodeLabels.vue";
 import TestsListModal from "@/components/TestsListModal.vue";
 
 const router = useRouter();
@@ -280,10 +280,8 @@ const openprintINvoiceTemplate = async (data) => {
   );
 };
 
-const printParcode = async (data) => {
-  await labSettingsStore.GetSettings();
-  printWithIframe("parcode", printStyles.getBarcodeCss(labSettingsStore.settings.barcode_config), "Print Barcode", 100, () => invoicesStore.GetinvoicesById(data.id));
-};
+const barcodePrinter = ref(null);
+const printParcode = (data) => barcodePrinter.value?.open(data);
 
 const sendWhatsUp = (data) => {
   printRecord.value = data;
@@ -773,7 +771,7 @@ onMounted(async () => {
                 <td class="px-5 py-4">
                   <button
                     v-if="cannotAccess(['sample_collector'])"
-                    @click.stop="printParcode(invoice)"
+                    @click.stop="printParcode(invoice)" :disabled="barcodePrinter?.busy"
                     class="text-center hover:opacity-80 transition-opacity"
                   >
                     <span class="text-xs text-slate-500 block mb-1">{{ invoice?.barcode }}</span>
@@ -1006,7 +1004,7 @@ onMounted(async () => {
     <ThermalReciptModal />
     <PrintInvoice />
     <WhatsUpModal />
-    <ParcodeModal />
+    <ParcodeModal ref="barcodePrinter" />
     <TestsListModal v-model="testsListOpen" :invoice="testsListInvoice" :loading="testsListLoading" />
   </div>
 </template>

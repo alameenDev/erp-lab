@@ -24,7 +24,7 @@ export function defaultLabel(width = 76.2, height = 38.1, old = {}, showTests = 
   const infoY = patientY + patientH + 0.3;
   return {
     version: 2, width_mm: width, height_mm: height, dpi: 203, format: 'CODE128',
-    quiet_modules: 10, offset_x: 0, offset_y: 0, copies: 1, custom_text: '',
+    quiet_modules: 10, offset_x: 0, offset_y: 0, copies: 1, show_category_dialog: false, custom_text: '',
     elements: {
       barcode: item(2, y, w, bh, 8),
       number: item(2, 0.7, w * 0.5, 3.3, n(old.number_size, 8, 4, 24), true, 'left', true),
@@ -47,6 +47,7 @@ export function labelConfig(input, showTests = true) {
   const width = roundMm(modern ? n(c.width_mm, 76.2, 25, 254) : n(c.label_width, 3, 1, 10) * 25.4);
   const height = roundMm(modern ? n(c.height_mm, 38.1, 12.7, 254) : n(c.label_height, 1.5, 0.5, 10) * 25.4);
   const base = defaultLabel(width, height, c, showTests);
+  base.show_category_dialog = bool(c.show_category_dialog, false);
   if (!modern) return base;
   return {
     ...base, dpi: [203, 300, 600].includes(Number(c.dpi)) ? Number(c.dpi) : 203,
