@@ -144,7 +144,7 @@ class LabNotificationTest extends TestCase
         $row->update(['is_done' => true]); $invoice->update(['is_done' => true]);
         $this->assertDatabaseCount('portal_notifications', 0);
         $this->getJson('/api/invoices/public/'.$invoice->id)->assertForbidden();
-        $this->getJson('/api/portal/'.$access->token)->assertOk()->assertJsonPath('reports.0.status', 'pending')->assertJsonPath('reports.0.view_url', null);
+        $this->getJson('/api/portal/'.$access->token)->assertOk()->assertJsonPath('reports.0.status', 'partial')->assertJsonPath('reports.0.view_url', rtrim(config('app.frontend_url', env('FRONTEND_URL', config('app.url'))), '/').'/result/'.$invoice->id);
         $group->update(['test_group_cultures' => [['id' => 2, 'is_done' => true]]]);
         PortalLabNotificationSetting::create(['lab_id_fk' => $lab->id] + array_replace(PortalLabNotificationSetting::defaults(), ['result_title' => 'Ready from this lab']));
         $invoice->update(['notes' => 'Approval saved']); // repair older invoices already marked done

@@ -770,8 +770,8 @@ class InvoiceController extends Controller
         }
 
         // Separate tests that should be printed alone
-        $all_tests_print_alone = collect($all_tests)->filter(fn ($test) => $test['is_print_alone'] == 1)->values();
-        $all_tests_not_print_alone = collect($all_tests)->filter(fn ($test) => $test['is_print_alone'] == 0)->values();
+        $all_tests_print_alone = collect($all_tests)->filter(fn ($test) => ($test['is_print_alone'] ?? false) == 1)->values();
+        $all_tests_not_print_alone = collect($all_tests)->filter(fn ($test) => ($test['is_print_alone'] ?? false) == 0)->values();
 
         // Collect unique test group names
         $test_groups_names = [];
