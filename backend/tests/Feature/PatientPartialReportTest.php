@@ -82,9 +82,9 @@ class PatientPartialReportTest extends TestCase
         $this->getJson('/api/portal/invalid/reports/'.$this->invoice->id)->assertNotFound();
         $this->access->update(['expires_at'=>now()->subMinute()]);$this->getJson($this->endpoint())->assertNotFound();
         $this->access->update(['expires_at'=>now()->addDay()]);
-        LabSetting::where('lab_id_fk',$this->lab->id)->update(['loyalty_config'=>['require_otp'=>true]]);
+        LabSetting::where('lab_id_fk',$this->lab->id)->firstOrFail()->update(['loyalty_config'=>['require_otp'=>true]]);
         $this->getJson($this->endpoint())->assertForbidden();
-        $this->invoice->delete();LabSetting::where('lab_id_fk',$this->lab->id)->update(['loyalty_config'=>['require_otp'=>false]]);
+        $this->invoice->delete();LabSetting::where('lab_id_fk',$this->lab->id)->firstOrFail()->update(['loyalty_config'=>['require_otp'=>false]]);
         $this->getJson($this->endpoint())->assertNotFound();
     }
 }

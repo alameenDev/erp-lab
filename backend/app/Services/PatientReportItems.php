@@ -25,9 +25,9 @@ class PatientReportItems
             foreach ($data[$field] as &$parent) {
                 $parent['tests'] ??= []; $parent['cultures'] ??= [];
                 $definitions = [];
-                foreach ($parent['formula'] ?? [] as $f) $definitions[] = [$f, null];
+                foreach (ReportFormulas::children($parent['formula'] ?? []) ?? [] as $f) $definitions[] = [$f, null];
                 foreach ($parent['test_groups'] ?? [] as $group) {
-                    foreach ($group['formula'] ?? [] as $f) $definitions[] = [$f, $group];
+                    foreach (ReportFormulas::children($group['formula'] ?? []) ?? [] as $f) $definitions[] = [$f, $group];
                     foreach (['tests', 'cultures'] as $children) foreach ($group[$children] ?? [] as $child) {
                         $found = false;
                         foreach ($parent[$children] as &$stored) {
@@ -107,7 +107,7 @@ class PatientReportItems
                             : ($child['test_group_name'] ?? null) === ($group['group_name'] ?? $group['name'] ?? '')));
                     return $group;
                 }, $parent['test_groups'] ?? []), fn ($group) => $group['tests'] || $group['cultures']));
-                if (!$ready($parent)) foreach (['result', 'comment', 'result_status_text'] as $key) unset($parent[$key]);
+                if (!$ready($parent)) foreach (['result', 'comment', 'status', 'result_status_id_fk', 'result_status_text'] as $key) unset($parent[$key]);
                 return $parent;
             }, $data[$field]), fn ($parent) => $parent['tests'] || $parent['cultures']));
         }
@@ -122,7 +122,7 @@ class PatientReportItems
         $historyItems($data);
         $data['result_history'] = array_intersect_key($data['result_history'] ?? [], $historyKeys);
         $readyCount = count(array_filter($items, fn ($item) => $item['status'] === 'ready'));
-        $partial = $readyCount < count($items);
+        $partial = $readyCount === 0 || $readyCount < count($items);
         $allowed = ['id','patient_id_fk','patient','lab_id_fk','lab','registration_date','result_date','barcode',
             'referral','from_lab','show_result_date','show_patient_card_id','show_patient_pic','public_with_background','selection_order',
             'tests','cultures','test_groups','packages','created_at','updated_at','result_history'];
