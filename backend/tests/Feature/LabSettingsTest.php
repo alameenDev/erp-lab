@@ -64,7 +64,7 @@ class LabSettingsTest extends TestCase
     {
         $item = ['x'=>2, 'y'=>6, 'width'=>46, 'height'=>8, 'font'=>8, 'visible'=>true, 'align'=>'center', 'bold'=>false, 'rotation'=>0];
         return ['version'=>2, 'width_mm'=>50, 'height_mm'=>30, 'dpi'=>203, 'format'=>'CODE128',
-            'quiet_modules'=>10, 'offset_x'=>0.5, 'offset_y'=>0, 'copies'=>2, 'custom_text'=>'Sample',
+            'quiet_modules'=>10, 'offset_x'=>0.5, 'offset_y'=>0, 'copies'=>2, 'show_category_dialog'=>true, 'custom_text'=>'Sample',
             'elements'=>['barcode'=>$item, 'patient'=>array_merge($item, ['y'=>16, 'height'=>5]), 'tests'=>array_merge($item, ['y'=>22, 'height'=>5, 'visible'=>false])]];
     }
 
@@ -80,12 +80,17 @@ class LabSettingsTest extends TestCase
         $this->getJson('/api/lab-settings')->assertOk()->assertJsonPath('barcode_config', $layout);
         $this->postJson('/api/lab-settings', ['lab_display_name'=>'Changed'])->assertOk()->assertJsonPath('setting.barcode_config', $layout);
         $this->assertSame(['label_width'=>3], LabSetting::where('lab_id_fk',$other->id)->first()->barcode_config);
+        $layout['show_category_dialog'] = false;
+        $this->postJson('/api/lab-settings', ['barcode_config'=>$layout])->assertOk()
+            ->assertJsonPath('setting.barcode_config.show_category_dialog', false);
+        $this->postJson('/api/lab-settings/reset', ['section'=>'print'])->assertOk();
+        $this->assertFalse((bool) (LabSetting::where('lab_id_fk',$owner->id)->first()->barcode_config['show_category_dialog'] ?? false));
     }
 
     public function test_barcode_layout_validates_dimensions_modules_and_field_properties(): void
     {
         $this->actingAs($this->owner());
-        foreach (['width_mm'=>0, 'height_mm'=>255, 'dpi'=>72, 'quiet_modules'=>0, 'format'=>'QR', 'copies'=>100, 'offset_x'=>11] as $key=>$value) {
+        foreach (['width_mm'=>0, 'height_mm'=>255, 'dpi'=>72, 'quiet_modules'=>0, 'format'=>'QR', 'copies'=>100, 'offset_x'=>11, 'show_category_dialog'=>'invalid'] as $key=>$value) {
             $layout = $this->barcodeLayout(); $layout[$key] = $value;
             $this->postJson('/api/lab-settings', ['barcode_config'=>$layout])->assertUnprocessable();
         }

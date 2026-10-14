@@ -4,6 +4,9 @@ on:
     paths:
       - 'frontend/src/components/barcode/**'
       - 'frontend/src/utils/barcodeLabels.js'
+      - 'frontend/src/utils/barcodeCategories.js'
+      - 'frontend/src/views/invoices/**'
+      - 'frontend/src/views/medical_reports/index.vue'
       - 'frontend/src/views/lab-settings/BarcodeLabelDesigner.vue'
       - 'frontend/src/composables/usePrint.js'
       - 'frontend/tests/barcode*'
@@ -26,7 +29,9 @@ jobs:
       - run: npm ci --legacy-peer-deps
       - run: npm install --no-save --package-lock=false --legacy-peer-deps playwright@1.51.1
       - run: npx playwright install --with-deps chromium
+      - run: node --test tests/barcode-labels.test.mjs tests/barcode-categories.test.mjs
       - run: node tests/barcode-ui.test.mjs
+      - run: node tests/barcode-categories.browser.mjs
       - run: |
           python -m pip install zxing-cpp pillow pypdf
           sudo apt-get update -qq && sudo apt-get install -y poppler-utils
