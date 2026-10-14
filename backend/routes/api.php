@@ -98,6 +98,7 @@ Route::post('portal/{token}/otp/verify', [PatientPortalController::class, 'verif
 Route::post('portal/{token}/redeem', [PatientPortalController::class, 'redeem']);
 Route::post('portal/{token}/book-doctor', [PatientPortalController::class, 'bookDoctor']);
 Route::get('portal/{token}/catalog', [PatientPortalController::class, 'catalog']);
+Route::get('portal/{token}/reports/{id}', [InvoiceController::class, 'portalShow'])->middleware('throttle:60,1');
 Route::get('portal/{token}/result-trends', [PatientPortalController::class, 'resultTrends'])->middleware('throttle:30,1');
 Route::post('portal/{token}/ai-chat', [PatientPortalController::class, 'aiChat'])->middleware('throttle:15,1');
 

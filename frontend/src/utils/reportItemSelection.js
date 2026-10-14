@@ -101,6 +101,6 @@ export function selectReportItems(record, selection) {
     const parent = model.normalized[section.key][i];
     return [['tests','cultures'].includes(section.key) ? parent : filterParent(parent, node.key, section.key === 'packages')];
   });
-  result.suppress_report_qr = Boolean(record?.suppress_report_qr) || model.keys.some(k => !selected.has(k));
+  result.suppress_report_qr = Boolean(record?.suppress_report_qr);
   return result;
 }

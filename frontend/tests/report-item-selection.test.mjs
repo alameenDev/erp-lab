@@ -22,7 +22,7 @@ test('selected calculated rows keep full operands without printing hidden input 
   assert.equal(reportFormulaValue(selected.test_groups[0], selected.test_groups[0].formula[0]), 8);
   assert.deepEqual(selected.packages[0].tests.map(t=>t.name), ['Nested calculated']);
   assert.equal(reportFormulaValue(selected.packages[0], selected.packages[0].test_groups[0].formula[0]), 6);
-  assert.equal(selected.suppress_report_qr, true); assert.equal(JSON.stringify(record), before);
+  assert.equal(selected.suppress_report_qr, false); assert.equal(JSON.stringify(record), before);
 });
 test('unselected formula targets cannot reappear as formula rows', () => {
   const model = reportSelectionModel(selectionSample());

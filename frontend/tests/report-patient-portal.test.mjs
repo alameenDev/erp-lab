@@ -20,7 +20,7 @@ test('staff generates the linked patient portal, never the invoice result URL', 
   assert.equal(url, portal);
 });
 
-test('legacy public reports and partial selections cannot generate portal access', async () => {
+test('legacy public reports and explicit QR suppression cannot generate portal access', async () => {
   const http = { post: () => assert.fail('must not mint a portal token'), get: () => assert.fail('must not fetch portal') };
   assert.equal(await reportPatientPortalUrl({ ...defaults, http }), '');
   assert.equal(await reportPatientPortalUrl({ ...defaults, http, authenticated: true, record: { ...record, suppress_report_qr: true } }), '');

@@ -39,6 +39,7 @@ let uploaded = null;
 $http.defaults.adapter = async config => {
   let data;
   if (config.url === '/invoices/public/14' || config.url === '/invoices/14') data = sample;
+  else if (config.url === '/portal/' + portalToken + '/reports/14') data = {...sample, portal_report:{total:40, ready:40, pending:0, items:[]}};
   else if (config.url === '/lab-settings/1') data = settings;
   else if (config.url === '/portal/generate') data = { url: 'https://lightpink-badger-650079.hostingersite.com/portal/' + portalToken };
   else if (config.url === '/portal/' + portalToken) data = { reports: [{ id: sample.id }], requires_otp: false };
