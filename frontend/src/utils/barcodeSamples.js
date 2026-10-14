@@ -1,4 +1,4 @@
-import { labelConfig, labelData, sampleGroups } from './barcodeLabels.js';
+import { labelConfig, labelData } from './barcodeLabels.js';
 
 // Old invoices can contain JSON strings or keyed child collections.
 const children = value => {
@@ -10,17 +10,15 @@ const children = value => {
 const text = value => typeof value === 'string' ? value.trim() : '';
 export const barcodeCopies = value => Math.min(20, Math.max(0, Math.trunc(Number(value) || 0)));
 
-export function barcodeCategories(record = {}) {
-  const categories = new Map();
+export function barcodeSamples(record = {}) {
+  const samples = new Map();
   const add = (test, kind, parents) => {
-    const categoryName = text(test.category?.name) || text(test.category) || text(test.category_name);
-    const categoryId = test.category_id_fk ?? test.category?.id;
-    const key = categoryId != null ? `id:${categoryId}` : categoryName ? `name:${categoryName}` : 'uncategorized';
-    if (!categories.has(key)) categories.set(key, { key, name: categoryName || 'غير مصنف', samples: new Map() });
-    const category = categories.get(key);
     const sampleName = text(test.sample_name?.sample_name) || text(test.sample_name) || text(test.sample?.sample_name) || text(test.sample) || 'Other';
-    if (!category.samples.has(sampleName)) category.samples.set(sampleName, { sampleName, tests: [], analyses: [], groupNames: [], seen: new Set() });
-    const sample = category.samples.get(sampleName);
+    // Snapshot shapes can omit sample IDs. Group by the normalized sample name
+    // so direct tests, groups and packages share one copy counter.
+    const key = `sample:${sampleName.toLocaleLowerCase()}`;
+    if (!samples.has(key)) samples.set(key, { key, sampleName, tests: [], analyses: [], groupNames: [], seen: new Set() });
+    const sample = samples.get(key);
     const name = text(test.report_name) || text(test.name) || text(test.shortcut) || 'تحليل';
     const shortcut = text(test.shortcut);
     const id = kind === 'culture' ? test.culture_id_fk ?? test.id : test.test_id_fk ?? test.id;
@@ -41,22 +39,18 @@ export function barcodeCategories(record = {}) {
     }
   };
   visit(record);
-  return [...categories.values()].map(category => ({ ...category,
-    samples: [...category.samples.values()].map(({ seen, ...sample }) => sample),
-  }));
+  return [...samples.values()].map(({ seen, ...sample }) => sample);
 }
 
-export function categoryLabelCount(categories, copies) {
-  return categories.reduce((total, category) => total + category.samples.length * barcodeCopies(copies[category.key]), 0);
+export function sampleLabelCount(samples, copies) {
+  return samples.reduce((total, sample) => total + barcodeCopies(copies[sample.key]), 0);
 }
 
-export function invoiceBarcodeLabels(record, settings, categories, copies, date = '') {
+export function invoiceBarcodeLabels(record, settings, samples, copies, date = '') {
   if (!record?.barcode) return [];
   const config = labelConfig(settings.barcode_config, settings.show_tests_on_barcode !== false);
   const selected = copies == null
-    ? sampleGroups(record).map(group => ({ group, copies: config.copies }))
-    : categories.flatMap(category => category.samples.map(sample => ({
-      group: { ...sample, groupNames: [...new Set([category.name, ...sample.groupNames])] }, copies: barcodeCopies(copies[category.key]),
-    })));
+    ? (samples.length ? samples : [{ sampleName: '', tests: [], groupNames: [] }]).map(group => ({ group, copies: config.copies }))
+    : samples.map(group => ({ group, copies: barcodeCopies(copies[group.key]) }));
   return selected.flatMap(({ group, copies }) => Array.from({ length: copies }, () => labelData(record, group, settings.lab_display_name, date)));
 }

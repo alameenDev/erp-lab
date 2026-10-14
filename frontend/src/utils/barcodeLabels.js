@@ -47,6 +47,7 @@ export function labelConfig(input, showTests = true) {
   const width = roundMm(modern ? n(c.width_mm, 76.2, 25, 254) : n(c.label_width, 3, 1, 10) * 25.4);
   const height = roundMm(modern ? n(c.height_mm, 38.1, 12.7, 254) : n(c.label_height, 1.5, 0.5, 10) * 25.4);
   const base = defaultLabel(width, height, c, showTests);
+  // Keep the persisted key compatible; the picker now groups by sample type.
   base.show_category_dialog = bool(c.show_category_dialog, false);
   if (!modern) return base;
   return {
