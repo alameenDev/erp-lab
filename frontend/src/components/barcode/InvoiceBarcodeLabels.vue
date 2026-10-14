@@ -100,7 +100,7 @@ defineExpose({ open, busy });
               </div>
               <div v-for="sample in category.samples" :key="sample.sampleName" class="mt-3 border-t border-slate-100 pt-3">
                 <p class="mb-2 text-xs font-medium text-slate-500">نوع العينة: <bdi>{{ sample.sampleName === 'Other' ? 'غير محدد' : sample.sampleName }}</bdi></p>
-                <ul class="flex flex-wrap gap-2"><li v-for="analysis in sample.analyses" :key="analysis.key" class="max-w-full break-words rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-700"><bdi>{{ analysis.name }}</bdi><span v-if="analysis.shortcut && analysis.shortcut !== analysis.name" class="ms-2 text-xs text-teal-700" dir="ltr">{{ analysis.shortcut }}</span></li></ul>
+                <ul class="flex flex-wrap gap-2"><li v-for="analysis in sample.analyses" :key="analysis.key" class="inline-flex max-w-full flex-wrap items-center gap-2 break-words rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-700"><bdi>{{ analysis.name }}</bdi><span v-if="analysis.shortcut && analysis.shortcut !== analysis.name" class="text-xs text-teal-700" dir="ltr">{{ analysis.shortcut }}</span></li></ul>
               </div>
               <p v-if="category.samples.length > 1" class="mt-3 text-xs leading-5 text-amber-800">يحتوي هذا الكاتگري على {{ category.samples.length }} أنواع عينات؛ العدد المختار يُطبع لكل نوع عينة بشكل منفصل ({{ (copies?.[category.key] || 0) * category.samples.length }} ملصق).</p>
             </section>
