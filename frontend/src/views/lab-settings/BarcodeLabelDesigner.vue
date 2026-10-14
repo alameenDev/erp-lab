@@ -67,9 +67,9 @@ const printTest = () => printWithIframe('barcode-test-print', barcodePrintCss(c.
       <span dir="ltr" class="rounded-full bg-teal-50 px-3 py-1 text-xs font-bold text-teal-700">{{ c.width_mm }} × {{ c.height_mm }} mm</span>
     </div>
     <label class="flex items-start gap-3 rounded-xl border border-teal-200 bg-teal-50/50 p-4 cursor-pointer">
-      <input type="checkbox" class="mt-1 h-5 w-5 accent-teal-700" :checked="c.show_category_dialog" @change="update({show_category_dialog:$event.target.checked})" aria-describedby="barcode-category-dialog-hint">
-      <span><span class="block font-bold text-slate-800">{{ tr('اختيار نسخ الباركود حسب الكاتگري قبل الطباعة', 'Choose barcode copies by category before printing') }}</span>
-        <span id="barcode-category-dialog-hint" class="mt-1 block text-sm leading-6 text-slate-600">{{ tr('عند التفعيل تظهر نافذة بالكَاتگريات وتحاليلها لتحديد عدد النسخ لكل كاتگري. عند الإلغاء تتم الطباعة مباشرة بالإعدادات المحفوظة.', 'Show categories and their analyses with a copy count for each category. When disabled, print directly using saved settings.') }}</span></span>
+      <input type="checkbox" class="mt-1 h-5 w-5 accent-teal-700" :checked="c.show_category_dialog" @change="update({show_category_dialog:$event.target.checked})" aria-describedby="barcode-sample-dialog-hint">
+      <span><span class="block font-bold text-slate-800">{{ tr('اختيار نسخ الباركود حسب نوع العينة قبل الطباعة', 'Choose barcode copies by sample type before printing') }}</span>
+        <span id="barcode-sample-dialog-hint" class="mt-1 block text-sm leading-6 text-slate-600">{{ tr('عند التفعيل تظهر نافذة بأنواع العينات وتحاليل كل عينة لتحديد عدد نسخ الباركود لكل نوع عينة. عند الإلغاء تتم الطباعة مباشرة بالإعدادات المحفوظة.', 'Show sample types and their analyses with a barcode copy count for each sample type. When disabled, print directly using saved settings.') }}</span></span>
     </label>
     <div class="flex flex-wrap gap-2">
       <button dir="ltr" v-for="size in [[50,30],[60,40],[76.2,38.1],[40,25]]" :key="size.join('x')" type="button" class="rounded-lg border px-3 py-2 text-sm hover:bg-teal-50" @click="preset(...size)">{{ size[0] }} × {{ size[1] }} mm</button>

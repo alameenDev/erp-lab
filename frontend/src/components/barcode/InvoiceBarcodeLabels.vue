@@ -4,7 +4,7 @@ import { useLabSettingsStore } from '@/store/modules/labSettings';
 import { $http } from '@/plugins/axios';
 import { dateTimeFormat } from '@/utils/helper';
 import { labelConfig, barcodePrintCss } from '@/utils/barcodeLabels';
-import { barcodeCategories, barcodeCopies, categoryLabelCount, invoiceBarcodeLabels } from '@/utils/barcodeCategories';
+import { barcodeSamples, barcodeCopies, sampleLabelCount, invoiceBarcodeLabels } from '@/utils/barcodeSamples';
 import { usePrint } from '@/composables/usePrint';
 import { useToast } from '@/composables/useToast';
 import BarcodeLabel from './BarcodeLabel.vue';
@@ -18,12 +18,12 @@ const dialog = ref(null), record = ref(null), settings = ref({}), copies = ref(n
 const loading = ref(false), printing = ref(false), error = ref('');
 const busy = computed(() => loading.value || printing.value);
 const config = computed(() => labelConfig(settings.value.barcode_config, settings.value.show_tests_on_barcode !== false));
-const categories = computed(() => barcodeCategories(record.value || {}));
-const total = computed(() => categoryLabelCount(categories.value, copies.value || {}));
-const labels = computed(() => invoiceBarcodeLabels(record.value, settings.value, categories.value, copies.value,
+const samples = computed(() => barcodeSamples(record.value || {}));
+const total = computed(() => sampleLabelCount(samples.value, copies.value || {}));
+const labels = computed(() => invoiceBarcodeLabels(record.value, settings.value, samples.value, copies.value,
   record.value?.created_at ? dateTimeFormat(record.value.created_at) : ''));
 const setCopies = (key, value) => { copies.value[key] = barcodeCopies(value); };
-const resetCopies = () => { copies.value = Object.fromEntries(categories.value.map(category => [category.key, config.value.copies])); };
+const resetCopies = () => { copies.value = Object.fromEntries(samples.value.map(sample => [sample.key, config.value.copies])); };
 let request = 0, disposed = false;
 onBeforeUnmount(() => { disposed = true; request++; dialog.value?.close(); });
 function close() {
@@ -75,41 +75,40 @@ defineExpose({ open, busy });
     <dialog ref="dialog" class="barcode-copy-dialog" dir="rtl" :aria-labelledby="titleId" @cancel.prevent="close" @click="event => { if (event.target === dialog) close(); }" @keydown.stop>
       <div class="flex max-h-[88dvh] flex-col">
         <header class="flex items-start justify-between gap-3 border-b border-slate-200 p-5">
-          <div><h2 :id="titleId" class="text-lg font-bold text-slate-900">طباعة الباركود حسب الكاتگري</h2>
-            <p class="mt-1 text-sm text-slate-500">حدد عدد النسخ لكل كاتگري. اختر صفر إذا ما تحتاج طباعته.</p>
+          <div><h2 :id="titleId" class="text-lg font-bold text-slate-900">طباعة الباركود حسب نوع العينة</h2>
+            <p class="mt-1 text-sm text-slate-500">حدد عدد نسخ الباركود لكل نوع عينة. اختر صفر إذا ما تحتاج طباعتها.</p>
             <p v-if="record" class="mt-2 text-sm font-semibold text-teal-800">{{ record.patient?.name }} <span class="mx-2 text-slate-300">|</span> رقم العينة: <bdi>{{ record.barcode }}</bdi></p>
           </div>
           <button type="button" aria-label="إغلاق" :disabled="printing" class="rounded-lg px-3 py-1 text-2xl text-slate-500 hover:bg-slate-100 disabled:opacity-40" @click="close">×</button>
         </header>
         <div class="min-h-0 space-y-4 overflow-y-auto p-5">
-          <p v-if="loading" role="status" class="py-8 text-center text-slate-500">جاري تحميل الكاتگريات والتحاليل…</p>
+          <p v-if="loading" role="status" class="py-8 text-center text-slate-500">جاري تحميل أنواع العينات والتحاليل…</p>
           <p v-else-if="error" role="alert" class="rounded-xl bg-red-50 p-4 text-red-700">{{ error }}</p>
           <template v-else>
-            <p v-if="!categories.length" role="status" class="rounded-xl bg-slate-50 p-4 text-slate-600">لا توجد تحاليل في هذه الفاتورة لطباعة الباركود.</p>
-            <section v-for="category in categories" :key="category.key" :data-barcode-category="category.key" class="rounded-xl border border-slate-200 p-4" :class="copies?.[category.key] === 0 ? 'bg-slate-50' : 'bg-white'">
+            <p v-if="!samples.length" role="status" class="rounded-xl bg-slate-50 p-4 text-slate-600">لا توجد تحاليل في هذه الفاتورة لطباعة الباركود.</p>
+            <section v-for="sample in samples" :key="sample.key" :data-barcode-sample="sample.key" class="rounded-xl border border-slate-200 p-4" :class="copies?.[sample.key] === 0 ? 'bg-slate-50' : 'bg-white'">
               <div class="flex flex-wrap items-center justify-between gap-3">
-                <h3 class="font-bold text-slate-800">{{ category.name }}</h3>
+                <h3 class="font-bold text-slate-800">{{ (sample.sampleName === 'Other' ? 'غير محدد' : sample.sampleName) }}</h3>
                 <div class="flex items-center gap-2">
                   <span class="text-xs text-slate-500">عدد النسخ</span>
                   <div class="flex items-center rounded-lg border border-slate-300 bg-white" dir="ltr">
-                    <button type="button" class="h-10 w-10 rounded-l-lg text-xl text-teal-800 hover:bg-teal-50 disabled:opacity-30" :aria-label="`تقليل نسخ ${category.name}`" :disabled="printing || !copies?.[category.key]" @click="setCopies(category.key, copies[category.key] - 1)">−</button>
-                    <input type="number" min="0" max="20" step="1" :aria-label="`عدد نسخ ${category.name}`" :disabled="printing" class="h-10 w-14 border-x border-y-0 border-slate-200 px-1 text-center font-bold focus:ring-2 focus:ring-teal-600" :value="copies?.[category.key] ?? 0" @input="setCopies(category.key, $event.target.value)" @change="$event.target.value = copies[category.key]">
-                    <button type="button" class="h-10 w-10 rounded-r-lg text-xl text-teal-800 hover:bg-teal-50 disabled:opacity-30" :aria-label="`زيادة نسخ ${category.name}`" :disabled="printing || copies?.[category.key] >= 20" @click="setCopies(category.key, copies[category.key] + 1)">+</button>
+                    <button type="button" class="h-10 w-10 rounded-l-lg text-xl text-teal-800 hover:bg-teal-50 disabled:opacity-30" :aria-label="`تقليل نسخ ${(sample.sampleName === 'Other' ? 'غير محدد' : sample.sampleName)}`" :disabled="printing || !copies?.[sample.key]" @click="setCopies(sample.key, copies[sample.key] - 1)">−</button>
+                    <input type="number" min="0" max="20" step="1" :aria-label="`عدد نسخ ${(sample.sampleName === 'Other' ? 'غير محدد' : sample.sampleName)}`" :disabled="printing" class="h-10 w-14 border-x border-y-0 border-slate-200 px-1 text-center font-bold focus:ring-2 focus:ring-teal-600" :value="copies?.[sample.key] ?? 0" @input="setCopies(sample.key, $event.target.value)" @change="$event.target.value = copies[sample.key]">
+                    <button type="button" class="h-10 w-10 rounded-r-lg text-xl text-teal-800 hover:bg-teal-50 disabled:opacity-30" :aria-label="`زيادة نسخ ${(sample.sampleName === 'Other' ? 'غير محدد' : sample.sampleName)}`" :disabled="printing || copies?.[sample.key] >= 20" @click="setCopies(sample.key, copies[sample.key] + 1)">+</button>
                   </div>
                 </div>
               </div>
-              <div v-for="sample in category.samples" :key="sample.sampleName" class="mt-3 border-t border-slate-100 pt-3">
-                <p class="mb-2 text-xs font-medium text-slate-500">نوع العينة: <bdi>{{ sample.sampleName === 'Other' ? 'غير محدد' : sample.sampleName }}</bdi></p>
+              <div class="mt-3 border-t border-slate-100 pt-3">
+                <p class="mb-2 text-xs font-medium text-slate-500">التحاليل الخاصة بهذه العينة</p>
                 <ul class="flex flex-wrap gap-2"><li v-for="analysis in sample.analyses" :key="analysis.key" class="inline-flex max-w-full flex-wrap items-center gap-2 break-words rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-700"><bdi>{{ analysis.name }}</bdi><span v-if="analysis.shortcut && analysis.shortcut !== analysis.name" class="text-xs text-teal-700" dir="ltr">{{ analysis.shortcut }}</span></li></ul>
               </div>
-              <p v-if="category.samples.length > 1" class="mt-3 text-xs leading-5 text-amber-800">يحتوي هذا الكاتگري على {{ category.samples.length }} أنواع عينات؛ العدد المختار يُطبع لكل نوع عينة بشكل منفصل ({{ (copies?.[category.key] || 0) * category.samples.length }} ملصق).</p>
             </section>
           </template>
         </div>
         <footer class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 p-5">
           <div aria-live="polite" class="text-sm text-slate-700">إجمالي الملصقات: <strong class="text-lg text-teal-800">{{ total }}</strong></div>
           <div class="flex flex-wrap gap-2">
-            <button type="button" :disabled="busy || !categories.length" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-600 disabled:opacity-40" @click="resetCopies">إعادة العدد الافتراضي</button>
+            <button type="button" :disabled="busy || !samples.length" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-600 disabled:opacity-40" @click="resetCopies">إعادة العدد الافتراضي</button>
             <button type="button" :disabled="printing" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 disabled:opacity-40" @click="close">إلغاء</button>
             <button type="button" :disabled="busy || !total || !!error" class="rounded-lg bg-teal-700 px-5 py-2 text-sm font-bold text-white hover:bg-teal-800 disabled:opacity-40" @click="print">{{ printing ? 'جاري الطباعة…' : 'طباعة الباركود' }}</button>
           </div>
