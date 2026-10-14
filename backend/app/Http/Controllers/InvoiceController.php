@@ -770,8 +770,8 @@ class InvoiceController extends Controller
         }
 
         // Separate tests that should be printed alone
-        $all_tests_print_alone = collect($all_tests)->filter(fn ($test) => $test['is_print_alone'] == 1)->values();
-        $all_tests_not_print_alone = collect($all_tests)->filter(fn ($test) => $test['is_print_alone'] == 0)->values();
+        $all_tests_print_alone = collect($all_tests)->filter(fn ($test) => ($test['is_print_alone'] ?? false) == 1)->values();
+        $all_tests_not_print_alone = collect($all_tests)->filter(fn ($test) => ($test['is_print_alone'] ?? false) == 0)->values();
 
         // Collect unique test group names
         $test_groups_names = [];
@@ -1996,6 +1996,28 @@ class InvoiceController extends Controller
      * Public endpoint for viewing invoice results (e.g. WhatsApp link).
      * Returns test results without financial data.
      */
+    public function portalShow(string $token, int $id)
+    {
+        [, $patient] = app(\App\Services\PatientPortalAccess::class)->resolve($token);
+        $invoice = Invoice::where('patient_id_fk', $patient->id)->findOrFail($id);
+        return response()->json($this->patientResultData($invoice));
+    }
+
+    public function patientResultData(Invoice $invoice, bool $history = true): array
+    {
+        $invoice->loadMissing($this->invoiceRelations());
+        $service = app(\App\Services\PatientReportItems::class);
+        // Convert nested collections/resources once before selecting patient-visible items.
+        $data = json_decode(json_encode($this->transformInvoice($invoice, $history, $history)), true);
+        foreach ($invoice->invoiceTestRels as $row) {
+            if (!$row->test_id_fk && !$row->culture_id_fk && !$row->test_group_id_fk && !$row->package_id_fk) {
+                $data['tests'][] = ['name'=>'فحص', 'is_done'=>false, 'is_sample_received'=>(bool)$row->is_sample_received];
+            }
+        }
+        $data = $service->normalize($data);
+        return $service->document($data, $service->items($data));
+    }
+
     public function publicShow($id)
     {
         $invoice = Invoice::with($this->invoiceRelations())->find($id);

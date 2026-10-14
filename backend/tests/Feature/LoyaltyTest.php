@@ -95,11 +95,11 @@ class LoyaltyTest extends TestCase
         $access=\App\Models\PortalAccessToken::create(['patient_id_fk'=>$patient->id,'token'=>\App\Models\PortalAccessToken::generatePlainToken(),'expires_at'=>now()->addDay()]);
         $response=$this->getJson('/api/portal/'.$access->token)->assertOk()->assertJsonCount(1,'reports')
             ->assertJsonPath('reports.0.id',$invoice->id)->assertJsonPath('reports.0.due',15000)
-            ->assertJsonPath('reports.0.view_url',null)->assertJsonPath('reports.0.tests.0.status','pending')
+            ->assertJsonPath('reports.0.view_url',rtrim(config('app.frontend_url', env('FRONTEND_URL', config('app.url'))), '/').'/result/'.$invoice->id)->assertJsonPath('reports.0.tests.0.status','pending')
             ->assertJsonPath('reports.0.tests.0.sample_received',true);
         $this->assertStringNotContainsString('PRIVATE_DRAFT',$response->getContent());
         $invoice->update(['is_done'=>true]);
-        $this->getJson('/api/portal/'.$access->token)->assertOk()->assertJsonPath('reports.0.view_url', null);
+        $this->getJson('/api/portal/'.$access->token)->assertOk()->assertJsonPath('reports.0.view_url', rtrim(config('app.frontend_url', env('FRONTEND_URL', config('app.url'))), '/').'/result/'.$invoice->id);
         $invoice->invoiceTestRels()->update(['is_done'=>true]);
         $this->assertStringEndsWith('/result/'.$invoice->id,$this->getJson('/api/portal/'.$access->token)->assertOk()->json('reports.0.view_url'));
     }

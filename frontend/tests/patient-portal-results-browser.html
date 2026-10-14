@@ -1,0 +1,30 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Patient result states</title></head><body><div id="app"></div><script type="module">
+import {createApp,h} from 'vue';import {createPinia} from 'pinia';import {createRouter,createMemoryHistory,RouterView} from 'vue-router';
+import Portal from '/src/views/portal/PatientPortal.vue';import Report from '/src/views/medical_reports/componentes/print_Result.vue';
+import {$http} from '/src/plugins/axios';import {useresultStatusStore} from '/src/store/modules/result-status';import '/src/assets/main.css';
+localStorage.setItem('token','unrelated-staff-session');localStorage.setItem('locale','ar');
+const token='a'.repeat(48), requests=[], state={ready:false};
+const items=[{id:1,name:'Glucose',status:'ready',kind:'تحليل'},{id:2,name:'Pending group test',status:'pending',context:'Hormone group',kind:'تحليل'},
+{id:3,name:'Package approved',status:'ready',context:'Health package · Blood group',kind:'تحليل'},{id:4,name:'Package pending',status:'pending',context:'Health package',kind:'تحليل'}];
+const reports=[{id:14,status:'partial',tests:items},{id:15,status:'pending',tests:[{id:5,name:'Pending culture',status:'pending',kind:'زرع'}]},
+{id:16,status:'ready',tests:[{id:6,name:'Completed test',status:'ready',kind:'تحليل'}]}].map(r=>({...r,view_url:location.origin+'/result/'+r.id,total:25000,paid:10000,due:15000,date:'2026-10-14'}));
+$http.defaults.adapter=async config=>{
+ requests.push(config.url);let data;
+ if(config.url==='/portal/'+token)data={patient:{name:'مريض تجريبي',code:'P-001'},reports,doctors:[],loyalty:null};
+ else if(config.url===`/portal/${token}/reports/14`||config.url===`/portal/${token}/reports/15`){
+  const id=config.url.endsWith('/14')?14:15;const ready=id===14?2:state.ready?1:0;
+  const test=name=>({name,result:'25',is_done:true,unit:'mg/dL',test_reference_ranges:[],is_print_alone:false});
+  data={id,lab_id_fk:1,patient:{id:1,name:'مريض تجريبي',age:30,age_unit:'Years',gender:'Male',code:'P-001'},registration_date:'2026-10-14',
+   tests:id===14?[test('Glucose'),test('Package approved')]:ready?[test('Pending culture')]:[],cultures:[],packages:[],test_groups:[],
+   portal_report:{total:id===14?4:1,ready,pending:(id===14?4:1)-ready,items:id===14?items:reports[1].tests}};
+ }else if(config.url==='/lab-settings/1')data={report_template:'classic',show_test_names:true,show_status:true,report_form_default:false};
+ else if(config.url.endsWith('/result-trends'))data={series:[]};
+ else if(config.url.endsWith('/app-config'))data={enabled:false};
+ else {const e=new Error('Access denied');e.response={status:403,data:{message:'الرابط غير صالح أو منتهي الصلاحية'}};e.config=config;throw e;}
+ return {data,status:200,config,headers:{}};
+};
+const router=createRouter({history:createMemoryHistory(),routes:[{path:'/portal/:token',component:Portal},{path:'/result/:patientId',component:Report}]});
+const app=createApp({render:()=>h(RouterView,{key:router.currentRoute.value.fullPath})}).use(createPinia()).use(router);
+useresultStatusStore().resultStatus=[{value:2,label:'Normal'}];await router.push('/portal/'+token);await router.isReady();app.mount('#app');
+window.portalFixture={router,requests,state,token};
+</script></body></html>

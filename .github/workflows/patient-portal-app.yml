@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'frontend/src/views/portal/**'
+      - 'frontend/src/utils/patientPortalReports.js'
       - 'frontend/src/composables/usePatientPortalApp.js'
       - 'frontend/src/utils/patientPortalApp.js'
       - 'frontend/src/utils/patientPortalHead.js'
@@ -29,7 +30,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run build
-      - run: node --test tests/patient-portal-app.test.mjs
+      - run: node --test tests/patient-portal-app.test.mjs tests/patient-portal-results.test.mjs
       - run: npm install --no-save --package-lock=false playwright@1.55.1
       - run: npx playwright install --with-deps chromium
       - run: |
@@ -39,6 +40,7 @@ jobs:
             sleep 1
           done
           node tests/patient-portal-app.browser.mjs
+          node tests/patient-portal-results.browser.mjs
           node tests/lab-notifications.browser.mjs
       - uses: actions/upload-artifact@v4
         if: always()

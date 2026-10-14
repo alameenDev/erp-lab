@@ -99,7 +99,8 @@ class PatientPortalController extends Controller
         $invoices = Invoice::where('patient_id_fk', $patient->id)
             ->with(['invoiceTestRels.test', 'invoiceTestRels.culture', 'invoiceTestRels.package', 'invoiceTestRels.testGroup'])
             ->orderByDesc('created_at')
-            ->get(['id', 'barcode', 'is_done', 'deleted_at', 'created_at', 'result_date', 'sub_total', 'total', 'paid', 'loyalty_discount', 'loyalty_points_spent']);
+            ->get();
+        $renderer = app(InvoiceController::class);
 
         return response()->json([
             'requires_otp' => false,
@@ -107,7 +108,9 @@ class PatientPortalController extends Controller
                 'name' => $patient->user?->name,
                 'code' => $patient->code,
             ],
-            'reports' => $invoices->map(fn ($inv) => [
+            'reports' => $invoices->map(function ($inv) use ($renderer) {
+                $publication = $renderer->patientResultData($inv, false)['portal_report'];
+                return [
                 'id' => $inv->id,
                 'barcode' => $inv->barcode,
                 'date' => $inv->created_at,
@@ -117,18 +120,12 @@ class PatientPortalController extends Controller
                 'due' => max(0, (float) $inv->total - (float) $inv->paid),
                 'loyalty_discount' => (float) $inv->loyalty_discount,
                 'loyalty_points_spent' => (int) $inv->loyalty_points_spent,
-                // Only workflow status is published here, never unapproved result values.
-                'tests' => $inv->invoiceTestRels->map(fn ($rel) => [
-                    'id' => $rel->id,
-                    'name' => $rel->test?->report_name ?: ($rel->test?->name ?? $rel->culture?->name ?? $rel->package?->name ?? $rel->testGroup?->group_name ?? 'فحص'),
-                    'kind' => $rel->package_id_fk ? 'باقة' : ($rel->test_group_id_fk ? 'مجموعة' : ($rel->culture_id_fk ? 'زرع' : 'تحليل')),
-                    'status' => app(\App\Services\ReportReadiness::class)->relationComplete($rel) ? 'ready' : 'pending',
-                    'sample_received' => (bool) $rel->is_sample_received,
-                    'price' => (float) $rel->price,
-                ]),
-                'status' => app(\App\Services\ReportReadiness::class)->isReady($inv) ? 'ready' : 'pending',
-                'view_url' => app(\App\Services\ReportReadiness::class)->isReady($inv) ? rtrim(config('app.frontend_url', env('FRONTEND_URL', config('app.url'))), '/')."/result/{$inv->id}" : null,
-            ]),
+                'tests' => $publication['items'],
+                'ready_count' => $publication['ready'],
+                'pending_count' => $publication['pending'],
+                'status' => !$publication['pending'] && $publication['ready'] ? 'ready' : ($publication['ready'] ? 'partial' : 'pending'),
+                'view_url' => rtrim(config('app.frontend_url', env('FRONTEND_URL', config('app.url'))), '/')."/result/{$inv->id}",
+            ]; }),
             'loyalty' => $summary && ($config['enabled'] ?? true) ? [
                 'balance' => $summary['balance'],
                 'tier' => $summary['tier'],

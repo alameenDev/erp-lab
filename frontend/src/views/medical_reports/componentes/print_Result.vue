@@ -48,6 +48,9 @@ const contentToConvert = ref(null);
 const showWithForm = ref(reportFormFromRoute(route));
 const showDirectView = ref(false);
 const reportNotReady = ref(false);
+const portalReportToken = computed(() => new URLSearchParams((route.hash || '').slice(1)).get('portal'));
+const portalReportState = ref(null);
+const portalReportError = ref('');
 const pdfGenerating = ref(false);
 const renderForCapture = ref(false);
 // Parents expose the source only while preparing a report.
@@ -171,7 +174,7 @@ onMounted(() => {
 
 
   // Only fetch auth-required data for logged-in users
-  if (hasToken && !referralReport.value && !sharedReferralReport.value) {
+  if (hasToken && !portalReportToken.value && !referralReport.value && !sharedReferralReport.value) {
     GetTemplates();
   }
   if (!resultStatus.value?.length) {
@@ -573,7 +576,13 @@ const evalFormulaValue = reportFormulaValue;
 
 const getData = async () => {
   try {
-    if (referralReport.value) {
+    portalReportError.value = '';
+    if (portalReportToken.value && !referralReport.value && !sharedReferralReport.value) {
+      const { data } = await $http.get(`/portal/${encodeURIComponent(portalReportToken.value)}/reports/${patientId.value}`);
+      printRecord.value = data;
+      portalReportState.value = data.portal_report;
+      if (!data.portal_report?.ready) return;
+    } else if (referralReport.value) {
       const { data } = await $http.get(`/referral-portal/workspace/invoices/${patientId.value}`, { params: { document: "report" } });
       printRecord.value = data;
     } else if (sharedReferralReport.value) {
@@ -589,6 +598,7 @@ const getData = async () => {
       printRecord.value = data;
     }
   } catch (err) {
+    if (portalReportToken.value) { portalReportError.value = err?.response?.data?.message || 'تعذر تحميل النتائج. أعد المحاولة أو افتح الرابط من بوابة المريض.'; return; }
     if ((sharedReferralReport.value && [403, 404, 409].includes(err?.response?.status)) || (!hasToken && err?.response?.status === 403) || (referralReport.value && err?.response?.status === 409)) {
       reportNotReady.value = true;
     }
@@ -802,8 +812,16 @@ const generateBarcodeImage = (value) => {
 </script>
 
 <template>
+  <section v-if="portalReportError || (portalReportState && !portalReportState.ready)" dir="rtl" class="min-h-screen bg-slate-50 flex items-center justify-center p-5">
+    <div class="w-full max-w-lg rounded-2xl bg-white border border-slate-200 p-6 space-y-4">
+      <h1 class="text-xl font-bold">{{ portalReportError ? 'تعذر عرض النتائج' : 'الفحوصات قيد الإجراء' }}</h1>
+      <p class="text-sm text-slate-600" role="status">{{ portalReportError || 'رابطك فعال. ستظهر النتائج هنا فور اكتمالها واعتمادها من المختبر.' }}</p>
+      <ul v-if="!portalReportError" class="space-y-2"><li v-for="item in portalReportState.items" :key="item.id" class="flex justify-between gap-3 border-b py-2 text-sm"><span>{{ item.name }}<small v-if="item.context" class="block text-slate-500">{{ item.context }}</small></span><span class="text-amber-700">قيد الإجراء</span></li></ul>
+      <button class="rounded-xl bg-teal-700 text-white px-5 py-3" @click="getData">تحديث النتائج</button>
+    </div>
+  </section>
   <!-- Report Not Ready Message -->
-  <div v-if="reportNotReady" class="flex items-center justify-center min-h-screen bg-gray-50" dir="ltr">
+  <div v-else-if="reportNotReady" class="flex items-center justify-center min-h-screen bg-gray-50" dir="ltr">
     <div class="text-center p-10 bg-white rounded-2xl shadow-lg max-w-md w-full mx-4">
       <div class="text-6xl mb-4">&#128339;</div>
       <h2 class="text-xl font-bold text-gray-800 mb-2">Report Not Ready Yet</h2>
@@ -814,6 +832,7 @@ const generateBarcodeImage = (value) => {
   </div>
 
   <template v-else>
+    <p v-if="portalReportState?.pending" dir="rtl" role="status" class="bg-amber-50 text-amber-900 rounded-xl p-4 m-4 text-sm">يعرض هذا التقرير {{ portalReportState.ready }} من {{ portalReportState.total }} فحصاً. توجد {{ portalReportState.pending }} فحوصات قيد الإجراء وستُضاف بعد اعتمادها.</p>
     <!-- ===== AUTHENTICATED VIEW (staff) — PDF iframe ===== -->
     <div v-if="referralReport && printRecord?.id" class="referral-actions" dir="rtl">
       <strong>تقرير {{ reportBrand?.lab_display_name || 'مختبر الإحالة' }}</strong>

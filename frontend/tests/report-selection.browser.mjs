@@ -38,7 +38,7 @@ try {
     for (const name of ['Standalone pending','Group ready','Calculated','Nested calculated']) assert.ok(data.text.includes(name), name+' appears');
     for (const name of ['Standalone ready','Compound report','Standalone culture','Group pending','Group culture','Package direct','Package input','Package pending','Package culture','EXCLUDED-HISTORY']) assert.ok(!data.text.includes(name), name+' stays excluded');
     assert.ok(data.text.includes('8') && data.text.includes('6'), 'formula values survive hidden operands');
-    assert.ok(data.size > 1000); assert.equal(data.record.suppress_report_qr, true);
+    assert.ok(data.size > 1000); assert.equal(data.record.suppress_report_qr, false);
     assert.equal(await page.evaluate(() => JSON.stringify(selectionFixture.invoices.printRecord) === JSON.stringify(selectionFixture.source)), true, 'full saved results restored after each action');
     assert.ok(await checkbox('Standalone pending').isChecked()); assert.equal(await checkbox('Group pending').isChecked(), false);
   };
@@ -46,8 +46,8 @@ try {
   for (const [i, action] of ['print','download','whatsapp','print-download','whatsapp-download'].entries()) await run(action, i+2);
   const evidence = await page.evaluate(() => ({ sameOutput: selectionFixture.executions.every(x => x.output === selectionFixture.executions[0].output), events: selectionFixture.events, requests: selectionFixture.requests }));
   assert.ok(evidence.sameOutput, 'all actions consume the same prepared selected PDF');
-  for (const [, url] of evidence.events.filter(e => e[0] === 'whatsapp')) assert.ok(!new URL(url).searchParams.get('text').includes('/portal/'), 'partial message cannot expose full results');
-  assert.equal(evidence.requests.filter(x=>x==='/portal/generate').length, 0);
+  for (const [, url] of evidence.events.filter(e => e[0] === 'whatsapp')) assert.ok(new URL(url).searchParams.get('text').includes('/portal/'), 'every partial message includes the patient portal');
+  assert.ok(evidence.requests.filter(x=>x==='/portal/generate').length >= 2);
   await dialog.getByRole('button', { name: 'إغلاق', exact: true }).click();
   await page.locator('#pages').screenshot({path:`test-results/report-pages/selection-${query.includes('modern')?'modern':'classic'}-output.png`,animations:'disabled'});
   await page.locator('#open').click();
