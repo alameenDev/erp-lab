@@ -89,7 +89,7 @@ class ReferralWorkspaceTest extends TestCase
     public function test_shared_report_requires_a_valid_signature_and_only_exposes_completed_results(): void
     {
         [$lab,,$other,$test]=$this->fixture();
-        $this->postJson('/api/referral-portal/workspace/lab-settings',['report_template'=>'modern', 'previous_results_count'=>3])->assertOk()->assertJsonPath('setting.previous_results_count', 3);
+        $this->postJson('/api/referral-portal/workspace/lab-settings',['report_template'=>'modern', 'previous_results_count'=>3, 'report_form_default'=>false])->assertOk()->assertJsonPath('setting.previous_results_count', 3)->assertJsonPath('setting.report_form_default', false);
         $id=$this->postJson('/api/referral-portal/workspace/invoices/create',$this->payload($lab,$test))->assertCreated()->json('id');
         $this->postJson('/api/referral-portal/workspace/invoices/'.$id.'/share-report')->assertStatus(409);
         InvoiceTestRel::where('invoice_id_fk',$id)->firstOrFail()->update(['result'=>'19','is_done'=>true]);
@@ -101,7 +101,7 @@ class ReferralWorkspaceTest extends TestCase
         $this->postJson('/api/referral-portal/workspace/invoices/'.$id.'/share-report')->assertNotFound();
         $this->getJson('/api/referral-report/'.$id.'?'.$query)->assertOk()
             ->assertJsonPath('report.tests.0.result','19')
-            ->assertJsonPath('settings.report_template','modern')->assertJsonPath('settings.previous_results_count',3)
+            ->assertJsonPath('settings.report_template','modern')->assertJsonPath('settings.previous_results_count',3)->assertJsonPath('settings.report_form_default', false)
             ->assertJsonMissingPath('report.total');
         $this->getJson('/api/referral-report/'.($id+1).'?'.$query)->assertForbidden();
         $this->travel(8)->days();
@@ -110,14 +110,14 @@ class ReferralWorkspaceTest extends TestCase
     public function test_print_settings_are_private_to_partner_and_do_not_change_destination_lab(): void
     {
         [$lab,,$other]=$this->fixture();
-        $this->postJson('/api/referral-portal/workspace/lab-settings',['lab_display_name'=>'My referral','primary_color'=>'#123456','report_template'=>'modern'])->assertOk();
-        $this->getJson('/api/referral-portal/workspace/lab-settings')->assertOk()->assertJsonPath('lab_display_name','My referral')->assertJsonPath('report_template','modern');
+        $this->postJson('/api/referral-portal/workspace/lab-settings',['lab_display_name'=>'My referral','primary_color'=>'#123456','report_template'=>'modern','report_form_default'=>false])->assertOk();
+        $this->getJson('/api/referral-portal/workspace/lab-settings')->assertOk()->assertJsonPath('lab_display_name','My referral')->assertJsonPath('report_template','modern')->assertJsonPath('report_form_default',false);
         $this->assertDatabaseHas('referral_print_settings',['lab_display_name'=>'My referral']);
         $this->assertDatabaseMissing('lab_settings',['lab_id_fk'=>$lab->id,'lab_display_name'=>'My referral']);
         $this->assertDatabaseMissing('lab_settings',['lab_id_fk'=>$lab->id,'report_template'=>'modern']);
         $this->postJson('/api/referral-portal/workspace/lab-settings',['loyalty_config'=>['enabled'=>true]])->assertStatus(422);
         $this->actingAs($other);
-        $this->getJson('/api/referral-portal/workspace/lab-settings')->assertOk()->assertJsonMissing(['lab_display_name'=>'My referral'])->assertJsonPath('report_template','classic');
+        $this->getJson('/api/referral-portal/workspace/lab-settings')->assertOk()->assertJsonMissing(['lab_display_name'=>'My referral'])->assertJsonPath('report_template','classic')->assertJsonPath('report_form_default',true);
     }
     public function test_unlisted_tests_and_other_partner_patient_ids_are_rejected(): void
     {
