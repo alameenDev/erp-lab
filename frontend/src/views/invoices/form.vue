@@ -64,6 +64,7 @@
     <!-- Form Content -->
     <div v-else>
       <InvoicesModal
+        :key="route.fullPath"
         :is-page-mode="true"
         @saved="onSaved"
         @cancelled="goBack"
@@ -74,7 +75,7 @@
 
 <script setup>
 import { restoreSelectionPositions } from "@/utils/invoiceSelectionOrder";
-import { computed, onMounted, onBeforeUnmount, ref, watch } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useinvoicesStore } from "@/store/modules/invoices";
 import { usePatientsStore } from "@/store/modules/patients";
@@ -105,7 +106,8 @@ const {
 const { responseData } = storeToRefs(patientsStore);
 
 const isEditMode = computed(() => !!route.params.id);
-const loading = ref(false);
+const loading = ref(true);
+let loadVersion = 0;
 
 // Navigation
 const returnTarget = () => {
@@ -138,11 +140,11 @@ const dateFormat = (date) => {
 };
 
 // Load invoice for edit mode
-const loadInvoice = async (id) => {
+const loadInvoice = async (id, version) => {
   loading.value = true;
   try {
     const { data } = await $http.get(`/invoices/${id}`);
-    if (!data) return;
+    if (!data || version !== loadVersion) return;
 
     // Populate store with invoice data
     Object.assign(record.value, data);
@@ -201,61 +203,39 @@ const loadInvoice = async (id) => {
   } catch (error) {
     console.error("Error loading invoice:", error);
   } finally {
-    loading.value = false;
+    if (version === loadVersion) loading.value = false;
   }
 };
 
-// Clear patient form fields (patientStore.record) — prevents prev patient's
-// data showing up in the inline patient form on the next invoice create.
-const clearPatientRecord = () => {
-  const r = patientsStore.record;
-  if (!r) return;
-  Object.keys(r).forEach((k) => {
-    if (typeof r[k] === "string") r[k] = "";
-    else if (typeof r[k] === "number") r[k] = 0;
-    else if (Array.isArray(r[k])) r[k] = [];
-    else r[k] = null;
-  });
-};
-
-// Reset form for create mode
+// Start every new invoice with fresh financial and patient state. Only an
+// explicitly linked, matching patient is carried from the result page.
 const resetForm = () => {
-  // Use store's reset method
+  const linked = route.query.patient_id && String(responseData.value?.id) === String(route.query.patient_id)
+    ? responseData.value : null;
   invoicesStore.resetRecord();
-  testQuesions.value = [];
-  discountPercentage.value = 0;
-  discountValue.value = 0;
-  // Preserve preselected patient when navigating with ?patient_id=
-  if (!route.query.patient_id) {
-    responseData.value = null;
-    clearPatientRecord();
-  }
-
-  // Set today's date
+  patientsStore.resetPatientForm();
   record.value.registration_date = invoicesStore.getTodayDate();
-  // If patient came via query (e.g. from update-result), link record to that patient
-  if (route.query.patient_id && responseData.value?.id) {
-    record.value.patient_id_fk = responseData.value.id;
-  }
+  if (linked) { responseData.value = linked; record.value.patient_id_fk = linked.id; }
 };
 
-onMounted(async () => {
+watch(() => [route.params.id, route.query.patient_id], async () => {
+  const version = ++loadVersion;
   if (route.params.id) {
-    await loadInvoice(route.params.id);
+    invoicesStore.resetRecord();
+    patientsStore.resetPatientForm();
+    await loadInvoice(route.params.id, version);
   } else {
     resetForm();
+    loading.value = false;
   }
-});
+}, { immediate: true });
 
 // Clear cross-page patient + invoice state on leaving — prevents leakage
 // into the next /invoices/create visit (e.g. when user clicks "New Invoice"
 // after returning from /invoices/<id>/edit or update-result).
 onBeforeUnmount(() => {
-  responseData.value = null;
+  loadVersion++;
   invoicesStore.resetRecord();
-  clearPatientRecord();
-  testQuesions.value = [];
-  discountPercentage.value = 0;
-  discountValue.value = 0;
+  patientsStore.resetPatientForm();
 });
 </script>

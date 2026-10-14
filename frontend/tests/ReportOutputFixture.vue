@@ -13,12 +13,12 @@ import { prepareMedicalReportWhatsApp } from '@/utils/sharePatientPortal';
 
 const params = new URLSearchParams(location.search);
 const direct = params.get('mode') !== 'staff';
-const chosenForm = reportFormChoice(params.get('form'));
+const chosenForm = reportFormChoice(params.get('form'), reportFormChoice(params.get('default')));
 const report = ref(null), pages = ref([]), status = ref('Loading'), checks = ref([]), checksum = ref(''), modal = ref(false), selectedForm = ref('');
 const bg = document.createElement('canvas'); bg.width = 794; bg.height = 1123;
 const context = bg.getContext('2d'); context.fillStyle = '#fff'; context.fillRect(0, 0, 794, 1123);
 context.fillStyle = '#007c83'; context.fillRect(0, 0, 794, 80); context.fillRect(0, 1080, 794, 43);
-const settings = { report_template: params.get('template') || 'modern', show_test_names: true, show_categories: true, show_status: true, show_last_result: true, previous_results_count: 1,
+const settings = { report_form_default: reportFormChoice(params.get('default')), report_template: params.get('template') || 'modern', show_test_names: true, show_categories: true, show_status: true, show_last_result: true, previous_results_count: 1,
   print_margins: { top: 35, bottom: 25, left: 12, right: 18 }, report_background: bg.toDataURL(),
   patient_header_config: { name_size: 18, info_size: 12, qr_size: 70 },
   print_table_config: { header_font_size: 12, body_font_size: 12, cell_padding: 6 } };

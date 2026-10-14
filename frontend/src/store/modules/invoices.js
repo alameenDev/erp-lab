@@ -4,6 +4,34 @@ import { $http } from "@/plugins/axios";
 import { usePatientsStore } from "@/store/modules/patients";
 import { checkObjectParams } from "@/utils/helper";
 
+const freshPayments = () => [{ amount: null, contract_id_fk: null, payment_method_id_fk: null }];
+const freshInvoiceRecord = () => ({
+  paid: 0,
+  selection_order: [],
+  test_groups: [],
+  attachments: [],
+  patient_id_fk: null,
+  referral_id_fk: null,
+  registration_date: null,
+  result_date: null,
+  sub_total: null,
+  total: null,
+  notes: null,
+  from_lab_id_fk: null,
+  contract_id_fk: null,
+  sample_collector_id_fk: null,
+  discount_type_id_fk: null,
+  discount: null,
+  show_result_date: false,
+  show_patient_card_id: false,
+  show_patient_pic: false,
+  payment_method_id_fk: null,
+  tests: [],
+  cultures: [],
+  packages: [],
+  payment_details: freshPayments(),
+});
+
 /**
  * Invoices Store - Manages invoice operations, printing, and patient data
  */
@@ -84,39 +112,10 @@ export const useinvoicesStore = defineStore("invoices", {
     searchPhoneTotalCount: "",
 
     // Payment details template
-    payment_details: [{
-      amount: null,
-      contract_id_fk: null,
-      payment_method_id_fk: null,
-    }],
+    payment_details: freshPayments(),
 
     // Invoice record form
-    record: {
-      patient_id_fk: null,
-      referral_id_fk: null,
-      registration_date: null,
-      result_date: null,
-      sub_total: null,
-      total: null,
-      notes: null,
-      from_lab_id_fk: null,
-      contract_id_fk: null,
-      sample_collector_id_fk: null,
-      discount_type_id_fk: null,
-      discount: null,
-      show_result_date: false,
-      show_patient_card_id: false,
-      show_patient_pic: false,
-      payment_method_id_fk: null,
-      tests: [],
-      cultures: [],
-      packages: [],
-      payment_details: [{
-        amount: null,
-        contract_id_fk: null,
-        payment_method_id_fk: null,
-      }],
-    },
+    record: freshInvoiceRecord(),
 
     // Update result form
     updateResultRecord: {
@@ -147,32 +146,16 @@ export const useinvoicesStore = defineStore("invoices", {
 
     // Reset record to default values
     resetRecord() {
-      this.record = {
-        patient_id_fk: null,
-        referral_id_fk: null,
-        registration_date: null,
-        result_date: null,
-        sub_total: null,
-        total: null,
-        notes: null,
-        from_lab_id_fk: null,
-        contract_id_fk: null,
-        sample_collector_id_fk: null,
-        discount_type_id_fk: null,
-        discount: null,
-        show_result_date: false,
-        show_patient_card_id: false,
-        show_patient_pic: false,
-        payment_method_id_fk: null,
-        tests: [],
-        cultures: [],
-        packages: [],
-        payment_details: [{
-          amount: null,
-          contract_id_fk: null,
-          payment_method_id_fk: null,
-        }],
-      };
+      this.record = freshInvoiceRecord();
+      this.payment_details = freshPayments();
+      this.discountPercentage = 0;
+      this.discountValue = 0;
+      this.testQuesions = [];
+      this.tests_ids = [];
+      this.testsComment = [];
+      this.cultursComment = [];
+      this.attachments = [];
+      this.searchRecords = [];
       this.selectedTests = [];
       this.selectedPackages = [];
       this.selectedtestGroups = [];
