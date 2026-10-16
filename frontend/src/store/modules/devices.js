@@ -94,9 +94,9 @@ export const useDevicesStore = defineStore("devices", {
                     throw error;
                }
           },
-          async ApplyResult(resultId) {
+          async ApplyResult(resultId, replaceExisting = false) {
                try {
-                    const { data } = await $http.post(`/device-results/${resultId}/apply`);
+                    const { data } = await $http.post(`/device-results/${resultId}/apply`, { replace_existing: replaceExisting });
                     await this.GetDeviceResults({ status: "pending,matched,applied" });
                     await this.GetDevices();
                     return data;

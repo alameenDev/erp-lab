@@ -147,6 +147,81 @@ class BridgeResultsTest extends TestCase
         return [$device, $invoice, $test, $rel, $payload];
     }
 
+    public function test_staff_can_replace_cbc_from_a_selected_delivery_without_changing_raw_results(): void
+    {
+        [$device, $invoice, $test, $rel, $payload] = $this->cbcFixture();
+        $first = $this->postJson('/api/device/bridge/results', $payload)->assertCreated();
+        $source = DeviceResult::findOrFail($first->json('id'));
+        $original = $source->parsed_results;
+        $oldRows = $rel->fresh()->sub_tests;
+        $next = $source->replicate(['delivery_id', 'delivery_hash']);
+        $next->delivery_id = hash('sha256', 'replacement-delivery');
+        $next->delivery_hash = hash('sha256', 'replacement-content');
+        $next->status = 'matched';
+        $values = $original;
+        foreach ($values as &$value) if ($value['test_code'] === 'WBC') $value['value'] = '12.34';
+        unset($value);
+        $next->parsed_results = $values;
+        $next->save();
+        $owner = User::findOrFail($device->lab_id_fk);
+        $owner->givePermissionTo('medical reports update');
+        $this->actingAs($owner);
+        $this->postJson('/api/device-results/'.$next->id.'/apply')->assertUnprocessable();
+        $this->assertSame($oldRows, $rel->fresh()->sub_tests);
+        $this->postJson('/api/device-results/'.$next->id.'/apply', ['replace_existing' => true])->assertOk();
+        $this->assertSame('12.34', collect($rel->fresh()->sub_tests)->firstWhere('name', 'WBC')['value']);
+        $this->assertSame($next->id, $rel->fresh()->content['device_result_id']);
+        $this->assertFalse((bool) $rel->fresh()->is_done);
+        $this->assertSame($original, $source->fresh()->parsed_results);
+        $this->assertSame($oldRows, $next->fresh()->instrument_metadata['cbc_replacements'][0]['previous_result']['sub_tests']);
+        $invoice->update(['is_signed' => true]);
+        $this->postJson('/api/device-results/'.$source->id.'/apply', ['replace_existing' => true])->assertUnprocessable();
+        $this->assertSame($next->id, $rel->fresh()->content['device_result_id']);
+        $invoice->update(['is_signed' => false, 'sent_to_patient' => true]);
+        $this->postJson('/api/device-results/'.$source->id.'/apply', ['replace_existing' => true])->assertUnprocessable();
+    }
+
+    public function test_manual_cbc_save_rebuilds_html_and_preserves_instrument_message(): void
+    {
+        [$device, $invoice, $test, $rel, $payload] = $this->cbcFixture();
+        $received = $this->postJson('/api/device/bridge/results', $payload)->assertCreated();
+        $source = DeviceResult::findOrFail($received->json('id'));
+        $original = $source->parsed_results;
+        $rel->refresh();
+        $rows = $rel->sub_tests;
+        foreach ($rows as &$row) if ($row['name'] === 'WBC') $row['value'] = '12.34';
+        unset($row);
+        $owner = User::findOrFail($device->lab_id_fk);
+        $owner->givePermissionTo('medical reports update');
+        $this->actingAs($owner);
+        $this->postJson('/api/invoices/update-result', [
+            'id' => $invoice->id, 'tests' => [[
+                'test_id_fk' => $test->id, 'price' => 0, 'is_special_test' => true,
+                'is_done' => false, 'sub_tests' => $rows, 'content' => $rel->content,
+            ]],
+        ])->assertOk();
+        $this->assertStringContainsString('12.34', $rel->fresh()->content['html']);
+        $this->assertSame($rows, $rel->fresh()->sub_tests);
+        $this->assertSame($original, $source->fresh()->parsed_results);
+        $this->assertFalse((bool) $invoice->fresh()->is_done);
+    }
+
+    public function test_cbc_edit_preparation_supports_containers_and_escapes_values(): void
+    {
+        $cbc = ['content' => ['bridge_cbc' => true, 'device_result_id' => 123, 'html' => 'old'],
+            'sub_tests' => [['name' => 'WBC', 'value' => '<script>alert(1)</script>', 'unit' => '', 'reference_range' => '']]];
+        $service = app(\App\Services\BridgeCbcService::class);
+        foreach ([[$cbc], [['tests' => [$cbc]]]] as $input) {
+            $output = $service->prepareEditedTests($input);
+            $saved = $output[0]['tests'][0] ?? $output[0];
+            $this->assertStringContainsString('&lt;script&gt;', $saved['content']['html']);
+            $this->assertStringNotContainsString('<script>', $saved['content']['html']);
+            $this->assertSame(123, $saved['content']['device_result_id']);
+        }
+        $normal = [['content' => ['html' => 'ordinary template'], 'sub_tests' => []]];
+        $this->assertSame($normal, $service->prepareEditedTests($normal));
+    }
+
     public function test_cbc_barcode_import_preserves_all_clinical_rows_and_does_not_release_report(): void
     {
         [$device, $invoice, $test, $rel, $payload] = $this->cbcFixture();

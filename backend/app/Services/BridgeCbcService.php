@@ -23,16 +23,16 @@ class BridgeCbcService
 
     private const BM850_CODES = ['WBC','LYMR','MIDR','GRNR','LYMA','MIDA','GRNA','RBC','HGB','HCT','MCV','MCH','MCHC','RDWR','RDWA','PLT','MPV','PCT','PDW','PDWR','P-LCR','P-LCC'];
 
-    public function apply(DeviceResult $source): array
+    public function apply(DeviceResult $source, bool $replace = false): array
     {
-        return DB::transaction(function () use ($source) {
+        return DB::transaction(function () use ($source, $replace) {
             $device = LabDevice::whereKey($source->device_id_fk)->lockForUpdate()->first();
             $result = DeviceResult::whereKey($source->id)->lockForUpdate()->firstOrFail();
             if (! $device || ! $result->delivery_id ||
                 ! in_array($result->instrument_metadata['adapter'] ?? null, ['dxh500', 'np21h', 'bm850'], true)) {
                 return ['applied' => false, 'message' => 'هذه الرسالة ليست من ربط جهاز CBC مدعوم.'];
             }
-            if ($result->status === 'applied') {
+            if ($result->status === 'applied' && ! $replace) {
                 return ['applied' => true, 'duplicate' => true,
                     'applied_count' => $result->instrument_metadata['cbc_count'] ?? 0];
             }
@@ -103,7 +103,7 @@ class BridgeCbcService
             }
             [$rel, $field, $index, $items] = $targets[0];
             $existing = $field ? $items[$index] : $rel->toArray();
-            if ($this->hasValues($existing)) {
+            if ($this->hasValues($existing) && ! $replace) {
                 return $this->hold($result, 'توجد نتيجة سابقة لتحليل CBC؛ لم يتم استبدالها تلقائياً.');
             }
 
@@ -152,14 +152,16 @@ class BridgeCbcService
                     array_map(fn ($o) => empty($o['flags']) ? '' : $o['test_code'].': '.$o['flags'], $result->parsed_results ?? [])
                 )))),
             ];
-            // A four-column read-only snapshot; all raw values, flags and comments stay in the inbox.
+            // Preserve the source message; editable invoice rows generate the report snapshot.
             if ($field) {
+                $items[$index]['result'] = null;
                 $items[$index]['sub_tests'] = $rows;
                 $items[$index]['content'] = $content;
                 $items[$index]['is_special_test'] = true;
                 $items[$index]['is_done'] = false;
                 $rel->$field = $items;
             } else {
+                $rel->result = null;
                 $rel->sub_tests = $rows;
                 $rel->content = $content;
                 $rel->is_special_test = true;
@@ -178,6 +180,12 @@ class BridgeCbcService
             $rel->save();
             $invoice->update(['is_done'=>false, 'result_date'=>null, 'result_doc'=>null, 'pdf_qr_code'=>null]);
             $metadata = $result->instrument_metadata;
+            if ($replace) {
+                $metadata['cbc_replacements'][] = [
+                    'at' => now()->toISOString(), 'user_id' => auth()->id(),
+                    'previous_result' => $existing,
+                ];
+            }
             $metadata['cbc_previous_invoice_state'] = $previousState;
             $metadata['cbc_count'] = count($rows);
             $metadata['cbc_interface_code'] = $interfaceCode;
@@ -190,6 +198,39 @@ class BridgeCbcService
             ]);
             return ['applied' => true, 'duplicate' => false, 'applied_count' => count($rows)];
         }, 3);
+    }
+
+    /** Rebuild printable HTML from edited rows, including package/group snapshots. */
+    public function prepareEditedTests(?array $tests): ?array
+    {
+        if ($tests === null) return null;
+        foreach ($tests as &$test) {
+            $content = $this->decode($test['content'] ?? []);
+            if (! empty($content['bridge_cbc'])) {
+                $rows = $this->decode($test['sub_tests'] ?? []);
+                \Illuminate\Support\Facades\Validator::make(['rows' => $rows], [
+                    'rows' => 'required|array|min:1|max:200',
+                    'rows.*.name' => 'required|string|max:100',
+                    'rows.*.value' => 'nullable|string|max:500',
+                    'rows.*.unit' => 'nullable|string|max:50',
+                    'rows.*.reference_range' => 'nullable|string|max:255',
+                ])->validate();
+                foreach ($rows as &$row) {
+                    foreach (['value', 'unit', 'reference_range'] as $key) {
+                        $row[$key] = (string) ($row[$key] ?? '');
+                    }
+                }
+                unset($row);
+                $content['html'] = $this->table($rows);
+                $test['content'] = $content;
+                $test['sub_tests'] = $rows;
+            }
+            if (isset($test['tests']) && is_array($test['tests'])) {
+                $test['tests'] = $this->prepareEditedTests($test['tests']);
+            }
+        }
+        unset($test);
+        return $tests;
     }
 
     private function hold(DeviceResult $result, string $message): array
