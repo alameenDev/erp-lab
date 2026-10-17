@@ -3,6 +3,9 @@ on:
   pull_request:
     paths:
       - 'frontend/src/views/packages/**'
+      - 'frontend/src/views/test-groups/**'
+      - 'frontend/src/components/OrderedCatalogPicker.vue'
+      - 'frontend/tests/catalog-selection-order*'
       - 'frontend/src/store/modules/packages.js'
       - 'frontend/tests/package-contents*'
       - 'frontend/src/views/invoices/**'
@@ -37,6 +40,7 @@ jobs:
             sleep 1
           done
           node tests/package-contents.browser.mjs
+          node tests/catalog-selection-order.browser.mjs
           node tests/invoice-packages.browser.mjs
           node --test tests/invoice-referrals.test.mjs
           node tests/invoice-referrals.browser.mjs
@@ -47,6 +51,7 @@ jobs:
           name: package-contents
           path: |
             frontend/test-results/package-contents
+            frontend/test-results/catalog-selection-order
             frontend/test-results/invoice-packages
             frontend/test-results/invoice-referrals
           retention-days: 7

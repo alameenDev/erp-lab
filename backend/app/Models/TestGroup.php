@@ -69,11 +69,12 @@ class TestGroup extends Model
             ->withPivot('order')
             ->withTimestamps()
             ->withTrashed()
-            ->orderBy('pivot_order');
+            ->orderByPivot('order')->orderByPivot('id');
     }
 
     public function culture()
     {
-        return $this->hasMany(Culture::class, 'test_group_id_fk')->withTrashed();
+        return $this->hasMany(Culture::class, 'test_group_id_fk')->withTrashed()
+            ->orderBy('cultures.test_group_order')->orderBy('cultures.id');
     }
 }

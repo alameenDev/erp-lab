@@ -11,7 +11,7 @@ class CulturePackageRel extends Model
 
     // Fillable properties for mass assignment
     protected $fillable = [
-        'culture_id_fk', 'package_id_fk',
+        'culture_id_fk', 'package_id_fk', 'position',
     ];
 
     // Define relationships

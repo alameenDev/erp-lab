@@ -11,7 +11,7 @@ class TestPackageRel extends Model
 
     // Fillable properties for mass assignment
     protected $fillable = [
-        'test_id_fk', 'package_id_fk',
+        'test_id_fk', 'package_id_fk', 'position',
     ];
 
     // Define relationships

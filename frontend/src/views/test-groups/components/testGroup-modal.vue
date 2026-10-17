@@ -9,6 +9,7 @@ import { usetestsStore } from "@/store/modules/tests";
 import { useculturesStore } from "@/store/modules/cultures";
 import { t, alertSuccess, clearObjectValues } from "@/utils/helper";
 import FormulaBuilder from "@/components/FormulaBuilder.vue";
+import OrderedCatalogPicker from "@/components/OrderedCatalogPicker.vue";
 
 const testGroupsStore = usetestGroupsStore();
 const categoriesStore = useCategoriesStore();
@@ -21,7 +22,6 @@ const { record, dialog } = storeToRefs(testGroupsStore);
 const { categories } = storeToRefs(categoriesStore);
 const { samples } = storeToRefs(samplesStore);
 const { durationUnitsList } = storeToRefs(durationUnitsStore);
-const { tests } = storeToRefs(testsStore);
 const { cultures } = storeToRefs(culturesStore);
 
 const { AddtestGroups, UpdatetestGroups } = testGroupsStore;
@@ -31,8 +31,8 @@ const { GetdurationUnits } = durationUnitsStore;
 const { GetTests } = testsStore;
 const { Getcultures } = culturesStore;
 
-const testsSearchQuery = ref("");
-const culturesSearchQuery = ref("");
+const selectionTab = ref("tests");
+watch(dialog, () => { selectionTab.value = "tests"; });
 const discountAmount = ref(0);
 const _updatingDiscount = ref(false);
 
@@ -86,17 +86,12 @@ onMounted(() => {
 
 const categoriesList = computed(() => categories.value?.() || categories.value || []);
 const samplesList = computed(() => samples.value?.() || samples.value || []);
-const testsList = computed(() => {
-  const list = testsStore.testGroupTestes?.() || tests.value || [];
-  if (!testsSearchQuery.value) return list;
-  const q = testsSearchQuery.value.toLowerCase();
-  return list.filter(t => t.label?.toLowerCase().includes(q) || t.shortcut?.toLowerCase().includes(q));
-});
-const culturesList = computed(() => {
-  const list = culturesStore.cultureGroupTestes?.() || cultures.value || [];
-  if (!culturesSearchQuery.value) return list;
-  return list.filter(c => c.label?.toLowerCase().includes(culturesSearchQuery.value.toLowerCase()));
-});
+const testsList = computed(() => testsStore.testGroupTestes());
+const culturesList = computed(() => (cultures.value || []).map(culture => ({
+  label: culture.name,
+  value: culture.id,
+  price: culture.price_for_customer ?? culture.price ?? 0,
+})));
 
 // Map over the user's selection array (preserves click order) instead of
 // filtering the master testsList (which is in DB id / alphabetical order).
@@ -105,7 +100,7 @@ const selectedTests = computed(() => {
   const ids = record.value?.test_ids || [];
   if (!ids.length) return [];
   return ids
-    .map(id => testsList.value?.find(t => t.value === id))
+    .map(id => testsList.value?.find(t => String(t.value) === String(id)))
     .filter(Boolean);
 });
 
@@ -113,7 +108,7 @@ const selectedCultures = computed(() => {
   const ids = record.value?.culture_ids || [];
   if (!ids.length) return [];
   return ids
-    .map(id => culturesList.value?.find(c => c.value === id))
+    .map(id => culturesList.value?.find(c => String(c.value) === String(id)))
     .filter(Boolean);
 });
 
@@ -137,11 +132,11 @@ const totalTestsPrice = computed(() => {
   const tIds = Array.isArray(record.value.test_ids) ? record.value.test_ids : [];
   const cIds = Array.isArray(record.value.culture_ids) ? record.value.culture_ids : [];
   tIds.forEach(id => {
-    const t = testsList.value?.find(x => x.value === id);
+    const t = testsList.value?.find(x => String(x.value) === String(id));
     if (t) sum += customerPriceOf(t);
   });
   cIds.forEach(id => {
-    const c = culturesList.value?.find(x => x.value === id);
+    const c = culturesList.value?.find(x => String(x.value) === String(id));
     if (c) sum += customerPriceOf(c);
   });
   return sum;
@@ -153,35 +148,18 @@ const totalTestsPrice = computed(() => {
 // with the invoice-modal fix where the displayed group price is always the
 // sum of its children, so the test-group's saved price should match.
 watch(totalTestsPrice, (val) => {
-  if (val <= 0) return;
+  if (!dialog.value) return;
+  // Wait for the complete catalog when an existing group opens before loading finishes.
+  const testIds = Array.isArray(record.value.test_ids) ? record.value.test_ids : [];
+  const cultureIds = Array.isArray(record.value.culture_ids) ? record.value.culture_ids : [];
+  if (testIds.some(id => !testsList.value.some(item => String(item.value) === String(id))) ||
+      cultureIds.some(id => !culturesList.value.some(item => String(item.value) === String(id)))) return;
   _updatingDiscount.value = true;
   record.value.original_price = val;
   const d = parseFloat(discountAmount.value) || 0;
   record.value.for_customer_price = Math.max(0, val - d);
   _updatingDiscount.value = false;
 });
-
-const toggleTest = (testId) => {
-  if (!record.value) return;
-  if (!record.value.test_ids) record.value.test_ids = [];
-  const index = record.value.test_ids.indexOf(testId);
-  if (index === -1) {
-    record.value.test_ids.push(testId);
-  } else {
-    record.value.test_ids.splice(index, 1);
-  }
-};
-
-const toggleCulture = (cultureId) => {
-  if (!record.value) return;
-  if (!record.value.culture_ids) record.value.culture_ids = [];
-  const index = record.value.culture_ids.indexOf(cultureId);
-  if (index === -1) {
-    record.value.culture_ids.push(cultureId);
-  } else {
-    record.value.culture_ids.splice(index, 1);
-  }
-};
 
 const addComment = () => {
   if (!record.value.result_comments) record.value.result_comments = [];
@@ -190,10 +168,6 @@ const addComment = () => {
 
 const removeComment = (index) => {
   record.value.result_comments.splice(index, 1);
-};
-
-const onTestsScroll = () => {
-  // All tests are loaded at once, no need for infinite scroll
 };
 
 const cleanBeforeSend = () => {
@@ -405,130 +379,13 @@ const close = () => {
                         <span class="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">{{ t("step") }} 2</span>
                       </div>
                     </div>
-                    <div class="p-6">
-                      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <!-- Tests Selection -->
-                        <div>
-                          <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("tests") }}</label>
-                          <div class="border border-slate-200 rounded-xl overflow-hidden">
-                            <!-- Search -->
-                            <div class="p-3 border-b border-slate-100 bg-slate-50">
-                              <div class="relative">
-                                <span class="absolute inset-y-0 start-0 flex items-center ps-3 text-slate-400">
-                                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                  </svg>
-                                </span>
-                                <input
-                                  v-model="testsSearchQuery"
-                                  type="text"
-                                  :placeholder="t('search') + '...'"
-                                  class="w-full ps-9 pe-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all"
-                                />
-                              </div>
-                            </div>
-                            <!-- Selected Tests -->
-                            <div v-if="selectedTests.length > 0" class="p-3 border-b border-slate-100 bg-primary-50/50">
-                              <div class="flex flex-wrap gap-2">
-                                <span
-                                  v-for="test in selectedTests"
-                                  :key="test.value"
-                                  class="inline-flex items-center gap-1 px-2.5 py-1 bg-primary-100 text-primary-700 text-xs font-medium rounded-lg"
-                                >
-                                  {{ test.label }}
-                                  <button type="button" @click="toggleTest(test.value)" class="hover:text-primary-900">
-                                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                  </button>
-                                </span>
-                              </div>
-                            </div>
-                            <!-- Tests List -->
-                            <div class="max-h-48 overflow-y-auto" @scroll="onTestsScroll">
-                              <label
-                                v-for="test in testsList"
-                                :key="test.value"
-                                class="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 cursor-pointer border-b border-slate-50 last:border-0 transition-colors"
-                              >
-                                <input
-                                  type="checkbox"
-                                  :checked="record.test_ids?.includes(test.value)"
-                                  @change="toggleTest(test.value)"
-                                  class="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-primary-500"
-                                />
-                                <div class="flex-1 flex items-center gap-2 flex-wrap">
-                                  <span class="text-sm text-slate-700">{{ test.label }}</span>
-                                  <span v-if="test.shortcut" class="text-xs text-slate-500 font-mono">({{ test.shortcut }})</span>
-                                  <span v-if="test.is_special" class="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-semibold rounded-full">تحاليل مخصصة</span>
-                                </div>
-                              </label>
-                              <div v-if="testsList.length === 0" class="p-4 text-center text-slate-500 text-sm">
-                                {{ t("noData") }}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        <!-- Cultures Selection -->
-                        <div>
-                          <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("cultures") }}</label>
-                          <div class="border border-slate-200 rounded-xl overflow-hidden">
-                            <!-- Search -->
-                            <div class="p-3 border-b border-slate-100 bg-slate-50">
-                              <div class="relative">
-                                <span class="absolute inset-y-0 start-0 flex items-center ps-3 text-slate-400">
-                                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                  </svg>
-                                </span>
-                                <input
-                                  v-model="culturesSearchQuery"
-                                  type="text"
-                                  :placeholder="t('search') + '...'"
-                                  class="w-full ps-9 pe-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all"
-                                />
-                              </div>
-                            </div>
-                            <!-- Selected Cultures -->
-                            <div v-if="selectedCultures.length > 0" class="p-3 border-b border-slate-100 bg-purple-50/50">
-                              <div class="flex flex-wrap gap-2">
-                                <span
-                                  v-for="culture in selectedCultures"
-                                  :key="culture.value"
-                                  class="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-lg"
-                                >
-                                  {{ culture.label }}
-                                  <button type="button" @click="toggleCulture(culture.value)" class="hover:text-purple-900">
-                                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                  </button>
-                                </span>
-                              </div>
-                            </div>
-                            <!-- Cultures List -->
-                            <div class="max-h-48 overflow-y-auto">
-                              <label
-                                v-for="culture in culturesList"
-                                :key="culture.value"
-                                class="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 cursor-pointer border-b border-slate-50 last:border-0 transition-colors"
-                              >
-                                <input
-                                  type="checkbox"
-                                  :checked="record.culture_ids?.includes(culture.value)"
-                                  @change="toggleCulture(culture.value)"
-                                  class="w-4 h-4 text-purple-600 border-slate-300 rounded focus:ring-purple-500"
-                                />
-                                <span class="text-sm text-slate-700">{{ culture.label }}</span>
-                              </label>
-                              <div v-if="culturesList.length === 0" class="p-4 text-center text-slate-500 text-sm">
-                                {{ t("noData") }}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
+                    <div class="p-4 sm:p-6">
+                      <div class="flex flex-wrap gap-2 mb-4" role="group" :aria-label="t('tests_and_cultures')">
+                        <button type="button" @click="selectionTab = 'tests'" :aria-pressed="selectionTab === 'tests'" class="px-4 py-2 rounded-lg text-sm font-medium border" :class="selectionTab === 'tests' ? 'bg-teal-50 border-teal-600 text-teal-800' : 'border-slate-200 text-slate-600'">{{ t('tests') }} ({{ selectedTests.length }})</button>
+                        <button type="button" @click="selectionTab = 'cultures'" :aria-pressed="selectionTab === 'cultures'" class="px-4 py-2 rounded-lg text-sm font-medium border" :class="selectionTab === 'cultures' ? 'bg-teal-50 border-teal-600 text-teal-800' : 'border-slate-200 text-slate-600'">{{ t('cultures') }} ({{ selectedCultures.length }})</button>
                       </div>
+                      <OrderedCatalogPicker v-show="selectionTab === 'tests'" v-model="record.test_ids" :options="testsList" :label="t('tests')" />
+                      <OrderedCatalogPicker v-show="selectionTab === 'cultures'" v-model="record.culture_ids" :options="culturesList" :label="t('cultures')" />
                     </div>
                   </div>
 
