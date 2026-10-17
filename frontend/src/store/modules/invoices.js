@@ -360,9 +360,9 @@ export const useinvoicesStore = defineStore("invoices", {
       }
     },
 
-    async patient_medical_records(id) {
+    async patient_medical_records(id, params = {}) {
       try {
-        const { data } = await $http.get(`/invoices/patient-medical-records/${id}`);
+        const { data } = await $http.get(`/invoices/patient-medical-records/${id}`, { params });
         this.invoices = data.map((item, index) => ({ ...item, index: index + 1 }));
         this.totalCount = this.invoices.length;
       } catch (error) {

@@ -1072,5 +1072,9 @@
      "selection_no_matches": "No matching items.",
      "selection_unavailable": "Item unavailable in catalog",
      "selection_special": "Custom test",
-     "selection_package_contents": "Package contents"
+     "selection_package_contents": "Package contents",
+     "report_test_filter_placeholder": "Select one or more tests",
+     "report_test_filter_help": "Shows reports containing all selected tests in the same report.",
+     "report_test_filter_count": "{0} tests selected",
+     "report_test_filter_error": "Could not load tests. Reopen the filters to try again."
 }

@@ -5,7 +5,8 @@ import ReportActionStatus from "@/components/ReportActionStatus.vue";
 import { reportActionStatus } from "@/utils/reportActionStatus";
 import { downloadMedicalReportFile } from "@/utils/medicalReportOutput";
 
-import { ref, computed, watch, onMounted, nextTick } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
+import MultiSelect from "primevue/multiselect";
 import { storeToRefs } from "pinia";
 import { useRoute, useRouter } from "vue-router";
 import { useinvoicesStore } from "@/store/modules/invoices";
@@ -94,7 +95,33 @@ const filters = ref({
   contract_id_fk: "",
   status: "", // done, pending
   signed_status: "", // signed, unsigned
+  test_ids: [],
 });
+
+const testFilterOptions = ref([]);
+const testFilterSelection = computed({
+  get: () => filters.value.test_ids,
+  set: value => { filters.value.test_ids = value || []; },
+});
+const testFilterLoading = ref(false);
+let testFilterLoaded = false;
+const loadTestFilterOptions = async () => {
+  if (testFilterLoaded || testFilterLoading.value) return;
+  testFilterLoading.value = true;
+  try {
+    const { data } = await $http.get("/invoices/test-filter-options");
+    testFilterOptions.value = data.map(test => ({
+      ...test,
+      label: test.shortcut ? `${test.name} (${test.shortcut})` : test.name,
+    }));
+    testFilterLoaded = true;
+  } catch {
+    toast.error(t("report_test_filter_error"));
+  } finally {
+    testFilterLoading.value = false;
+  }
+};
+watch(showFilters, open => { if (open) loadTestFilterOptions(); });
 
 // Computed
 // Pagination (server-side when !patientId, client-side when patientId)
@@ -115,6 +142,7 @@ const activeFiltersCount = computed(() => {
   if (filters.value.contract_id_fk) count++;
   if (filters.value.registration_date) count++;
   if (filters.value.from_lab) count++;
+  if (filters.value.test_ids?.length) count++;
   return count;
 });
 
@@ -127,11 +155,16 @@ const buildParams = () => {
   if (filters.value.status) params.is_done = filters.value.status;
   if (filters.value.signed_status) params.signed_status = filters.value.signed_status;
   if (filters.value.registration_date) params.invoice_date = filters.value.registration_date;
+  if (filters.value.test_ids?.length) params.test_ids = [...filters.value.test_ids];
   return params;
 };
 
 const fetchInvoices = async () => {
-  await invoicesStore.Getinvoices(buildParams());
+  if (patientId.value) {
+    await invoicesStore.patient_medical_records(patientId.value, { test_ids: [...filters.value.test_ids] });
+  } else {
+    await invoicesStore.Getinvoices(buildParams());
+  }
 };
 
 // Methods
@@ -151,7 +184,7 @@ const toggleMenu = (id) => { activeMenuId.value = activeMenuId.value === id ? nu
 const closeMenu = () => { activeMenuId.value = null; };
 
 const clearFilters = () => {
-  filters.value = { patient_name: "", registration_date: "", from_lab: "", contract_id_fk: "", status: "", signed_status: "" };
+  filters.value = { patient_name: "", registration_date: "", from_lab: "", contract_id_fk: "", status: "", signed_status: "", test_ids: [] };
 };
 
 const exportToExcel = () => {
@@ -206,11 +239,7 @@ const PationtHistory = async (rec) => {
 
 const signInvoice = async (id) => {
   await $http.post(`/invoices/sign`, { id });
-  if (patientId.value) {
-    await invoicesStore.patient_medical_records(patientId.value);
-  } else {
-    await fetchInvoices();
-  }
+  await fetchInvoices();
 };
 
 const print_work_sheet = async (data) => {
@@ -325,6 +354,14 @@ watch(filters, () => {
   }
 }, { deep: true });
 
+watch(() => filters.value.test_ids, () => {
+  if (patientId.value) {
+    clearTimeout(filterTimer);
+    filterTimer = setTimeout(fetchInvoices, 300);
+  }
+}, { deep: true });
+onUnmounted(() => clearTimeout(filterTimer));
+
 // Barcode scan
 const scanInput = ref("");
 const scanResult = ref(null);
@@ -393,7 +430,7 @@ onMounted(async () => {
   try {
     patientId.value = route.params.patientId || route.query.patient_id || null;
     if (patientId.value) {
-      // Patient mode: client-side filtering (small dataset)
+      // Patient mode returns all matching visits without server pagination.
       await invoicesStore.patient_medical_records(patientId.value);
     } else {
       // Main list: server-side pagination
@@ -543,6 +580,8 @@ onMounted(async () => {
           <div class="flex items-center gap-3">
             <button
               @click="toggleFilters"
+              :aria-label="t('filters')"
+              :aria-expanded="showFilters"
               class="px-4 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium rounded-xl transition-all flex items-center gap-2 relative"
               :class="{ 'bg-primary-50 border-primary-200 text-primary-700': showFilters || activeFiltersCount > 0 }"
             >
@@ -554,7 +593,7 @@ onMounted(async () => {
                 {{ activeFiltersCount }}
               </span>
             </button>
-            <button v-if="activeFiltersCount > 0" @click="clearFilters" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl transition-all flex items-center gap-2">
+            <button v-if="activeFiltersCount > 0" @click="clearFilters" :aria-label="t('Clear Filters')" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl transition-all flex items-center gap-2">
               <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -619,6 +658,32 @@ onMounted(async () => {
               <div>
                 <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("Registration_date") }}</label>
                 <input v-model="filters.registration_date" type="date" @click="$event.target.showPicker()" class="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all" />
+              </div>
+              <div data-report-test-filter>
+                <label for="medical-report-test-filter" class="block text-sm font-medium text-slate-700 mb-2">{{ t("tests") }}</label>
+                <MultiSelect
+                  v-model="testFilterSelection"
+                  inputId="medical-report-test-filter"
+                  :options="testFilterOptions"
+                  optionLabel="label"
+                  optionValue="id"
+                  filter
+                  showClear
+                  :showToggleAll="false"
+                  :selectionLimit="50"
+                  :maxSelectedLabels="1"
+                  :selectedItemsLabel="t('report_test_filter_count')"
+                  :placeholder="t('report_test_filter_placeholder')"
+                  :filterPlaceholder="t('selection_search')"
+                  :emptyMessage="t('noData')"
+                  :emptyFilterMessage="t('noData')"
+                  :loading="testFilterLoading"
+                  appendTo="body"
+                  :pt="{ pcFilter: { root: { 'aria-label': t('selection_search') } }, overlay: { style: { maxWidth: 'calc(100vw - 2rem)' } }, option: { style: { whiteSpace: 'normal', overflowWrap: 'anywhere' } } }"
+                  class="report-test-filter w-full"
+                  aria-describedby="medical-report-test-filter-help"
+                />
+                <p id="medical-report-test-filter-help" class="mt-1.5 text-xs leading-5 text-slate-500">{{ t("report_test_filter_help") }}</p>
               </div>
             </div>
           </div>
@@ -875,3 +940,16 @@ onMounted(async () => {
 
   </div>
 </template>
+
+<style scoped>
+:deep(.report-test-filter) {
+  min-height: 46px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: white;
+  color: #334155;
+  box-shadow: none;
+}
+:deep(.report-test-filter .p-multiselect-label) { padding: 10px 16px; line-height: 24px; }
+:deep(.report-test-filter.p-focus) { border-color: var(--p-primary-color); }
+</style>
