@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Catalog selection order regression</title></head>
 <body><div id="app"></div><script type="module">
-import { createApp } from 'vue';
+import { createApp, h } from 'vue';
 import { createPinia } from 'pinia';
 import GroupModal from '/src/views/test-groups/components/testGroup-modal.vue';
 import PackageModal from '/src/views/packages/components/packages_modal.vue';
@@ -17,7 +17,7 @@ import { $http } from '/src/plugins/axios';
 import '/src/assets/main.css';
 localStorage.setItem('locale', 'ar');
 localStorage.setItem('token', 'synthetic-order-fixture');
-const app = createApp({ components: { GroupModal, PackageModal }, template: '<GroupModal/><PackageModal/>' });
+const app = createApp({ render: () => [h(GroupModal), h(PackageModal)] });
 const pinia = createPinia();
 app.use(pinia).mixin(Mixins);
 const groups = usetestGroupsStore(pinia), packages = usePackagesStore(pinia);

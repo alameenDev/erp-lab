@@ -7,7 +7,7 @@ const browser = await chromium.launch();
 const errors = [];
 try {
   const page = await browser.newPage({ viewport: { width: 1360, height: 1000 } });
-  page.on('pageerror', error => errors.push(error.message));
+  page.on('pageerror', error => { errors.push(error.message); console.error(error.stack); });
   await page.goto('http://127.0.0.1:5173/tests/catalog-selection-order-browser.html');
   await page.waitForFunction(() => window.orderFixture);
   const picker = () => page.locator('.ordered-picker:visible');
