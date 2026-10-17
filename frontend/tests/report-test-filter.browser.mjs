@@ -39,6 +39,7 @@ try {
   assert.deepEqual((await lastRequest()).params.test_ids, [11, 12]);
   assert.equal(await page.evaluate(() => filterFixture.store.stats.total), 1);
   await page.keyboard.press('Escape');
+  await page.locator('.p-multiselect-overlay').waitFor({state: 'hidden'});
   assert.match(await field().textContent(), /2 تحاليل مختارة/);
   assert.match(await toggle().textContent(), /1/, 'multiple tests count as one active filter');
   const height = await field().locator('.report-test-filter').evaluate(el => el.getBoundingClientRect().height);
@@ -74,7 +75,7 @@ try {
   await waitRows([1, 3]);
   const overlay = await page.locator('.p-multiselect-overlay').boundingBox();
   assert.ok(overlay.x >= -1 && overlay.x + overlay.width <= 391, 'dropdown fits mobile width');
-  await page.screenshot({path: 'test-results/report-pages/test-filter-mobile.png'});
+  await page.screenshot({path: 'test-results/report-pages/test-filter-mobile.png', fullPage: true});
   await page.keyboard.press('Escape');
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
 

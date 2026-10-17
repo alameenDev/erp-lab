@@ -646,6 +646,7 @@ class InvoiceController extends Controller
             'referral.role',
 
             // Other existing relations
+            'promoCode',
             'lab',
             'fromLab:id,name',
             'discountType',
