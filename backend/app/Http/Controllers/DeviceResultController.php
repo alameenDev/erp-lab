@@ -190,7 +190,8 @@ class DeviceResultController extends Controller
         }
 
         if ($result->delivery_id) {
-            $outcome = app(\App\Services\BridgeCbcService::class)->apply($result);
+            $request->validate(['replace_existing' => 'sometimes|boolean']);
+            $outcome = app(\App\Services\BridgeCbcService::class)->apply($result, $request->boolean('replace_existing'));
             return response()->json($outcome + ['total_results' => count($result->parsed_results ?? [])],
                 $outcome['applied'] ? 200 : 422);
         }

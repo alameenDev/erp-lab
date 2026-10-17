@@ -77,13 +77,20 @@ const regenerateToken = (device) => {
      });
 };
 
-const applyResult = async (result) => {
+const applyingResult = ref(null);
+const applyResult = async (result, replaceExisting = false) => {
+     if (applyingResult.value !== null) return;
+     if (replaceExisting) {
+          const confirmation = await showAlertWithConfirm(`استبدال نتيجة CBC الحالية بنتائج هذا الإرسال للعينة ${result.specimen_barcode}؟ سيتم إلغاء اكتمال التحليل حتى تراجعه وتحفظه مجدداً.`);
+          if (!confirmation.isConfirmed) return;
+     }
+     applyingResult.value = result.id;
      try {
-          const data = await ApplyResult(result.id);
+          const data = await ApplyResult(result.id, replaceExisting);
           toast.success(`${data.applied_count} / ${data.total_results} ${t("apply_results")}`);
      } catch (error) {
           toast.error(error.response?.data?.message || t("error"));
-     }
+     } finally { applyingResult.value = null; }
 };
 
 const copyToken = () => {
@@ -285,6 +292,7 @@ const timeAgo = (dateStr) => {
                                    <span v-else-if="result.delivery_id" class="text-xs text-amber-700">{{ result.status === 'applied' ? 'نُقلت إلى CBC بالفاتورة — تحتاج اعتماد' : 'محفوظة للمراجعة والمطابقة' }}</span>
                                    <span v-else-if="result.status === 'pending'" class="text-xs text-amber-600">{{ t("no_match") }}</span>
                                    <span v-else-if="result.status === 'applied'" class="text-xs text-green-600">{{ t("done") }}</span>
+                                   <button v-if="result.delivery_id && havePermission('medical reports update')" :disabled="applyingResult !== null" @click="applyResult(result, true)" class="mx-1 rounded-lg border border-amber-400 px-3 py-1.5 text-xs font-semibold text-amber-800 disabled:opacity-50">استبدال نتيجة CBC بهذا الإرسال</button>
                                    <button @click="detailResult = result" class="px-3 py-1.5 text-xs text-blue-700 border rounded-lg mx-2">التفاصيل</button>
                               </td>
                          </tr>
@@ -304,8 +312,9 @@ const timeAgo = (dateStr) => {
                <div v-if="detailResult" class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" @click.self="detailResult = null">
                     <section class="bg-white rounded-xl p-6 w-full max-w-5xl max-h-[90vh] overflow-auto" dir="rtl" role="dialog" aria-modal="true" aria-label="تفاصيل نتائج الجهاز">
                          <div class="flex justify-between items-center mb-4"><h2 class="text-lg font-bold">نتائج الجهاز — {{ detailResult.specimen_barcode }}</h2><button @click="detailResult = null" class="border rounded-lg px-3 py-2">إغلاق</button></div>
+                         <p class="mb-3 text-sm" dir="ltr">{{ detailResult.device?.name }} · {{ detailResult.created_at }} · #{{ detailResult.id }}</p>
                          <p v-if="detailResult.error_message" class="bg-amber-50 p-3 rounded-lg mb-3">{{ detailResult.error_message }}</p>
-                         <p v-if="detailResult.delivery_id" class="bg-blue-50 p-3 rounded-lg mb-3">تُنقل نتائج CBC إلى الفاتورة المطابقة للباركود عندما يكون كود ربط التحليل 12345678. النقل لا يعتمد التقرير ولا يستبدل نتيجة سابقة. الفحوصات التي تبدأ بـ @ تبقى هنا لأنها بحثية فقط.</p>
+                         <p v-if="detailResult.delivery_id" class="bg-blue-50 p-3 rounded-lg mb-3">تُنقل نتائج CBC إلى الفاتورة المطابقة للباركود عندما يكون كود ربط التحليل 12345678. النقل لا يعتمد التقرير. يمكنك اختيار استبدال نتيجة CBC بهذا الإرسال من القائمة؛ راجع القيم ووقت الاستلام قبل التأكيد. التقارير الموقعة أو المرسلة تحتاج إعادة فتحها وفق إجراءات المختبر أولاً. الفحوصات التي تبدأ بـ @ تبقى هنا لأنها بحثية فقط.</p>
                          <p class="mb-3">حالة المطابقة: {{ detailResult.invoice_id_fk ? 'مرتبطة بالفاتورة #' + detailResult.invoice_id_fk : 'لا توجد فاتورة مطابقة؛ راجع باركود العينة' }}</p>
                          <div v-for="(warning, index) in detailResult.instrument_metadata?.warnings || []" :key="'w'+index" class="bg-amber-50 text-amber-900 rounded-lg p-3 mb-2">{{ warning }}</div>
                          <div v-for="(comment, index) in detailResult.instrument_metadata?.comments || []" :key="'c'+index" class="border rounded-lg p-3 mb-2">{{ comment.code || 'العينة' }}: {{ comment.text }}</div>

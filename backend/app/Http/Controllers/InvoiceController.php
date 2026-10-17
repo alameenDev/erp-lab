@@ -2281,6 +2281,14 @@ class InvoiceController extends Controller
             $invoiceOwner = User::findOrFail($invoice->lab_id_fk);
             abort_unless((int) $user->role_id === 1 || $inventoryOwner->labId($user) === $inventoryOwner->labId($invoiceOwner), 403);
 
+            $cbc = app(\App\Services\BridgeCbcService::class);
+            $tests = $cbc->prepareEditedTests($tests);
+            $packages = $cbc->prepareEditedTests($packages);
+            $test_groups = $cbc->prepareEditedTests($test_groups);
+            // A changed report must not keep serving a cached PDF of the old values.
+            $invoice->result_doc = null;
+            $invoice->pdf_qr_code = null;
+
             // Handle attachments
             $attachmentsArray = [];
 
