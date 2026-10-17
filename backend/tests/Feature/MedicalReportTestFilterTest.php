@@ -21,6 +21,7 @@ class MedicalReportTestFilterTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        config(['app.debug' => true]);
         $this->seed(ReferenceDataSeeder::class);
         $this->lab = User::create(['name' => 'Report Filter Lab', 'email' => 'filter-lab@example.test', 'password' => 'test-password', 'role_id' => 2]);
         $this->lab->givePermissionTo(Permission::findOrCreate('invoices view', 'api'));
@@ -142,7 +143,9 @@ class MedicalReportTestFilterTest extends TestCase
         $url = '/api/invoices/patient-medical-records/'.$this->patient->id;
         $this->getJson($url.'?'.http_build_query(['test_ids' => [$this->cbc->id, $this->glucose->id]]))
             ->assertOk()->assertJsonCount(1)->assertJsonPath('0.id', $matching->id);
-        $this->getJson($url)->assertOk()->assertJsonCount(2);
+        $unfiltered = $this->getJson($url);
+        $this->assertSame(200, $unfiltered->status(), $unfiltered->getContent());
+        $unfiltered->assertJsonCount(2);
         $this->getJson($url.'?test_ids=invalid')->assertUnprocessable();
     }
 }
