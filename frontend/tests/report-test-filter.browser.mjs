@@ -11,7 +11,7 @@ const url = 'http://127.0.0.1:5173/tests/report-test-filter-browser.html';
 const toggle = () => page.getByRole('button', {name: 'الفلاتر', exact: true});
 const field = () => page.locator('[data-report-test-filter]');
 const choose = async (shortcut, name) => {
-  if (!await page.getByRole('searchbox').isVisible()) await field().getByRole('combobox').click();
+  if (!await page.getByRole('searchbox').isVisible()) await field().locator('.report-test-filter').click();
   await page.getByRole('searchbox').fill(shortcut);
   await page.getByRole('option', {name, exact: true}).click();
 };

@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\{Invoice, InvoiceTestRel, Package, Patient, Test as LabTest, TestGroup, User};
+use App\Models\{Invoice, Package, Patient, Test as LabTest, TestGroup, User};
 use Database\Seeders\ReferenceDataSeeder;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Spatie\Permission\Models\Permission;
@@ -85,7 +85,7 @@ class MedicalReportTestFilterTest extends TestCase
         $group = TestGroup::create(['group_name' => 'Changed group', 'lab_id_fk' => $this->lab->id]);
         $group->tests()->attach($this->creatinine->id);
         $package = Package::create(['name' => 'Changed package', 'lab_id_fk' => $this->lab->id]);
-        $package->testGroups()->attach($group->id);
+        $package->tests()->attach($this->creatinine->id);
         $snapshot = [['id' => (string) $this->cbc->id], ['test_id_fk' => $this->glucose->id]];
         $groupInvoice = $this->invoice([['test_group_id_fk' => $group->id, 'test_group_tests' => $snapshot]]);
         $packageInvoice = $this->invoice([['package_id_fk' => $package->id, 'package_tests' => json_encode($snapshot)]]);
@@ -98,6 +98,20 @@ class MedicalReportTestFilterTest extends TestCase
             $this->invoice([['test_group_id_fk' => $group->id, 'test_group_tests' => $legacy]]);
         }
         $this->filtered([$this->creatinine->id])->assertOk()->assertJsonPath('pagination.total', 3);
+    }
+
+    public function test_package_snapshot_and_appended_group_members_match_the_rendered_report(): void
+    {
+        $group = TestGroup::create(['group_name' => 'Package group', 'lab_id_fk' => $this->lab->id]);
+        $group->tests()->attach($this->cbc->id);
+        $package = Package::create(['name' => 'Mixed package', 'lab_id_fk' => $this->lab->id]);
+        $package->tests()->attach($this->creatinine->id);
+        $package->testGroups()->attach($group->id);
+        $invoice = $this->invoice([['package_id_fk' => $package->id, 'package_tests' => [['id' => $this->glucose->id]]]]);
+
+        $this->filtered([$this->glucose->id, $this->cbc->id])->assertOk()
+            ->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $invoice->id);
+        $this->filtered([$this->creatinine->id])->assertOk()->assertJsonCount(0, 'data');
     }
 
     public function test_options_and_validation_use_report_permissions_and_the_current_lab_scope(): void

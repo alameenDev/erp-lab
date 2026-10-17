@@ -20,7 +20,10 @@ class InvoiceTestFilter
                         })
                         ->orWhere(function (Builder $packages) use ($testId) {
                             $packages->whereNotNull('package_id_fk')->where(function (Builder $members) use ($testId) {
-                                $this->bundleContains($members, 'package_tests', ['package.tests', 'package.testGroups.tests'], $testId);
+                                $this->bundleContains($members, 'package_tests', ['package.tests'], $testId);
+                                // transformPackage appends group members even when
+                                // the package has a saved direct-test snapshot.
+                                $members->orWhereHas('package.testGroups.tests', fn (Builder $tests) => $tests->where('tests.id', $testId));
                             });
                         });
                 });
