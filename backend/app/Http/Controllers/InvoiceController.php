@@ -10,6 +10,8 @@ use App\Models\InvoicePaidDetail;
 use App\Models\InvoiceTestRel;
 use App\Models\Patient;
 use App\Models\TestGroup;
+use App\Models\Test as LabTest;
+use App\Services\InvoiceTestFilter;
 use App\Services\LoyaltyService;
 use App\Models\TestReferenceRange;
 use App\Models\User;
@@ -22,6 +24,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class InvoiceController extends Controller
@@ -165,6 +168,8 @@ class InvoiceController extends Controller
             }
         }
 
+        app(InvoiceTestFilter::class)->apply($query, $this->validatedTestFilter($request));
+
         // Compute stats from filtered query BEFORE pagination
         $statsQuery = clone $query;
         $stats = $statsQuery
@@ -217,14 +222,49 @@ class InvoiceController extends Controller
         ]);
     }
 
+    /** Lightweight options using report access, without requiring catalog permissions. */
+    public function testFilterOptions()
+    {
+        if (! Auth::user()?->hasPermissionTo('invoices view')) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+
+        return response()->json($this->testFilterCatalog()->orderBy('name')->orderBy('id')->get(['id', 'name', 'shortcut']));
+    }
+
+    private function testFilterCatalog()
+    {
+        $query = LabTest::withTrashed();
+        if (Auth::user()->role_id != 1) {
+            $query->whereIn('lab_id_fk', $this->getTenantUserIds());
+        }
+
+        return $query;
+    }
+
+    private function validatedTestFilter(Request $request): array
+    {
+        $validated = $request->validate([
+            'test_ids' => 'sometimes|array|max:50',
+            'test_ids.*' => 'required|integer|min:1|distinct',
+        ]);
+        $ids = array_map('intval', $validated['test_ids'] ?? []);
+        if ($ids && $this->testFilterCatalog()->whereIn('id', $ids)->count() !== count($ids)) {
+            throw ValidationException::withMessages(['test_ids' => 'One or more selected tests are unavailable.']);
+        }
+
+        return $ids;
+    }
+
     /**
      * Get medical records for a specific patient.
      *
      * @param  int  $id
      * @return JsonResponse
      */
-    public function patientMedicalRecords($id)
+    public function patientMedicalRecords(Request $request, $id)
     {
+        $testIds = $this->validatedTestFilter($request);
 
         try {
             // Fetch invoices for the patient and order by creation date
@@ -236,6 +276,7 @@ class InvoiceController extends Controller
                 $query->whereIn('lab_id_fk', $users_ids);
             }
 
+            app(InvoiceTestFilter::class)->apply($query, $testIds);
             $invoices = $query->with($this->invoiceRelations())->get();
             // Transform invoices for response
             $transformedInvoices = $invoices->map(fn ($invoice) => $this->transformInvoice($invoice, true, false));
@@ -605,6 +646,7 @@ class InvoiceController extends Controller
             'referral.role',
 
             // Other existing relations
+            'promoCode',
             'lab',
             'fromLab:id,name',
             'discountType',

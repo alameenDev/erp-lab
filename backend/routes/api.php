@@ -394,6 +394,7 @@ Route::group(['middleware' => ['auth:sanctum', \App\Http\Middleware\RestrictRefe
      @ Invoices Routes
      */
     Route::get('invoices', [InvoiceController::class, 'index']);
+    Route::get('invoices/test-filter-options', [InvoiceController::class, 'testFilterOptions']);
     Route::get('invoices/get-samples/{id}', [InvoiceController::class, 'getTestsSamples']);
     Route::get('invoices/show-pdf', [InvoiceController::class, 'downloadInvoice']);
     Route::post('invoices/create', [InvoiceController::class, 'store']);

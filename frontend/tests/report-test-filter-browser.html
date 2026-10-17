@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Medical report test filter regression</title></head>
+<body><div id="app"></div><script type="module">
+import { createApp, h } from 'vue';
+import { createPinia } from 'pinia';
+import { createRouter, createMemoryHistory } from 'vue-router';
+import PrimeVue from 'primevue/config';
+import Aura from '@primeuix/themes/aura';
+import Reports from '/src/views/medical_reports/index.vue';
+import Mixins from '/src/utils/mixins';
+import { useinvoicesStore } from '/src/store/modules/invoices';
+import { useAuthStore } from '/src/store/modules/auth';
+import { useTemplatesStore } from '/src/store/modules/template';
+import { useresultStatusStore } from '/src/store/modules/result-status';
+import { $http } from '/src/plugins/axios';
+import { t } from '/src/utils/helper';
+import '/src/assets/main.css';
+localStorage.setItem('locale', 'ar');
+localStorage.setItem('token', 'synthetic-report-filter-fixture');
+localStorage.setItem('user', JSON.stringify({id: 1, role_id: 2}));
+const app = createApp({render: () => h('main', {class: 'p-4'}, [h(Reports)])});
+const pinia = createPinia();
+const router = createRouter({history: createMemoryHistory(), routes: [{path: '/:pathMatch(.*)*', component: {render: () => null}}]});
+app.use(pinia).use(router).use(PrimeVue, {theme: {preset: Aura, options: {prefix: 'p', darkModeSelector: '.dark-mode', cssLayer: false}}}).mixin(Mixins);
+useAuthStore(pinia).havePermission = () => false;
+useTemplatesStore(pinia).GetTemplates = async () => {};
+useresultStatusStore(pinia).resultStatus = [{label: 'Normal', value: 1}];
+const store = useinvoicesStore(pinia);
+const options = [{id: 11, name: 'Complete Blood Count', shortcut: 'CBC'}, {id: 12, name: 'Glucose', shortcut: 'GLU'}, {id: 13, name: 'Creatinine', shortcut: 'CRE'}];
+const rows = Array.from({length: 30}, (_, index) => ({
+  id: index + 1, patient: {id: index < 2 ? 1 : 2, name: `مريض تجريبي ${index + 1}`},
+  registration_date: '2026-10-17T08:00:00Z', barcode: String(1001 + index), lab: 'مختبر تجريبي',
+  created_by: {name: 'موظف تجريبي'}, is_done: index !== 0, is_signed: false, sent_to_patient: false,
+  attachments: [], testIds: index === 0 ? [11, 12] : index === 1 ? [11] : index === 2 ? [12] : [13],
+}));
+const requests = [];
+$http.defaults.adapter = async config => {
+  const params = config.params || {};
+  requests.push({url: config.url, params: JSON.parse(JSON.stringify(params))});
+  let data;
+  if (config.url === '/invoices/test-filter-options') data = options;
+  else if (config.url === '/contracts') data = [];
+  else if (config.url === '/invoices' || config.url === '/invoices/patient-medical-records/1') {
+    let matching = rows.filter(row => (params.test_ids || []).every(id => row.testIds.includes(id)));
+    if (params.is_done) matching = matching.filter(row => row.is_done === (params.is_done === 'done'));
+    if (config.url.includes('patient-medical-records')) data = matching.filter(row => row.patient.id === 1);
+    else {
+      const page = Number(params.page || 1), perPage = Number(params.per_page || 25), total = matching.length;
+      const completed = matching.filter(row => row.is_done).length;
+      data = {data: matching.slice((page - 1) * perPage, page * perPage),
+        pagination: {current_page: page, per_page: perPage, total, last_page: Math.ceil(total / perPage) || 1, from: total ? (page - 1) * perPage + 1 : null, to: Math.min(page * perPage, total)},
+        stats: {total, completed_done: completed, pending_done: total - completed, signed: 0, sent: 0}};
+    }
+  } else throw new Error('Unexpected request: ' + config.url);
+  return {data, status: 200, statusText: 'OK', headers: {}, config};
+};
+window.filterFixture = {store, requests, t};
+await router.push('/medical_reports' + window.location.search);
+await router.isReady();
+app.mount('#app');
+</script></body></html>

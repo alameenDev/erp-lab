@@ -1078,5 +1078,9 @@
      "selection_no_matches": "لا توجد عناصر مطابقة للبحث.",
      "selection_unavailable": "عنصر غير متاح في القائمة",
      "selection_special": "تحليل مخصص",
-     "selection_package_contents": "محتويات الباقة"
+     "selection_package_contents": "محتويات الباقة",
+     "report_test_filter_placeholder": "اختر تحليل أو عدة تحاليل",
+     "report_test_filter_help": "يعرض التقارير التي تحتوي جميع التحاليل المختارة في نفس التقرير.",
+     "report_test_filter_count": "{0} تحاليل مختارة",
+     "report_test_filter_error": "تعذر تحميل قائمة التحاليل. أعد فتح الفلاتر للمحاولة."
 }

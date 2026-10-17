@@ -59,6 +59,7 @@ jobs:
             curl -fsS http://127.0.0.1:5173/tests/report-background-browser.html > /dev/null && break
             sleep 1
           done
+          node tests/report-test-filter.browser.mjs
           node tests/report-form-default.browser.mjs
           node tests/report-selection-order.browser.mjs
           node tests/report-selection.browser.mjs
