@@ -12,7 +12,7 @@ export const usetestGroupsStore = defineStore("testGroups", {
           resdialog: false,
           testdialog: false,
           result_comments: [""],
-          test_ids: [""],
+          test_ids: [],
           totalCount: "",
           record: {
                id: "",
@@ -29,8 +29,8 @@ export const usetestGroupsStore = defineStore("testGroups", {
                is_print_alone: "0",
                result_comments: [""],
                test_group_comment: "",
-               test_ids: [""],
-               culture_ids: [""],
+               test_ids: [],
+               culture_ids: [],
           },
      }),
      getters: {

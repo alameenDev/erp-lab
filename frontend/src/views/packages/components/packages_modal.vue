@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { usePackagesStore } from "@/store/modules/packages";
 import { usetestsStore } from "@/store/modules/tests";
@@ -7,6 +7,7 @@ import { useculturesStore } from "@/store/modules/cultures";
 import { usetestGroupsStore } from "@/store/modules/testGroups";
 import { t, alertSuccess, clearObjectValues } from "@/utils/helper";
 import FormulaBuilder from "@/components/FormulaBuilder.vue";
+import OrderedCatalogPicker from "@/components/OrderedCatalogPicker.vue";
 
 const packagesStore = usePackagesStore();
 const testsStore = usetestsStore();
@@ -23,82 +24,28 @@ const { Getcultures } = culturesStore;
 
 const lang = computed(() => localStorage.getItem("locale") || "ar");
 
-const testsDropdownOpen = ref(false);
-const culturesDropdownOpen = ref(false);
-const groupsDropdownOpen = ref(false);
-const testsSearch = ref("");
-const culturesSearch = ref("");
-const groupsSearch = ref("");
+const selectionTab = ref("tests");
+watch(dialog, () => { selectionTab.value = "tests"; });
+const testsOptions = computed(() => TestLists().map(option => ({
+  ...option,
+  value: { ...option.value, name: option.label, shortcut: option.shortcut },
+})));
+const culturesOptions = computed(() => cultureLists().map(option => ({
+  ...option,
+  value: { ...option.value, name: option.label },
+})));
+const groupsOptions = computed(() => (testGroups.value || []).map(group => ({
+  label: group.group_name,
+  shortcut: group.shortcut,
+  children: group.tests || [],
+  value: { id: group.id, group_name: group.group_name, tests: group.tests },
+})));
 
 onMounted(() => {
   GetTests();
   Getcultures();
   testGroupsStore.GettestGroups();
 });
-
-// Whole test groups selectable into a package (alongside individual tests)
-const filteredGroups = computed(() => {
-  const groups = testGroups.value || [];
-  if (!groupsSearch.value) return groups;
-  const q = groupsSearch.value.toLowerCase();
-  return groups.filter(
-    (g) => g.group_name?.toLowerCase().includes(q) || g.shortcut?.toLowerCase().includes(q)
-  );
-});
-
-const isGroupSelected = (group) => record.value.test_groups?.some((g) => g.id === group.id);
-
-const toggleGroup = (group) => {
-  if (!record.value.test_groups) record.value.test_groups = [];
-  const index = record.value.test_groups.findIndex((g) => g.id === group.id);
-  if (index > -1) record.value.test_groups.splice(index, 1);
-  else record.value.test_groups.push({ id: group.id, group_name: group.group_name, tests: group.tests });
-};
-
-const filteredTests = computed(() => {
-  const tests = TestLists() || [];
-  if (!testsSearch.value) return tests;
-  const q = testsSearch.value.toLowerCase();
-  return tests.filter(
-    (t) => t.label?.toLowerCase().includes(q) || t.shortcut?.toLowerCase().includes(q)
-  );
-});
-
-const filteredCultures = computed(() => {
-  const cultures = cultureLists() || [];
-  if (!culturesSearch.value) return cultures;
-  return cultures.filter((c) =>
-    c.label?.toLowerCase().includes(culturesSearch.value.toLowerCase())
-  );
-});
-
-const isTestSelected = (test) => {
-  return record.value.tests?.some((t) => t.id === test.value?.id || t === test.value);
-};
-
-const isCultureSelected = (culture) => {
-  return record.value.cultures?.some((c) => c.id === culture.value?.id || c === culture.value);
-};
-
-const toggleTest = (test) => {
-  if (!record.value.tests) record.value.tests = [];
-  const index = record.value.tests.findIndex((t) => t.id === test.value?.id || t === test.value);
-  if (index > -1) {
-    record.value.tests.splice(index, 1);
-  } else {
-    record.value.tests.push(test.value);
-  }
-};
-
-const toggleCulture = (culture) => {
-  if (!record.value.cultures) record.value.cultures = [];
-  const index = record.value.cultures.findIndex((c) => c.id === culture.value?.id || c === culture.value);
-  if (index > -1) {
-    record.value.cultures.splice(index, 1);
-  } else {
-    record.value.cultures.push(culture.value);
-  }
-};
 
 const handleSubmit = () => {
   record.value.is_test = record.value.is_test === true;
@@ -123,9 +70,6 @@ const close = () => {
   clearObjectValues(record.value);
 };
 
-const onTestsScroll = () => {
-  // All tests are loaded at once, no need for infinite scroll
-};
 </script>
 
 <template>
@@ -158,7 +102,7 @@ const onTestsScroll = () => {
 
           <!-- Content -->
           <form @submit.prevent="handleSubmit">
-            <div class="p-6 overflow-y-auto max-h-[calc(90vh-200px)] space-y-6">
+            <div class="p-4 sm:p-6 overflow-y-auto max-h-[calc(90vh-200px)] space-y-6">
               <!-- Basic Information Card -->
               <div class="bg-white rounded-2xl border border-slate-200/80 overflow-hidden">
                 <div class="px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-primary-50 to-teal-50">
@@ -218,243 +162,18 @@ const onTestsScroll = () => {
                       </svg>
                     </div>
                     <div class="flex-1">
-                      <h3 class="font-semibold text-slate-800">{{ t("tests_and_cultures") }}</h3>
+                      <h3 class="font-semibold text-slate-800">{{ t("selection_package_contents") }}</h3>
                       <p class="text-sm text-slate-500">{{ t("tests_and_cultures_desc") }}</p>
                     </div>
                   </div>
                 </div>
-                <div class="p-5">
-                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <!-- Tests MultiSelect -->
-                    <div class="relative">
-                      <label class="block text-sm font-medium text-slate-700 mb-1.5">{{ t("tests") }}</label>
-                      <div
-                        @click="testsDropdownOpen = !testsDropdownOpen"
-                        class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer hover:bg-white flex items-center justify-between min-h-[48px] transition-all"
-                      >
-                        <div class="flex flex-wrap gap-1.5 flex-1">
-                          <span v-if="!record.tests?.length" class="text-slate-400">{{ t("select_tests") }}</span>
-                          <span
-                            v-for="(test, idx) in record.tests?.slice(0, 3)"
-                            :key="idx"
-                            class="px-2 py-0.5 bg-primary-100 text-primary-700 text-xs font-medium rounded-lg"
-                          >
-                            {{ test.name || test.shortcut }}
-                          </span>
-                          <span v-if="record.tests?.length > 3" class="px-2 py-0.5 bg-slate-100 text-slate-600 text-xs font-medium rounded-lg">
-                            +{{ record.tests.length - 3 }}
-                          </span>
-                        </div>
-                        <svg class="w-5 h-5 text-slate-400 transition-transform" :class="{ 'rotate-180': testsDropdownOpen }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
-                      <Transition name="dropdown">
-                        <div
-                          v-show="testsDropdownOpen"
-                          class="absolute z-30 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden"
-                        >
-                          <div class="p-3 border-b border-slate-100 bg-slate-50">
-                            <div class="relative">
-                              <svg class="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                              </svg>
-                              <input
-                                v-model="testsSearch"
-                                type="text"
-                                :placeholder="t('search') + '...'"
-                                class="w-full ps-9 pe-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none"
-                                @click.stop
-                              />
-                            </div>
-                          </div>
-                          <div class="max-h-48 overflow-y-auto" @scroll="onTestsScroll">
-                            <div
-                              v-for="test in filteredTests"
-                              :key="test.value?.id"
-                              @click.stop="toggleTest(test)"
-                              class="px-4 py-2.5 cursor-pointer hover:bg-primary-50 flex items-center gap-3 transition-colors"
-                            >
-                              <div class="w-5 h-5 rounded border-2 flex items-center justify-center transition-all"
-                                :class="isTestSelected(test) ? 'bg-primary-500 border-primary-500' : 'border-slate-300'">
-                                <svg v-if="isTestSelected(test)" class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-                                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                                </svg>
-                              </div>
-                              <div class="flex-1 flex items-center gap-2 flex-wrap">
-                                <span class="text-sm text-slate-700">{{ test.label }}</span>
-                                <span v-if="test.shortcut" class="text-xs text-slate-500 font-mono">({{ test.shortcut }})</span>
-                                <span v-if="test.is_special" class="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-semibold rounded-full">تحاليل مخصصة</span>
-                              </div>
-                            </div>
-                            <div v-if="filteredTests.length === 0" class="px-4 py-6 text-center text-slate-500 text-sm">
-                              {{ t("noData") }}
-                            </div>
-                          </div>
-                          <div class="p-2 border-t border-slate-100 bg-slate-50">
-                            <button
-                              type="button"
-                              @click="testsDropdownOpen = false"
-                              class="w-full px-3 py-2 text-sm font-medium bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors"
-                            >
-                              {{ t("close") }}
-                            </button>
-                          </div>
-                        </div>
-                      </Transition>
-                    </div>
-
-                    <!-- Cultures MultiSelect -->
-                    <div class="relative">
-                      <label class="block text-sm font-medium text-slate-700 mb-1.5">{{ t("cultures") }}</label>
-                      <div
-                        @click="culturesDropdownOpen = !culturesDropdownOpen"
-                        class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer hover:bg-white flex items-center justify-between min-h-[48px] transition-all"
-                      >
-                        <div class="flex flex-wrap gap-1.5 flex-1">
-                          <span v-if="!record.cultures?.length" class="text-slate-400">{{ t("select_cultures") }}</span>
-                          <span
-                            v-for="(culture, idx) in record.cultures?.slice(0, 3)"
-                            :key="idx"
-                            class="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-medium rounded-lg"
-                          >
-                            {{ culture.name }}
-                          </span>
-                          <span v-if="record.cultures?.length > 3" class="px-2 py-0.5 bg-slate-100 text-slate-600 text-xs font-medium rounded-lg">
-                            +{{ record.cultures.length - 3 }}
-                          </span>
-                        </div>
-                        <svg class="w-5 h-5 text-slate-400 transition-transform" :class="{ 'rotate-180': culturesDropdownOpen }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
-                      <Transition name="dropdown">
-                        <div
-                          v-show="culturesDropdownOpen"
-                          class="absolute z-30 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden"
-                        >
-                          <div class="p-3 border-b border-slate-100 bg-slate-50">
-                            <div class="relative">
-                              <svg class="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                              </svg>
-                              <input
-                                v-model="culturesSearch"
-                                type="text"
-                                :placeholder="t('search') + '...'"
-                                class="w-full ps-9 pe-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none"
-                                @click.stop
-                              />
-                            </div>
-                          </div>
-                          <div class="max-h-48 overflow-y-auto">
-                            <div
-                              v-for="culture in filteredCultures"
-                              :key="culture.value?.id"
-                              @click.stop="toggleCulture(culture)"
-                              class="px-4 py-2.5 cursor-pointer hover:bg-purple-50 flex items-center gap-3 transition-colors"
-                            >
-                              <div class="w-5 h-5 rounded border-2 flex items-center justify-center transition-all"
-                                :class="isCultureSelected(culture) ? 'bg-purple-500 border-purple-500' : 'border-slate-300'">
-                                <svg v-if="isCultureSelected(culture)" class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-                                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                                </svg>
-                              </div>
-                              <span class="text-sm text-slate-700">{{ culture.label }}</span>
-                            </div>
-                            <div v-if="filteredCultures.length === 0" class="px-4 py-6 text-center text-slate-500 text-sm">
-                              {{ t("noData") }}
-                            </div>
-                          </div>
-                          <div class="p-2 border-t border-slate-100 bg-slate-50">
-                            <button
-                              type="button"
-                              @click="culturesDropdownOpen = false"
-                              class="w-full px-3 py-2 text-sm font-medium bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors"
-                            >
-                              {{ t("close") }}
-                            </button>
-                          </div>
-                        </div>
-                      </Transition>
-                    </div>
-
-                    <!-- Test Groups MultiSelect — a whole group can be part of a package -->
-                    <div class="relative">
-                      <label class="block text-sm font-medium text-slate-700 mb-1.5">{{ t("test-groups") || "Test Groups" }}</label>
-                      <div
-                        @click="groupsDropdownOpen = !groupsDropdownOpen"
-                        class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer hover:bg-white flex items-center justify-between min-h-[48px] transition-all"
-                      >
-                        <div class="flex flex-wrap gap-1.5 flex-1">
-                          <span v-if="!record.test_groups?.length" class="text-slate-400">{{ t("select") }} {{ t("test-groups") || "Test Groups" }}</span>
-                          <span
-                            v-for="(group, idx) in record.test_groups?.slice(0, 3)"
-                            :key="idx"
-                            class="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-medium rounded-lg"
-                          >
-                            {{ group.group_name || group.name }}
-                          </span>
-                          <span v-if="record.test_groups?.length > 3" class="px-2 py-0.5 bg-slate-100 text-slate-600 text-xs font-medium rounded-lg">
-                            +{{ record.test_groups.length - 3 }}
-                          </span>
-                        </div>
-                        <svg class="w-5 h-5 text-slate-400 transition-transform" :class="{ 'rotate-180': groupsDropdownOpen }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
-                      <Transition name="dropdown">
-                        <div
-                          v-show="groupsDropdownOpen"
-                          class="absolute z-30 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden"
-                        >
-                          <div class="p-3 border-b border-slate-100 bg-slate-50">
-                            <div class="relative">
-                              <svg class="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                              </svg>
-                              <input
-                                v-model="groupsSearch"
-                                type="text"
-                                :placeholder="t('search') + '...'"
-                                class="w-full ps-9 pe-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none"
-                                @click.stop
-                              />
-                            </div>
-                          </div>
-                          <div class="max-h-48 overflow-y-auto">
-                            <div
-                              v-for="group in filteredGroups"
-                              :key="group.id"
-                              @click.stop="toggleGroup(group)"
-                              class="px-4 py-2.5 cursor-pointer hover:bg-amber-50 flex items-center gap-3 transition-colors"
-                            >
-                              <div class="w-5 h-5 rounded border-2 flex items-center justify-center transition-all shrink-0"
-                                :class="isGroupSelected(group) ? 'bg-amber-500 border-amber-500' : 'border-slate-300'">
-                                <svg v-if="isGroupSelected(group)" class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-                                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                                </svg>
-                              </div>
-                              <span class="text-sm text-slate-700 flex-1">{{ group.group_name }}</span>
-                              <span class="text-xs text-slate-400">{{ group.tests?.length || 0 }} {{ t("tests") }}</span>
-                            </div>
-                            <div v-if="filteredGroups.length === 0" class="px-4 py-6 text-center text-slate-500 text-sm">
-                              {{ t("noData") }}
-                            </div>
-                          </div>
-                          <div class="p-2 border-t border-slate-100 bg-slate-50">
-                            <button
-                              type="button"
-                              @click="groupsDropdownOpen = false"
-                              class="w-full px-3 py-2 text-sm font-medium bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors"
-                            >
-                              {{ t("close") }}
-                            </button>
-                          </div>
-                        </div>
-                      </Transition>
-                    </div>
+                <div class="p-4 sm:p-5">
+                  <div class="flex flex-wrap gap-2 mb-4" role="group" :aria-label="t('selection_package_contents')">
+                    <button v-for="tab in [{ key: 'tests', label: t('tests'), count: record.tests?.length || 0 }, { key: 'groups', label: t('test-groups'), count: record.test_groups?.length || 0 }, { key: 'cultures', label: t('cultures'), count: record.cultures?.length || 0 }]" :key="tab.key" type="button" @click="selectionTab = tab.key" :aria-pressed="selectionTab === tab.key" class="px-4 py-2 rounded-lg text-sm font-medium border" :class="selectionTab === tab.key ? 'bg-teal-50 border-teal-600 text-teal-800' : 'border-slate-200 text-slate-600'">{{ tab.label }} ({{ tab.count }})</button>
                   </div>
+                  <OrderedCatalogPicker v-show="selectionTab === 'tests'" v-model="record.tests" :options="testsOptions" :label="t('tests')" />
+                  <OrderedCatalogPicker v-show="selectionTab === 'groups'" v-model="record.test_groups" :options="groupsOptions" :label="t('test-groups')" />
+                  <OrderedCatalogPicker v-show="selectionTab === 'cultures'" v-model="record.cultures" :options="culturesOptions" :label="t('cultures')" />
                 </div>
               </div>
 

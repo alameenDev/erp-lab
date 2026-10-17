@@ -95,9 +95,9 @@ class TestGroupController extends Controller
             'sample_id_fk' => 'nullable|integer',
             'test_duration' => 'nullable|integer',
             'test_ids' => 'nullable|array',
-            'test_ids.*' => 'nullable|integer|exists:tests,id',
+            'test_ids.*' => 'required|integer|distinct|exists:tests,id',
             'culture_ids' => 'nullable|array',
-            'culture_ids.*' => 'nullable|integer|exists:cultures,id',
+            'culture_ids.*' => 'required|integer|distinct|exists:cultures,id',
             'duration_unit_id_fk' => 'nullable|integer',
             'precautions' => 'nullable|string|max:255',
             'formula' => 'nullable|array',
@@ -147,12 +147,13 @@ class TestGroupController extends Controller
         }
 
         if (is_array($request->culture_ids) && count($request->culture_ids) > 0) {
-            foreach ($request->culture_ids as $culture_id) {
+            foreach ($request->culture_ids as $index => $culture_id) {
                 $culture = Culture::find($culture_id);
                 if (!$culture) {
                     continue;
                 }
                 $culture->test_group_id_fk = $test_group->id;
+                $culture->test_group_order = $index + 1;
                 $culture->save();
             }
         }
@@ -234,9 +235,9 @@ class TestGroupController extends Controller
             'shortcut' => 'nullable|string|max:255',
             'sample_id_fk' => 'nullable|integer',
             'test_ids' => 'nullable|array',
-            'test_ids.*' => 'nullable|integer|exists:tests,id',  // Fixed key
+            'test_ids.*' => 'required|integer|distinct|exists:tests,id',  // Fixed key
             'culture_ids' => 'nullable|array',
-            'culture_ids.*' => 'nullable|integer|exists:cultures,id',
+            'culture_ids.*' => 'required|integer|distinct|exists:cultures,id',
             'original_price' => 'nullable|integer',
             'test_duration' => 'nullable|integer',
             'duration_unit_id_fk' => 'nullable|integer',
@@ -297,8 +298,15 @@ class TestGroupController extends Controller
         }
 
         if (isset($request->culture_ids)) {
+            // Removing an item in the editor must also remove its membership.
+            Culture::where('test_group_id_fk', $test_group->id)
+                ->whereNotIn('id', $request->culture_ids)
+                ->update(['test_group_id_fk' => null, 'test_group_order' => 0]);
             foreach ($request->culture_ids as $idx => $cultureId) {
-                Culture::where('id', $cultureId)->update(['test_group_id_fk' => $test_group->id]);
+                Culture::where('id', $cultureId)->update([
+                    'test_group_id_fk' => $test_group->id,
+                    'test_group_order' => $idx + 1,
+                ]);
             }
         }
 

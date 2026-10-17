@@ -79,13 +79,13 @@ class PackageController extends Controller
             'price' => 'nullable|numeric',
             'is_constant_price' => 'required|boolean',
             'tests' => 'nullable|array',
-            'tests.*.id' => 'nullable|exists:tests,id',
+            'tests.*.id' => 'required|integer|distinct|exists:tests,id',
             'tests.*.price' => 'nullable|numeric',
             'cultures' => 'nullable|array',
-            'cultures.*.id' => 'nullable|exists:cultures,id',
+            'cultures.*.id' => 'required|integer|distinct|exists:cultures,id',
             'cultures.*.price' => 'nullable|numeric',
             'test_groups' => 'nullable|array',
-            'test_groups.*.id' => 'nullable|exists:test_groups,id',
+            'test_groups.*.id' => 'required|integer|distinct|exists:test_groups,id',
             'test_groups.*.price' => 'nullable|numeric',
         ]);
 
@@ -133,10 +133,11 @@ class PackageController extends Controller
                 return response()->json(['error' => 'Failed to create package'], 500);
             }
             if (isset($request->tests)) {
-                foreach ($request->tests as $test) {
+                foreach ($request->tests as $index => $test) {
                     $test_package_rel = TestPackageRel::create([
                         'test_id_fk' => $test['id'],
                         'package_id_fk' => $package->id,
+                        'position' => $index + 1,
                     ]);
                     if (! $test_package_rel) {
                         DB::rollBack();
@@ -146,10 +147,11 @@ class PackageController extends Controller
                 }
             }
             if (isset($request->cultures)) {
-                foreach ($request->cultures as $culture) {
+                foreach ($request->cultures as $index => $culture) {
                     $culture_package_rel = CulturePackageRel::create([
                         'culture_id_fk' => $culture['id'],
                         'package_id_fk' => $package->id,
+                        'position' => $index + 1,
                     ]);
                     if (! $culture_package_rel) {
                         DB::rollBack();
@@ -160,7 +162,11 @@ class PackageController extends Controller
 
             }
             // Whole test groups attached to the package
-            $package->testGroups()->sync(collect($request->test_groups ?? [])->pluck('id')->filter()->all());
+            $groupPositions = [];
+            foreach ($request->test_groups ?? [] as $index => $group) {
+                $groupPositions[$group['id']] = ['position' => $index + 1];
+            }
+            $package->testGroups()->sync($groupPositions);
             DB::commit();
         } catch (\Exception $e) {
             DB::rollBack();
@@ -242,13 +248,13 @@ class PackageController extends Controller
             'price' => 'nullable|numeric',
             'is_constant_price' => 'required|boolean',
             'tests' => 'nullable|array',
-            'tests.*.id' => 'nullable|exists:tests,id',
+            'tests.*.id' => 'required|integer|distinct|exists:tests,id',
             'tests.*.price' => 'nullable|numeric',
             'cultures' => 'nullable|array',
-            'cultures.*.id' => 'nullable|exists:cultures,id',
+            'cultures.*.id' => 'required|integer|distinct|exists:cultures,id',
             'cultures.*.price' => 'nullable|numeric',
             'test_groups' => 'nullable|array',
-            'test_groups.*.id' => 'nullable|exists:test_groups,id',
+            'test_groups.*.id' => 'required|integer|distinct|exists:test_groups,id',
             'test_groups.*.price' => 'nullable|numeric',
         ]);
 
@@ -309,10 +315,11 @@ class PackageController extends Controller
             // Delete all existing test_package_rels for this package
             TestPackageRel::where('package_id_fk', $package->id)->delete();
             if (isset($request->tests)) {
-                foreach ($request->tests as $test) {
+                foreach ($request->tests as $index => $test) {
                     $test_package_rel = TestPackageRel::create([
                         'test_id_fk' => $test['id'],
                         'package_id_fk' => $package->id,
+                        'position' => $index + 1,
                     ]);
                     if (! $test_package_rel) {
                         DB::rollBack();
@@ -323,10 +330,11 @@ class PackageController extends Controller
             }
             CulturePackageRel::where('package_id_fk', $package->id)->delete();
             if (isset($request->cultures)) {
-                foreach ($request->cultures as $culture) {
+                foreach ($request->cultures as $index => $culture) {
                     $culture_package_rel = CulturePackageRel::create([
                         'culture_id_fk' => $culture['id'],
                         'package_id_fk' => $package->id,
+                        'position' => $index + 1,
                     ]);
                     if (! $culture_package_rel) {
                         DB::rollBack();
@@ -335,7 +343,11 @@ class PackageController extends Controller
                     }
                 }
             }
-            $package->testGroups()->sync(collect($request->test_groups ?? [])->pluck('id')->filter()->all());
+            $groupPositions = [];
+            foreach ($request->test_groups ?? [] as $index => $group) {
+                $groupPositions[$group['id']] = ['position' => $index + 1];
+            }
+            $package->testGroups()->sync($groupPositions);
             DB::commit();
         } catch (\Exception $e) {
             DB::rollBack();

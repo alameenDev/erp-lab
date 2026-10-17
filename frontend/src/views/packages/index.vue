@@ -134,9 +134,9 @@ const addRecord = () => {
 const editRecord = (rec) => {
   Object.assign(record.value, rec);
   record.value.is_constant_price = rec.is_constant_price === true;
-  const testOptions = TestLists().map((t) => t.value);
+  const testOptions = TestLists().map((t) => ({ ...t.value, name: t.label, shortcut: t.shortcut }));
   record.value.tests = rec.tests?.map((t) => testOptions.find((o) => o.id === t.id) || t) || [];
-  const cultureOptions = cultureLists().map((c) => c.value);
+  const cultureOptions = cultureLists().map((c) => ({ ...c.value, name: c.label }));
   record.value.cultures = rec.cultures?.map((c) => cultureOptions.find((o) => o.id === c.id) || c) || [];
   // Retain every existing group when editing a package.
   record.value.test_groups = (rec.test_groups || rec.testGroups || []).map((g) => ({

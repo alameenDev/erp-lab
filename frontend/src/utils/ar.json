@@ -1066,5 +1066,17 @@
      "confirm_renewal": "تأكيد التجديد",
      "renewal_success": "تم تجديد الاشتراك بنجاح حتى",
      "renewal_refresh": "تحديث تفاصيل الاشتراك",
-     "renewal_request_failed": "تعذر إكمال الطلب. حدّث تفاصيل الاشتراك وتحقق من حالته قبل المحاولة مجدداً."
+     "renewal_request_failed": "تعذر إكمال الطلب. حدّث تفاصيل الاشتراك وتحقق من حالته قبل المحاولة مجدداً.",
+     "selection_order_help": "يُضاف كل عنصر إلى نهاية القائمة. الترقيم يوضح ترتيب الحفظ، ويمكنك تغييره بالأسهم.",
+     "selection_add": "إضافة",
+     "selection_search": "ابحث بالاسم أو الاختصار",
+     "selection_ordered": "ترتيب المختار",
+     "selection_move_up": "تقديم",
+     "selection_move_down": "تأخير",
+     "selection_remove": "إزالة",
+     "selection_empty": "لم تضف عناصر بعد. اختر من القائمة لتظهر هنا مرقّمة حسب الإضافة.",
+     "selection_no_matches": "لا توجد عناصر مطابقة للبحث.",
+     "selection_unavailable": "عنصر غير متاح في القائمة",
+     "selection_special": "تحليل مخصص",
+     "selection_package_contents": "محتويات الباقة"
 }

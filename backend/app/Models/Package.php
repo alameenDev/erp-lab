@@ -26,17 +26,20 @@ class Package extends Model
     // Example: If Package has a relation with another table
     public function tests()
     {
-        return $this->belongsToMany(Test::class, 'test_package_rel', 'package_id_fk', 'test_id_fk');
+        return $this->belongsToMany(Test::class, 'test_package_rel', 'package_id_fk', 'test_id_fk')
+            ->withPivot('position')->orderByPivot('position')->orderByPivot('id');
     }
 
     public function cultures()
     {
-        return $this->belongsToMany(Culture::class, 'culture_package_rel', 'package_id_fk', 'culture_id_fk');
+        return $this->belongsToMany(Culture::class, 'culture_package_rel', 'package_id_fk', 'culture_id_fk')
+            ->withPivot('position')->orderByPivot('position')->orderByPivot('id');
     }
 
     public function testGroups()
     {
-        return $this->belongsToMany(TestGroup::class, 'test_group_package_rel', 'package_id_fk', 'test_group_id_fk');
+        return $this->belongsToMany(TestGroup::class, 'test_group_package_rel', 'package_id_fk', 'test_group_id_fk')
+            ->withPivot('position')->orderByPivot('position')->orderByPivot('id');
     }
 
     public function price_list_rel()

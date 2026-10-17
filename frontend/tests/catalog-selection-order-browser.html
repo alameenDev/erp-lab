@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Catalog selection order regression</title></head>
+<body><div id="app"></div><script type="module">
+import { createApp, h } from 'vue';
+import { createPinia } from 'pinia';
+import GroupModal from '/src/views/test-groups/components/testGroup-modal.vue';
+import PackageModal from '/src/views/packages/components/packages_modal.vue';
+import Mixins from '/src/utils/mixins.js';
+import { usetestGroupsStore } from '/src/store/modules/testGroups';
+import { usePackagesStore } from '/src/store/modules/packages';
+import { usetestsStore } from '/src/store/modules/tests';
+import { useculturesStore } from '/src/store/modules/cultures';
+import { useCategoriesStore } from '/src/store/modules/categories';
+import { usesamplesStore } from '/src/store/modules/samples';
+import { useDurationUnitsStore } from '/src/store/modules/durationUnits';
+import { $http } from '/src/plugins/axios';
+import '/src/assets/main.css';
+localStorage.setItem('locale', 'ar');
+localStorage.setItem('token', 'synthetic-order-fixture');
+const app = createApp({ render: () => [h(GroupModal), h(PackageModal)] });
+const pinia = createPinia();
+app.use(pinia).mixin(Mixins);
+const groups = usetestGroupsStore(pinia), packages = usePackagesStore(pinia);
+const tests = usetestsStore(pinia), cultures = useculturesStore(pinia);
+tests.tests = [
+  {id: 11, name: 'Glucose', shortcut: 'GLU', price: 1000, for_customer_price: 2000},
+  {id: 12, name: 'Creatinine', shortcut: 'CRE', price: 2000, for_customer_price: 3000},
+  {id: 13, name: 'Hemoglobin', shortcut: 'HGB', price: 3000, for_customer_price: 4000},
+];
+cultures.cultures = [{id: 31, name: 'Urine culture', price: 5000, price_for_customer: 7000}];
+groups.testGroups = [{id: 21, group_name: 'Renal profile', shortcut: 'RENAL', tests: [tests.tests[1], tests.tests[0]]}];
+for (const [store, action] of [
+  [tests, 'GetTests'], [cultures, 'Getcultures'], [groups, 'GettestGroups'], [packages, 'Getpackages'],
+  [useCategoriesStore(pinia), 'Getcategories'], [usesamplesStore(pinia), 'Getsamples'], [useDurationUnitsStore(pinia), 'GetdurationUnits'],
+]) store[action] = async () => {};
+useDurationUnitsStore(pinia).durationUnitsList = [{value: 1, label: 'Hour'}];
+let saved;
+$http.defaults.adapter = async config => {
+  if (!['/test_groups/create', '/test_groups/update', '/packages/create', '/packages/update'].includes(config.url)) throw new Error('Unexpected request: ' + config.url);
+  saved = {url: config.url, body: JSON.parse(config.data)};
+  return {data: {id: 1}, status: 200, statusText: 'OK', headers: {}, config};
+};
+window.orderFixture = {
+  groups, packages,
+  get saved() { return saved; },
+  openGroup(record = {}) {
+    packages.dialog = false;
+    Object.assign(groups.record, {id: '', group_name: 'Synthetic group', shortcut: 'SYN', test_duration: 1, duration_unit_id_fk: 1, test_ids: [], culture_ids: [], formula: [], result_comments: [], is_print_alone: false, original_price: 0, for_customer_price: 0}, record);
+    groups.dialog = true;
+  },
+  openPackage(record = {}) {
+    groups.dialog = false;
+    Object.assign(packages.record, {id: '', name: 'Synthetic package', shortcut: 'SYN', tests: [], cultures: [], test_groups: [], formula: [], is_constant_price: true, price: 10000}, record);
+    packages.dialog = true;
+  },
+};
+app.mount('#app');
+</script></body></html>
