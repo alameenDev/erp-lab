@@ -19,6 +19,7 @@ try {
   const save = async field => {
     await page.locator('form:visible').evaluate(form => form.requestSubmit());
     await page.waitForFunction(field => !orderFixture[field].dialog, field);
+    await page.locator('form:visible').waitFor({ state: 'hidden' });
     return page.evaluate(() => orderFixture.saved);
   };
 
