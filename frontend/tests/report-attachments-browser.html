@@ -11,17 +11,18 @@ import {useTemplatesStore} from '/src/store/modules/template';
 import {useresultStatusStore} from '/src/store/modules/result-status';
 import {useLabSettingsStore} from '/src/store/modules/labSettings';
 import {$http} from '/src/plugins/axios';
+import {toasts} from '/src/composables/useToast';
 import {prepareReportAttachments} from '/src/utils/reportAttachments';
 import '/src/assets/main.css';
 localStorage.setItem('token','synthetic-attachments');localStorage.setItem('locale','ar');
 const clone = value => JSON.parse(JSON.stringify(value));
 let record = {id:1,barcode:'ATTACHMENT-1',is_done:true,patient:{id:1,name:'مريض المرفقات التجريبي',age:30,age_unit:'Years',gender:'Male'},tests:[{test_id_fk:11,name:'Glucose',shortcut:'GLU',result:'7',unit:'mmol/L',is_done:true,result_type_id_fk:1,test_reference_ranges:[]}],cultures:[],packages:[],test_groups:[],attachments:[],registration_date:'2026-10-18T08:00:00',suppress_report_qr:true};
-const files=new Map(), calls=[], uploads=[], fixture={calls,uploads,files,pauseNext:false,failNext:false,pending:false,prepareReportAttachments};
+const files=new Map(), calls=[], uploads=[], fixture={calls,uploads,files,pauseNext:false,failNext:false,pending:false,prepareReportAttachments,toasts};
 window.attachmentFixture=fixture;
 const originalFetch=window.fetch.bind(window);
 window.fetch=async(input,options)=>{
  const url=new URL(typeof input==='string'?input:input.url,location.origin);
- if(url.pathname.startsWith('/synthetic-attachments/')){const file=files.get(url.pathname);return file?new Response(file,{headers:{'Content-Type':file.type}}):new Response('Missing',{status:404});}
+ if(url.pathname.startsWith('/synthetic-attachments/')){const file=files.get(url.pathname);return file?new Response(file,{headers:{'Content-Type':'application/octet-stream'}}):new Response('Missing',{status:404});}
  return originalFetch(input,options);
 };
 $http.defaults.adapter=async config=>{

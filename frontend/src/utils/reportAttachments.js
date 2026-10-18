@@ -1,5 +1,3 @@
-import QRCode from 'qrcode';
-
 const MAX_PAGES = 60;
 const MAX_BYTES = 10 * 1024 * 1024;
 
@@ -8,6 +6,22 @@ export function reportAttachmentUrl(value) {
     const url = new URL(value, window.location.origin);
     return ['http:', 'https:'].includes(url.protocol) ? url.href : null;
   } catch { return null; }
+}
+
+class UnsupportedReportAttachmentError extends Error {}
+
+// Storage URLs may have no extension and servers may send octet-stream.
+// Identify the actual file bytes so a PDF/image always renders inline.
+export async function validateReportAttachment(blob, name = blob.name || 'Attachment') {
+  const bytes = new Uint8Array(await blob.slice(0, 1024).arrayBuffer());
+  const ascii = Array.from(bytes, byte => String.fromCharCode(byte)).join('');
+  if (ascii.includes('%PDF-')) return 'application/pdf';
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg';
+  if ([137,80,78,71,13,10,26,10].every((byte, i) => bytes[i] === byte)) return 'image/png';
+  if (/^GIF8[79]a/.test(ascii)) return 'image/gif';
+  if (ascii.startsWith('RIFF') && ascii.slice(8, 12) === 'WEBP') return 'image/webp';
+  if (ascii.startsWith('BM')) return 'image/bmp';
+  throw new UnsupportedReportAttachmentError(`المرفق «${name}» لا يدعم العرض داخل التقرير. حوّل الملف إلى PDF أو صورة ثم أرفقه من جديد.`);
 }
 
 async function imageData(blob) {
@@ -34,19 +48,13 @@ export async function prepareReportAttachments(attachments = []) {
     const url = reportAttachmentUrl(item.file);
     const name = item.name || item.download_name || 'Attachment';
     if (!url) throw new Error(`رابط المرفق غير صالح: ${name}`);
-    const extension = (item.extension || new URL(url).pathname.split('.').pop() || '').toLowerCase();
-    const image = /^image\/(jpeg|png|webp|gif)$/.test(item.mime_type || '') || ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(extension);
-    const pdf = item.mime_type === 'application/pdf' || extension === 'pdf';
-    if (!image && !pdf) {
-      pages.push({name, url, qr: await QRCode.toDataURL(url, {width: 180, margin: 1}), kind: 'file'});
-      continue;
-    }
     try {
       const response = await fetch(url, {credentials: 'omit', signal: AbortSignal.timeout(30000)});
       if (!response.ok || Number(response.headers.get('Content-Length')) > MAX_BYTES) throw new Error('Could not fetch file');
       const blob = await response.blob();
       if (blob.size > MAX_BYTES) throw new Error('File too large');
-      if (image) pages.push({name, url, src: await imageData(blob), kind: 'image'});
+      const mime = await validateReportAttachment(blob, name);
+      if (mime !== 'application/pdf') pages.push({name, url, src: await imageData(new Blob([blob], {type: mime})), kind: 'image'});
       else {
         const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
         const {default: workerUrl} = await import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url');
@@ -70,6 +78,7 @@ export async function prepareReportAttachments(attachments = []) {
       }
       if (pages.length > MAX_PAGES) throw new Error('Too many pages');
     } catch (error) {
+      if (error instanceof UnsupportedReportAttachmentError) throw error;
       throw new Error(`تعذر تجهيز المرفق «${name}» للطباعة. تأكد أن الملف سليم وغير محمي بكلمة مرور، وأن مجموع صفحات المرفقات لا يتجاوز ${MAX_PAGES}.`, {cause: error});
     }
   }
