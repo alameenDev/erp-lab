@@ -2038,6 +2038,7 @@ class InvoiceController extends Controller
 
     public function barcodeRegister(Request $request, int $id)
     {
+        abort_if(in_array((int) $request->user()->role_id, [3, 5], true) || $request->user()->referral_portal_only, 403);
         $invoice = Invoice::findOrFail($id);
         abort_unless((int) $request->user()->role_id === 1 || in_array($invoice->lab_id_fk, $this->getTenantUserIds()), 403);
         // Barcode labels need the current daily position, never register amounts.
