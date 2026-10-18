@@ -1210,13 +1210,13 @@ const generateBarcodeImage = (value) => {
       <thead><tr><td class="pw-cell pw-top"><result_section :modern="modernReport" :with-background="showBackground" :lab-name="reportBrand?.lab_display_name" :lab-logo="showBackground && backgroundUrl ? '' : referralLogo" :share-url="reportQrUrl" :is-referral="referralReport || sharedReferralReport" /></td></tr></thead>
       <tbody><tr><td class="pw-cell">
         <section data-report-section data-report-keep-together class="report-attachment" style="padding-top:12px; text-align:center;">
-          <h2 dir="auto" data-attachment-name style="font-size:16px; font-weight:700; text-align:center; overflow-wrap:anywhere; margin:0 0 8px;">{{ attachment.name }}</h2>
+          <h2 dir="auto" data-attachment-name style="text-transform:none; font-size:16px; font-weight:700; text-align:center; overflow-wrap:anywhere; margin:0 0 8px;">{{ attachment.name }}</h2>
           <p v-if="attachment.total > 1" style="font-size:11px; margin:0 0 6px; text-align:center;">{{ attachment.page }} / {{ attachment.total }}</p>
           <img v-if="attachment.src" :src="attachment.src" :alt="attachment.name" :style="{display:'block', width:'auto', height:'auto', maxWidth:'100%', maxHeight:attachmentHeight + 'mm', objectFit:'contain', margin:'0 auto'}" />
           <template v-else>
             <p dir="rtl" style="margin:16px 0; text-align:center;">ملف مرفق — امسح الرمز لفتحه أو تحميله</p>
             <img :src="attachment.qr" alt="رابط المرفق" style="display:block; width:40mm; height:40mm; margin:12px auto;" />
-            <a :href="attachment.url" style="display:block; font-size:9px; overflow-wrap:anywhere; text-align:center;" dir="ltr">{{ attachment.url }}</a>
+            <a :href="attachment.url" style="text-transform:none; display:block; font-size:9px; overflow-wrap:anywhere; text-align:center;" dir="ltr">{{ attachment.url }}</a>
           </template>
         </section>
       </td></tr></tbody>

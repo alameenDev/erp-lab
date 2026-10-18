@@ -19,8 +19,8 @@ const fixture=()=>page.evaluate(()=>({saved:attachmentFixture.saved().attachment
 const waitSaved=async count=>page.waitForFunction(count=>attachmentFixture.saved().attachments.length===count&&document.querySelectorAll('[data-report-saved-attachment]').length===count,count);
 const pick=async(file,index=0)=>page.locator('[data-report-new-attachment] input[type=file]').nth(index).setInputFiles(file);
 try{
- await page.goto('http://127.0.0.1:5173/tests/report-attachments-browser.html');
- await page.waitForFunction(()=>attachmentFixture.store?.updateResultRecord?.id===1);
+ await page.goto('http://127.0.0.1:5173/tests/report-attachments-browser.html',{waitUntil:'networkidle'});
+ await page.waitForFunction(()=>window.attachmentFixture?.store?.updateResultRecord?.id===1);
  await page.getByRole('button',{name:/الملفات/}).click();
  const png=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=1000;c.height=1400;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,1000,1400);x.fillStyle='#0f766e';x.fillRect(50,50,900,180);x.fillStyle='#fff';x.font='42px Arial';x.fillText('ATTACHED SCAN',100,150);x.fillStyle='#111';x.font='32px Arial';x.fillText('Glucose: 7 mmol/L',100,330);return c.toDataURL().split(',')[1];});
  const imageFile={name:'scan.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')};
