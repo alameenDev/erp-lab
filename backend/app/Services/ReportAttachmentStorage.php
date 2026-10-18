@@ -33,7 +33,9 @@ class ReportAttachmentStorage
                     throw ValidationException::withMessages(['existing_attachments' => 'Attachment does not belong to this report.']);
                 }
                 // Paths, MIME types and compression metadata always come from storage.
-                $known['name'] = mb_substr(trim((string) ($item['name'] ?? $known['name'])), 0, 255) ?: $known['name'];
+                if (array_key_exists('name', $item)) {
+                    $known['name'] = mb_substr(trim((string) $item['name']), 0, 255);
+                }
                 $kept[$known['file']] = $known;
             }
             $kept = array_values($kept);
@@ -42,7 +44,7 @@ class ReportAttachmentStorage
             $file = $upload['file'] ?? null;
             if (! $file instanceof UploadedFile) continue;
             $hash = hash_file('sha256', $file->getRealPath());
-            $name = trim((string) $request->input("attachments.$index.name")) ?: $file->getClientOriginalName();
+            $name = trim((string) $request->input("attachments.$index.name"));
             // A retry after a lost response must not upload the same bytes twice.
             $saved = collect(array_merge($current, $kept))->firstWhere('sha256', $hash);
             if (! $saved) $saved = $this->store($invoice, $file, $hash);

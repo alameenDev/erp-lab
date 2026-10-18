@@ -8,7 +8,7 @@ export function reportAttachmentUrl(value) {
   } catch { return null; }
 }
 
-class UnsupportedReportAttachmentError extends Error {}
+class ReportAttachmentError extends Error {}
 
 // Storage URLs may have no extension and servers may send octet-stream.
 // Identify the actual file bytes so a PDF/image always renders inline.
@@ -21,7 +21,7 @@ export async function validateReportAttachment(blob, name = blob.name || 'Attach
   if (/^GIF8[79]a/.test(ascii)) return 'image/gif';
   if (ascii.startsWith('RIFF') && ascii.slice(8, 12) === 'WEBP') return 'image/webp';
   if (ascii.startsWith('BM')) return 'image/bmp';
-  throw new UnsupportedReportAttachmentError(`المرفق «${name}» لا يدعم العرض داخل التقرير. حوّل الملف إلى PDF أو صورة ثم أرفقه من جديد.`);
+  throw new ReportAttachmentError(`المرفق «${name}» لا يدعم العرض داخل التقرير. حوّل الملف إلى PDF أو صورة ثم أرفقه من جديد.`);
 }
 
 async function imageData(blob) {
@@ -46,23 +46,30 @@ export async function prepareReportAttachments(attachments = []) {
   for (const item of attachments || []) {
     if (pages.length >= MAX_PAGES) throw new Error(`مجموع صفحات المرفقات لا يتجاوز ${MAX_PAGES}.`);
     const url = reportAttachmentUrl(item.file);
-    const name = item.name || item.download_name || 'Attachment';
+    // Only the user-entered display name belongs in the printed report.
+    const name = typeof item.name === 'string' ? item.name.trim() : '';
+    const label = name ? `المرفق «${name}»` : 'المرفق';
     if (!url) throw new Error(`رابط المرفق غير صالح: ${name}`);
     try {
       const response = await fetch(url, {credentials: 'omit', signal: AbortSignal.timeout(30000)});
-      if (!response.ok || Number(response.headers.get('Content-Length')) > MAX_BYTES) throw new Error('Could not fetch file');
+      if (!response.ok) throw new ReportAttachmentError(`تعذر تحميل ${label} من الخادم. حاول مجدداً.`);
+      if (Number(response.headers.get('Content-Length')) > MAX_BYTES) throw new ReportAttachmentError('حجم المرفق يتجاوز 10 ميغابايت.');
       const blob = await response.blob();
-      if (blob.size > MAX_BYTES) throw new Error('File too large');
+      if (blob.size > MAX_BYTES) throw new ReportAttachmentError('حجم المرفق يتجاوز 10 ميغابايت.');
       const mime = await validateReportAttachment(blob, name);
       if (mime !== 'application/pdf') pages.push({name, url, src: await imageData(new Blob([blob], {type: mime})), kind: 'image'});
       else {
         const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
-        const {default: workerUrl} = await import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url');
-        pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
-        const task = pdfjs.getDocument({data: new Uint8Array(await blob.arrayBuffer()), isEvalSupported: false, useSystemFonts: true, stopAtErrors: true, maxImageSize: 16000000});
+        // Bundle the worker into a normal JS chunk. Shared hosting can reject
+        // separate .mjs assets or serve them with a non-JavaScript MIME type.
+        const {default: InlinePdfWorker} = await import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?worker&inline');
+        const port = new InlinePdfWorker();
+        let worker, task;
         try {
+          worker = new pdfjs.PDFWorker({port});
+          task = pdfjs.getDocument({worker, data: new Uint8Array(await blob.arrayBuffer()), isEvalSupported: false, useSystemFonts: true, stopAtErrors: true, maxImageSize: 16000000});
           const document = await task.promise;
-          if (pages.length + document.numPages > MAX_PAGES) throw new Error('Too many pages');
+          if (pages.length + document.numPages > MAX_PAGES) throw new ReportAttachmentError(`مجموع صفحات المرفقات لا يتجاوز ${MAX_PAGES}.`);
           for (let i = 1; i <= document.numPages; i++) {
             const page = await document.getPage(i);
             const base = page.getViewport({scale: 1});
@@ -74,12 +81,16 @@ export async function prepareReportAttachments(attachments = []) {
             canvas.width = canvas.height = 0;
             page.cleanup();
           }
-        } finally { await task.destroy(); }
+        } finally {
+          try { await task?.destroy(); }
+          finally { worker?.destroy(); port.terminate(); }
+        }
       }
-      if (pages.length > MAX_PAGES) throw new Error('Too many pages');
     } catch (error) {
-      if (error instanceof UnsupportedReportAttachmentError) throw error;
-      throw new Error(`تعذر تجهيز المرفق «${name}» للطباعة. تأكد أن الملف سليم وغير محمي بكلمة مرور، وأن مجموع صفحات المرفقات لا يتجاوز ${MAX_PAGES}.`, {cause: error});
+      if (error instanceof ReportAttachmentError) throw error;
+      if (error.name === 'PasswordException') throw new Error(`ملف ${label} يطلب كلمة مرور لفتحه. أرفق نسخة يمكن فتحها مباشرة.`, {cause: error});
+      if (error.name === 'InvalidPDFException') throw new Error(`تعذر قراءة ملف PDF في ${label}. جرّب فتح الملف أو تصديره مجدداً.`, {cause: error});
+      throw new Error(`تعذر تجهيز ${label} للطباعة. أعد تحميل الصفحة وحاول مجدداً.`, {cause: error});
     }
   }
   return pages;
