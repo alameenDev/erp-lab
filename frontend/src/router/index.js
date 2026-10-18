@@ -55,6 +55,12 @@ const router = createRouter({
                          meta: { title: "Patients | Digital Lab", description: "إدارة المرضى - Patient management" },
                     },
                     {
+                         path: "/patients/work-register",
+                         name: "work-register",
+                         component: () => import("@/views/patients/work-register.vue"),
+                         meta: { title: "سجل العمل | Digital Lab", description: "سجل زيارات المختبر اليومي" },
+                    },
+                    {
                          path: "/users",
                          name: "users",
                          component: () => import("@/views/users/index.vue"),
