@@ -1,0 +1,62 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Report attachments regression</title></head><body><div id="app"></div><script type="module">
+import {createApp, h, ref} from 'vue';
+import {createPinia} from 'pinia';
+import {createRouter, createMemoryHistory} from 'vue-router';
+import PrimeVue from 'primevue/config';
+import Mixins from '/src/utils/mixins';
+import Editor from '/src/views/medical_reports/update-result.vue';
+import Report from '/src/views/medical_reports/componentes/print_Result.vue';
+import {useinvoicesStore} from '/src/store/modules/invoices';
+import {useTemplatesStore} from '/src/store/modules/template';
+import {useresultStatusStore} from '/src/store/modules/result-status';
+import {useLabSettingsStore} from '/src/store/modules/labSettings';
+import {$http} from '/src/plugins/axios';
+import {prepareReportAttachments} from '/src/utils/reportAttachments';
+import '/src/assets/main.css';
+localStorage.setItem('token','synthetic-attachments');localStorage.setItem('locale','ar');
+const clone = value => JSON.parse(JSON.stringify(value));
+let record = {id:1,barcode:'ATTACHMENT-1',is_done:true,patient:{id:1,name:'مريض المرفقات التجريبي',age:30,age_unit:'Years',gender:'Male'},tests:[{test_id_fk:11,name:'Glucose',shortcut:'GLU',result:'7',unit:'mmol/L',is_done:true,result_type_id_fk:1,test_reference_ranges:[]}],cultures:[],packages:[],test_groups:[],attachments:[],registration_date:'2026-10-18T08:00:00',suppress_report_qr:true};
+const files=new Map(), calls=[], uploads=[], fixture={calls,uploads,files,pauseNext:false,failNext:false,pending:false,prepareReportAttachments};
+window.attachmentFixture=fixture;
+const originalFetch=window.fetch.bind(window);
+window.fetch=async(input,options)=>{
+ const url=new URL(typeof input==='string'?input:input.url,location.origin);
+ if(url.pathname.startsWith('/synthetic-attachments/')){const file=files.get(url.pathname);return file?new Response(file,{headers:{'Content-Type':file.type}}):new Response('Missing',{status:404});}
+ return originalFetch(input,options);
+};
+$http.defaults.adapter=async config=>{
+ let data={};calls.push(config.url);
+ if(config.url==='/invoices/1')data=clone(record);
+ else if(config.url.includes('/previous-results'))data={};
+ else if(config.url.includes('/update-result')){
+  const form=config.data;
+  if(fixture.pauseNext){fixture.pauseNext=false;fixture.pending=true;await new Promise(resolve=>fixture.release=resolve);fixture.pending=false;}
+  if(fixture.failNext){fixture.failNext=false;throw new Error('Synthetic failed upload');}
+  const kept=JSON.parse(form.get('existing_attachments')||JSON.stringify(record.attachments)).map(item=>({...record.attachments.find(a=>a.file===item.file),name:item.name}));
+  const mapping={};
+  for(let i=0;form.has(`attachments[${i}][file]`);i++){
+   const file=form.get(`attachments[${i}][file]`),id=form.get(`attachments[${i}][upload_id]`);
+   const path='/synthetic-attachments/'+id;
+   if(!files.has(path)){files.set(path,file);uploads.push(file.name);}
+   const item={id,name:form.get(`attachments[${i}][name]`),file:location.origin+path,mime_type:file.type,extension:file.name.split('.').pop(),size:file.size,original_size:file.size,stored_size:Math.round(file.size*.7)};
+   kept.push(item);mapping[id]=item.file;
+  }
+  for(const field of ['tests','cultures','packages','test_groups'])if(form.has(field))record[field]=JSON.parse(form.get(field));
+  record.attachments=kept;data={...clone(record),attachment_uploads:mapping};
+ } else throw new Error('Unexpected request '+config.url);
+ return {data,status:200,statusText:'OK',headers:{},config};
+};
+const app=createApp({setup(){
+ const report=ref(null),invoices=useinvoicesStore();
+ fixture.store=invoices;fixture.saved=()=>record;
+ fixture.prepare=async withBackground=>{invoices.printRecord=clone(record);let output;try{output=await report.value.prepareReport({withBackground});}catch(error){throw new Error(error.message+' '+(error.cause?.stack||''));}fixture.output=output;return {count:output.pages.length,signature:await output.blob.slice(0,5).text()};};
+ useTemplatesStore().GetTemplates=async()=>{};
+ const status=useresultStatusStore();status.resultStatus=[{value:2,label:'normal'}];status.GetresultStatus=async()=>{};
+ const settings=useLabSettingsStore();
+ const bg=document.createElement('canvas');bg.width=794;bg.height=1123;const ctx=bg.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,794,1123);ctx.fillStyle='#0f766e';ctx.fillRect(0,0,794,70);ctx.fillRect(0,1080,794,43);
+ settings.settings={show_test_names:true,show_categories:true,show_status:true,show_last_result:false,report_template:'classic',print_margins:{top:28,bottom:20,left:15,right:15},report_background:bg.toDataURL()};
+ return()=>h('main',{class:'p-4'},[h(Editor),h('div',{id:'attachment-output'},[h(Report,{ref:report})])]);
+}});
+const router=createRouter({history:createMemoryHistory(),routes:[{path:'/fixture/:id',component:{render:()=>null}}]});
+app.use(createPinia()).use(PrimeVue).use(router).mixin(Mixins);await router.push('/fixture/1');await router.isReady();app.mount('#app');
+</script></body></html>

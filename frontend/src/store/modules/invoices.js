@@ -1,3 +1,4 @@
+import { appendResultAttachments } from "@/utils/resultAttachments";
 import { assertPdfBlob } from "@/utils/medicalReportOutput";
 import { defineStore } from "pinia";
 import { $http } from "@/plugins/axios";
@@ -417,23 +418,7 @@ export const useinvoicesStore = defineStore("invoices", {
         const formData = new FormData();
         const rec = this.updateResultRecord;
 
-        // Handle attachments: existing (URL strings) + new (File objects)
-        const existingAttachments = [];
-        let fileIndex = 0;
-        if (rec.attachments) {
-          rec.attachments.forEach((attachment) => {
-            if (attachment.file instanceof File) {
-              formData.append(`attachments[${fileIndex}][name]`, attachment.name || "");
-              formData.append(`attachments[${fileIndex}][file]`, attachment.file);
-              fileIndex++;
-            } else if (typeof attachment.file === "string" && attachment.file) {
-              existingAttachments.push(attachment);
-            }
-          });
-        }
-        if (existingAttachments.length > 0) {
-          formData.append("existing_attachments", JSON.stringify(existingAttachments));
-        }
+        appendResultAttachments(formData, rec.attachments);
 
         // Send only the fields the backend needs
         formData.append("id", rec.id);
@@ -456,8 +441,7 @@ export const useinvoicesStore = defineStore("invoices", {
       }
     },
 
-    // Silent auto-save: persists result fields (no new file uploads, no list
-    // refresh, no global loader). New attachments still require the Save button.
+    // Silent auto-save persists results and attachments without refreshing the list.
     // URL carries ?silent=1 so axios suppresses the loader (see silentPatterns).
     async autoSaveResult() {
       const rec = this.updateResultRecord;
@@ -472,15 +456,14 @@ export const useinvoicesStore = defineStore("invoices", {
       formData.append("cultures_comment", rec.cultures_comment || "");
       formData.append("package_comment", rec.package_comment || "");
       formData.append("notes", rec.notes || "");
-      // Preserve already-saved attachments so the backend doesn't wipe them.
-      const existing = (rec.attachments || []).filter((a) => typeof a.file === "string" && a.file);
-      if (existing.length) formData.append("existing_attachments", JSON.stringify(existing));
+      appendResultAttachments(formData, rec.attachments);
 
       const { data } = await $http.post(`/invoices/update-result?silent=1`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       // Refresh server-derived completion without replacing edits made in flight.
       if (this.updateResultRecord?.id === rec.id) this.updateResultRecord.is_done = data.is_done;
+      return data;
     },
   },
 });

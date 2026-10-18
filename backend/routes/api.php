@@ -78,6 +78,8 @@ Route::get('lab-background/{labId}', [UserController::class, 'getBackground']);
 Route::get('lab-margins/{labId}', [UserController::class, 'getMargins']);
 Route::get('lab-settings/{labId}', [LabSettingController::class, 'showPublic']);
 Route::get('invoices/public/{id}', [InvoiceController::class, 'publicShow']);
+Route::get('report-attachments/{invoice}/{token}', [\App\Http\Controllers\ReportAttachmentController::class, 'show'])
+    ->whereNumber('invoice')->whereUuid('token')->name('report-attachments.show')->middleware('throttle:120,1');
 
 // Patient portal (magic link) - public, token-secured, no login required.
 Route::get('portal/{token}', [PatientPortalController::class, 'show']);
