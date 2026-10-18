@@ -28,7 +28,7 @@ export function defaultLabel(width = 76.2, height = 38.1, old = {}, showTests = 
     quiet_modules: 10, offset_x: 0, offset_y: 0, copies: 1, show_category_dialog: false, custom_text: '',
     elements: {
       barcode: item(2, y, w, bh, 8),
-      number: item(2, 0.7, w * 0.5, 3.3, n(old.number_size, showRegister ? (width < 50 ? 6 : width <= 50 ? 7.5 : 8) : 8, 4, 24), true, 'left', true),
+      number: item(2, 0.7, w * 0.5, 3.3, n(old.number_size, width < 50 ? 6 : width <= 50 ? 7.5 : 8, 4, 24), true, 'left', true),
       register_number: item(2 + w * 0.5, 0.7, w * 0.25, 3.3, width < 50 ? 6.5 : 7, showRegister, 'center', true),
       sample: item(2 + w * (showRegister ? 0.75 : 0.5), 0.7, w * (showRegister ? 0.25 : 0.5), 3.3, n(old.sample_size, 8, 4, 24), true, 'right', true),
       patient: item(2, patientY, w, patientH, n(old.name_size, compact ? 8 : 10, 4, 24), true, 'center', true),
@@ -77,7 +77,6 @@ export function toggleRegisterNumber(input, visible) {
   const standard = ['number','sample','register_number'].every(key => ['x','y','width','height','rotation'].every(prop => Math.abs(c.elements[key][prop] - old.elements[key][prop]) < 0.01));
   if (standard) for (const key of ['number','sample']) {
     elements[key] = {...elements[key], x:next.elements[key].x, width:next.elements[key].width};
-    if (c.elements[key].font === old.elements[key].font) elements[key].font = next.elements[key].font;
   }
   return {...c, elements};
 }

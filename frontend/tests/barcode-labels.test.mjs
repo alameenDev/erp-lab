@@ -62,6 +62,8 @@ test('optional register number fits preset headers and never changes encoded sam
     assert.deepEqual(labelConfig(enabled),enabled);
     assert.deepEqual(toggleRegisterNumber(enabled,false),original);
   }
+  const small=defaultLabel(40,25);small.elements.number.font=8;
+  assert.equal(toggleRegisterNumber(toggleRegisterNumber(small,true),false).elements.number.font,8,'toggling register visibility preserves a custom font');
   const custom=defaultLabel();custom.elements.number.x=4;
   assert.equal(toggleRegisterNumber(custom,true).elements.number.x,4,'custom positions are not reset by the new option');
   const group={sampleName:'EDTA',tests:['CBC'],groupNames:[]};
