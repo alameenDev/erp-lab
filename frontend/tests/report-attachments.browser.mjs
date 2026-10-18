@@ -36,13 +36,25 @@ try{
  assert.deepEqual((await fixture()).uploads,['scan.png','external-report.pdf'],'in-flight selection does not lose or duplicate files');
  assert.equal((await fixture()).calls.filter(url=>url==='/invoices/1').length,1,'autosave never replaces the editor via a refetch');
  await pick({name:'notes.txt',mimeType:'text/plain',buffer:Buffer.from('Synthetic document')});
+ await page.waitForFunction(()=>attachmentFixture.toasts.value.some(t=>t.message.includes('حوّل الملف إلى PDF')));
+ assert.equal((await fixture()).saved.length,2,'unsupported file is rejected before upload');
+ assert.deepEqual((await fixture()).uploads,['scan.png','external-report.pdf']);
+ const additional=new jsPDF();additional.text('ADDITIONAL ATTACHMENT CONTENT',20,40);
+ await pick({name:'additional-report.pdf',mimeType:'application/octet-stream',buffer:Buffer.from(additional.output('arraybuffer'))});
  await waitSaved(3);
  await page.locator('[data-report-saved-attachment]').first().scrollIntoViewIfNeeded();
  await page.screenshot({path:'test-results/report-pages/attachments-editor-desktop.png'});
  let output=await page.evaluate(()=>attachmentFixture.prepare(false));
- assert.equal(output.signature,'%PDF-');assert.equal(output.count,5,'result + scan + two PDF pages + generic file');
- assert.deepEqual(await page.locator('#attachment-output [data-attachment-name]').allTextContents(),['صورة الفحص','external-report.pdf','external-report.pdf','notes.txt']);
+ assert.equal(output.signature,'%PDF-');assert.equal(output.count,5,'result + scan + all three PDF pages');
+ assert.deepEqual(await page.locator('#attachment-output [data-attachment-name]').allTextContents(),['صورة الفحص','external-report.pdf','external-report.pdf','additional-report.pdf']);
  assert.equal(await page.locator('#attachment-output [data-attachment-name]').evaluateAll(nodes=>nodes.every(n=>getComputedStyle(n).textAlign==='center')),true);
+ assert.equal(await page.locator('#attachment-output .report-attachment img').count(),4,'every attachment page contains the actual rendered content');
+ assert.equal(await page.locator('#attachment-output .report-attachment a').count(),0,'no attachment download link is printed');
+ assert.equal(await page.locator('#attachment-output .report-attachment img[alt="رابط المرفق"]').count(),0,'no attachment QR code is printed');
+ const detected=await page.evaluate(async()=>{const pages=await attachmentFixture.prepareReportAttachments(attachmentFixture.saved().attachments.map(a=>({name:'فحص مرفق',file:a.file})));return pages.map(p=>({kind:p.kind,hasContent:!!p.src,hasQr:!!p.qr}));});
+ assert.deepEqual(detected,[{kind:'image',hasContent:true,hasQr:false},{kind:'pdf',hasContent:true,hasQr:false},{kind:'pdf',hasContent:true,hasQr:false},{kind:'pdf',hasContent:true,hasQr:false}],'opaque URLs and octet-stream headers still render from file contents');
+ const unsupported=await page.evaluate(async()=>{attachmentFixture.files.set('/synthetic-attachments/legacy',new Blob(['Synthetic document'],{type:'application/octet-stream'}));try{await attachmentFixture.prepareReportAttachments([{name:'Legacy attachment',file:location.origin+'/synthetic-attachments/legacy'}]);return '';}catch(error){return error.message;}});
+ assert.match(unsupported,/حوّل الملف إلى PDF/,'legacy unsupported attachments require conversion instead of printing a QR or link');
  output=await page.evaluate(()=>attachmentFixture.prepare(true));assert.equal(output.count,5);
  const exported=await page.evaluate(async()=>({pages:attachmentFixture.output.pages,pdf:Array.from(new Uint8Array(await attachmentFixture.output.blob.arrayBuffer()))}));
  for(let i=0;i<exported.pages.length;i++)await writeFile(`test-results/report-pages/attachments-page-${i+1}.png`,Buffer.from(exported.pages[i].split(',')[1],'base64'));
@@ -64,6 +76,6 @@ try{
  await page.locator('[data-report-new-attachment] input[type=text]').fill('إعادة المحاولة');
  await waitSaved(1);
  assert.deepEqual(errors,[]);
- console.log('PASS attachments: autosave upload, in-flight additions/rename/results, no duplicates, deletion, failed-upload retry, centered names, scan/two-page PDF/generic QR, shared form and mobile');
+ console.log('PASS attachments: autosave upload, in-flight additions/rename/results, no duplicates, deletion, failed-upload retry, centered names, inline scan/all PDF pages, no attachment QR or link, byte detection, unsupported-file conversion, shared form and mobile');
 }catch(error){await page.screenshot({path:'test-results/report-pages/attachments-failure.png',fullPage:true}).catch(()=>{});throw error;}
 finally{await browser.close();}

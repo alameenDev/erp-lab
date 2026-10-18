@@ -1264,7 +1264,7 @@
                 </div>
                 <div>
                   <h3 class="text-sm font-bold text-slate-800">{{ t("upload") || "Upload" }} {{ t("attachments") }}</h3>
-                  <p class="text-xs text-slate-500">يُحفظ المرفق تلقائياً ويظهر اسمه في وسط التقرير. الحد الأقصى 10 MB لكل ملف.</p>
+                  <p class="text-xs text-slate-500">ملف PDF أو صورة يظهر محتواها داخل التقرير واسمها في الوسط. للأنواع الأخرى: حوّل الملف إلى PDF أولاً. الحد الأقصى 10 MB لكل ملف.</p>
                 </div>
               </div>
               <button
@@ -1299,6 +1299,7 @@
                     />
                     <input
                       type="file"
+                      accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.bmp"
                       @change="(e) => onFileChange(e, index)"
                       class="hidden"
                       :id="'file-' + index"
@@ -1353,6 +1354,7 @@
                   <div class="flex items-center gap-1 shrink-0">
                     <input
                       type="file"
+                      accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.bmp"
                       @change="(e) => onFileChange(e, index)"
                       class="hidden"
                       :id="'file-' + index"
@@ -1435,6 +1437,7 @@
 </template>
 
 <script setup>
+import { validateReportAttachment } from "@/utils/reportAttachments";
 import CbcResultEditor from "@/components/CbcResultEditor.vue";
 import { orderedInvoiceItems } from "@/utils/invoiceSelectionOrder";
 import { evaluateReportFormulas, reportFormulaValue, formulaResultHint, formulaDefinitions, formulaApproved, formulaKey, isFormulaTarget } from '@/utils/reportFormulas';
@@ -2021,19 +2024,29 @@ const toggleAttributes = (index) => {
   showAttributes.value[index] = !showAttributes.value[index];
 };
 
-const onFileChange = (event, index) => {
+const onFileChange = async (event, index) => {
   const file = event.target.files?.[0];
+  const row = attachments.value[index];
   if (file) {
     if (file.size > 10 * 1024 * 1024) {
       toast.error('حجم الملف يجب أن لا يتجاوز 10 ميغابايت.');
       event.target.value = '';
       return;
     }
-    attachments.value[index].file = file;
-    attachments.value[index].upload_id = crypto.randomUUID();
-    if (!attachments.value[index].name) {
-      attachments.value[index].name = file.name;
+    try {
+      await validateReportAttachment(file);
+    } catch (error) {
+      if (event.target.files?.[0] === file) {
+        toast.error(error.message);
+        event.target.value = '';
+      }
+      return;
     }
+    // A different file may have been selected or the row removed during validation.
+    if (!attachments.value.includes(row) || event.target.files?.[0] !== file) return;
+    row.file = file;
+    row.upload_id = crypto.randomUUID();
+    if (!row.name) row.name = file.name;
   }
 };
 
