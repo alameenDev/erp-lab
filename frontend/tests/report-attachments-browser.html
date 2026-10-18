@@ -39,7 +39,7 @@ $http.defaults.adapter=async config=>{
    const file=form.get(`attachments[${i}][file]`),id=form.get(`attachments[${i}][upload_id]`);
    const path='/synthetic-attachments/'+id;
    if(!files.has(path)){files.set(path,file);uploads.push(file.name);}
-   const item={id,name:form.get(`attachments[${i}][name]`),file:location.origin+path,mime_type:file.type,extension:file.name.split('.').pop(),size:file.size,original_size:file.size,stored_size:Math.round(file.size*.7)};
+   const item={id,name:form.get(`attachments[${i}][name]`),download_name:file.name,file:location.origin+path,mime_type:file.type,extension:file.name.split('.').pop(),size:file.size,original_size:file.size,stored_size:Math.round(file.size*.7)};
    kept.push(item);mapping[id]=item.file;
   }
   for(const field of ['tests','cultures','packages','test_groups'])if(form.has(field))record[field]=JSON.parse(form.get(field));

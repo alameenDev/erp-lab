@@ -1206,7 +1206,14 @@
 
                 <!-- File info -->
                 <div class="flex-1 min-w-0">
-                  <p class="text-sm font-semibold text-slate-800 truncate">{{ item.name }}</p>
+                  <input
+                    v-model="item.name"
+                    type="text"
+                    maxlength="255"
+                    aria-label="اسم المرفق في التقرير"
+                    placeholder="اسم المرفق في التقرير"
+                    class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 focus:border-primary-400 focus:outline-none"
+                  />
                   <p class="text-xs text-emerald-500 flex items-center gap-1 mt-0.5">
                     <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" /></svg>
                     {{ t("saved") || "Saved" }}<span v-if="item.stored_size"> · {{ formatFileSize(item.stored_size) }}<span v-if="item.original_size > item.stored_size"> (توفير {{ Math.round((1 - item.stored_size / item.original_size) * 100) }}%)</span></span>
@@ -1601,7 +1608,7 @@ const syncAttachmentsToRecord = () => {
   }
   const newFiles = attachments.value
     .filter((item) => item.file instanceof File)
-    .map((item) => ({ name: item.name || item.file.name, file: item.file, upload_id: item.upload_id }));
+    .map((item) => ({ name: item.name || '', file: item.file, upload_id: item.upload_id }));
   updateResultRecord.value.attachments = [...existingAttachments.value, ...newFiles];
   return newFiles.length > 0;
 };
@@ -1628,7 +1635,7 @@ const runAutoSave = async () => {
       if (!uploaded) throw new Error('Attachment upload was not acknowledged');
       if (attachments.value.includes(item.row) && item.row.file === item.file) {
         const existingIndex = existingAttachments.value.findIndex(a => a.file === uploaded.file);
-        const acknowledged = {...uploaded, name: item.row.name || uploaded.name};
+        const acknowledged = {...uploaded, name: item.row.name || ''};
         if (existingIndex >= 0) existingAttachments.value[existingIndex] = acknowledged;
         else existingAttachments.value.push(acknowledged);
         attachments.value = attachments.value.filter(a => a !== item.row);
@@ -2046,7 +2053,6 @@ const onFileChange = async (event, index) => {
     if (!attachments.value.includes(row) || event.target.files?.[0] !== file) return;
     row.file = file;
     row.upload_id = crypto.randomUUID();
-    if (!row.name) row.name = file.name;
   }
 };
 

@@ -6,7 +6,7 @@ export function appendResultAttachments(formData, attachments) {
   for (const item of attachments) {
     if (item.file instanceof File) {
       item.upload_id ||= crypto.randomUUID();
-      formData.append(`attachments[${index}][name]`, item.name?.trim() || item.file.name);
+      formData.append(`attachments[${index}][name]`, item.name?.trim() || '');
       formData.append(`attachments[${index}][upload_id]`, item.upload_id);
       formData.append(`attachments[${index}][file]`, item.file);
       index++;

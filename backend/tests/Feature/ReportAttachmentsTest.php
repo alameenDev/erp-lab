@@ -68,6 +68,23 @@ class ReportAttachmentsTest extends TestCase
         $this->get($saved['file'])->assertNotFound();
     }
 
+    public function test_display_name_is_independent_of_filename_and_can_be_renamed_or_cleared(): void
+    {
+        $saved = $this->upload('7884.pdf', "%PDF-1.4\nSynthetic\n%%EOF", [
+            'attachments' => [['name' => '', 'file' => UploadedFile::fake()->createWithContent('7884.pdf', "%PDF-1.4\nSynthetic\n%%EOF")]],
+        ])->assertOk()->assertJsonPath('attachments.0.name', '')->json('attachments.0');
+        $this->assertSame('7884.pdf', $saved['download_name']);
+        foreach (['نتائج الفحص الخارجي', ''] as $name) {
+            $this->postJson('/api/invoices/update-result', [
+                'id' => $this->invoice->id,
+                'existing_attachments' => [['file' => $saved['file'], 'name' => $name]],
+            ])->assertOk()->assertJsonPath('attachments.0.name', $name)
+                ->assertJsonPath('attachments.0.download_name', '7884.pdf');
+            $this->assertSame($name, $this->invoice->fresh()->attachments[0]['name']);
+        }
+        $this->assertCount(1, Storage::disk('local')->allFiles(), 'renaming does not re-upload the file');
+    }
+
     public function test_images_keep_dimensions_and_arbitrary_files_cannot_execute_from_public_storage(): void
     {
         $file = UploadedFile::fake()->image('scan.png', 1200, 1600);

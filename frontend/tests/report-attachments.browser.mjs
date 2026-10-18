@@ -30,6 +30,7 @@ try{
  await page.locator('[data-report-new-attachment] input[type=text]').fill('صورة الفحص');
  await page.locator('[data-report-add-attachment]').click();
  await pick(pdfFile,1);
+ await page.locator('[data-report-new-attachment] input[type=text]').nth(1).fill('تقرير الفحص');
  await page.evaluate(()=>{attachmentFixture.store.updateResultRecord.tests[0].result='8';attachmentFixture.release();});
  await waitSaved(2);
  await page.waitForFunction(()=>attachmentFixture.saved().tests[0].result==='8'&&attachmentFixture.saved().attachments.some(a=>a.name==='صورة الفحص'));
@@ -42,11 +43,15 @@ try{
  const additional=new jsPDF();additional.text('ADDITIONAL ATTACHMENT CONTENT',20,40);
  await pick({name:'additional-report.pdf',mimeType:'application/octet-stream',buffer:Buffer.from(additional.output('arraybuffer'))});
  await waitSaved(3);
+ assert.equal((await fixture()).saved[2].name,'','blank display name never defaults to the uploaded filename');
+ await page.locator('[data-report-saved-attachment] input[type=text]').nth(1).fill('نتائج الفحص الخارجي');
+ await page.waitForFunction(()=>attachmentFixture.saved().attachments[1].name==='نتائج الفحص الخارجي');
  await page.locator('[data-report-saved-attachment]').first().scrollIntoViewIfNeeded();
  await page.screenshot({path:'test-results/report-pages/attachments-editor-desktop.png'});
  let output=await page.evaluate(()=>attachmentFixture.prepare(false));
  assert.equal(output.signature,'%PDF-');assert.equal(output.count,5,'result + scan + all three PDF pages');
- assert.deepEqual(await page.locator('#attachment-output [data-attachment-name]').allTextContents(),['صورة الفحص','external-report.pdf','external-report.pdf','additional-report.pdf']);
+ assert.deepEqual(await page.locator('#attachment-output [data-attachment-name]').allTextContents(),['صورة الفحص','نتائج الفحص الخارجي','نتائج الفحص الخارجي']);
+ assert.doesNotMatch(await page.locator('#attachment-output').innerText(),/external-report\.pdf|additional-report\.pdf|scan\.png/,'original filenames never appear in the report');
  assert.equal(await page.locator('#attachment-output [data-attachment-name]').evaluateAll(nodes=>nodes.every(n=>getComputedStyle(n).textAlign==='center')),true);
  assert.equal(await page.locator('#attachment-output .report-attachment img').count(),4,'every attachment page contains the actual rendered content');
  assert.equal(await page.locator('#attachment-output .report-attachment a').count(),0,'no attachment download link is printed');
@@ -64,6 +69,11 @@ try{
  const locked=new jsPDF({encryption:{userPassword:'synthetic-password',ownerPassword:'synthetic-owner',userPermissions:['print']}});locked.text('Protected synthetic report',20,20);
  const protectedMessage=await page.evaluate(async bytes=>{attachmentFixture.files.set('/synthetic-attachments/protected.pdf',new Blob([new Uint8Array(bytes)],{type:'application/pdf'}));try{await attachmentFixture.prepareReportAttachments([{name:'Protected',file:location.origin+'/synthetic-attachments/protected.pdf',mime_type:'application/pdf'}]);return '';}catch(error){return error.message;}},Array.from(new Uint8Array(locked.output('arraybuffer'))));
  assert.match(protectedMessage,/كلمة مرور/,'protected PDF reports an actionable error without hanging');
+ const brokenMessage=await page.evaluate(async()=>{attachmentFixture.files.set('/synthetic-attachments/broken',new Blob(['%PDF-1.4\ninvalid'],{type:'application/pdf'}));try{await attachmentFixture.prepareReportAttachments([{file:location.origin+'/synthetic-attachments/broken'}]);return '';}catch(error){return error.message;}});
+ assert.match(brokenMessage,/تعذر قراءة/);
+ assert.doesNotMatch(brokenMessage,/كلمة مرور|60/,'an invalid PDF is not misreported as encrypted or over the page limit');
+ await page.locator('[data-report-saved-attachment] input[type=text]').first().fill('');
+ await page.waitForFunction(()=>attachmentFixture.saved().attachments[0].name==='');
  await page.setViewportSize({width:390,height:844});
  await page.locator('[data-report-saved-attachment]').first().scrollIntoViewIfNeeded();
  await page.screenshot({path:'test-results/report-pages/attachments-editor-mobile.png',fullPage:true});

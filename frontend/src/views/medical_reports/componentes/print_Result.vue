@@ -1210,7 +1210,7 @@ const generateBarcodeImage = (value) => {
       <thead><tr><td class="pw-cell pw-top"><result_section :modern="modernReport" :with-background="showBackground" :lab-name="reportBrand?.lab_display_name" :lab-logo="showBackground && backgroundUrl ? '' : referralLogo" :share-url="reportQrUrl" :is-referral="referralReport || sharedReferralReport" /></td></tr></thead>
       <tbody><tr><td class="pw-cell">
         <section data-report-section data-report-keep-together class="report-attachment" style="padding-top:12px; text-align:center;">
-          <h2 dir="auto" data-attachment-name style="text-transform:none; font-size:16px; font-weight:700; text-align:center; overflow-wrap:anywhere; margin:0 0 8px;">{{ attachment.name }}</h2>
+          <h2 v-if="attachment.name" dir="auto" data-attachment-name style="text-transform:none; font-size:16px; font-weight:700; text-align:center; overflow-wrap:anywhere; margin:0 0 8px;">{{ attachment.name }}</h2>
           <p v-if="attachment.total > 1" style="font-size:11px; margin:0 0 6px; text-align:center;">{{ attachment.page }} / {{ attachment.total }}</p>
           <img :src="attachment.src" :alt="attachment.name" :style="{display:'block', width:'auto', height:'auto', maxWidth:'100%', maxHeight:attachmentHeight + 'mm', objectFit:'contain', margin:'0 auto'}" />
         </section>
