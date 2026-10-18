@@ -2036,6 +2036,15 @@ class InvoiceController extends Controller
         return $clean($data);
     }
 
+    public function barcodeRegister(Request $request, int $id)
+    {
+        $invoice = Invoice::findOrFail($id);
+        abort_unless((int) $request->user()->role_id === 1 || in_array($invoice->lab_id_fk, $this->getTenantUserIds()), 403);
+        // Barcode labels need the current daily position, never register amounts.
+        return response()->json(app(\App\Services\DailyWorkRegister::class)->barcodeReference($invoice))
+            ->header('Cache-Control', 'private, no-store');
+    }
+
     public function show(Request $request, $id)
     {
         $invoice = Invoice::with($this->invoiceRelations())->findOrFail($id);

@@ -14,11 +14,15 @@ const serum={id:2,name:'سكر الدم',shortcut:'GLU',category_id_fk:2,categor
 const sugar={id:3,name:'السكر التراكمي',shortcut:'HbA1c',category_id_fk:2,category:'الكيمياء السريرية',sample_name:'EDTA'};
 const record={id:1,barcode:'0001234',patient:{name:'مريض تجريبي',age:33},tests:[blood],cultures:[{id:1,name:'زرع البول',category_id_fk:3,category:'الأحياء المجهرية',sample:'Urine'}],test_groups:[{group_name:'صورة الدم',tests:[blood]}],packages:[{name:'فحص السكر',tests:[serum,sugar],test_groups:[{group_name:'مجموعة السكر',tests:[serum,sugar]}]}]};
 const second={id:2,barcode:'0005678',patient:{name:'مريض آخر',age:20},tests:[serum]};
-window.qa={config,requests:[],fail:false,delay:0};
+window.qa={config,requests:[],fail:false,delay:0,registerNumbers:{1:1,2:2},failRegister:false};
 $http.defaults.adapter=async request=>{
  window.qa.requests.push(request.url);
  let data;
  if(request.url==='/lab-settings') data={barcode_config:config.value,lab_display_name:'مختبر تجريبي'};
+ else if(request.url.endsWith('/barcode-register')) {
+  if(window.qa.failRegister)throw {response:{status:503,data:{message:'Synthetic register failure'}}};
+  data={work_register_number:window.qa.registerNumbers[Number(request.url.split('/')[2])]??null,work_register_date:'2026-10-18'};
+ }
  else if(request.url.startsWith('/invoices/')) {
   if(window.qa.delay) await new Promise(resolve=>setTimeout(resolve,window.qa.delay));
   if(window.qa.fail) throw new Error('Synthetic load failure');

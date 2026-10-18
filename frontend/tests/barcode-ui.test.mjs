@@ -5,23 +5,29 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 const out = 'barcode-qa';
 await mkdir(out, { recursive:true });
-const server=await createServer({server:{host:'127.0.0.1',port:5183,strictPort:true}});
+const server=await createServer({server:{watch:{ignored:['**/barcode-qa/**']},host:'127.0.0.1',port:5183,strictPort:true}});
 let browser;
 try {
   await server.listen();
   browser=await chromium.launch({headless:true});
   const page=await browser.newPage({viewport:{width:1380,height:1100}}), errors=[];
   page.on('pageerror',e=>errors.push(e.message));
-  await page.addInitScript(()=>{window.print=function(){window.top.__printedHtml=document.documentElement.outerHTML;};});
-  await page.goto('http://127.0.0.1:5183/tests/fixtures/barcode-designer.html');
+  await page.addInitScript(()=>{window.print=function(){window.top.__printedHtml=document.documentElement.outerHTML;window.dispatchEvent(new Event('afterprint'));};});
+  await page.goto('http://127.0.0.1:5183/tests/fixtures/barcode-designer.html',{waitUntil:'networkidle'});
   await page.locator('.label-draggable').first().waitFor();
+  const register=page.getByRole('checkbox',{name:'رقم سجل العمل',exact:true});
+  assert.equal(await register.isChecked(),false);await register.check();
+  await page.getByLabel('رقم للتجربة فقط',{exact:true}).fill('179117664453');
   for(const size of ['76.2 × 38.1 mm','50 × 30 mm','60 × 40 mm','40 × 25 mm']) {
     await page.getByRole('button',{name:size,exact:true}).click();
     await page.waitForTimeout(150);
+    assert.equal(await register.isChecked(),true,'changing media size preserves register visibility');
+    assert.match(await page.locator('.label-draggable[data-label-field=register_number]').innerText(),/#12/);
     const problems=await page.locator('[role=status]').allTextContents();
     assert.deepEqual(problems,[],`Preset ${size}: ${problems.join()}`);
   }
   await page.getByRole('button',{name:'50 × 30 mm',exact:true}).click();
+  await page.getByLabel('رقم للتجربة فقط',{exact:true}).fill('1234567890');
   const patient=page.locator('.label-draggable[data-label-field=patient]');
   await patient.focus();const before=await page.evaluate(()=>window.qaConfig.value.elements.patient.x);
   await patient.press('ArrowRight');assert.ok((await page.evaluate(()=>window.qaConfig.value.elements.patient.x))>before);
@@ -33,6 +39,7 @@ try {
   await page.getByRole('button',{name:'طباعة ملصق تجريبي',exact:true}).click();
   await page.waitForFunction(()=>!!window.__printedHtml);
   const printed=await page.evaluate(()=>window.__printedHtml);
+  assert.match(printed,/#12/);
   await writeFile(`${out}/print.html`,printed);
   const printPage=await browser.newPage();await printPage.setContent(printed);
   await printPage.evaluate(()=>{const label=document.querySelector('.barcode-label');label.parentNode.append(label.cloneNode(true));});
@@ -51,6 +58,16 @@ try {
   await page.getByLabel('اسم للتجربة فقط').fill('أحمد محمد علي');
   await page.setViewportSize({width:390,height:844});await page.screenshot({path:`${out}/designer-mobile.png`,fullPage:true});
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth));
+  // Shared invoice/header barcode renderer must recover from invalid formats.
+  const generic=page.locator('#generic-barcode');
+  await page.evaluate(()=>{qaGeneric.value.format='CODE39';qaGeneric.value.value='invalid-lowercase';});
+  await generic.getByRole('status').waitFor();assert.equal(await generic.locator('svg rect').count(),0);
+  await page.evaluate(()=>{qaGeneric.value.value='ABC123';});
+  await generic.getByRole('status').waitFor({state:'hidden'});
+  const width=await generic.locator('svg').getAttribute('width');
+  await page.evaluate(()=>{qaGeneric.value.width=2;qaGeneric.value.displayValue=true;});
+  await page.waitForFunction(()=>document.querySelector('#generic-barcode svg text')?.textContent==='ABC123');
+  assert.notEqual(await generic.locator('svg').getAttribute('width'),width);
   assert.deepEqual(errors,[]);
   console.log('PASS: preset fit, keyboard/pointer positioning, real print iframe, two physical pages, scan comparison, overflow blocking and mobile width.');
 } finally { await browser?.close();await server.close(); }

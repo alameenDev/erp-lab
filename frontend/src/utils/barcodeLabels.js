@@ -1,8 +1,9 @@
 import JsBarcode from 'jsbarcode';
 
-export const labelFields = ['barcode', 'number', 'patient', 'age', 'gender', 'date', 'sample', 'tests', 'laboratory', 'groups', 'custom'];
+export const labelFields = ['barcode', 'number', 'register_number', 'patient', 'age', 'gender', 'date', 'sample', 'tests', 'laboratory', 'groups', 'custom'];
 export const fieldNames = {
   barcode: ['رمز الباركود', 'Barcode symbol'], number: ['رقم العينة', 'Sample number'],
+  register_number: ['رقم سجل العمل', 'Work register number'],
   patient: ['اسم المريض', 'Patient name'], age: ['العمر', 'Age'], gender: ['الجنس', 'Gender'],
   date: ['التاريخ والوقت', 'Date & time'], sample: ['نوع العينة', 'Sample type'],
   tests: ['التحاليل', 'Tests'], laboratory: ['اسم المختبر', 'Laboratory'],
@@ -12,7 +13,7 @@ const n = (value, fallback, min, max) => value !== '' && value != null && Number
 const bool = (value, fallback) => value == null ? fallback : ![false, 0, '0', 'false'].includes(value);
 export const roundMm = value => Math.round(value * 100) / 100;
 
-export function defaultLabel(width = 76.2, height = 38.1, old = {}, showTests = true) {
+export function defaultLabel(width = 76.2, height = 38.1, old = {}, showTests = true, showRegister = false) {
   const w = width - 4;
   const item = (x, y, width, h, font, visible = true, align = 'center', bold = false) => ({ x, y, width, height: h, font, visible, align, bold, rotation: 0 });
   const barH = n(old.barcode_height, 40, 20, 100) * 25.4 / 96;
@@ -27,8 +28,9 @@ export function defaultLabel(width = 76.2, height = 38.1, old = {}, showTests = 
     quiet_modules: 10, offset_x: 0, offset_y: 0, copies: 1, show_category_dialog: false, custom_text: '',
     elements: {
       barcode: item(2, y, w, bh, 8),
-      number: item(2, 0.7, w * 0.5, 3.3, n(old.number_size, 8, 4, 24), true, 'left', true),
-      sample: item(2 + w * 0.5, 0.7, w * 0.5, 3.3, n(old.sample_size, 8, 4, 24), true, 'right', true),
+      number: item(2, 0.7, w * 0.5, 3.3, n(old.number_size, showRegister ? (width < 50 ? 6 : width <= 50 ? 7.5 : 8) : 8, 4, 24), true, 'left', true),
+      register_number: item(2 + w * 0.5, 0.7, w * 0.25, 3.3, width < 50 ? 6.5 : 7, showRegister, 'center', true),
+      sample: item(2 + w * (showRegister ? 0.75 : 0.5), 0.7, w * (showRegister ? 0.25 : 0.5), 3.3, n(old.sample_size, 8, 4, 24), true, 'right', true),
       patient: item(2, patientY, w, patientH, n(old.name_size, compact ? 8 : 10, 4, 24), true, 'center', true),
       age: item(2, infoY, w * 0.24, 3.2, n(old.info_size, compact ? 5.5 : 7, 4, 24), true, 'left'),
       gender: item(2 + w * 0.24, infoY, w * 0.24, 3.2, n(old.info_size, compact ? 5.5 : 7, 4, 24)),
@@ -65,6 +67,19 @@ export function labelConfig(input, showTests = true) {
         rotation: [0, 90, 180, 270].includes(Number(e.rotation)) ? Number(e.rotation) : 0 }];
     })),
   };
+}
+
+// Allocate the standard header when toggled; custom positions stay user-owned.
+export function toggleRegisterNumber(input, visible) {
+  const c = labelConfig(input), old = defaultLabel(c.width_mm, c.height_mm, {}, true, c.elements.register_number.visible);
+  const next = defaultLabel(c.width_mm, c.height_mm, {}, true, visible);
+  const elements = {...c.elements, register_number:{...c.elements.register_number, visible}};
+  const standard = ['number','sample','register_number'].every(key => ['x','y','width','height','rotation'].every(prop => Math.abs(c.elements[key][prop] - old.elements[key][prop]) < 0.01));
+  if (standard) for (const key of ['number','sample']) {
+    elements[key] = {...elements[key], x:next.elements[key].x, width:next.elements[key].width};
+    if (c.elements[key].font === old.elements[key].font) elements[key].font = next.elements[key].font;
+  }
+  return {...c, elements};
 }
 
 export function barcodeGeometry(value, config) {
@@ -134,7 +149,9 @@ export function sampleGroups(record = {}) {
 }
 export function labelData(record, group, laboratory, date) {
   const p = record.patient || {};
-  return { barcode: String(record.barcode || ''), number: String(record.barcode || ''), patient: p.name || '',
+  const register = Number(record.work_register_number);
+  return { barcode: String(record.barcode || ''), number: String(record.barcode || ''),
+    register_number: Number.isSafeInteger(register) && register > 0 ? `#${register}` : '', patient: p.name || '',
     age: [p.age ?? '', p.age_unit || ''].filter(v => v !== '').join(' '), gender: p.gender || '', date: date || '',
     sample: group.sampleName, tests: group.tests.join(', '), groups: group.groupNames.join(', '), laboratory: laboratory || '' };
 }

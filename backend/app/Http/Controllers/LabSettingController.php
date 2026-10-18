@@ -167,7 +167,7 @@ class LabSettingController extends Controller
             'barcode_config.copies' => 'sometimes|integer|min:1|max:20',
             'barcode_config.show_category_dialog' => 'sometimes|boolean',
             'barcode_config.custom_text' => 'nullable|string|max:120',
-            'barcode_config.elements' => 'required_if:barcode_config.version,2|array:barcode,number,patient,age,gender,date,sample,tests,laboratory,groups,custom',
+            'barcode_config.elements' => 'required_if:barcode_config.version,2|array:barcode,number,register_number,patient,age,gender,date,sample,tests,laboratory,groups,custom',
             'barcode_config.elements.*' => 'array:x,y,width,height,font,visible,align,bold,rotation',
             'barcode_config.elements.*.x' => 'required|numeric|min:0|max:254',
             'barcode_config.elements.*.y' => 'required|numeric|min:0|max:254',
