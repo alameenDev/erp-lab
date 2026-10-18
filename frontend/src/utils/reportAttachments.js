@@ -48,8 +48,8 @@ export async function prepareReportAttachments(attachments = []) {
       if (blob.size > MAX_BYTES) throw new Error('File too large');
       if (image) pages.push({name, url, src: await imageData(blob), kind: 'image'});
       else {
-        const pdfjs = await import('pdfjs-dist/build/pdf.mjs');
-        const {default: workerUrl} = await import('pdfjs-dist/build/pdf.worker.min.mjs?url');
+        const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+        const {default: workerUrl} = await import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url');
         pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
         const task = pdfjs.getDocument({data: new Uint8Array(await blob.arrayBuffer()), isEvalSupported: false, useSystemFonts: true, stopAtErrors: true, maxImageSize: 16000000});
         try {

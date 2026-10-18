@@ -49,7 +49,7 @@ $http.defaults.adapter=async config=>{
 const app=createApp({setup(){
  const report=ref(null),invoices=useinvoicesStore();
  fixture.store=invoices;fixture.saved=()=>record;
- fixture.prepare=async withBackground=>{invoices.printRecord=clone(record);const output=await report.value.prepareReport({withBackground});fixture.output=output;return {count:output.pages.length,signature:await output.blob.slice(0,5).text()};};
+ fixture.prepare=async withBackground=>{invoices.printRecord=clone(record);let output;try{output=await report.value.prepareReport({withBackground});}catch(error){throw new Error(error.message+' '+(error.cause?.stack||''));}fixture.output=output;return {count:output.pages.length,signature:await output.blob.slice(0,5).text()};};
  useTemplatesStore().GetTemplates=async()=>{};
  const status=useresultStatusStore();status.resultStatus=[{value:2,label:'normal'}];status.GetresultStatus=async()=>{};
  const settings=useLabSettingsStore();
