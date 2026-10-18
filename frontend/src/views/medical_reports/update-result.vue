@@ -1198,9 +1198,9 @@
                 class="group flex items-center gap-4 px-6 py-3.5 hover:bg-slate-50/60 transition-colors"
               >
                 <!-- File type icon -->
-                <div class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" :class="getFileColor(item.file || item.name).bg">
-                  <span class="text-[10px] font-black uppercase tracking-wider" :class="getFileColor(item.file || item.name).text">
-                    {{ getFileExtension(item.file || item.name) }}
+                <div class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" :class="getFileColor(item.download_name || item.file || item.name).bg">
+                  <span class="text-[10px] font-black uppercase tracking-wider" :class="getFileColor(item.download_name || item.file || item.name).text">
+                    {{ getFileExtension(item.download_name || item.file || item.name) }}
                   </span>
                 </div>
 

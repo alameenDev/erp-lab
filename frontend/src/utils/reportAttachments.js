@@ -52,7 +52,6 @@ export async function prepareReportAttachments(attachments = []) {
         const {default: workerUrl} = await import('pdfjs-dist/build/pdf.worker.min.mjs?url');
         pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
         const task = pdfjs.getDocument({data: new Uint8Array(await blob.arrayBuffer()), isEvalSupported: false, useSystemFonts: true, stopAtErrors: true, maxImageSize: 16000000});
-        task.onPassword = () => task.destroy();
         try {
           const document = await task.promise;
           if (pages.length + document.numPages > MAX_PAGES) throw new Error('Too many pages');

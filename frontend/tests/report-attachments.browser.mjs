@@ -21,7 +21,7 @@ const pick=async(file,index=0)=>page.locator('[data-report-new-attachment] input
 try{
  await page.goto('http://127.0.0.1:5173/tests/report-attachments-browser.html');
  await page.waitForFunction(()=>attachmentFixture.store?.updateResultRecord?.id===1);
- await page.getByRole('button',{name:/المرفقات/}).click();
+ await page.getByRole('button',{name:/الملفات/}).click();
  const png=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=1000;c.height=1400;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,1000,1400);x.fillStyle='#0f766e';x.fillRect(50,50,900,180);x.fillStyle='#fff';x.font='42px Arial';x.fillText('ATTACHED SCAN',100,150);x.fillStyle='#111';x.font='32px Arial';x.fillText('Glucose: 7 mmol/L',100,330);return c.toDataURL().split(',')[1];});
  const imageFile={name:'scan.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')};
  await page.evaluate(()=>attachmentFixture.pauseNext=true);
@@ -49,6 +49,9 @@ try{
  await writeFile('test-results/report-pages/attachments-combined.pdf',Buffer.from(exported.pdf));
  const rejected=await page.evaluate(async()=>{const results=[];for(const file of ['javascript:alert(1)',location.origin+'/synthetic-attachments/missing.pdf']){try{await attachmentFixture.prepareReportAttachments([{name:'Missing',file,mime_type:'application/pdf'}]);results.push(false);}catch{results.push(true);}}return results;});
  assert.deepEqual(rejected,[true,true],'invalid/missing attachments cannot silently disappear from print');
+ const locked=new jsPDF({encryption:{userPassword:'synthetic-password',ownerPassword:'synthetic-owner',userPermissions:['print']}});locked.text('Protected synthetic report',20,20);
+ const protectedMessage=await page.evaluate(async bytes=>{attachmentFixture.files.set('/synthetic-attachments/protected.pdf',new Blob([new Uint8Array(bytes)],{type:'application/pdf'}));try{await attachmentFixture.prepareReportAttachments([{name:'Protected',file:location.origin+'/synthetic-attachments/protected.pdf',mime_type:'application/pdf'}]);return '';}catch(error){return error.message;}},Array.from(new Uint8Array(locked.output('arraybuffer'))));
+ assert.match(protectedMessage,/كلمة مرور/,'protected PDF reports an actionable error without hanging');
  await page.setViewportSize({width:390,height:844});
  await page.locator('[data-report-saved-attachment]').first().scrollIntoViewIfNeeded();
  await page.screenshot({path:'test-results/report-pages/attachments-editor-mobile.png',fullPage:true});
