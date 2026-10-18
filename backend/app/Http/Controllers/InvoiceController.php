@@ -2295,11 +2295,13 @@ class InvoiceController extends Controller
         $request->validate([
             'id' => 'required|integer|exists:invoices,id',
             'notes' => 'nullable|string',
-            'attachments' => 'nullable|array',
-            'attachments.*.name' => 'required|string',
-            'attachments.*.file' => 'nullable|file|max:10240', // 10MB max
+            'attachments' => 'nullable|array|max:20',
+            'attachments.*.name' => 'nullable|string|max:255',
+            'attachments.*.upload_id' => 'nullable|uuid',
+            'attachments.*.file' => 'required|file|max:10240', // 10MB max
         ]);
 
+        $attachmentStorage = new \App\Services\ReportAttachmentStorage();
         try {
 
             DB::beginTransaction();
@@ -2331,38 +2333,7 @@ class InvoiceController extends Controller
             $invoice->result_doc = null;
             $invoice->pdf_qr_code = null;
 
-            // Handle attachments
-            $attachmentsArray = [];
-
-            // Keep existing attachments that frontend sent back
-            if ($request->has('existing_attachments')) {
-                $kept = is_string($request->existing_attachments)
-                    ? json_decode($request->existing_attachments, true)
-                    : $request->existing_attachments;
-                if (is_array($kept)) {
-                    $attachmentsArray = array_merge($attachmentsArray, $kept);
-                }
-            }
-
-            // Handle new file uploads
-            if ($request->has('attachments')) {
-                foreach ($request->attachments as $attachment) {
-                    if (isset($attachment['file']) && $attachment['file'] instanceof UploadedFile) {
-                        $file = $attachment['file'];
-                        $originalName = $attachment['name'] ?? $file->getClientOriginalName();
-                        $extension = $file->getClientOriginalExtension();
-                        $filename = $originalName.'_'.time().'_'.uniqid().'.'.$extension;
-                        $path = $file->storeAs('invoices/attachments', $filename, 'public');
-
-                        $attachmentsArray[] = [
-                            'name' => $originalName,
-                            'file' => config('app.url').Storage::url($path),
-                        ];
-                    }
-                }
-            }
-
-            $invoice->attachments = ! empty($attachmentsArray) ? $attachmentsArray : null;
+            $attachmentStorage->update($invoice, $request);
 
             // Update other fields
             // $invoice->tests_comment = $request->input('tests_comment') === 'null' ? null : $request->input('tests_comment');
@@ -2563,12 +2534,15 @@ class InvoiceController extends Controller
 
             $invoice->load($this->invoiceRelations());
             $invoiceJson = $this->transformInvoice($invoice);
+            $invoiceJson['attachment_uploads'] = $attachmentStorage->uploaded;
 
             DB::commit();
+            $attachmentStorage->cleanup();
 
             return response()->json($invoiceJson);
         } catch (Exception $e) {
             DB::rollBack();
+            $attachmentStorage->rollback();
             if ($e instanceof \Illuminate\Validation\ValidationException || $e instanceof \Symfony\Component\HttpKernel\Exception\HttpExceptionInterface) {
                 throw $e;
             }

@@ -364,7 +364,7 @@
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
               </svg>
-              {{ t("attachments") }} & {{ t("comments") || "تعليقات" }}
+              {{ t("attachments") }} & {{ t("comments") || "تعليقات" }} <span class="text-xs">({{ existingAttachments.length + attachments.filter(a => a.file).length }})</span>
             </button>
             </div>
           </nav>
@@ -1194,6 +1194,7 @@
               <div
                 v-for="(item, index) in existingAttachments"
                 :key="'existing-' + index"
+                data-report-saved-attachment
                 class="group flex items-center gap-4 px-6 py-3.5 hover:bg-slate-50/60 transition-colors"
               >
                 <!-- File type icon -->
@@ -1208,7 +1209,7 @@
                   <p class="text-sm font-semibold text-slate-800 truncate">{{ item.name }}</p>
                   <p class="text-xs text-emerald-500 flex items-center gap-1 mt-0.5">
                     <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" /></svg>
-                    {{ t("saved") || "Saved" }}
+                    {{ t("saved") || "Saved" }}<span v-if="item.stored_size"> · {{ formatFileSize(item.stored_size) }}<span v-if="item.original_size > item.stored_size"> (توفير {{ Math.round((1 - item.stored_size / item.original_size) * 100) }}%)</span></span>
                   </p>
                 </div>
 
@@ -1240,6 +1241,7 @@
                   <button
                     type="button"
                     @click="removeExistingAttachment(index)"
+                    :aria-label="'حذف المرفق ' + item.name"
                     class="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
                   >
                     <svg class="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -1262,12 +1264,13 @@
                 </div>
                 <div>
                   <h3 class="text-sm font-bold text-slate-800">{{ t("upload") || "Upload" }} {{ t("attachments") }}</h3>
-                  <p class="text-xs text-slate-400">{{ attachments.filter(a => a.file).length }} {{ t("selected") || "selected" }}</p>
+                  <p class="text-xs text-slate-500">يُحفظ المرفق تلقائياً ويظهر اسمه في وسط التقرير. الحد الأقصى 10 MB لكل ملف.</p>
                 </div>
               </div>
               <button
                 type="button"
                 @click="addAttachment"
+                data-report-add-attachment
                 class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-primary-700 bg-primary-50 hover:bg-primary-100 border border-primary-200 rounded-lg transition-colors"
               >
                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
@@ -1281,6 +1284,7 @@
               <div
                 v-for="(item, index) in attachments"
                 :key="'new-' + index"
+                data-report-new-attachment
                 class="rounded-xl border-2 border-dashed transition-all overflow-hidden"
                 :class="item.file ? 'border-primary-300 bg-primary-50/30' : 'border-slate-200 hover:border-primary-300 bg-slate-50/30'"
               >
@@ -1584,13 +1588,17 @@ let autoSaveTimer = null;
 let autoSaveInFlight = false;
 let autoSavePending = false;
 let autoSaveDirty = false; // unsaved change exists
+let reconcilingAttachments = false;
 
 // Mirror attachment state (existing URLs + newly-picked Files) onto the record
 // so auto-save persists adds AND removals. Returns true if new Files are queued.
 const syncAttachmentsToRecord = () => {
+  for (const item of attachments.value) {
+    if (item.file instanceof File) item.upload_id ||= crypto.randomUUID();
+  }
   const newFiles = attachments.value
     .filter((item) => item.file instanceof File)
-    .map((item) => ({ name: item.name || null, file: item.file }));
+    .map((item) => ({ name: item.name || item.file.name, file: item.file, upload_id: item.upload_id }));
   updateResultRecord.value.attachments = [...existingAttachments.value, ...newFiles];
   return newFiles.length > 0;
 };
@@ -1601,16 +1609,32 @@ const runAutoSave = async () => {
   autoSaveDirty = false;
   autoSaveState.value = "saving";
   try {
-    const hadNewFiles = syncAttachmentsToRecord();
-    await invoicesStore.autoSaveResult();
-    // After uploading new files, refetch so they become "existing" URLs —
-    // otherwise the same File re-uploads on every later save (duplicates).
-    if (hadNewFiles) {
-      const id = route.params.id;
-      const data = await invoicesStore.GetinvoicesById(id);
-      if (data?.attachments) existingAttachments.value = data.attachments.map((a) => ({ ...a }));
-      attachments.value = [{ name: "", file: null }];
+    syncAttachmentsToRecord();
+    const submitted = attachments.value.filter(a => a.file instanceof File)
+      .map(row => ({row, file: row.file, upload_id: row.upload_id}));
+    const data = await invoicesStore.autoSaveResult();
+    // Acknowledge only the files submitted in this request. Keep files and names
+    // selected while it was in flight, and never replace unsaved test results.
+    reconcilingAttachments = true;
+    const saved = data?.attachments || [];
+    existingAttachments.value = existingAttachments.value.map(item => ({
+      ...(saved.find(a => a.file === item.file) || item), name: item.name,
+    }));
+    for (const item of submitted) {
+      const uploaded = saved.find(a => a.file === data?.attachment_uploads?.[item.upload_id]);
+      if (!uploaded) throw new Error('Attachment upload was not acknowledged');
+      if (attachments.value.includes(item.row) && item.row.file === item.file) {
+        const existingIndex = existingAttachments.value.findIndex(a => a.file === uploaded.file);
+        const acknowledged = {...uploaded, name: item.row.name || uploaded.name};
+        if (existingIndex >= 0) existingAttachments.value[existingIndex] = acknowledged;
+        else existingAttachments.value.push(acknowledged);
+        attachments.value = attachments.value.filter(a => a !== item.row);
+      } else autoSaveDirty = true; // removed/replaced while uploading: reconcile on next save
     }
+    if (!attachments.value.length) attachments.value = [{name: '', file: null}];
+    syncAttachmentsToRecord();
+    await nextTick();
+    reconcilingAttachments = false;
     autoSaveState.value = "saved";
     return true;
   } catch {
@@ -1618,8 +1642,9 @@ const runAutoSave = async () => {
     autoSaveDirty = true; // retry on next change / unmount
     return false;
   } finally {
+    reconcilingAttachments = false;
     autoSaveInFlight = false;
-    if (autoSavePending) {
+    if (autoSavePending || (autoSaveDirty && autoSaveState.value !== "error")) {
       autoSavePending = false;
       scheduleAutoSave();
     }
@@ -1999,9 +2024,15 @@ const toggleAttributes = (index) => {
 const onFileChange = (event, index) => {
   const file = event.target.files?.[0];
   if (file) {
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('حجم الملف يجب أن لا يتجاوز 10 ميغابايت.');
+      event.target.value = '';
+      return;
+    }
     attachments.value[index].file = file;
+    attachments.value[index].upload_id = crypto.randomUUID();
     if (!attachments.value[index].name) {
-      attachments.value[index].name = file.name.replace(/\.[^/.]+$/, "");
+      attachments.value[index].name = file.name;
     }
   }
 };
@@ -2317,23 +2348,19 @@ const loadTemplate = async () => {
 
 const update = async () => {
   try {
-    // Combine existing attachments (URLs) + new attachments (File objects)
-    updateResultRecord.value.attachments = [
-      ...existingAttachments.value,
-      ...attachments.value
-        .filter((item) => item.file instanceof File)
-        .map((item) => ({ name: item.name || null, file: item.file })),
-    ];
-
-    await invoicesStore.updateResult();
-    autoSaveDirty = false; // manual save covers pending changes
+    clearTimeout(autoSaveTimer);
+    while (autoSaveInFlight) await new Promise(resolve => setTimeout(resolve, 80));
+    do {
+      clearTimeout(autoSaveTimer);
+      if (!(await runAutoSave())) throw new Error('تعذر حفظ النتائج والمرفقات. حاول مرة أخرى.');
+    } while (autoSaveDirty); // include edits made while the save was in flight
     clearTimeout(autoSaveTimer);
     testsComment.value = [];
     cultursComment.value = [];
     toast.success(t("alertSuccess"));
     router.push("/medical_reports");
   } catch (error) {
-    const msg = error?.response?.data?.error || error?.response?.data?.message || t("alertError");
+    const msg = error?.response?.data?.error || error?.response?.data?.message || error.message || t("alertError");
     toast.error(msg);
   }
 };
@@ -2459,7 +2486,7 @@ watch(
 // a removal — typing the name field also schedules (cheap, debounced).
 watch(
   [attachments, existingAttachments],
-  () => scheduleAutoSave(),
+  () => { if (!reconcilingAttachments) scheduleAutoSave(); },
   { deep: true }
 );
 

@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'frontend/src/utils/resultHistory.js'
+      - 'frontend/src/utils/reportAttachments.js'
+      - 'frontend/src/utils/resultAttachments.js'
       - 'frontend/src/components/ReportPreviousResults.vue'
       - 'frontend/src/components/ResultHistoryTable.vue'
       - 'frontend/src/store/modules/labSettings.js'
@@ -59,6 +61,7 @@ jobs:
             curl -fsS http://127.0.0.1:5173/tests/report-background-browser.html > /dev/null && break
             sleep 1
           done
+          node tests/report-attachments.browser.mjs
           node tests/report-test-filter.browser.mjs
           node tests/report-form-default.browser.mjs
           node tests/report-selection-order.browser.mjs
