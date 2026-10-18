@@ -250,8 +250,9 @@ class DailyWorkRegisterTest extends TestCase
         $second = $this->createInvoice();
         $barcode = $second->barcode;
         $url = '/api/invoices/'.$second->id.'/barcode-register';
-        $this->getJson($url)->assertOk()->assertExactJson(['work_register_number' => 2, 'work_register_date' => '2026-10-18'])
-            ->assertHeader('Cache-Control', 'no-store, private');
+        $response = $this->getJson($url)->assertOk()->assertExactJson(['work_register_number' => 2, 'work_register_date' => '2026-10-18']);
+        $this->assertTrue($response->headers->hasCacheControlDirective('no-store'));
+        $this->assertTrue($response->headers->hasCacheControlDirective('private'));
         $day = $this->day();
         $this->patchJson('/api/work-register/'.$day['entries'][1]['id'], ['date' => $day['date'], 'version' => $day['version'], 'position' => 1])->assertOk();
         $this->getJson($url)->assertOk()->assertJsonPath('work_register_number', 1);
