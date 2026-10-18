@@ -1,8 +1,10 @@
 import { createApp, ref, h } from 'vue';
+import GenericBarcode from '/src/components/BarcodeComponent.vue';
 import Designer from '/src/views/lab-settings/BarcodeLabelDesigner.vue';
 import { defaultLabel, barcodePrintCss } from '/src/utils/barcodeLabels.js';
 import '/src/assets/main.css';
 const config=ref(defaultLabel());
 window.qaConfig=config;
+const generic=ref({value:'0001234',format:'CODE128',width:1,height:20,displayValue:false});window.qaGeneric=generic;
 window.qaPrintCss=()=>barcodePrintCss(config.value);
-createApp({setup(){return ()=>h('main',{style:'padding:24px;max-width:1400px;margin:auto',dir:'rtl'},[h(Designer,{modelValue:config.value,'onUpdate:modelValue':value=>config.value=value,labName:'مختبر العاصمة'})]);}}).mount('#app');
+createApp({setup(){return ()=>h('main',{style:'padding:24px;max-width:1400px;margin:auto',dir:'rtl'},[h(Designer,{modelValue:config.value,'onUpdate:modelValue':value=>config.value=value,labName:'مختبر العاصمة'}),h('div',{id:'generic-barcode'},[h(GenericBarcode,generic.value)])]);}}).mount('#app');

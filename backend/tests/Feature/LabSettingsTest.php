@@ -65,7 +65,7 @@ class LabSettingsTest extends TestCase
         $item = ['x'=>2, 'y'=>6, 'width'=>46, 'height'=>8, 'font'=>8, 'visible'=>true, 'align'=>'center', 'bold'=>false, 'rotation'=>0];
         return ['version'=>2, 'width_mm'=>50, 'height_mm'=>30, 'dpi'=>203, 'format'=>'CODE128',
             'quiet_modules'=>10, 'offset_x'=>0.5, 'offset_y'=>0, 'copies'=>2, 'show_category_dialog'=>true, 'custom_text'=>'Sample',
-            'elements'=>['barcode'=>$item, 'patient'=>array_merge($item, ['y'=>16, 'height'=>5]), 'tests'=>array_merge($item, ['y'=>22, 'height'=>5, 'visible'=>false])]];
+            'elements'=>['barcode'=>$item, 'register_number'=>array_merge($item, ['x'=>20, 'y'=>1, 'width'=>12, 'height'=>4]), 'patient'=>array_merge($item, ['y'=>16, 'height'=>5]), 'tests'=>array_merge($item, ['y'=>22, 'height'=>5, 'visible'=>false])]];
     }
 
     public function test_barcode_layout_is_saved_per_lab_and_survives_other_settings_updates(): void
@@ -76,13 +76,16 @@ class LabSettingsTest extends TestCase
         $layout = $this->barcodeLayout();
         $this->actingAs($owner)->postJson('/api/lab-settings', ['barcode_config'=>$layout])->assertOk()
             ->assertJsonPath('setting.barcode_config.elements.tests.visible', false)
-            ->assertJsonPath('setting.barcode_config.width_mm', 50);
+            ->assertJsonPath('setting.barcode_config.width_mm', 50)
+            ->assertJsonPath('setting.barcode_config.elements.register_number.visible', true);
         $this->getJson('/api/lab-settings')->assertOk()->assertJsonPath('barcode_config', $layout);
         $this->postJson('/api/lab-settings', ['lab_display_name'=>'Changed'])->assertOk()->assertJsonPath('setting.barcode_config', $layout);
         $this->assertSame(['label_width'=>3], LabSetting::where('lab_id_fk',$other->id)->first()->barcode_config);
+        $layout['elements']['register_number']['visible'] = false;
         $layout['show_category_dialog'] = false;
         $this->postJson('/api/lab-settings', ['barcode_config'=>$layout])->assertOk()
-            ->assertJsonPath('setting.barcode_config.show_category_dialog', false);
+            ->assertJsonPath('setting.barcode_config.show_category_dialog', false)
+            ->assertJsonPath('setting.barcode_config.elements.register_number.visible', false);
         $this->postJson('/api/lab-settings/reset', ['section'=>'print'])->assertOk();
         $this->assertFalse((bool) (LabSetting::where('lab_id_fk',$owner->id)->first()->barcode_config['show_category_dialog'] ?? false));
     }

@@ -15,7 +15,7 @@ const toast = useToast();
 const printId = `barcode-labels-${useId()}`;
 const titleId = `${printId}-title`;
 const dialog = ref(null), record = ref(null), settings = ref({}), copies = ref(null);
-const loading = ref(false), printing = ref(false), error = ref('');
+const loading = ref(false), printing = ref(false), error = ref(''), notice = ref('');
 const busy = computed(() => loading.value || printing.value);
 const config = computed(() => labelConfig(settings.value.barcode_config, settings.value.show_tests_on_barcode !== false));
 const samples = computed(() => barcodeSamples(record.value || {}));
@@ -30,23 +30,36 @@ function close() {
   if (printing.value) return;
   request++; loading.value = false;
   dialog.value?.close();
-  record.value = null; copies.value = null; error.value = '';
+  record.value = null; copies.value = null; error.value = ''; notice.value = '';
 }
 async function print() {
   if (busy.value || !labels.value.length) return;
   printing.value = true; error.value = '';
   try {
+    if (config.value.elements.register_number.visible) {
+      // Refresh immediately before printing: a receptionist may have reordered
+      // the register while this sample picker was open.
+      const {data} = await $http.get(`/invoices/${record.value.id}/barcode-register`);
+      if (disposed) return;
+      if (!Object.hasOwn(data, 'work_register_number')) throw new Error('تعذر التحقق من رقم سجل العمل. حاول مجدداً.');
+      const position = data.work_register_number;
+      if (position != null && (!Number.isSafeInteger(position) || position < 1)) throw new Error('تعذر التحقق من رقم سجل العمل. حاول مجدداً.');
+      record.value = {...record.value, work_register_number: position, work_register_date: data.work_register_date};
+      notice.value = position == null ? 'هذه الزيارة غير موجودة في سجل العمل؛ يُطبع الباركود بدون رقم سجل.' : '';
+      if (notice.value && !dialog.value?.open) toast.warning(notice.value);
+    }
     await nextTick();
-    await printWithIframe(printId, barcodePrintCss(config.value), 'Print Barcode');
-  } catch {
-    error.value = 'تعذرت طباعة الباركود. حاول مرة أخرى.';
+    await printWithIframe(printId, barcodePrintCss(config.value), 'Print Barcode', 100, null, {throwOnError:true});
+  } catch (err) {
+    if (disposed) return;
+    error.value = err.response ? 'تعذر تحميل رقم سجل العمل. حاول الطباعة مجدداً.' : err.message || 'تعذرت طباعة الباركود. حاول مرة أخرى.';
     if (!dialog.value?.open) toast.error(error.value);
   } finally { printing.value = false; }
 }
 async function open(invoice) {
   if (busy.value || dialog.value?.open) return;
   const version = ++request;
-  loading.value = true; record.value = null; copies.value = null; error.value = '';
+  loading.value = true; record.value = null; copies.value = null; error.value = ''; notice.value = '';
   try {
     await settingsStore.GetSettings();
     if (disposed || version !== request) return;
@@ -83,8 +96,9 @@ defineExpose({ open, busy });
         </header>
         <div class="min-h-0 space-y-4 overflow-y-auto p-5">
           <p v-if="loading" role="status" class="py-8 text-center text-slate-500">جاري تحميل أنواع العينات والتحاليل…</p>
-          <p v-else-if="error" role="alert" class="rounded-xl bg-red-50 p-4 text-red-700">{{ error }}</p>
-          <template v-else>
+          <p v-if="error" role="alert" class="rounded-xl bg-red-50 p-4 text-red-700">{{ error }}</p>
+          <p v-if="notice" role="status" class="rounded-xl bg-amber-50 p-4 text-amber-800">{{ notice }}</p>
+          <template v-if="!loading && record">
             <p v-if="!samples.length" role="status" class="rounded-xl bg-slate-50 p-4 text-slate-600">لا توجد تحاليل في هذه الفاتورة لطباعة الباركود.</p>
             <section v-for="sample in samples" :key="sample.key" :data-barcode-sample="sample.key" class="rounded-xl border border-slate-200 p-4" :class="copies?.[sample.key] === 0 ? 'bg-slate-50' : 'bg-white'">
               <div class="flex flex-wrap items-center justify-between gap-3">
@@ -110,7 +124,7 @@ defineExpose({ open, busy });
           <div class="flex flex-wrap gap-2">
             <button type="button" :disabled="busy || !samples.length" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-600 disabled:opacity-40" @click="resetCopies">إعادة العدد الافتراضي</button>
             <button type="button" :disabled="printing" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 disabled:opacity-40" @click="close">إلغاء</button>
-            <button type="button" :disabled="busy || !total || !!error" class="rounded-lg bg-teal-700 px-5 py-2 text-sm font-bold text-white hover:bg-teal-800 disabled:opacity-40" @click="print">{{ printing ? 'جاري الطباعة…' : 'طباعة الباركود' }}</button>
+            <button type="button" :disabled="busy || !total" class="rounded-lg bg-teal-700 px-5 py-2 text-sm font-bold text-white hover:bg-teal-800 disabled:opacity-40" @click="print">{{ printing ? 'جاري الطباعة…' : 'طباعة الباركود' }}</button>
           </div>
         </footer>
       </div>

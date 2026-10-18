@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref, onBeforeUnmount } from 'vue';
 import BarcodeLabel from '@/components/barcode/BarcodeLabel.vue';
-import { labelConfig, defaultLabel, labelFields, fieldNames, barcodeGeometry, elementBox, labelIssues, barcodePrintCss, roundMm } from '@/utils/barcodeLabels';
+import { labelConfig, defaultLabel, labelFields, fieldNames, barcodeGeometry, elementBox, labelIssues, barcodePrintCss, roundMm, toggleRegisterNumber } from '@/utils/barcodeLabels';
 import { usePrint } from '@/composables/usePrint';
 const props = defineProps({ modelValue: Object, showTests: { type: Boolean, default: true }, labName: String, lang: { type: String, default: 'ar' } });
 const emit = defineEmits(['update:modelValue']);
@@ -10,10 +10,10 @@ const en = computed(() => props.lang === 'en');
 const tr = (ar, english) => en.value ? english : ar;
 const name = key => fieldNames[key][en.value ? 1 : 0];
 const selected = ref('barcode'), zoom = ref(140), overflow = ref([]), scanned = ref(''), sampleNumber = ref('1234567890');
-const samplePatient = ref('أحمد محمد علي');
+const samplePatient = ref('أحمد محمد علي'), sampleRegister = ref('12'), printError = ref(''), printing = ref(false);
 const e = computed(() => c.value.elements[selected.value]);
 const demo = computed(() => ({ barcode: sampleNumber.value, number: sampleNumber.value, patient: samplePatient.value,
-  age: '33 years', gender: 'Female', date: '04/10/2026 14:30', sample: 'EDTA', tests: 'CBC, HbA1c',
+  register_number: sampleRegister.value ? `#${sampleRegister.value}` : '', age: '33 years', gender: 'Female', date: '04/10/2026 14:30', sample: 'EDTA', tests: 'CBC, HbA1c',
   laboratory: props.labName || 'Digital Lab', groups: 'Hematology', custom: c.value.custom_text }));
 const geometry = computed(() => barcodeGeometry(sampleNumber.value, c.value));
 const problems = computed(() => [...labelIssues(c.value, demo.value), ...overflow.value.map(key => ({ code:'text', key }))]);
@@ -30,7 +30,7 @@ function number(key, event, element = false) {
   if (value === '' || !Number.isFinite(Number(value))) return;
   (element ? field : update)({ [key]: Number(value) });
 }
-function preset(width, height) { emit('update:modelValue', { ...defaultLabel(width, height, {}, props.showTests), show_category_dialog: c.value.show_category_dialog }); }
+function preset(width, height) { emit('update:modelValue', { ...defaultLabel(width, height, {}, props.showTests, c.value.elements.register_number.visible), show_category_dialog: c.value.show_category_dialog }); }
 const center = () => { const b = elementBox(e.value, c.value); field({ x: roundMm(Math.max(0, (c.value.width_mm - b.width) / 2 - c.value.offset_x)) }); };
 let endDrag;
 function drag(event, key) {
@@ -57,7 +57,16 @@ function keyboard(event) {
   field({ x: roundMm(Math.max(0, e.value.x + x*step)), y: roundMm(Math.max(0, e.value.y + y*step)) });
 }
 const { printWithIframe } = usePrint();
-const printTest = () => printWithIframe('barcode-test-print', barcodePrintCss(c.value), 'Barcode calibration label');
+const toggle = (key, visible) => key === 'register_number'
+  ? emit('update:modelValue', toggleRegisterNumber(c.value, visible))
+  : update({elements:{...c.value.elements,[key]:{...c.value.elements[key],visible}}});
+async function printTest() {
+  if (printing.value) return;
+  printing.value = true; printError.value = '';
+  try { await printWithIframe('barcode-test-print', barcodePrintCss(c.value), 'Barcode calibration label', 100, null, {throwOnError:true}); }
+  catch (error) { printError.value = error.message || tr('تعذرت الطباعة. حاول مجدداً.', 'Printing failed. Try again.'); }
+  finally { printing.value = false; }
+}
 </script>
 <template>
   <section class="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 space-y-5">
@@ -91,10 +100,11 @@ const printTest = () => printWithIframe('barcode-test-print', barcodePrintCss(c.
             </div>
           </div>
         </div>
+        <p class="text-xs text-teal-800">{{ tr('رقم سجل العمل هو ترتيب الزيارة في يومها. يتحدث عند الطباعة حسب ترتيب السجل، ويبقى الرمز المقروء برقم العينة الأصلي.', 'The work register number is the visit position on its work day, refreshed at print time. The scanned code remains the original sample number.') }}</p>
         <p class="text-xs text-slate-500">{{ tr('تكبير المعاينة لا يغيّر مقاس الطباعة. الإحداثيات تبدأ من أعلى يسار الملصق.', 'Preview zoom does not change print size. Coordinates start at the top left.') }}</p>
         <div class="grid grid-cols-2 gap-2">
           <label v-for="key in labelFields" :key="key" class="flex items-center gap-2 rounded-lg border p-2 text-sm" :class="selected===key ? 'border-teal-500 bg-teal-50' : 'border-slate-200'">
-            <input type="checkbox" :checked="c.elements[key].visible" :disabled="key==='barcode'" @change="update({elements:{...c.elements,[key]:{...c.elements[key],visible:$event.target.checked}}})">
+            <input type="checkbox" :checked="c.elements[key].visible" :disabled="key==='barcode'" @change="toggle(key,$event.target.checked)" :aria-label="name(key)">
             <button type="button" class="flex-1 text-start" @click="selected=key">{{ name(key) }}</button>
           </label>
         </div>
@@ -125,8 +135,10 @@ const printTest = () => printWithIframe('barcode-test-print', barcodePrintCss(c.
     <div class="rounded-xl border border-teal-200 bg-teal-50/50 p-4 space-y-3">
       <h4 class="font-bold text-slate-800">{{ tr('اختبار الطباعة والقراءة', 'Print & scan test') }}</h4>
       <div class="grid gap-3 sm:grid-cols-2"><label class="bl-field">{{ tr('رقم للتجربة فقط', 'Preview sample number') }}<input v-model="sampleNumber" maxlength="255" dir="ltr"></label><label class="bl-field">{{ tr('اسم للتجربة فقط', 'Preview patient name') }}<input v-model="samplePatient" maxlength="120"></label></div>
+      <label v-if="c.elements.register_number.visible" class="bl-field">{{ tr('رقم سجل للتجربة فقط', 'Preview work register number') }}<input v-model="sampleRegister" type="number" min="1" max="999999" step="1" dir="ltr"></label>
+      <p v-if="printError" role="alert" class="text-sm text-red-700">{{ printError }}</p>
       <p class="text-xs leading-6 text-slate-600">{{ tr('اختر نفس مقاس الورق في تعريف الطابعة، والطباعة بنسبة 100% دون Fit to page، وأوقف رؤوس وتذييلات المتصفح. اطبع الاختبار ثم امسحه بالقارئ. بيانات الاختبار لا تُحفظ كمريض أو نتيجة.', 'Select matching media in the printer driver, use 100% scale (no fit to page), and disable browser headers/footers. Print a test and scan it. Test data is never saved as a patient or result.') }}</p>
-      <button type="button" :disabled="messages.length>0" @click="printTest" class="rounded-lg bg-teal-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-40">{{ tr('طباعة ملصق تجريبي','Print test label') }}</button>
+      <button type="button" :disabled="messages.length>0 || printing" @click="printTest" class="rounded-lg bg-teal-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-40">{{ tr('طباعة ملصق تجريبي','Print test label') }}</button>
       <label class="bl-field">{{ tr('اضغط هنا وامسح الملصق بالقارئ', 'Focus here and scan the printed label') }}<input v-model="scanned" dir="ltr" autocomplete="off" @keydown.enter.prevent></label>
       <p v-if="scanned" role="status" :class="scanned===sampleNumber?'text-teal-700':'text-red-700'" class="text-sm font-bold">{{ scanned===sampleNumber ? tr('الرقم المقروء مطابق تماماً ✓','Scanned value matches exactly ✓') : tr('الرقم المقروء غير مطابق؛ تحقق من إعدادات القارئ والطباعة.','Scanned value does not match; check reader and print settings.') }}</p>
     </div>

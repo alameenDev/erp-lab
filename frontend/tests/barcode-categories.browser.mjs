@@ -3,7 +3,7 @@ import { createServer } from 'vite';
 import { mkdir } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 const out='barcode-qa';await mkdir(out,{recursive:true});
-const server=await createServer({server:{host:'127.0.0.1',port:5184,strictPort:true}});
+const server=await createServer({server:{watch:{ignored:['**/barcode-qa/**']},host:'127.0.0.1',port:5184,strictPort:true}});
 let browser,page;
 try {
  await server.listen();browser=await chromium.launch({headless:true});
@@ -13,7 +13,7 @@ try {
   window.print=function(){window.top.__prints??=[];window.top.__prints.push(document.documentElement.outerHTML);window.dispatchEvent(new Event('afterprint'));};
   window.alert=message=>{window.__alerts??=[];window.__alerts.push(message);};
  });
- await page.goto('http://127.0.0.1:5184/tests/fixtures/barcode-categories.html');
+ await page.goto('http://127.0.0.1:5184/tests/fixtures/barcode-categories.html',{waitUntil:'networkidle'});
  const dialog=page.locator('dialog[open]');
  const copies=name=>dialog.getByRole('spinbutton',{name:'عدد نسخ '+name,exact:true});
  const print=()=>dialog.getByRole('button',{name:'طباعة الباركود',exact:true});
@@ -77,6 +77,41 @@ try {
  await page.evaluate(()=>window.qa.fail=true);await page.locator('#open-a').click();await dialog.getByRole('alert').waitFor();
  assert.equal(await print().isDisabled(),true);assert.equal(await dialog.locator('[data-barcode-sample]').count(),0);
  assert.equal(await page.evaluate(()=>window.__prints.length),3);
+ // Register number is optional, refreshed on every print, and never encoded.
+ assert.equal(await page.evaluate(()=>qa.requests.filter(url=>url.endsWith('/barcode-register')).length),0);
+ await dialog.getByRole('button',{name:'إلغاء',exact:true}).click();
+ await page.evaluate(()=>qa.fail=false);
+ await page.getByRole('checkbox',{name:'رقم سجل العمل',exact:true}).check();
+ await page.locator('#open-a').click();await copies('EDTA').waitFor();
+ await copies('Serum').fill('0');await copies('Urine').fill('0');
+ await page.evaluate(()=>qa.registerNumbers[1]=7); // Reordered while picker is open.
+ await print().click();await page.waitForFunction(()=>window.__prints.length===4);
+ const printedRegister=()=>page.evaluate(()=>{const doc=new DOMParser().parseFromString(window.__prints.at(-1),'text/html');return {number:doc.querySelector('[data-label-field=register_number]')?.textContent.trim(),barcode:doc.querySelector('svg')?.getAttribute('aria-label')};});
+ assert.deepEqual(await printedRegister(),{number:'#7',barcode:'0001234'});
+ await page.evaluate(()=>qa.registerNumbers[1]=3);
+ await print().click();await page.waitForFunction(()=>window.__prints.length===5);
+ assert.equal((await printedRegister()).number,'#3');
+ // Never reuse stale numbering after a failed fetch; the same button can retry.
+ await page.evaluate(()=>qa.failRegister=true);await print().click();await dialog.getByRole('alert').waitFor();
+ assert.equal(await page.evaluate(()=>window.__prints.length),5);assert.equal(await print().isDisabled(),false);
+ await page.evaluate(()=>{qa.failRegister=false;qa.registerNumbers[1]=4;});
+ await print().click();await page.waitForFunction(()=>window.__prints.length===6);
+ assert.equal((await printedRegister()).number,'#4');
+ await page.evaluate(()=>qa.registerNumbers[1]=null);
+ await print().click();await page.waitForFunction(()=>window.__prints.length===7);
+ assert.equal((await printedRegister()).number,undefined);
+ assert.match(await dialog.getByRole('status').innerText(),/بدون رقم سجل/);
+ await dialog.getByRole('button',{name:'إلغاء',exact:true}).click();
+ await page.getByRole('checkbox',{name:/اختيار نسخ الباركود حسب نوع العينة قبل الطباعة/}).uncheck();
+ await page.locator('#open-b').click();await page.waitForFunction(()=>window.__prints.length===8);
+ assert.deepEqual(await printedRegister(),{number:'#2',barcode:'0005678'});
+ // Actual clipping failures surface in the dialog and do not request native print.
+ await page.getByRole('checkbox',{name:/اختيار نسخ الباركود حسب نوع العينة قبل الطباعة/}).check();
+ await page.evaluate(()=>{qa.config.value.elements.register_number.width=1;qa.registerNumbers[1]=99999;});
+ await page.locator('#open-a').click();await copies('EDTA').waitFor();
+ await print().click();await dialog.getByRole('alert').waitFor();
+ assert.match(await dialog.getByRole('alert').innerText(),/نص مقصوص/);
+ assert.equal(await page.evaluate(()=>window.__prints.length),8);
  assert.deepEqual(await page.evaluate(()=>window.__alerts||[]),[]);assert.deepEqual(errors,[]);
  console.log('PASS: sample-type copies, nested groups, sample separation, zero exclusion, exact printed count/barcode, setting toggle, saved invoice, reset, cancellation races, load errors, mobile width and keyboard close.');
 } catch(error) {if(page){console.log(await page.locator('body').innerText());await page.screenshot({path:`${out}/categories-failure.png`,fullPage:true});}throw error;}

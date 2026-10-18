@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { labelConfig, defaultLabel, barcodeGeometry, labelIssues, elementBox, barcodePrintCss, sampleGroups, labelData } from '../src/utils/barcodeLabels.js';
+import { labelConfig, defaultLabel, barcodeGeometry, labelIssues, elementBox, barcodePrintCss, sampleGroups, labelData, toggleRegisterNumber } from '../src/utils/barcodeLabels.js';
 const data = { barcode:'0012345678', number:'0012345678', patient:'Patient', age:'33', gender:'Female', date:'04/10/2026 14:30', sample:'EDTA', tests:'CBC' };
 test('legacy inch settings migrate without losing visibility or label size', () => {
   const c = labelConfig({label_width:2,label_height:1,name_size:8}, false);
@@ -51,4 +51,24 @@ test('print uses actual millimetres and one page per label without forced SVG sc
   const css=barcodePrintCss(defaultLabel(50,30));
   assert.match(css,/size:50mm 30mm/); assert.match(css,/break-before:page/);
   assert.doesNotMatch(css,/svg[^}]*width:\s*100%/);
+});
+
+test('optional register number fits preset headers and never changes encoded sample data', () => {
+  for(const [w,h] of [[76.2,38.1],[50,30],[60,40],[40,25]]) {
+    const original=defaultLabel(w,h), enabled=toggleRegisterNumber(original,true);
+    assert.equal(original.elements.register_number.visible,false);
+    assert.deepEqual(labelIssues(enabled,{...data,register_number:'#12'}),[]);
+    assert.deepEqual(barcodeGeometry(data.barcode,enabled),barcodeGeometry(data.barcode,original));
+    assert.deepEqual(labelConfig(enabled),enabled);
+    assert.deepEqual(toggleRegisterNumber(enabled,false),original);
+  }
+  const small=defaultLabel(40,25);small.elements.number.font=8;
+  assert.equal(toggleRegisterNumber(toggleRegisterNumber(small,true),false).elements.number.font,8,'toggling register visibility preserves a custom font');
+  const custom=defaultLabel();custom.elements.number.x=4;
+  assert.equal(toggleRegisterNumber(custom,true).elements.number.x,4,'custom positions are not reset by the new option');
+  const group={sampleName:'EDTA',tests:['CBC'],groupNames:[]};
+  const record={barcode:'00001234',patient:{code:'PAT-9'},id:555,work_register_number:7};
+  assert.equal(labelData(record,group).register_number,'#7');
+  assert.equal(labelData(record,group).barcode,'00001234');
+  for(const value of [undefined,null,0,-1,1.5,'bad']) assert.equal(labelData({...record,work_register_number:value},group).register_number,'');
 });

@@ -45,7 +45,7 @@ export function usePrint() {
    * @param {number} delay - Delay before printing (ms)
    * @param {Function} fetchData - Optional async function to fetch data before printing
    */
-  const printWithIframe = async (elementId, css, title = "Print", delay = 100, fetchData = null) => {
+  const printWithIframe = async (elementId, css, title = "Print", delay = 100, fetchData = null, {throwOnError = false} = {}) => {
     if (fetchData) {
       await fetchData();
       await nextTick();
@@ -83,6 +83,11 @@ export function usePrint() {
           const labels = [...frameDoc.querySelectorAll('.barcode-label')];
           const bad = labels.find(label => label.dataset.labelErrors || [...label.querySelectorAll('[data-label-text]')].some(e => e.scrollHeight > e.clientHeight + 1 || e.scrollWidth > e.clientWidth + 1));
           if (bad) {
+            if (throwOnError) {
+              reject(new Error('تعذرت طباعة الملصق: يوجد تداخل أو نص مقصوص أو باركود ضيق. عدّل إعدادات ملصقات الباركود ثم أعد المحاولة.'));
+              removeFrame(printFrame);
+              return;
+            }
             window.alert('تعذرت طباعة الملصق: يوجد تداخل أو نص خارج المساحة أو باركود ضيق. عدّل إعدادات ملصقات الباركود أو كبّر المقاس ثم أعد المحاولة.\nLabel does not fit. Check barcode label settings before printing.');
             removeFrame(printFrame);
             return;
@@ -95,7 +100,7 @@ export function usePrint() {
           printFrame.contentWindow.focus();
           printFrame.contentWindow.print();
         };
-        runPrint().catch(() => { removeFrame(printFrame); resolve(); });
+        runPrint().catch(error => { if (throwOnError) reject(error); removeFrame(printFrame); resolve(); });
       }, delay, resolve);
     });
   };

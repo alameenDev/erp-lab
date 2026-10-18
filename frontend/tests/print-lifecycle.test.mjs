@@ -79,3 +79,14 @@ test('invalid label geometry and clipped text block both print paths and clean u
     f.scope.stop();
   }
 });
+
+test('barcode callers receive actionable failures and may retry after cleanup', async () => {
+  for (const [mode,labels] of [['throw',[]],['afterprint',[{dataset:{labelErrors:'overlap:register_number'}}]]]) {
+    const f=fixture(mode,labels);
+    await assert.rejects(f.api.printWithIframe('barcode','','Barcode',0,null,{throwOnError:true}));
+    assert.equal(f.attached.size,0);assert.equal(f.alerts(),0);
+    f.scope.stop();
+  }
+  const retry=fixture();await retry.api.printWithIframe('barcode','','Barcode',0,null,{throwOnError:true});
+  assert.equal(retry.prints(),1);assert.equal(retry.attached.size,0);retry.scope.stop();
+});

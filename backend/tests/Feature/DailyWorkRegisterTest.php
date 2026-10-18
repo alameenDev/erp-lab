@@ -243,4 +243,58 @@ class DailyWorkRegisterTest extends TestCase
             'work_register_amount' => 800, 'work_register_amount_original' => null])->assertForbidden();
         $this->assertNull($entry->fresh()->work_register_amount);
     }
+
+    public function test_barcode_reference_uses_current_daily_position_and_never_exposes_amounts(): void
+    {
+        $first = $this->createInvoice(['work_register_amount' => 12000]);
+        $second = $this->createInvoice();
+        $barcode = $second->barcode;
+        $url = '/api/invoices/'.$second->id.'/barcode-register';
+        $response = $this->getJson($url)->assertOk()->assertExactJson(['work_register_number' => 2, 'work_register_date' => '2026-10-18']);
+        $this->assertTrue($response->headers->hasCacheControlDirective('no-store'));
+        $this->assertTrue($response->headers->hasCacheControlDirective('private'));
+        $day = $this->day();
+        $this->patchJson('/api/work-register/'.$day['entries'][1]['id'], ['date' => $day['date'], 'version' => $day['version'], 'position' => 1])->assertOk();
+        $this->getJson($url)->assertOk()->assertJsonPath('work_register_number', 1);
+        $this->assertSame($barcode, $second->fresh()->barcode);
+        $day = $this->day();
+        $this->deleteJson('/api/work-register/'.$day['entries'][0]['id'], ['date' => $day['date'], 'version' => $day['version']])->assertOk();
+        $this->getJson($url)->assertOk()->assertExactJson(['work_register_number' => null, 'work_register_date' => null]);
+        $this->assertCount(1, $this->day()['entries']);
+        $this->getJson('/api/invoices/'.$first->id.'/barcode-register')->assertOk()->assertJsonPath('work_register_number', 1);
+    }
+
+    public function test_barcode_reference_initializes_history_in_order_and_uses_invoice_work_day(): void
+    {
+        $first = Invoice::withoutEvents(fn () => Invoice::create(['patient_id_fk' => $this->patient->id, 'lab_id_fk' => $this->lab->id, 'total' => 8000]));
+        $second = Invoice::withoutEvents(fn () => Invoice::create(['patient_id_fk' => $this->patient->id, 'lab_id_fk' => $this->lab->id, 'total' => 9000]));
+        // Printing the second historical visit first must still give it position 2.
+        $this->getJson('/api/invoices/'.$second->id.'/barcode-register')->assertOk()->assertJsonPath('work_register_number', 2);
+        $this->getJson('/api/invoices/'.$first->id.'/barcode-register')->assertOk()->assertJsonPath('work_register_number', 1);
+        Carbon::setTestNow(Carbon::parse('2026-10-18 21:00:00', 'UTC'));
+        $next = $this->createInvoice();
+        $this->getJson('/api/invoices/'.$next->id.'/barcode-register')->assertOk()->assertExactJson(['work_register_number' => 1, 'work_register_date' => '2026-10-19']);
+        $this->getJson('/api/invoices/'.$second->id.'/barcode-register')->assertOk()->assertExactJson(['work_register_number' => 2, 'work_register_date' => '2026-10-18']);
+        $this->assertSame(0, $this->day('2026-10-18')['totals']['work_register_amount']);
+    }
+
+    public function test_barcode_register_access_is_scoped_to_invoice_tenant_including_staff(): void
+    {
+        $invoice = $this->createInvoice();
+        $staff = User::create(['name' => 'Barcode Staff', 'email' => 'barcode-register-staff@example.test', 'password' => 'test-password', 'role_id' => 7, 'creator_id' => $this->lab->id]);
+        $staff->givePermissionTo(Permission::findOrCreate('invoices create', 'api'));
+        $this->actingAs($staff);
+        $staffInvoice = $this->createInvoice();
+        $this->getJson('/api/invoices/'.$invoice->id.'/barcode-register')->assertOk()->assertJsonPath('work_register_number', 1);
+        $this->getJson('/api/invoices/'.$staffInvoice->id.'/barcode-register')->assertOk()->assertJsonPath('work_register_number', 2);
+        $other = User::create(['name' => 'Foreign', 'email' => 'barcode-register-other@example.test', 'password' => 'test-password', 'role_id' => 2]);
+        $this->actingAs($other);
+        $this->getJson('/api/invoices/'.$invoice->id.'/barcode-register')->assertForbidden();
+        $this->assertSame(2, WorkRegisterEntry::count());
+        $this->actingAs($this->patient->user);
+        $this->getJson('/api/invoices/'.$invoice->id.'/barcode-register')->assertForbidden();
+        $this->actingAs($this->lab);
+        $invoice->delete();
+        $this->getJson('/api/invoices/'.$invoice->id.'/barcode-register')->assertNotFound();
+    }
 }

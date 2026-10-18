@@ -4,7 +4,8 @@ on:
     paths:
       - 'frontend/src/components/barcode/**'
       - 'frontend/src/utils/barcodeLabels.js'
-      - 'frontend/src/utils/barcodeCategories.js'
+      - 'frontend/src/utils/barcodeSamples.js'
+      - 'frontend/src/components/BarcodeComponent.vue'
       - 'frontend/src/views/invoices/**'
       - 'frontend/src/views/medical_reports/index.vue'
       - 'frontend/src/views/lab-settings/BarcodeLabelDesigner.vue'

@@ -423,6 +423,7 @@ Route::group(['middleware' => ['auth:sanctum', \App\Http\Middleware\RestrictRefe
     Route::get('invoices/patient-latest/{id}', [InvoiceController::class, 'latestPatientInvoice'])->whereNumber('id')->middleware('throttle:30,1');
     Route::get('invoices/{id}/previous-results', [InvoiceController::class, 'previousResults'])->middleware('throttle:30,1');
     Route::get('invoices/{id}/result-trends', [InvoiceController::class, 'resultTrends'])->whereNumber('id')->middleware('throttle:30,1');
+    Route::get('invoices/{id}/barcode-register', [InvoiceController::class, 'barcodeRegister'])->whereNumber('id');
     Route::get('invoices/{id}', [InvoiceController::class, 'show']);
 
     /**

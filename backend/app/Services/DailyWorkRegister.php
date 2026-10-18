@@ -69,6 +69,21 @@ class DailyWorkRegister
         return WorkRegisterEntry::withTrashed()->where('source_invoice_id', $invoiceId)->value('work_register_amount');
     }
 
+    public function barcodeReference(Invoice $invoice): array
+    {
+        $owner = User::withTrashed()->findOrFail($invoice->lab_id_fk);
+        $lab = app(InventoryService::class)->labId($owner);
+        $date = $invoice->created_at->copy()->setTimezone(self::TIMEZONE)->toDateString();
+        return DB::transaction(function () use ($lab, $date, $invoice) {
+            $day = $this->day($lab, $date);
+            // Initialize the complete historical day, rather than assigning a
+            // position based on which old invoice happens to be printed first.
+            $this->synchronize($lab, $date);
+            $entry = WorkRegisterEntry::where('day_id', $day->id)->where('source_invoice_id', $invoice->id)->first();
+            return ['work_register_number' => $entry?->position, 'work_register_date' => $entry ? $date : null];
+        }, 3);
+    }
+
     /** Called inside the invoice transaction, after its items and payments are saved. */
     public function setManualAmount(int $invoiceId, ?int $amount, ?array $expected = null): void
     {
