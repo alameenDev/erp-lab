@@ -1,0 +1,46 @@
+name: Daily work register
+on:
+  pull_request:
+    paths:
+      - 'frontend/src/views/patients/**'
+      - 'frontend/src/utils/workRegister.js'
+      - 'frontend/src/composables/usePrint.js'
+      - 'frontend/src/router/**'
+      - 'frontend/tests/work-register*'
+      - '.github/workflows/work-register.yml'
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npm install --no-save --package-lock=false playwright@1.55.1
+        working-directory: frontend
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+      - name: Verify daily register and printable archive
+        working-directory: frontend
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 5173 > /tmp/work-register-vite.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:5173/tests/work-register-browser.html > /dev/null && break
+            sleep 1
+          done
+          node tests/work-register.browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: work-register-preview
+          path: frontend/test-results/work-register
+          retention-days: 7

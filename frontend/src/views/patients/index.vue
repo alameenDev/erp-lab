@@ -415,6 +415,11 @@ onMounted(async () => {
               </svg>
               {{ t("addPatient") }}
             </button>
+            <RouterLink
+              v-if="authStore.havePermission('patients view')"
+              to="/patients/work-register"
+              class="px-5 py-2.5 bg-white border border-primary-200 text-primary-700 hover:bg-primary-50 font-medium rounded-xl transition-all flex items-center gap-2"
+            ><i class="pi pi-book" aria-hidden="true"></i> سجل العمل</RouterLink>
           </div>
         </div>
       </div>

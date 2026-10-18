@@ -1,0 +1,46 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Daily work register test</title></head><body><div id="app"></div><script type="module">
+import {createApp, h} from 'vue';
+import {createPinia} from 'pinia';
+import {createRouter, createMemoryHistory, RouterView} from 'vue-router';
+import PrimeVue from 'primevue/config';
+import Patients from '/src/views/patients/index.vue';
+import WorkRegister from '/src/views/patients/work-register.vue';
+import {usePatientsStore} from '/src/store/modules/patients';
+import {useContractsStore} from '/src/store/modules/contract';
+import {useNationalitiesStore} from '/src/store/modules/nationalities';
+import {useTitlesStore} from '/src/store/modules/titles';
+import {useAuthStore} from '/src/store/modules/auth';
+import {$http} from '/src/plugins/axios';
+import Mixins from '/src/utils/mixins';
+import '/src/assets/main.css';
+localStorage.setItem('token','synthetic-work-register');localStorage.setItem('locale','ar');
+const clone = value => JSON.parse(JSON.stringify(value));
+const entry = (id, name, price, paid) => ({id, position:id, patient_name:name, age:32, age_unit:'Years', referral_doctor:'د. زيد',referral_lab:'مختبر محيل',tests:['CBC','Glucose'],groups:['Liver profile'],packages:['Annual checkup'],price,paid});
+const state = window.workFixture = {today:'2026-10-18', permissions:{edit:true,delete:true},days:{'2026-10-18':{version:1,entries:[entry(1,'أحمد علي عباس',25000,10000),entry(2,'مريم أحمد حسن',15000,15000)]},'2026-10-17':{version:1,entries:[{...entry(3,'مراجع اليوم السابق',7000,7000),position:1}]}},requests:[],printCalls:0};
+state.report = date => {const day=state.days[date] ||= {version:0,entries:[]};return clone({date,today:state.today,timezone:'Asia/Baghdad',lab_name:'مختبر السجل التجريبي',version:day.version,permissions:state.permissions,entries:day.entries,totals:{count:day.entries.length,price:day.entries.reduce((n,r)=>n+r.price,0),paid:day.entries.reduce((n,r)=>n+r.paid,0)}});};
+$http.defaults.adapter = async config => {
+ state.requests.push({method:config.method,url:config.url});let data;
+ if(config.method==='get'&&config.url==='/work-register') data=state.report(config.params?.date||state.today);
+ else if(/^\/work-register\/\d+$/.test(config.url)) {
+  const input=typeof config.data==='string'?JSON.parse(config.data):config.data,id=Number(config.url.split('/').pop()),day=state.days[input.date];
+  if(day.version!==input.version){const error=new Error('conflict');error.response={status:409,data:{message:'conflict'}};throw error;}
+  const row=day.entries.find(r=>r.id===id);
+  if(config.method==='delete')day.entries=day.entries.filter(r=>r.id!==id);
+  else {const {date,version,...values}=input;Object.assign(row,values);if(input.position){day.entries=day.entries.filter(r=>r.id!==id);day.entries.splice(input.position-1,0,row);}}
+  day.entries.forEach((r,i)=>r.position=i+1);day.version++;data=state.report(input.date);
+ } else throw new Error('Unexpected request '+config.url);
+ return {data,status:200,statusText:'OK',headers:{},config};
+};
+const pinia=createPinia();
+const app=createApp({render:()=>h('div',{class:'mx-auto max-w-[1600px] p-4'},[h(RouterView)])});
+app.use(pinia).use(PrimeVue).mixin(Mixins);
+useAuthStore().rolePermissions=['patients view','patients create'];
+usePatientsStore().GetRecords=async()=>{};
+usePatientsStore().GetAgeUnits=async()=>{};
+usePatientsStore().GetGenders=async()=>{};
+useContractsStore().GetRecords=async()=>{};
+useNationalitiesStore().GetNationalities=async()=>{};
+useTitlesStore().GetTitles=async()=>{};
+const router=createRouter({history:createMemoryHistory(),routes:[{path:'/patients',component:Patients},{path:'/patients/work-register',component:WorkRegister}]});
+app.use(router);await router.push('/patients');await router.isReady();app.mount('#app');
+</script></body></html>

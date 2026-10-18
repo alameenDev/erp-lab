@@ -1,0 +1,83 @@
+import {chromium} from 'playwright';
+import assert from 'node:assert/strict';
+import {mkdir, writeFile} from 'node:fs/promises';
+
+await mkdir('test-results/work-register', {recursive:true});
+const browser=await chromium.launch(),page=await browser.newPage({viewport:{width:1440,height:1050}}),errors=[];
+page.on('pageerror', error=>errors.push(error.message));
+page.on('dialog', dialog=>dialog.accept());
+await page.addInitScript(()=>{window.print=()=>{if(window.parent.workFixture){parent.workFixture.printCalls++;parent.workFixture.printHtml=document.documentElement.outerHTML;setTimeout(()=>window.dispatchEvent(new Event('afterprint')),0);}};});
+const rows=()=>page.locator('[data-work-row]');
+try {
+ await page.goto('http://127.0.0.1:5173/tests/work-register-browser.html',{waitUntil:'networkidle'});
+ const link=page.getByRole('link',{name:'سجل العمل'});
+ await link.waitFor();
+ assert.ok(await link.locator('..').getByRole('button').count()>0,'work register link sits in patient actions beside Add Patient');
+ await link.click();
+ await page.waitForFunction(()=>document.querySelectorAll('[data-work-row]').length===2);
+ assert.match(await page.locator('[data-total-price]').innerText(),/40,000/);
+ assert.match(await rows().first().innerText(),/CBC[\s\S]*Liver profile[\s\S]*Annual checkup/);
+ await rows().first().getByRole('button',{name:'تعديل',exact:true}).click();
+ const modal=page.getByRole('dialog');
+ await modal.getByLabel('السعر في السجل · د.ع',{exact:true}).fill('20000');
+ await modal.getByLabel('المدفوع في السجل · د.ع',{exact:true}).fill('12000');
+ await modal.getByRole('button',{name:'حفظ التعديل',exact:true}).click();
+ await modal.waitFor({state:'hidden'});
+ assert.equal(await page.locator('[data-total-price]').innerText(),'35,000');
+ assert.equal(await page.locator('[data-total-paid]').innerText(),'27,000');
+ await page.getByRole('button',{name:'خفض ترتيب أحمد علي عباس'}).click();
+ await page.waitForFunction(()=>document.querySelector('[data-work-row]').textContent.includes('مريم'));
+ assert.match(await rows().nth(1).innerText(),/أحمد علي عباس/);
+ await rows().nth(1).getByRole('button',{name:'تعديل',exact:true}).click();
+ await modal.getByLabel('الترتيب',{exact:true}).fill('1');
+ await modal.getByRole('button',{name:'حفظ التعديل',exact:true}).click();
+ await modal.waitFor({state:'hidden'});
+ assert.match(await rows().first().innerText(),/أحمد/);
+ // Concurrent changes cannot silently replace another receptionist's work.
+ await rows().first().getByRole('button',{name:'تعديل',exact:true}).click();
+ await page.evaluate(()=>{workFixture.days['2026-10-18'].version++;});
+ await modal.getByRole('button',{name:'حفظ التعديل',exact:true}).click();
+ await modal.getByRole('alert').waitFor();
+ assert.match(await modal.getByRole('alert').innerText(),/تغيّر السجل/);
+ await modal.getByRole('button',{name:'إلغاء',exact:true}).click();
+ await page.getByRole('button',{name:'تحديث',exact:true}).click();
+ await page.getByRole('button',{name:'تحديث',exact:true}).waitFor();
+ await rows().nth(1).getByRole('button',{name:'حذف',exact:true}).click();
+ await page.waitForFunction(()=>document.querySelectorAll('[data-work-row]').length===1);
+ await page.getByRole('button',{name:'تحديث',exact:true}).click();
+ assert.equal(await rows().count(),1);
+ await page.screenshot({path:'test-results/work-register/desktop.png',fullPage:true});
+ // Full-day output across multiple sheets, including text requiring HTML escaping.
+ await page.evaluate(()=>{const day=workFixture.days['2026-10-18'];for(let i=2;i<=42;i++)day.entries.push({...day.entries[0],id:i,position:i,patient_name:i===2?'مراجع <img src=x onerror=alert(1)>':'مراجع تجريبي '+i,price:1000,paid:500});day.version++;});
+ await page.getByRole('button',{name:'طباعة سجل اليوم المحدد'}).click();
+ await page.waitForFunction(()=>workFixture.printCalls===1);
+ const html=await page.evaluate(()=>workFixture.printHtml);
+ assert.equal((html.match(/data-register-print-row/g)||[]).length,42,'every visit is printed');
+ assert.ok(html.includes('&lt;img'),'patient text cannot become executable print markup');
+ const printPage=await browser.newPage();await printPage.setContent(html);
+ assert.equal(await printPage.locator('img').count(),0);
+ assert.match(await printPage.locator('tfoot').innerText(),/61,000[\s\S]*32,500/);
+ await printPage.pdf({path:'test-results/work-register/daily-register.pdf',preferCSSPageSize:true,printBackground:true});await printPage.close();
+ await writeFile('test-results/work-register/print.html',html);
+ // Printing today's log must preserve automatic day rollover.
+ await page.evaluate(()=>{workFixture.today='2026-10-19';document.dispatchEvent(new Event('visibilitychange'));});
+ await page.getByText('لا توجد زيارات مسجّلة لهذا اليوم').waitFor();
+ assert.equal(await page.getByLabel('تاريخ العمل').inputValue(),'2026-10-19');
+ await page.getByLabel('تاريخ العمل').fill('2026-10-17');
+ await page.getByLabel('تاريخ العمل').dispatchEvent('change');
+ await page.getByText('مراجع اليوم السابق',{exact:true}).waitFor();
+ await page.evaluate(()=>{workFixture.today='2026-10-20';document.dispatchEvent(new Event('visibilitychange'));});
+ assert.equal(await page.getByLabel('تاريخ العمل').inputValue(),'2026-10-17','archive viewing does not jump to today');
+ await page.setViewportSize({width:390,height:844});
+ await page.screenshot({path:'test-results/work-register/mobile.png',fullPage:true});
+ assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'mobile overflow stays inside the table');
+ await page.evaluate(()=>{workFixture.permissions={edit:false,delete:false};});
+ await page.getByRole('button',{name:'تحديث',exact:true}).click();
+ await page.waitForFunction(()=>!document.querySelector('[data-work-row] button'));
+ assert.equal(await page.getByRole('button',{name:'تعديل',exact:true}).count(),0);
+ assert.equal(await page.getByRole('button',{name:'حذف',exact:true}).count(),0);
+ assert.equal(await page.evaluate(()=>workFixture.requests.some(r=>/invoices|patients\/update/.test(r.url))),false,'register changes never call source invoice/patient APIs');
+ assert.deepEqual(errors,[]);
+ console.log('PASS daily work register: patient-page entry, fields, amounts, totals, reorder, conflict handling, deletion, full-day print, escaping, midnight rollover, history, permissions and mobile');
+} catch(error) {await page.screenshot({path:'test-results/work-register/failure.png',fullPage:true}).catch(()=>{});throw error;}
+finally {await browser.close();}

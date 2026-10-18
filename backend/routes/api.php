@@ -227,6 +227,9 @@ Route::group(['middleware' => ['auth:sanctum', \App\Http\Middleware\RestrictRefe
      @ Patients Routes
      */
     Route::post('patients/search-name', [InvoiceController::class, 'searchByName']);
+    Route::get('work-register', [\App\Http\Controllers\WorkRegisterController::class, 'index']);
+    Route::patch('work-register/{id}', [\App\Http\Controllers\WorkRegisterController::class, 'update'])->whereNumber('id');
+    Route::delete('work-register/{id}', [\App\Http\Controllers\WorkRegisterController::class, 'destroy'])->whereNumber('id');
     Route::get('patients/{id?}', [PatientsController::class, 'index']);
     Route::get('patients/show', [PatientsController::class, 'show']);
     Route::post('patients/create', [PatientsController::class, 'store']);
