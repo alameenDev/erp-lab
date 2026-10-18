@@ -24,17 +24,17 @@ const referrals=[
  {id:203,user_id:2001,name:'مختبر إزمير',role:'Lab',invoice_usage_count:9,lab_price_list_id_fk:41,lab_discount_percentage:10,phone_number:'+9647700000002'},
  {id:204,user_id:2002,name:'مختبر الفرع',role:'Branch Lab',invoice_usage_count:8},
 ];
-const state={failSave:false,lastSaved:null,saved:0,alerts:[],patientSeq:501,document:null};
+const state={failSave:false,lastSaved:null,saved:0,alerts:[],patientSeq:501,document:null,registerAmounts:{}};
 const requests=[];
 $http.defaults.adapter=async config=>{
  const body=config.data instanceof FormData?Object.fromEntries(config.data):config.data?JSON.parse(config.data):null;
- requests.push({url:config.url,method:config.method,body});
+ requests.push({url:config.url,method:config.method,body,params:config.params});
  let data=[];
  if(config.url==='/referrals')data=referrals;
  else if(config.url==='/packages')data=packages;
  else if(config.url==='/tests')data=[test,group];
  else if(config.url==='/patients/create')data={id:state.patientSeq++,name:body.name,phone:body.phone};
- else if(config.url==='/invoices/301')data=state.document;
+ else if(config.url==='/invoices/301')data={...state.document,...(config.params?.for_edit?{work_register_amount:state.registerAmounts[301]??null}:{})};
  else if(config.url==='/tests/questions')data={questions:[],result_comments:[]};
  else if(config.url==='/invoices/create'||config.url==='/invoices/update'){
   if(state.failSave)throw {config,response:{status:422,data:{message:'Synthetic save failure'}}};
@@ -46,6 +46,9 @@ $http.defaults.adapter=async config=>{
   }
   state.lastSaved=payload;state.saved++;
   state.document={...payload,id:301,patient:{id:payload.patient_id_fk,name:'Synthetic Patient'},paidDetails:payload.payment_details,tests:(payload.tests||[]).map(t=>({...test,...t,id:t.test_id_fk})),cultures:[],packages:[],test_groups:[]};
+  if(config.method==='post')state.registerAmounts[301]=payload.work_register_amount??null;
+  else if(Object.hasOwn(payload,'work_register_amount'))state.registerAmounts[301]=payload.work_register_amount;
+  delete state.document.work_register_amount;delete state.document.work_register_amount_original;
   data=state.document;
  }
  else if(config.method!=='get')throw new Error('Unexpected write '+config.url);

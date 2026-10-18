@@ -15,15 +15,14 @@ try {
  assert.ok(await link.locator('..').getByRole('button').count()>0,'work register link sits in patient actions beside Add Patient');
  await link.click();
  await page.waitForFunction(()=>document.querySelectorAll('[data-work-row]').length===2);
- assert.match(await page.locator('[data-total-price]').innerText(),/40,000/);
+ assert.equal(await page.locator('[data-total-paid]').innerText(),'25,000');
+ assert.equal(await page.getByRole('columnheader',{name:'السعر · د.ع',exact:true}).count(),0);
  assert.match(await rows().first().innerText(),/CBC[\s\S]*Liver profile[\s\S]*Annual checkup/);
  await rows().first().getByRole('button',{name:'تعديل',exact:true}).click();
  const modal=page.getByRole('dialog');
- await modal.getByLabel('السعر في السجل · د.ع',{exact:true}).fill('20000');
  await modal.getByLabel('المدفوع في السجل · د.ع',{exact:true}).fill('12000');
  await modal.getByRole('button',{name:'حفظ التعديل',exact:true}).click();
  await modal.waitFor({state:'hidden'});
- assert.equal(await page.locator('[data-total-price]').innerText(),'35,000');
  assert.equal(await page.locator('[data-total-paid]').innerText(),'27,000');
  await page.getByRole('button',{name:'خفض ترتيب أحمد علي عباس'}).click();
  await page.waitForFunction(()=>document.querySelector('[data-work-row]').textContent.includes('مريم'));
@@ -48,7 +47,7 @@ try {
  assert.equal(await rows().count(),1);
  await page.screenshot({path:'test-results/work-register/desktop.png',fullPage:true});
  // Full-day output across multiple sheets, including text requiring HTML escaping.
- await page.evaluate(()=>{const day=workFixture.days['2026-10-18'];for(let i=2;i<=42;i++)day.entries.push({...day.entries[0],id:i,position:i,patient_name:i===2?'مراجع <img src=x onerror=alert(1)>':'مراجع تجريبي '+i,price:1000,paid:500});day.version++;});
+ await page.evaluate(()=>{const day=workFixture.days['2026-10-18'];for(let i=2;i<=42;i++)day.entries.push({...day.entries[0],id:i,position:i,patient_name:i===2?'مراجع <img src=x onerror=alert(1)>':'مراجع تجريبي '+i,work_register_amount:500});day.version++;});
  await page.getByRole('button',{name:'طباعة سجل اليوم المحدد'}).click();
  await page.waitForFunction(()=>workFixture.printCalls===1);
  const html=await page.evaluate(()=>workFixture.printHtml);
@@ -56,7 +55,9 @@ try {
  assert.ok(html.includes('&lt;img'),'patient text cannot become executable print markup');
  const printPage=await browser.newPage();await printPage.setContent(html);
  assert.equal(await printPage.locator('img').count(),0);
- assert.match(await printPage.locator('tfoot').innerText(),/61,000[\s\S]*32,500/);
+ assert.equal(await printPage.locator('thead th').count(),6,'only one monetary column is printed');
+ assert.ok(!html.includes('<th>السعر</th>'));
+ assert.match(await printPage.locator('tfoot').innerText(),/32,500/);
  await printPage.pdf({path:'test-results/work-register/daily-register.pdf',preferCSSPageSize:true,printBackground:true});await printPage.close();
  await writeFile('test-results/work-register/print.html',html);
  // Printing today's log must preserve automatic day rollover.
@@ -66,6 +67,8 @@ try {
  await page.getByLabel('تاريخ العمل').fill('2026-10-17');
  await page.getByLabel('تاريخ العمل').dispatchEvent('change');
  await page.getByText('مراجع اليوم السابق',{exact:true}).waitFor();
+ assert.equal(await page.locator('[data-register-amount]').innerText(),'غير مدخل');
+ assert.equal(await page.locator('[data-total-paid]').innerText(),'0');
  await page.evaluate(()=>{workFixture.today='2026-10-20';document.dispatchEvent(new Event('visibilitychange'));});
  assert.equal(await page.getByLabel('تاريخ العمل').inputValue(),'2026-10-17','archive viewing does not jump to today');
  await page.setViewportSize({width:390,height:844});

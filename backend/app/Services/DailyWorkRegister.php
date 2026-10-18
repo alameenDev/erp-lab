@@ -64,6 +64,30 @@ class DailyWorkRegister
         }, 3);
     }
 
+    public function amountForInvoice(int $invoiceId): ?int
+    {
+        return WorkRegisterEntry::withTrashed()->where('source_invoice_id', $invoiceId)->value('work_register_amount');
+    }
+
+    /** Called inside the invoice transaction, after its items and payments are saved. */
+    public function setManualAmount(int $invoiceId, ?int $amount, ?array $expected = null): void
+    {
+        $this->capture($invoiceId);
+        $entry = WorkRegisterEntry::withTrashed()->where('source_invoice_id', $invoiceId)->firstOrFail();
+        // Use the same day lock as register edits; do not restore deleted entries.
+        $day = DB::table('work_register_days')->where('id', $entry->day_id)->lockForUpdate()->first();
+        $entry->refresh();
+        if ($expected !== null && $entry->work_register_amount !== $expected['amount']) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'work_register_amount' => 'تغيّر مبلغ السجل من مستخدم آخر. أعد فتح الفاتورة قبل تعديل مبلغ السجل.',
+            ]);
+        }
+        if ($entry->work_register_amount === $amount) return;
+        $entry->work_register_amount = $amount;
+        $entry->save();
+        $this->bump($day);
+    }
+
     private function append(object $day, Invoice $invoice): bool
     {
         if (WorkRegisterEntry::withTrashed()->where('source_invoice_id', $invoice->id)->exists()) return false;
@@ -99,7 +123,7 @@ class DailyWorkRegister
             'patient_name' => $patient?->user?->name ?? 'مريض غير مسمى', 'age' => $age, 'age_unit' => $unit,
             'referral_doctor' => (int) $referral?->role_id === 5 ? $referral->name : null,
             'referral_lab' => $lab?->name,
-            'price' => max(0, (int) $invoice->total), 'paid' => max(0, (int) $invoice->paid),
+            'work_register_amount' => null,
         ])));
         return true;
     }
@@ -134,7 +158,7 @@ class DailyWorkRegister
             return ['date' => $date, 'today' => $this->today(), 'timezone' => self::TIMEZONE,
                 'lab_name' => User::withTrashed()->find($lab)?->name ?? '', 'version' => (int) $day->version,
                 'permissions' => $permissions, 'entries' => $entries,
-                'totals' => ['count' => $entries->count(), 'price' => $entries->sum('price'), 'paid' => $entries->sum('paid')]];
+                'totals' => ['count' => $entries->count(), 'work_register_amount' => $entries->sum('work_register_amount')]];
         });
     }
 }

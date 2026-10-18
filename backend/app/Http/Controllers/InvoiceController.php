@@ -1426,6 +1426,7 @@ class InvoiceController extends Controller
             'loyalty_reward_key' => 'nullable|string|max:60',
             'total_before_loyalty' => 'required_with:loyalty_reward_key|integer|min:0',
             'patient_id_fk' => 'required|integer',
+            'work_register_amount' => 'sometimes|nullable|integer|min:0|max:1000000000000',
             'referral_id_fk' => 'nullable|integer',
             'sub_total' => 'nullable|integer',
             'paid' => 'nullable|integer',
@@ -1652,6 +1653,11 @@ class InvoiceController extends Controller
                 foreach ($invoice->paidDetails()->get() as $payment) {
                     app(LoyaltyService::class)->awardForPayment($loyaltyPatient, $loyaltyLab, (float) $payment->amount, $payment);
                 }
+            }
+            if ($request->exists('work_register_amount')) {
+                app(\App\Services\DailyWorkRegister::class)->setManualAmount(
+                    $invoice->id, $request->input('work_register_amount') === null ? null : (int) $request->input('work_register_amount')
+                );
             }
             ActivityLogController::storeActivity('إنشاء فاتورة', $invoice);
             $invoice->load($this->invoiceRelations());
@@ -2044,7 +2050,13 @@ class InvoiceController extends Controller
 
         $invoiceJson = $this->transformInvoice($invoice);
 
-        return response()->json($invoiceJson);
+        // Only the private invoice editor needs this register-owned value.
+        if ($request->boolean('for_edit')) {
+            abort_unless($authUser->can('invoices edit'), 403);
+            $invoiceJson['work_register_amount'] = app(\App\Services\DailyWorkRegister::class)->amountForInvoice($invoice->id);
+        }
+
+        return response()->json($invoiceJson)->header('Cache-Control', 'private, no-store');
     }
 
     /**
@@ -2571,6 +2583,8 @@ class InvoiceController extends Controller
         // validation
         $request->validate([
             'patient_id_fk' => 'required|integer',
+            'work_register_amount' => 'sometimes|nullable|integer|min:0|max:1000000000000',
+            'work_register_amount_original' => 'present_with:work_register_amount|nullable|integer|min:0|max:1000000000000',
             'referral_id_fk' => 'nullable|integer',
             'is_printed' => 'nullable|boolean',
             'attachments' => 'nullable|array',
@@ -2756,12 +2770,21 @@ class InvoiceController extends Controller
                 $invoice->paidDetails()->createMany($paymentDetailsToCreate);
             }
 
+            if ($request->exists('work_register_amount')) {
+                app(\App\Services\DailyWorkRegister::class)->setManualAmount(
+                    $invoice->id, $request->input('work_register_amount') === null ? null : (int) $request->input('work_register_amount'),
+                    ['amount' => $request->input('work_register_amount_original') === null ? null : (int) $request->input('work_register_amount_original')]
+                );
+            }
             ActivityLogController::updateActivity('تعديل فاتورة', $oldInvoice, $invoice);
             $invoice->load($this->invoiceRelations());
             $invoiceJson = $this->transformInvoice($invoice);
             DB::commit();
 
             return response()->json($invoiceJson);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
+            throw $e;
         } catch (Exception $e) {
             DB::rollBack();
             Log::error('Invoice update failed', [
