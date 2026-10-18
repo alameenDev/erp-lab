@@ -41,7 +41,8 @@ class WorkRegisterController extends Controller
             'tests' => 'sometimes|array|max:2000', 'tests.*' => 'required|string|max:255',
             'groups' => 'sometimes|array|max:2000', 'groups.*' => 'required|string|max:255',
             'packages' => 'sometimes|array|max:2000', 'packages.*' => 'required|string|max:255',
-            'price' => 'sometimes|required|integer|min:0|max:1000000000000', 'paid' => 'sometimes|required|integer|min:0|max:1000000000000',
+            'work_register_amount' => 'sometimes|nullable|integer|min:0|max:1000000000000',
+            'price' => 'prohibited', 'paid' => 'prohibited',
         ]);
         DB::transaction(function () use ($data, $id, $lab, $register) {
             $day = $register->day($lab, $data['date']);

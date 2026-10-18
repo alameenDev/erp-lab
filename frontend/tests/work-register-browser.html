@@ -15,9 +15,9 @@ import Mixins from '/src/utils/mixins';
 import '/src/assets/main.css';
 localStorage.setItem('token','synthetic-work-register');localStorage.setItem('locale','ar');
 const clone = value => JSON.parse(JSON.stringify(value));
-const entry = (id, name, price, paid) => ({id, position:id, patient_name:name, age:32, age_unit:'Years', referral_doctor:'د. زيد',referral_lab:'مختبر محيل',tests:['CBC','Glucose'],groups:['Liver profile'],packages:['Annual checkup'],price,paid});
-const state = window.workFixture = {today:'2026-10-18', permissions:{edit:true,delete:true},days:{'2026-10-18':{version:1,entries:[entry(1,'أحمد علي عباس',25000,10000),entry(2,'مريم أحمد حسن',15000,15000)]},'2026-10-17':{version:1,entries:[{...entry(3,'مراجع اليوم السابق',7000,7000),position:1}]}},requests:[],printCalls:0};
-state.report = date => {const day=state.days[date] ||= {version:0,entries:[]};return clone({date,today:state.today,timezone:'Asia/Baghdad',lab_name:'مختبر السجل التجريبي',version:day.version,permissions:state.permissions,entries:day.entries,totals:{count:day.entries.length,price:day.entries.reduce((n,r)=>n+r.price,0),paid:day.entries.reduce((n,r)=>n+r.paid,0)}});};
+const entry = (id, name, work_register_amount) => ({id, position:id, patient_name:name, age:32, age_unit:'Years', referral_doctor:'د. زيد',referral_lab:'مختبر محيل',tests:['CBC','Glucose'],groups:['Liver profile'],packages:['Annual checkup'],work_register_amount});
+const state = window.workFixture = {today:'2026-10-18', permissions:{edit:true,delete:true},days:{'2026-10-18':{version:1,entries:[entry(1,'أحمد علي عباس',10000),entry(2,'مريم أحمد حسن',15000)]},'2026-10-17':{version:1,entries:[{...entry(3,'مراجع اليوم السابق',null),position:1}]}},requests:[],printCalls:0};
+state.report = date => {const day=state.days[date] ||= {version:0,entries:[]};return clone({date,today:state.today,timezone:'Asia/Baghdad',lab_name:'مختبر السجل التجريبي',version:day.version,permissions:state.permissions,entries:day.entries,totals:{count:day.entries.length,work_register_amount:day.entries.reduce((n,r)=>n+(r.work_register_amount||0),0)}});};
 $http.defaults.adapter = async config => {
  state.requests.push({method:config.method,url:config.url});let data;
  if(config.method==='get'&&config.url==='/work-register') data=state.report(config.params?.date||state.today);

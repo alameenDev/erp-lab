@@ -63,7 +63,7 @@ class DailyWorkRegisterTest extends TestCase
         $this->assertSame('د. زيد', $entry->referral_doctor);
         $this->assertSame('مختبر محيل', $entry->referral_lab);
         $day = $this->day();
-        $this->assertSame(['count' => 1, 'price' => 25000, 'paid' => 10000], $day['totals']);
+        $this->assertSame(['count' => 1, 'work_register_amount' => 0], $day['totals']);
         app(DailyWorkRegister::class)->capture($invoice->id);
         $this->assertCount(1, $this->day()['entries']);
     }
@@ -79,15 +79,15 @@ class DailyWorkRegisterTest extends TestCase
         $testsBefore = $invoice->invoiceTestRels()->get()->toArray();
         $changed = $this->patchJson('/api/work-register/'.$entry['id'], ['date' => $day['date'], 'version' => $day['version'],
             'patient_name' => 'اسم داخل السجل فقط', 'age' => 7, 'age_unit' => 'Months', 'referral_doctor' => 'طبيب السجل',
-            'tests' => ['TSH'], 'groups' => ['Hormones'], 'packages' => ['Package'], 'price' => 15000, 'paid' => 12000, 'position' => 2])
+            'tests' => ['TSH'], 'groups' => ['Hormones'], 'packages' => ['Package'], 'work_register_amount' => 12000, 'position' => 2])
             ->assertOk()->assertJsonPath('entries.1.id', $entry['id'])->assertJsonPath('entries.1.position', 2)->json();
         $this->assertSame($invoiceBefore, $invoice->fresh()->getAttributes());
         $this->assertSame($patientBefore, $this->patient->fresh()->getAttributes());
         $this->assertSame($paymentsBefore, $invoice->paidDetails()->get()->toArray());
         $this->assertSame($testsBefore, $invoice->invoiceTestRels()->get()->toArray());
-        $this->assertSame(['count' => 2, 'price' => 40000, 'paid' => 22000], $changed['totals']);
+        $this->assertSame(['count' => 2, 'work_register_amount' => 12000], $changed['totals']);
         $invoice->update(['total' => 70000, 'paid' => 60000]);
-        $this->assertSame(15000, $this->day()['entries'][1]['price'], 'later invoice changes never overwrite register edits');
+        $this->assertSame(12000, $this->day()['entries'][1]['work_register_amount'], 'later invoice changes never overwrite register edits');
         $deleted = $this->deleteJson('/api/work-register/'.$entry['id'], ['date' => $day['date'], 'version' => $changed['version']])
             ->assertOk()->assertJsonCount(1, 'entries')->assertJsonPath('entries.0.position', 1)->json();
         $this->assertCount(1, $this->day()['entries']);
@@ -97,7 +97,7 @@ class DailyWorkRegisterTest extends TestCase
         $this->assertSame([1, 2], array_column($this->day()['entries'], 'position'));
         $other->delete();
         $this->assertCount(2, $this->day()['entries'], 'an archived register survives source invoice soft deletion');
-        $this->assertSame(25000, $deleted['totals']['price']);
+        $this->assertSame(0, $deleted['totals']['work_register_amount']);
     }
 
     public function test_calendar_rollover_uses_baghdad_midnight_and_preserves_history(): void
@@ -106,7 +106,7 @@ class DailyWorkRegisterTest extends TestCase
         $first = $this->createInvoice();
         $this->assertSame('2026-10-18', $this->day()['date']);
         Carbon::setTestNow(Carbon::parse('2026-10-18 21:00:00', 'UTC'));
-        $this->assertSame(['count' => 0, 'price' => 0, 'paid' => 0], $this->day()['totals']);
+        $this->assertSame(['count' => 0, 'work_register_amount' => 0], $this->day()['totals']);
         $second = $this->createInvoice();
         $today = $this->day();
         $this->assertSame('2026-10-19', $today['date']);
@@ -119,7 +119,8 @@ class DailyWorkRegisterTest extends TestCase
     {
         $invoice = Invoice::withoutEvents(fn () => Invoice::create(['patient_id_fk' => $this->patient->id, 'lab_id_fk' => $this->lab->id, 'total' => 8000, 'paid' => 2000]));
         $this->assertSame(0, WorkRegisterEntry::count());
-        $this->assertSame(8000, $this->day()['totals']['price']);
+        $this->assertSame(0, $this->day()['totals']['work_register_amount']);
+        $this->assertNull($this->day()['entries'][0]['work_register_amount']);
         $this->assertCount(1, $this->day()['entries']);
         DB::beginTransaction();
         $rolledBack = Invoice::create(['patient_id_fk' => $this->patient->id, 'lab_id_fk' => $this->lab->id, 'total' => 999]);
@@ -132,11 +133,11 @@ class DailyWorkRegisterTest extends TestCase
     {
         $this->createInvoice();
         $day = $this->day(); $id = $day['entries'][0]['id'];
-        $input = ['date' => $day['date'], 'version' => $day['version'], 'price' => 1];
+        $input = ['date' => $day['date'], 'version' => $day['version'], 'work_register_amount' => 1];
         $this->patchJson('/api/work-register/'.$id, $input)->assertOk();
         $this->patchJson('/api/work-register/'.$id, $input)->assertStatus(409);
         $this->deleteJson('/api/work-register/'.$id, $input)->assertStatus(409);
-        $this->patchJson('/api/work-register/'.$id, array_merge($input, ['price' => -1]))->assertUnprocessable();
+        $this->patchJson('/api/work-register/'.$id, array_merge($input, ['work_register_amount' => -1]))->assertUnprocessable();
         $this->getJson('/api/work-register?date=not-a-date')->assertUnprocessable();
         $foreign = User::create(['name' => 'Other lab', 'email' => 'register-other@example.test', 'password' => 'test-password', 'role_id' => 2]);
         $this->actingAs($foreign);
@@ -150,8 +151,96 @@ class DailyWorkRegisterTest extends TestCase
         $this->patchJson('/api/work-register/'.$id, $input)->assertForbidden();
         $this->deleteJson('/api/work-register/'.$id, $input)->assertForbidden();
         $staff->givePermissionTo(Permission::findOrCreate('invoices create', 'api'));
-        $this->createInvoice();
+        $this->createInvoice(['work_register_amount' => 4321]);
+        $this->assertSame(4322, $this->day()['totals']['work_register_amount']);
         $this->assertCount(2, $this->day()['entries'], 'staff invoices belong to the owning lab day');
         $this->assertSame($this->lab->id, WorkRegisterEntry::latest('id')->first()->lab_id_fk);
+    }
+
+    public function test_manual_amount_is_register_owned_and_excluded_from_invoice_and_payment_outputs(): void
+    {
+        $this->lab->givePermissionTo(Permission::findOrCreate('invoices edit', 'api'));
+        $invoice = $this->createInvoice(['work_register_amount' => 1234,
+            'payment_details' => [['amount' => 6000, 'payment_method_id_fk' => null]]]);
+        $entry = WorkRegisterEntry::where('source_invoice_id', $invoice->id)->firstOrFail();
+        $this->assertSame(1234, $entry->work_register_amount);
+        $this->assertSame(25000, (int) $invoice->total);
+        $this->assertSame(6000, (int) $invoice->paid);
+        $this->assertSame(6000, (int) $invoice->paidDetails()->sum('amount'));
+        $this->assertArrayNotHasKey('work_register_amount', $invoice->getAttributes());
+        $this->getJson('/api/invoices/'.$invoice->id.'?for_edit=1')->assertOk()->assertJsonPath('work_register_amount', 1234);
+        $normal = $this->getJson('/api/invoices/'.$invoice->id)->assertOk()->json();
+        $this->assertArrayNotHasKey('work_register_amount', $normal);
+        $this->assertArrayNotHasKey('work_register_amount', app(\App\Http\Controllers\InvoiceController::class)->patientResultData($invoice));
+        $this->assertArrayNotHasKey('price', $this->day()['entries'][0]);
+        $this->assertArrayNotHasKey('paid', $this->day()['entries'][0]);
+        $this->assertSame(1234, $this->day()['totals']['work_register_amount']);
+        // A second visit without a manual value must not inherit either invoice finances or the previous visit.
+        $second = $this->createInvoice();
+        $this->assertNull(app(DailyWorkRegister::class)->amountForInvoice($second->id));
+        $this->assertSame(1234, $this->day()['totals']['work_register_amount']);
+    }
+
+    public function test_invoice_amount_edit_clear_zero_omission_and_concurrency(): void
+    {
+        $this->lab->givePermissionTo(Permission::findOrCreate('invoices edit', 'api'));
+        $invoice = $this->createInvoice(['work_register_amount' => 1500]);
+        $input = ['id' => $invoice->id, 'patient_id_fk' => $this->patient->id, 'total' => 25000, 'sub_total' => 25000,
+            'payment_details' => [['amount' => 10000, 'payment_method_id_fk' => null]]];
+        $day = $this->day(); $entry = $day['entries'][0];
+        $this->putJson('/api/invoices/update', $input + ['work_register_amount' => 2222, 'work_register_amount_original' => 1500])->assertOk();
+        $this->assertSame(2222, $this->day()['totals']['work_register_amount']);
+        // An invoice write invalidates any older open register draft.
+        $this->patchJson('/api/work-register/'.$entry['id'], ['date' => $day['date'], 'version' => $day['version'], 'work_register_amount' => 3333])->assertStatus(409);
+        $day = $this->day();
+        $this->patchJson('/api/work-register/'.$entry['id'], ['date' => $day['date'], 'version' => $day['version'], 'work_register_amount' => 3333])->assertOk();
+        $before = $invoice->fresh()->getAttributes();
+        $payments = $invoice->paidDetails()->get()->toArray();
+        $this->putJson('/api/invoices/update', array_merge($input, ['total' => 99000, 'work_register_amount' => 4444, 'work_register_amount_original' => 2222]))
+            ->assertUnprocessable()->assertJsonValidationErrors('work_register_amount');
+        $this->assertSame($before, $invoice->fresh()->getAttributes(), 'a conflicting manual amount rolls back the whole invoice edit');
+        $this->assertSame($payments, $invoice->paidDetails()->get()->toArray());
+        $this->putJson('/api/invoices/update', array_merge($input, ['total' => 70000]))->assertOk();
+        $this->assertSame(3333, $this->day()['totals']['work_register_amount'], 'unrelated edits leave the manual amount alone');
+        $this->getJson('/api/invoices/'.$invoice->id.'?for_edit=1')->assertOk()->assertJsonPath('work_register_amount', 3333);
+        $this->putJson('/api/invoices/update', $input + ['work_register_amount' => null, 'work_register_amount_original' => 3333])->assertOk();
+        $this->assertNull($this->day()['entries'][0]['work_register_amount']);
+        $this->putJson('/api/invoices/update', $input + ['work_register_amount' => 0, 'work_register_amount_original' => null])->assertOk();
+        $this->assertSame(0, $this->day()['entries'][0]['work_register_amount']);
+        $day = $this->day();
+        $this->deleteJson('/api/work-register/'.$entry['id'], ['date' => $day['date'], 'version' => $day['version']])->assertOk();
+        $this->putJson('/api/invoices/update', $input + ['work_register_amount' => 500, 'work_register_amount_original' => 0])->assertOk();
+        $this->assertEmpty($this->day()['entries'], 'editing an invoice must not restore a deleted register row');
+    }
+
+    public function test_manual_amount_validation_and_legacy_values_never_become_manual_amounts(): void
+    {
+        foreach ([-1, 1.5, 'not-an-amount', 1000000000001] as $amount) {
+            $this->postJson('/api/invoices/create', ['patient_id_fk' => $this->patient->id, 'work_register_amount' => $amount])
+                ->assertUnprocessable()->assertJsonValidationErrors('work_register_amount');
+        }
+        $this->assertSame(0, Invoice::count());
+        $invoice = $this->createInvoice();
+        $entry = WorkRegisterEntry::where('source_invoice_id', $invoice->id)->firstOrFail();
+        $entry->update(['price' => 80000, 'paid' => 60000]); // Pre-upgrade values are preserved, but never used.
+        $this->assertNull($this->day()['entries'][0]['work_register_amount']);
+        $this->assertSame(0, $this->day()['totals']['work_register_amount']);
+        $this->assertSame(80000, (int) $entry->fresh()->price);
+        $this->getJson('/api/invoices/'.$invoice->id.'?for_edit=1')->assertForbidden();
+        $this->lab->givePermissionTo(Permission::findOrCreate('invoices edit', 'api'));
+        $this->putJson('/api/invoices/update', ['id' => $invoice->id, 'patient_id_fk' => $this->patient->id, 'work_register_amount' => 400])->assertUnprocessable();
+        // The manual write participates in the caller's transaction, including lazy capture.
+        DB::beginTransaction();
+        $new = Invoice::create(['patient_id_fk' => $this->patient->id, 'lab_id_fk' => $this->lab->id]);
+        app(DailyWorkRegister::class)->setManualAmount($new->id, 999);
+        DB::rollBack();
+        $this->assertFalse(WorkRegisterEntry::where('source_invoice_id', $new->id)->exists());
+        $foreign = User::create(['name' => 'Other lab', 'email' => 'register-amount-other@example.test', 'password' => 'test-password', 'role_id' => 2]);
+        $foreign->givePermissionTo(Permission::findOrCreate('invoices edit', 'api'));
+        $this->actingAs($foreign);
+        $this->getJson('/api/invoices/'.$invoice->id.'?for_edit=1')->assertForbidden();
+        $this->putJson('/api/invoices/update', ['id' => $invoice->id, 'patient_id_fk' => $this->patient->id,
+            'work_register_amount' => 800, 'work_register_amount_original' => null])->assertForbidden();
+        $this->assertNull($entry->fresh()->work_register_amount);
     }
 }

@@ -3,6 +3,10 @@ on:
   pull_request:
     paths:
       - 'frontend/src/views/patients/**'
+      - 'frontend/src/views/invoices/**'
+      - 'frontend/src/store/modules/invoices.js'
+      - 'frontend/tests/invoice-register-amount.browser.mjs'
+      - 'frontend/tests/invoice-referrals-browser.html'
       - 'frontend/src/utils/workRegister.js'
       - 'frontend/src/composables/usePrint.js'
       - 'frontend/src/router/**'
@@ -38,6 +42,7 @@ jobs:
             sleep 1
           done
           node tests/work-register.browser.mjs
+          node tests/invoice-register-amount.browser.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

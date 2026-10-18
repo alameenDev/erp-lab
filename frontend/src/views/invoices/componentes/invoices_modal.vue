@@ -603,6 +603,11 @@
                     <p v-if="!payment_details || !payment_details.length" class="text-xs text-slate-400 text-center py-4 border border-dashed border-slate-200 rounded-xl">
                       {{ t("no_payment_methods") || "لا توجد طرق دفع — اضغط اضافة" }}
                     </p>
+                    <div v-if="!isReferralMode" class="rounded-xl border border-teal-200 bg-teal-50 p-4" data-register-amount-field>
+                      <label for="invoice-work-register-amount" class="block text-sm font-semibold text-teal-900 mb-2">المبلغ المدفوع في السجل · د.ع</label>
+                      <InputNumber inputId="invoice-work-register-amount" v-model="record.work_register_amount" :min="0" :max="1000000000000" :maxFractionDigits="0" placeholder="أدخل مبلغ السجل" class="w-full" aria-describedby="invoice-work-register-hint" />
+                      <p id="invoice-work-register-hint" class="mt-2 text-xs leading-5 text-teal-800">مبلغ تدخله يدوياً ويظهر مقابل اسم المريض في سجل العمل فقط. لا يدخل في حسابات الفاتورة أو مدفوعاتها أو طباعتها.</p>
+                    </div>
                   </div>
 
                   <section v-if="!isReferralMode && !isEditMode && responseData?.id" class="rounded-xl border border-teal-200 bg-teal-50 p-4 mb-4">

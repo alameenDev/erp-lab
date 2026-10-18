@@ -8,6 +8,7 @@ import { checkObjectParams } from "@/utils/helper";
 const freshPayments = () => [{ amount: null, contract_id_fk: null, payment_method_id_fk: null }];
 const freshInvoiceRecord = () => ({
   paid: 0,
+  work_register_amount: null,
   selection_order: [],
   test_groups: [],
   attachments: [],
@@ -117,6 +118,7 @@ export const useinvoicesStore = defineStore("invoices", {
 
     // Invoice record form
     record: freshInvoiceRecord(),
+    originalWorkRegisterAmount: null,
 
     // Update result form
     updateResultRecord: {
@@ -148,6 +150,7 @@ export const useinvoicesStore = defineStore("invoices", {
     // Reset record to default values
     resetRecord() {
       this.record = freshInvoiceRecord();
+      this.originalWorkRegisterAmount = null;
       this.payment_details = freshPayments();
       this.discountPercentage = 0;
       this.discountValue = 0;
@@ -228,7 +231,15 @@ export const useinvoicesStore = defineStore("invoices", {
 
     async Updateinvoices() {
       try {
-        await $http.put(`/invoices/update`, checkObjectParams(this.record));
+        const payload = checkObjectParams(this.record);
+        const amount = this.record.work_register_amount === '' ? null : (this.record.work_register_amount ?? null);
+        // An unrelated invoice edit must not overwrite a newer register edit.
+        delete payload.work_register_amount;
+        if (amount !== this.originalWorkRegisterAmount) {
+          payload.work_register_amount = amount;
+          payload.work_register_amount_original = this.originalWorkRegisterAmount;
+        }
+        await $http.put(`/invoices/update`, payload);
       } catch (error) {
         console.error("Error updating invoice:", error);
         throw error;

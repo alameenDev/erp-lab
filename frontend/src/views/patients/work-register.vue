@@ -2,7 +2,7 @@
 import {ref, computed, onMounted, onBeforeUnmount, nextTick} from 'vue';
 import {$http} from '@/plugins/axios';
 import {usePrint} from '@/composables/usePrint';
-import {ageUnits, registerAge, registerAmount, workRegisterPrint} from '@/utils/workRegister';
+import {ageUnits, registerAge, registerAmount, registerEntryAmount, workRegisterPrint} from '@/utils/workRegister';
 
 const report = ref(null), selectedDate = ref(''), followToday = ref(true);
 const loading = ref(false), saving = ref(false), printing = ref(false), error = ref(''), formError = ref('');
@@ -56,7 +56,7 @@ async function mutate(row, fields, remove = false) {
 async function save() {
   const row = draft.value;
   const fields = {patient_name: row.patient_name.trim(), age: row.age === '' ? null : row.age, age_unit: row.age_unit,
-    referral_doctor: row.referral_doctor, referral_lab: row.referral_lab, price: row.price, paid: row.paid, position: row.position};
+    referral_doctor: row.referral_doctor, referral_lab: row.referral_lab, work_register_amount: row.work_register_amount === '' ? null : row.work_register_amount, position: row.position};
   for (const key of ['tests', 'groups', 'packages']) fields[key] = row[key].split('\n').map(text => text.trim()).filter(Boolean);
   if (await mutate(row, fields)) closeEditor();
 }
@@ -97,30 +97,29 @@ onBeforeUnmount(() => { ++requestId; clearInterval(timer); document.removeEventL
       <button class="register-secondary" :disabled="busy || !!draft" @click="load()">{{ loading ? 'جارٍ التحميل…' : 'تحديث' }}</button>
       <p class="mr-auto text-xs text-slate-500">يبدأ اليوم الجديد الساعة 12 ليلاً بتوقيت بغداد، وتبقى الأيام السابقة محفوظة.</p>
     </section>
-    <p class="rounded-xl border border-teal-100 bg-teal-50 px-4 py-3 text-sm text-teal-800">السعر والمدفوع هنا خاصان بسجل العمل؛ تعديلهما لا يغيّر الفاتورة أو التقارير المالية.</p>
+    <p class="rounded-xl border border-teal-100 bg-teal-50 px-4 py-3 text-sm text-teal-800">المبلغ المدفوع في السجل يُدخل يدوياً من الفاتورة أو من هنا. لا يُنسخ السعر الأصلي أو المدفوعات العادية، ولا يتأثر أي تقرير مالي بتعديله.</p>
     <p v-if="error" role="alert" class="rounded-xl bg-red-50 p-4 text-red-700">{{ error }}</p>
     <template v-if="report">
-      <section class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <section class="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div class="register-stat"><span>عدد الزيارات</span><strong data-total-count>{{ report.totals.count }}</strong></div>
-        <div class="register-stat"><span>إجمالي الأسعار · د.ع</span><strong data-total-price>{{ registerAmount(report.totals.price) }}</strong></div>
-        <div class="register-stat"><span>إجمالي المدفوع · د.ع</span><strong class="text-primary-600" data-total-paid>{{ registerAmount(report.totals.paid) }}</strong></div>
+        <div class="register-stat"><span>إجمالي المدفوع في السجل · د.ع</span><strong class="text-primary-600" data-total-paid>{{ registerAmount(report.totals.work_register_amount) }}</strong></div>
       </section>
       <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white" :aria-busy="loading">
         <div class="border-b border-slate-100 p-4"><h2 class="font-bold">{{ report.lab_name }} · {{ report.date }}</h2></div>
         <div class="overflow-x-auto">
           <table class="w-full min-w-[1060px] text-right text-sm">
-            <thead class="bg-slate-50 text-slate-600"><tr><th>ت</th><th>اسم المريض الكامل</th><th>العمر</th><th>الإحالة</th><th class="w-[30%]">التحاليل والكروبات والباقات</th><th>السعر · د.ع</th><th>المدفوع · د.ع</th><th v-if="report.permissions.edit || report.permissions.delete">الإجراءات</th></tr></thead>
+            <thead class="bg-slate-50 text-slate-600"><tr><th>ت</th><th>اسم المريض الكامل</th><th>العمر</th><th>الإحالة</th><th class="w-[30%]">التحاليل والكروبات والباقات</th><th>المدفوع في السجل · د.ع</th><th v-if="report.permissions.edit || report.permissions.delete">الإجراءات</th></tr></thead>
             <tbody class="divide-y divide-slate-100">
               <tr v-for="row in report.entries" :key="row.id" data-work-row class="align-top hover:bg-slate-50/60">
                 <td><span class="font-bold text-slate-700">{{ row.position }}</span><div v-if="report.permissions.edit" class="mt-2 flex gap-1"><button :aria-label="`رفع ترتيب ${row.patient_name}`" title="رفع" class="order-button" :disabled="busy || row.position === 1" @click="mutate(row, {position: row.position - 1})">↑</button><button :aria-label="`خفض ترتيب ${row.patient_name}`" title="خفض" class="order-button" :disabled="busy || row.position === report.entries.length" @click="mutate(row, {position: row.position + 1})">↓</button></div></td>
                 <td class="font-semibold">{{ row.patient_name }}</td><td class="whitespace-nowrap">{{ registerAge(row) }}</td>
                 <td><div v-if="row.referral_doctor">طبيب: {{ row.referral_doctor }}</div><div v-if="row.referral_lab">مختبر: {{ row.referral_lab }}</div><span v-if="!row.referral_doctor && !row.referral_lab" class="text-slate-400">مراجعة مباشرة</span></td>
                 <td><div v-for="[label, key] in [['تحاليل', 'tests'], ['كروبات', 'groups'], ['باقات', 'packages']]" :key="key"><p v-if="row[key].length" class="mb-1 leading-6"><b class="text-slate-500">{{ label }}:</b> <span dir="auto">{{ row[key].join('، ') }}</span></p></div></td>
-                <td dir="ltr" class="whitespace-nowrap font-semibold">{{ registerAmount(row.price) }}</td><td dir="ltr" class="whitespace-nowrap font-semibold text-primary-700">{{ registerAmount(row.paid) }}</td>
+                <td class="whitespace-nowrap font-semibold text-primary-700" data-register-amount>{{ registerEntryAmount(row.work_register_amount) }}</td>
                 <td v-if="report.permissions.edit || report.permissions.delete"><div class="flex gap-2"><button v-if="report.permissions.edit" class="text-primary-700" :disabled="busy" @click="edit(row)">تعديل</button><button v-if="report.permissions.delete" class="text-red-600" :disabled="busy" @click="remove(row)">حذف</button></div></td>
               </tr>
             </tbody>
-            <tfoot v-if="report.entries.length" class="border-t bg-slate-50 font-bold"><tr><td colspan="5">المجموع الكلي</td><td dir="ltr">{{ registerAmount(report.totals.price) }}</td><td dir="ltr">{{ registerAmount(report.totals.paid) }}</td><td v-if="report.permissions.edit || report.permissions.delete"></td></tr></tfoot>
+            <tfoot v-if="report.entries.length" class="border-t bg-slate-50 font-bold"><tr><td colspan="5">المجموع الكلي</td><td dir="ltr">{{ registerAmount(report.totals.work_register_amount) }}</td><td v-if="report.permissions.edit || report.permissions.delete"></td></tr></tfoot>
           </table>
         </div>
         <div v-if="!report.entries.length" class="px-5 py-14 text-center"><h3 class="font-semibold text-slate-700">لا توجد زيارات مسجّلة لهذا اليوم</h3><p class="mt-2 text-sm text-slate-500">تظهر الزيارة بعد إنشاء فاتورتها، أو اختر تاريخاً آخر لعرض سجل سابق.</p></div>
@@ -138,8 +137,7 @@ onBeforeUnmount(() => { ++requestId; clearInterval(timer); document.removeEventL
           <label>الطبيب المحيل<input v-model="draft.referral_doctor" class="register-input mt-1 w-full" maxlength="255"></label>
           <label>المختبر المحيل<input v-model="draft.referral_lab" class="register-input mt-1 w-full" maxlength="255"></label>
           <label v-for="[label, key] in [['التحاليل', 'tests'], ['الكروبات', 'groups'], ['الباقات', 'packages']]" :key="key" class="sm:col-span-2">{{ label }}<textarea v-model="draft[key]" class="register-input mt-1 w-full" rows="2" placeholder="كل اسم بسطر مستقل"></textarea></label>
-          <label>السعر في السجل · د.ع<input v-model.number="draft.price" class="register-input mt-1 w-full" type="number" required min="0" max="1000000000000" step="1"></label>
-          <label>المدفوع في السجل · د.ع<input v-model.number="draft.paid" class="register-input mt-1 w-full" type="number" required min="0" max="1000000000000" step="1"></label>
+          <label>المدفوع في السجل · د.ع<input v-model.number="draft.work_register_amount" class="register-input mt-1 w-full" type="number" min="0" max="1000000000000" step="1" placeholder="غير مدخل"></label>
           <label>الترتيب<input v-model.number="draft.position" class="register-input mt-1 w-full" type="number" required min="1" :max="report?.entries.length" step="1"></label>
         </fieldset>
         <div class="flex justify-end gap-3"><button type="button" class="register-secondary" :disabled="saving" @click="closeEditor">إلغاء</button><button class="register-primary" type="submit" :disabled="saving">{{ saving ? 'جارٍ الحفظ…' : 'حفظ التعديل' }}</button></div>

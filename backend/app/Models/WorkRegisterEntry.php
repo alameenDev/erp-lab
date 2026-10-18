@@ -10,6 +10,7 @@ class WorkRegisterEntry extends Model
     use SoftDeletes;
 
     protected $guarded = ['id'];
+    protected $hidden = ['price', 'paid'];
     protected $casts = ['tests' => 'array', 'groups' => 'array', 'packages' => 'array',
-        'price' => 'integer', 'paid' => 'integer', 'position' => 'integer', 'age' => 'integer'];
+        'work_register_amount' => 'integer', 'position' => 'integer', 'age' => 'integer'];
 }

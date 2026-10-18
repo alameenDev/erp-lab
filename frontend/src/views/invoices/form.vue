@@ -143,11 +143,13 @@ const dateFormat = (date) => {
 const loadInvoice = async (id, version) => {
   loading.value = true;
   try {
-    const { data } = await $http.get(`/invoices/${id}`);
+    const { data } = await $http.get(`/invoices/${id}`, {params: {for_edit: true}});
     if (!data || version !== loadVersion) return;
 
     // Populate store with invoice data
     Object.assign(record.value, data);
+    record.value.work_register_amount = data.work_register_amount ?? null;
+    invoicesStore.originalWorkRegisterAmount = record.value.work_register_amount;
     payment_details.value = data.paidDetails || [{ amount: null, contract_id_fk: null, payment_method_id_fk: null }];
 
     // Set selections
