@@ -13,6 +13,9 @@ class DesktopInstallation
         if (!config('desktop.enabled') || DB::connection()->getDatabaseName() !== 'digital_lab_desktop') {
             throw new \RuntimeException('Desktop installation requires its dedicated local database.');
         }
+        foreach (['owner_email', 'lab_email'] as $field) {
+            if (isset($input[$field]) && is_string($input[$field])) $input[$field] = strtolower(trim($input[$field]));
+        }
         $data = Validator::make($input, [
             'owner_name' => 'required|string|max:255', 'owner_email' => 'required|email|max:255|different:lab_email',
             'owner_password' => 'required|string|min:12|max:128', 'lab_name' => 'required|string|max:255',
@@ -21,13 +24,15 @@ class DesktopInstallation
         ])->validate();
         // Retry is safe after any UI/process failure: existing users are never reset.
         if (User::withTrashed()->exists()) throw new \RuntimeException('This database already contains accounts.');
-        return DB::transaction(function () use ($data) {
-            (new ReferenceDataSeeder)->run();
-            foreach (['Admin', 'Lab', 'Patient', 'Branch Lab', 'Doctor', 'Sample Collector', 'User'] as $i => $name) {
-                if ((int) Role::where('name', $name)->where('guard_name', 'api')->value('id') !== $i + 1) {
-                    throw new \RuntimeException('Unexpected role IDs.');
-                }
+        // Keep reference IDs stable if account creation fails and is retried.
+        // InnoDB rolls rows back but does not roll AUTO_INCREMENT counters back.
+        (new ReferenceDataSeeder)->run();
+        foreach (['Admin', 'Lab', 'Patient', 'Branch Lab', 'Doctor', 'Sample Collector', 'User'] as $i => $name) {
+            if ((int) Role::where('name', $name)->where('guard_name', 'api')->value('id') !== $i + 1) {
+                throw new \RuntimeException('Unexpected role IDs.');
             }
+        }
+        return DB::transaction(function () use ($data) {
             $owner = User::create(['name' => $data['owner_name'], 'email' => strtolower($data['owner_email']),
                 'password' => Hash::make($data['owner_password']), 'role_id' => 1, 'status' => 1, 'email_verified_at' => now()]);
             $owner->assignRole('Admin');

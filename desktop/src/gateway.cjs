@@ -19,7 +19,7 @@ function createGateway(runtime, secret, port = PORT) {
     const url = new URL(req.url, origin);
     const bridge = req.method === 'POST' && /^\/api\/device\/bridge\/(heartbeat|results)$/.test(url.pathname);
     const value = req.headers['x-digital-lab-desktop'];
-    const authorized = typeof value === 'string' && value.length === secret.length && crypto.timingSafeEqual(Buffer.from(value), Buffer.from(secret));
+    const authorized = typeof value === 'string' && Buffer.byteLength(value) === Buffer.byteLength(secret) && crypto.timingSafeEqual(Buffer.from(value), Buffer.from(secret));
     if (req.headers.origin && req.headers.origin !== origin) return fail(res, 403, 'Origin denied');
     if (!authorized && !bridge) return fail(res, 403, 'Open Digital Lab Desktop');
     if (paused) return fail(res, 503, 'جارٍ حفظ نسخة احتياطية. حاول بعد قليل.', true);

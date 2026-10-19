@@ -87,7 +87,7 @@ function registerIpc() {
     if(busy)throw new Error('انتظر اكتمال العملية الحالية.');busy=true;
     const stage=p.data+'.restore-'+crypto.randomUUID();
     try {await prepareRestore({source:choice.filePaths[0],password,stage,vault});} finally {busy=false;}
-    return maintenance(async()=>{
+    const result = await maintenance(async()=>{
       const previous=p.data+'.before-restore-'+Date.now();
       await fsp.rename(p.data,previous);
       try {
@@ -99,9 +99,11 @@ function registerIpc() {
         runtime=new Runtime(p,vault);gatewayRuntime.current=runtime;await runtime.init();throw new Error('لم تنجح الاستعادة. رجعت البيانات السابقة تلقائياً.');
       }
       await session.fromPartition('persist:desktop-v1').clearStorageData();
-      if(main&&!main.isDestroyed())await main.loadURL(ORIGIN+'/login');
       return {restored:true,previous};
     });
+    // Reload only after maintenance reopens the local gateway.
+    if(main&&!main.isDestroyed())await main.loadURL(ORIGIN+'/login');
+    return result;
   });
 }
 // Gateway accesses the current runtime after a restore, never stale credentials.

@@ -15,7 +15,7 @@ test('gateway denies other origins, unauthenticated pages and traversal; bridge 
   assert.equal(validPath('/api/patients?search=abc'),true);
   const gateway=createGateway({},'a'.repeat(64),17993);await new Promise(r=>gateway.server.listen(17993,'127.0.0.1',r));
   try{
-    for(const [url,headers] of [['/',{}],['/api/patients',{}],['/api/patients',{'X-Digital-Lab-Desktop':'a'.repeat(64),Origin:'https://foreign.test'}],['/',{Host:'evil.test'}]])assert.equal((await fetch('http://127.0.0.1:17993'+url,{headers})).status,403);
+    for(const [url,headers] of [['/',{}],['/api/patients',{}],['/',{'X-Digital-Lab-Desktop':'é'.repeat(64)}],['/api/patients',{'X-Digital-Lab-Desktop':'a'.repeat(64),Origin:'https://foreign.test'}],['/',{Host:'evil.test'}]])assert.equal((await fetch('http://127.0.0.1:17993'+url,{headers})).status,403);
   }finally{await gateway.close();}
 });
 test('desktop environment cannot inherit hosted database or cloud credentials',()=>{
