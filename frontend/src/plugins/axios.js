@@ -1,6 +1,7 @@
 import axios from "axios";
 import { LoaderStore } from "@/store/modules/loader";
 import router from "@/router";
+import { useAuthStore } from "@/store/modules/auth";
 import { scopeReferralRequest } from "@/utils/referralWorkspace";
 import { activityRequestHeaders } from '@/utils/activityAudit';
 
@@ -114,9 +115,10 @@ _axios.interceptors.response.use(
 
       case 401:
         if (!isLoginRequest) {
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-          localStorage.removeItem("rolePermissions");
+          // A delayed response from a previous account must not clear a newer login.
+          const sentToken = error.config?.headers?.Authorization?.replace(/^Bearer /, '');
+          if (sentToken && sentToken !== localStorage.getItem('token')) break;
+          useAuthStore().clearSession();
           // If user is on a public page (welcome/login/register/result/invoice), don't redirect away.
           // Token was stale — silent removal is enough; public pages don't need auth.
           const path = window.location.pathname || "";
@@ -133,7 +135,8 @@ _axios.interceptors.response.use(
         // Don't redirect for login or public endpoints — let the component handle it
         if (!error.config?.url?.includes("/invoices/public/") && !error.config?.url?.includes("/user/login") && !router.currentRoute.value.path.startsWith("/referral-portal")) {
           showToast(error.response.data?.message || "Access denied", "error");
-          router.push("/error/403");
+          // A denied action or optional lookup does not invalidate authentication.
+          // Keep the current page/form mounted; route access is checked by the router.
         }
         break;
 
@@ -144,6 +147,10 @@ _axios.interceptors.response.use(
         } else {
           showToast(error.response.data?.message || "Resource not found", "error");
         }
+        break;
+
+      case 422:
+        showToast(Object.values(error.response.data?.errors || {}).flat()[0] || error.response.data?.message || "تحقق من البيانات المدخلة", "error");
         break;
 
       case 500:

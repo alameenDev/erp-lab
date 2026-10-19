@@ -17,7 +17,7 @@ class PatientQuestionController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('test questions view')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $query = PatientQuestion::with(['answerType', 'lab']);
@@ -49,7 +49,7 @@ class PatientQuestionController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('test questions create')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $request->validate([
@@ -78,7 +78,7 @@ class PatientQuestionController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('test questions view')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $questions = PatientQuestion::with('answerType', 'lab')->find($request->id);
@@ -114,7 +114,7 @@ class PatientQuestionController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('test questions edit')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $request->validate([
@@ -154,7 +154,7 @@ class PatientQuestionController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('test questions delete')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $patient_question = PatientQuestion::find($request->id);

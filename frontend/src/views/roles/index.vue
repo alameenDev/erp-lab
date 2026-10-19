@@ -477,7 +477,7 @@ const getRoleBadgeClass = (role) => {
               <td class="px-5 py-4">
                 <div class="flex items-center justify-center gap-1">
                   <button
-                    v-if="havePermission('roles edit')"
+                    v-if="havePermission('roles edit') && role.can_edit !== false"
                     @click="editRecord(role)"
                     class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                     :title="t('edit')"
@@ -487,7 +487,7 @@ const getRoleBadgeClass = (role) => {
                     </svg>
                   </button>
                   <button
-                    v-if="havePermission('roles delete')"
+                    v-if="havePermission('roles delete') && role.can_delete !== false"
                     @click="deleteRecord(role)"
                     class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                     :title="t('delete')"

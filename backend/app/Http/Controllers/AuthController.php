@@ -8,6 +8,8 @@ use App\Models\User;
 use App\Models\VerifyCode;
 use App\Traits\SecureFileUpload;
 use DateTime;
+use App\Services\AccountAccess;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -136,118 +138,71 @@ class AuthController extends Controller
      */
     public function store(Request $request)
     {
-        // Validate incoming request
-        // SECURITY: Removed SVG from allowed types (XSS risk), use secure validation
-        $request->validate([
+        $actor = $request->user();
+        abort_unless($actor->can('users create'), 403);
+        $data = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
-            'role_id' => ['required', 'integer', 'exists:roles,id', function ($attribute, $value, $fail) {
-                if ($value == 1 && Auth::user()?->role_id != 1) {
-                    $fail('Cannot assign admin role.');
-                }
-            }],
+            'password' => 'required|string|min:8|max:128',
+            'role_id' => 'required|integer|exists:roles,id',
             'phone' => 'nullable|string|max:255',
             'address' => 'nullable|string|max:255',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
             'signiture' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
             'sample_collector_id' => 'nullable|integer',
-            'discount_percentage' => 'nullable|integer',
+            'discount_percentage' => 'nullable|integer|min:0|max:100',
             'price_list_id' => 'nullable|integer',
-            'commission' => 'nullable|integer',
-        ], [
-            'password.min' => 'Password must be at least 8 characters.',
+            'commission' => 'nullable|integer|min:0',
         ]);
-
-        // SECURITY: Use secure file upload with random filename and validation
-        $image = '';
-        $signiture = '';
-        if ($request->hasFile('image')) {
-            $result = $this->secureUploadImage($request->file('image'), 'users');
-            if (!$result['success']) {
-                return response()->json(['message' => $result['error']], 422);
+        $role = app(AccountAccess::class)->assignableRole($actor, $data['role_id']);
+        $files = ['image' => '', 'signiture' => ''];
+        foreach (array_keys($files) as $field) {
+            if ($request->hasFile($field)) {
+                $result = $this->secureUploadImage($request->file($field), 'users');
+                if (! $result['success']) return response()->json(['message' => $result['error']], 422);
+                $files[$field] = $result['url'];
             }
-            $image = $result['url'];
         }
-
-        if ($request->hasFile('signiture')) {
-            $result = $this->secureUploadImage($request->file('signiture'), 'users');
-            if (!$result['success']) {
-                return response()->json(['message' => $result['error']], 422);
+        $user = DB::transaction(function () use ($data, $actor, $role, $files) {
+            Role::whereKey($role->id)->lockForUpdate()->firstOrFail();
+            $user = User::create([
+                'name' => $data['name'], 'email' => $data['email'], 'password' => Hash::make($data['password']),
+                'role_id' => $role->id, 'email_verified_at' => now(), 'status' => 1, 'creator_id' => $actor->id,
+                'phone_number' => $data['phone'] ?? null, 'address' => $data['address'] ?? null, ...$files,
+            ]);
+            $user->syncRoles([$role]);
+            if ((int) $role->id === 4) {
+                Lab::create(['user_id_fk' => $user->id, 'parent_lab_id_fk' => app(AccountAccess::class)->tenantId($actor),
+                    'sample_collector_id_fk' => $data['sample_collector_id'] ?? null,
+                    'discount_percentage' => $data['discount_percentage'] ?? null, 'price_list_id_fk' => $data['price_list_id'] ?? null]);
+            } elseif ((int) $role->id === 6) {
+                Referal::create(['referral_id_fk' => $user->id, 'lab_id_fk' => app(AccountAccess::class)->tenantId($actor),
+                    'commission' => $data['commission'] ?? $data['discount_percentage'] ?? null]);
             }
-            $signiture = $result['url'];
-        }
+            ActivityLogController::registerActivity('إنشاء حساب جديد: '.$user->name);
+            return $user;
+        });
+        return response()->json(['message' => 'تم إنشاء الحساب وتفعيل صلاحياته بنجاح.',
+            'user' => $user->load(['roles.permissions', 'permissions'])], 201);
+    }
 
-        // Create a new user instance
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'role_id' => $request->role_id,
-            'email_verified_at' => new DateTime,
-            'creator_id' => Auth::check() ? Auth::user()->id : null,
-            'phone_number' => $request->phone ?? null,
-            'address' => $request->address ?? null,
-            'image' => $image,
-            'signiture' => $signiture,
-        ]);
-        if ($user == null) {
-            return response()->json(['message' => 'Unable to register user'], 500);
-        }
-        if ($request->role_id == 4) {
-            Lab::create([
-                'user_id_fk' => $user->id,
-                'parent_lab_id_fk' => Auth::check() ? Auth::user()->id : null,
-                'sample_collector_id_fk' => $request->sample_collector_id ?? null,
-                'discount_percentage' => $request->discount_percentage ?? null,
-                'price_list_id_fk' => $request->price_list_id ?? null,
-            ]);
-        } elseif ($request->role_id == 6) {
-            Referal::create([
-                'referral_id_fk' => $user->id,
-                'lab_id_fk' => Auth::user()->id,
-                'commission' => $request->discount_percentage ?? null,
-            ]);
-        }
-        if ($user) {
-            // $code = random_int(100000, 999999);
-            // // save verification code
-            // $codeModel = VerifyCode::where('email', $request->email)->first();
-            // if ($codeModel) {
-            //     $codeModel->email = $request->email;
-            //     $codeModel->code = $code;
-            //     $codeModel->save();
-            // } else {
-            //     VerifyCode::create([
-            //         'email' => $request->email,
-            //         'code' => $code
-            //     ]);
-            // }
-            // log user register activity
-            $role = Role::findOrFail($request->role_id);
+    /** The signed-in account's effective permissions, including direct grants. */
+    public function access(Request $request)
+    {
+        $user = $request->user();
+        $user->load(['roles.permissions', 'permissions']);
+        $this->portalFlags($user);
+        return response()->json(['user' => $user, 'permissions' => $user->getAllPermissions()->pluck('name')->values()])
+            ->header('Cache-Control', 'private, no-store');
+    }
 
-            // Remove existing roles first
-            $user->roles()->detach();
-
-            // Assign new role using Spatie's method
-            $user->assignRole($role);
-
-            // Update role_id if you need to maintain the legacy system
-            $user->role_id = $role->id;
-            $user->save();
-            $user->load(['roles.permissions', 'permissions']);
-
-            ActivityLogController::registerActivity('إنشاء حساب جديد: ' . $user->name);
-
-            // Send email verification code
-            // EmailController::sendEmail($request->email, $code);
-            return response()->json(['message' => 'Verification code has been sent to ' . $request->email . ' successfully, please verify your email'], 200);
-
-        }
-
-        // Return an error response
-        return response()->json(['message' => 'Unable to register user'], 500);
-
+    private function portalFlags(User $user): void
+    {
+        // Sample collectors are staff; their commission record is not a portal account.
+        $user->is_referral_partner = $user->referral_portal_only ||
+            ((int) $user->role_id !== 6 && Referal::where('referral_id_fk', $user->id)->exists());
+        $user->is_doctor_portal = (int) $user->role_id === 5 && $user->referral_portal_only
+            && ! \App\Models\ReferralLabProfile::where('user_id_fk', $user->id)->exists();
     }
 
     /**
@@ -284,10 +239,11 @@ class AuthController extends Controller
         // Attempt to log the user in
         if (Auth::attempt(['email' => $request->email, 'password' => $request->password])) {
 
-            $isReferral = $user->referral_portal_only || \App\Models\Referal::where('referral_id_fk', $user->id)->exists();
+            $this->portalFlags($user);
+            $isReferral = $user->is_referral_partner;
             // Check subscription for non-admin users
             if ($user->role_id != 1) {
-                $labId = $user->role_id == 2 ? $user->id : $user->creator_id;
+                $labId = app(AccountAccess::class)->tenantId($user);
                 if ($labId) {
                     $subscription = \App\Models\Subscription::query()
                         ->when($isReferral, fn ($q) => $q->whereIn('lab_id_fk', \App\Models\Referal::where('referral_id_fk', $user->id)->select('lab_id_fk')), fn ($q) => $q->where('lab_id_fk', $labId))
@@ -323,7 +279,7 @@ class AuthController extends Controller
             ActivityLogController::loginActivity('تسجيل الدخول');
 
             // Return a successful response
-            return response()->json(['message' => 'User logged in successfully', 'user' => $user, 'token' => $token], 200);
+            return response()->json(['message' => 'User logged in successfully', 'user' => $user, 'token' => $token, 'permissions' => $user->getAllPermissions()->pluck('name')->values()], 200);
         }
 
         // Return an error response

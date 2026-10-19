@@ -15,7 +15,7 @@ class SampleController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('samples view')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $query = Sample::with('lab');
@@ -42,7 +42,7 @@ class SampleController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('samples create')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $request->validate([
@@ -66,7 +66,7 @@ class SampleController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('samples view')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $sample = Sample::with(['lab'])->findOrFail($request->id);
@@ -92,7 +92,7 @@ class SampleController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('samples edit')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $sample = Sample::find($request->id);
@@ -121,7 +121,7 @@ class SampleController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('samples delete')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $sample = Sample::find($request->id);

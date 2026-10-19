@@ -33,8 +33,7 @@ export default {
       const user = JSON.parse(localStorage.getItem("user"));
       if (user?.is_referral_partner) return;
       try {
-        const { data } = await $http.get(`/permissions?role_id=${user.role_id}`);
-        authStore.setPermissions(data.permissions);
+        await authStore.refreshAccess();
       } catch (error) {
         console.error("Error fetching permissions:", error);
       }

@@ -434,7 +434,7 @@ onMounted(async () => {
       await invoicesStore.patient_medical_records(patientId.value);
     } else {
       // Main list: server-side pagination
-      await Promise.all([fetchInvoices(), contractsStore.GetRecords()]);
+      await Promise.all([fetchInvoices(), authStore.havePermission('contracts view') ? contractsStore.GetRecords() : Promise.resolve()]);
     }
   } finally {
     isLoading.value = false;

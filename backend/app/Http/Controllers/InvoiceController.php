@@ -54,7 +54,7 @@ class InvoiceController extends Controller
         }
 
         if (! $user->hasPermissionTo(permission: 'invoices view')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $query = Invoice::query();
@@ -225,7 +225,7 @@ class InvoiceController extends Controller
     public function testFilterOptions()
     {
         if (! Auth::user()?->hasPermissionTo('invoices view')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         return response()->json($this->testFilterCatalog()->orderBy('name')->orderBy('id')->get(['id', 'name', 'shortcut']));
@@ -1419,7 +1419,7 @@ class InvoiceController extends Controller
 
         $user = Auth::user();
         if (! $user->hasPermissionTo(permission: 'invoices create')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
         // validation
         $request->validate([
@@ -1731,7 +1731,7 @@ class InvoiceController extends Controller
     {
         $user = Auth::user();
         if (! $user->hasPermissionTo(permission: 'medical reports signiture')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
         $invoice = Invoice::find($request->id);
         if (! $invoice) {
@@ -2310,7 +2310,7 @@ class InvoiceController extends Controller
 
         $user = Auth::user();
         if (! $user->hasPermissionTo(permission: 'medical reports update')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
         // Validation
         $request->validate([
@@ -2588,7 +2588,7 @@ class InvoiceController extends Controller
     {
         $user = Auth::user();
         if (! $user->hasPermissionTo(permission: 'invoices edit')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
         // validation
         $request->validate([
@@ -2817,7 +2817,7 @@ class InvoiceController extends Controller
     {
         $user = Auth::user();
         if (! $user->hasPermissionTo('invoices edit')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $validated = $request->validate([
@@ -2889,7 +2889,7 @@ class InvoiceController extends Controller
     {
         $user = Auth::user();
         if (! $user->hasPermissionTo(permission: 'invoices delete')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
         $invoice = Invoice::find($request->id);
         if (! $invoice) {

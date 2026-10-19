@@ -16,7 +16,7 @@ class LabDeviceController extends Controller
     {
         $user = $request->user();
         if (! $user->hasAnyPermission(['devices view', 'devices create', 'devices edit'])) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
         $labs = User::where('role_id', 2);
         if ($user->role_id != 1) {
@@ -60,7 +60,7 @@ class LabDeviceController extends Controller
     {
         $user = Auth::user();
         if (! $user->hasPermissionTo('devices view')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $query = LabDevice::withCount(['deviceResults as pending_results_count' => function ($q) {
@@ -99,7 +99,7 @@ class LabDeviceController extends Controller
     {
         $user = Auth::user();
         if (! $user->hasPermissionTo('devices create')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $validated = $request->validate($this->deviceRules());
@@ -151,7 +151,7 @@ class LabDeviceController extends Controller
     {
         $user = Auth::user();
         if (! $user->hasPermissionTo('devices edit')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $validated = $request->validate(['id' => 'required|integer'] + $this->deviceRules());
@@ -190,7 +190,7 @@ class LabDeviceController extends Controller
     {
         $user = Auth::user();
         if (! $user->hasPermissionTo('devices delete')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $device = LabDevice::find((int) $request->id);
@@ -215,7 +215,7 @@ class LabDeviceController extends Controller
     {
         $user = Auth::user();
         if (! $user->hasPermissionTo('devices edit')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $device = LabDevice::find((int) $request->id);

@@ -381,7 +381,7 @@ onMounted(async () => {
   try {
     await Promise.all([
       fetchInvoices(),
-      contractsStore.GetRecords()
+      authStore.havePermission('contracts view') ? contractsStore.GetRecords() : Promise.resolve()
     ]);
   } finally {
     isLoading.value = false;

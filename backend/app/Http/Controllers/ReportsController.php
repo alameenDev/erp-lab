@@ -16,7 +16,7 @@ class ReportsController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('reports view')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $request->validate([
@@ -33,7 +33,7 @@ class ReportsController extends Controller
         // SECURITY: Non-admin users must use their own lab_id
         $authUser = Auth::user();
         if ($authUser->role_id != 1) {
-            $request->merge(['lab_id' => $authUser->id]);
+            $request->merge(['lab_id' => app(\App\Services\AccountAccess::class)->tenantId($authUser)]);
         }
 
         switch ($request->report_type) {
@@ -1045,11 +1045,11 @@ class ReportsController extends Controller
     public function getDashboardStats()
     {
         $user = Auth::user();
-        if (!$user->hasPermissionTo('reports view')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+        if (!$user->can('reports view') && !$user->can('main dashboard view')) {
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        $labId = $user->role_id == 1 ? null : $user->id;
+        $labId = $user->role_id == 1 ? null : app(\App\Services\AccountAccess::class)->tenantId($user);
         $today = Carbon::today();
 
         // Base query for all invoices (for tests/cultures stats)

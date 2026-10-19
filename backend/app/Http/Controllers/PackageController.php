@@ -18,7 +18,7 @@ class PackageController extends Controller
     {
         $user = Auth::user();
         if (! $user->hasPermissionTo('packages view')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         // Optimize eager loading by selecting specific fields
@@ -69,7 +69,7 @@ class PackageController extends Controller
     {
         $user = Auth::user();
         if (! $user->hasPermissionTo('packages create')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         // Validate the request data
@@ -183,7 +183,7 @@ class PackageController extends Controller
     {
         $user = Auth::user();
         if (! $user->hasPermissionTo('packages view')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         // Find a package by id and include related data
@@ -238,7 +238,7 @@ class PackageController extends Controller
     {
         $user = Auth::user();
         if (! $user->hasPermissionTo('packages edit')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         // Validate the request data
@@ -366,7 +366,7 @@ class PackageController extends Controller
     {
         $user = Auth::user();
         if (! $user->hasPermissionTo('packages delete')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         // Find the package by id

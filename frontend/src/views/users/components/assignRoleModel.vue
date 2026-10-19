@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted } from "vue";
+import { computed, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useRolesstore } from "@/store/modules/roles";
 import { useUsersStore } from "@/store/modules/users";
@@ -11,14 +11,13 @@ const rolesStore = useRolesstore();
 const usersStore = useUsersStore();
 
 const { record, assignDialog } = storeToRefs(usersStore);
-const { GetUser } = usersStore;
-const { role, GetRoles, AssignRoleToUser } = rolesStore;
+const { GetRecords, GetUserRoles } = usersStore;
+const { UserRoles } = storeToRefs(usersStore);
+const { AssignRoleToUser } = rolesStore;
 
 const lang = computed(() => localStorage.getItem("locale") || "ar");
 
-onMounted(() => {
-  GetRoles();
-});
+watch(assignDialog, open => { if (open) GetUserRoles(); });
 
 const submit = async () => {
   try {
@@ -29,7 +28,7 @@ const submit = async () => {
     toast.success(t("alertSuccess"));
     assignDialog.value = false;
     clearRecord();
-    GetUser();
+    await GetRecords();
   } catch (error) {
     console.error(error);
   }
@@ -97,7 +96,7 @@ const clearRecord = () => {
                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="" disabled>{{ t("select") }}</option>
-                <option v-for="r in role()" :key="r.value" :value="r.value">
+                <option v-for="r in UserRoles" :key="r.value" :value="r.value">
                   {{ r.label }}
                 </option>
               </select>

@@ -23,20 +23,14 @@ class PermissionsController extends Controller
 
     public function index(Request $request)
     {
-        $user = Auth::user();
-        $role_id = $request->role_id;
-
-        // Non-admin users can only fetch their own role's permissions
-        if ($user->role_id !== 1) {
-            $role_id = $user->role_id;
-        }
-
-        if ($role_id) {
-            $permissions = Permission::whereHas('roles', function ($query) use ($role_id) {
-                $query->where('role_id', $role_id);
-            })->get();
+        $user = $request->user();
+        if ($request->boolean('catalog')) {
+            abort_unless($user->can('roles create') || $user->can('roles edit') || $user->can('roles view'), 403);
+            $permissions = app(\App\Services\AccountAccess::class)->permissions($user);
+        } elseif ((int) $user->role_id === 1 && $request->filled('role_id')) {
+            $permissions = \Spatie\Permission\Models\Role::findById($request->integer('role_id'), 'api')->permissions;
         } else {
-            $permissions = Permission::all();
+            $permissions = $user->getAllPermissions();
         }
         $groupedPermissions = $this->groupPermissions($permissions);
 

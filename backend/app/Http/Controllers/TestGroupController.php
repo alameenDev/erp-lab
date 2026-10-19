@@ -21,7 +21,7 @@ class TestGroupController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('test groups view')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $query = TestGroup::with('category', 'culture', 'durationUnit', 'sample', 'lab', 'testGroupComments', 'tests', 'price_list_rel.priceList');
@@ -83,7 +83,7 @@ class TestGroupController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('test groups create')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $request->validate([
@@ -165,7 +165,7 @@ class TestGroupController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('test groups view')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $test_group = TestGroup::with(['category', 'culture', 'durationUnit', 'sample', 'lab', 'testGroupComments', 'tests', 'price_list_rel.priceList'])->findOrFail($request->id);
@@ -225,7 +225,7 @@ class TestGroupController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('test groups edit')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $request->validate([
@@ -317,7 +317,7 @@ class TestGroupController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('test groups delete')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $test_group = TestGroup::find($request->id);

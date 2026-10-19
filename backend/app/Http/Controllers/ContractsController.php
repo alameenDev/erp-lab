@@ -13,7 +13,7 @@ class ContractsController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('contracts view')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
         $query = Contract::with(['lab']);
 
@@ -47,7 +47,7 @@ class ContractsController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('contracts view')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $contract = Contract::with(['lab'])->find($request->id);
@@ -81,7 +81,7 @@ class ContractsController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('contracts create')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $validatedData = $request->validate([
@@ -124,7 +124,7 @@ class ContractsController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('contracts edit')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $contract = Contract::find($request->id);
@@ -181,7 +181,7 @@ class ContractsController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('contracts delete')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $contract = Contract::find($request->id);

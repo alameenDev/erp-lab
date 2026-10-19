@@ -14,7 +14,7 @@ class AntibioticsController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('antibiotics view')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $query = Antibiotics::with('lab');
@@ -42,7 +42,7 @@ class AntibioticsController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('antibiotics create')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $request->validate([
@@ -68,7 +68,7 @@ class AntibioticsController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('antibiotics view')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $antibiotics = Antibiotics::with('lab:id,name')->find($request->id);
@@ -88,7 +88,7 @@ class AntibioticsController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('antibiotics edit')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $request->validate([
@@ -122,7 +122,7 @@ class AntibioticsController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('antibiotics delete')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $antibiotics = Antibiotics::find($request->id);

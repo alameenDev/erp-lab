@@ -24,7 +24,7 @@ class PatientsController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('patients view')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
         $query = Patient::with([
             'contract',
@@ -70,7 +70,7 @@ class PatientsController extends Controller
     {
         $authUser = Auth::user();
         if (!$authUser->hasPermissionTo('patients view')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $patient = Patient::where('id', $request->id)
@@ -126,7 +126,7 @@ class PatientsController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('patients create')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         // Clean up null string values before validation
@@ -251,7 +251,7 @@ class PatientsController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('patients edit')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         // Clean up null string values before validation
@@ -356,7 +356,7 @@ class PatientsController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('patients delete')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $patient = Patient::find($request->id);

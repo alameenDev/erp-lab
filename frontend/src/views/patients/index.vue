@@ -204,7 +204,7 @@ onMounted(async () => {
   try {
     await Promise.all([
       patientsStore.GetRecords(),
-      contractsStore.GetRecords(),
+      authStore.havePermission('contracts view') ? contractsStore.GetRecords() : Promise.resolve(),
       nationalitiesStore.GetNationalities(),
       titlesStore.GetTitles()
     ]);

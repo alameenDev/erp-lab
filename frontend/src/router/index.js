@@ -1,4 +1,6 @@
 import { createRouter, createWebHistory } from "vue-router";
+import { canAccessPage, landingPage, readStoredJson } from "@/utils/accessControl";
+import { useAuthStore } from "@/store/modules/auth";
 import AppLayout from "@/layout/AppLayout.vue";
 
 const router = createRouter({
@@ -12,6 +14,7 @@ const router = createRouter({
                },
                meta: { requiresAuth: true },
                children: [
+                    { path: '/access-denied', name: 'access-denied', component: () => import('@/views/errors/AccessDenied.vue'), meta: { title: 'صلاحيات الوصول | Digital Lab' } },
                     {path: "/printer-settings", name: "printer-settings", component: () => import("@/views/lab-settings/LocalPrinterSettings.vue"), meta: {title: "الطابعات لهذا الجهاز | Digital Lab"}},
                     {
                          path: "/super-admin",
@@ -431,35 +434,27 @@ const router = createRouter({
 });
 
 // Navigation guard to check if user is authenticated
-router.beforeEach((to, from, next) => {
-     const isAuthenticated = localStorage.getItem("token");
-     const requiresAuth = to.matched.some((record) => record.meta.requiresAuth);
-     let storedUser = null;
-     try {
-          storedUser = JSON.parse(localStorage.getItem("user"));
-     } catch {
-          storedUser = null;
-     }
-     const referralHome = storedUser?.is_doctor_portal ? "/doctor-portal" : "/referral-portal";
-
-     // Redirect authenticated users away from welcome and login pages
-     if (isAuthenticated && (to.name === "welcome" || to.name === "login")) {
-          if (storedUser?.is_referral_partner) {
-               next(referralHome);
-          } else if (storedUser?.role_id == 1) {
-               next("/super-admin");
-          } else {
-               next("/dashboard");
+router.beforeEach(async (to) => {
+     const authenticated = Boolean(localStorage.getItem('token'));
+     const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
+     if (requiresAuth && !authenticated) return '/login';
+     if (!authenticated) return true;
+     const auth = useAuthStore();
+     if (requiresAuth && to.path !== '/logout') {
+          try { await auth.refreshAccess(); }
+          catch (error) {
+               if (!localStorage.getItem('token')) return '/login';
+               // Do not grant a protected route when session refresh failed.
+               if (to.path !== '/access-denied') return '/access-denied';
           }
-     } else if (requiresAuth && !isAuthenticated) {
-          next("/login");
-     } else if (isAuthenticated && storedUser?.is_referral_partner && requiresAuth && !to.path.startsWith(referralHome)) {
-          // Referral partner accounts only ever see their own portal, not
-          // the main lab's staff area.
-          next(referralHome);
-     } else {
-          next();
      }
+     const user = readStoredJson('user');
+     const home = landingPage(user, auth.rolePermissions);
+     if (to.name === 'welcome' || to.name === 'login' || to.path === '/app') return home;
+     if (requiresAuth && !canAccessPage(to.path, user, auth.rolePermissions)) {
+          return user?.is_referral_partner ? home : '/access-denied';
+     }
+     return true;
 });
 
 // Update document title and meta tags after each navigation

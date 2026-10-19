@@ -49,9 +49,9 @@ export const useUsersStore = defineStore("user", {
           },
           async GetUserRoles() {
                try {
-                    const { data } = await $http.get("/roles");
+                    const { data } = await $http.get("/roles/show");
                     // let pageNumber = Math.floor(this.filter.pageNumber / this.filter.pageSize) + 1;
-                    this.UserRoles = data.roles.map((record) => ({ label: record.name, value: record.id }));
+                    this.UserRoles = data.map((record) => ({ label: record.name, value: record.id }));
 
                     this.UserRolestotalCount = this.UserRoles.length;
                } catch (error) {

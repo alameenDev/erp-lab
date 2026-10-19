@@ -25,7 +25,7 @@ class TestController extends Controller
     {
         $user = Auth::user();
         if (! $user->hasPermissionTo('tests view')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $query = Test::query();
@@ -273,7 +273,7 @@ class TestController extends Controller
     {
         $user = Auth::user();
         if (! $user->hasPermissionTo('tests view')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $query = Test::with([
@@ -308,7 +308,7 @@ class TestController extends Controller
     {
         $user = Auth::user();
         if (! $user->hasPermissionTo('tests create')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $request->validate([
@@ -430,7 +430,7 @@ class TestController extends Controller
     {
         $user = Auth::user();
         if (! $user->hasPermissionTo('tests edit')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $request->validate([
@@ -605,7 +605,7 @@ class TestController extends Controller
     {
         $user = Auth::user();
         if (! $user->hasPermissionTo('tests delete')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $query = Test::query();

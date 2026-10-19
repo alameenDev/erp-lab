@@ -12,16 +12,20 @@ const { AddRoles, UpdateRoles, GetPermissions } = rolesStore;
 
 const lang = computed(() => localStorage.getItem("locale") || "ar");
 const isLoading = ref(false);
+const catalogLoading = ref(false);
+const formError = ref("");
 const selectedPermissions = ref([]);
 const expandedControllers = ref({});
 
-onMounted(() => {
-  GetPermissions();
-});
 
 // Watch dialog to initialize permissions when editing
-watch(dialog, (newValue) => {
+watch(dialog, async (newValue) => {
   if (newValue) {
+    formError.value = '';
+    catalogLoading.value = true;
+    try { await GetPermissions(); }
+    catch (error) { formError.value = error.response?.data?.message || 'تعذر تحميل الصلاحيات'; }
+    finally { catalogLoading.value = false; }
     if (record.value.id) {
       // permissions may be array of IDs (from index) or array of objects (from API)
       const perms = record.value.permissions || [];
@@ -68,6 +72,7 @@ const togglePermission = (id) => {
 };
 
 const submit = async () => {
+  if (!record.value.role?.trim()) { formError.value = 'اكتب اسم الدور أولاً.'; return; }
   try {
     isLoading.value = true;
     await AddRoles({
@@ -77,13 +82,14 @@ const submit = async () => {
     toast.success(t("alertSuccess"));
     close();
   } catch (error) {
-    console.error(error);
+    formError.value = Object.values(error.response?.data?.errors || {}).flat()[0] || error.response?.data?.message || 'تعذر حفظ الدور';
   } finally {
     isLoading.value = false;
   }
 };
 
 const update = async () => {
+  if (!record.value.role?.trim()) { formError.value = 'اكتب اسم الدور أولاً.'; return; }
   try {
     isLoading.value = true;
     await UpdateRoles({
@@ -94,7 +100,7 @@ const update = async () => {
     toast.success(t("alertSuccess"));
     close();
   } catch (error) {
-    console.error(error);
+    formError.value = Object.values(error.response?.data?.errors || {}).flat()[0] || error.response?.data?.message || 'تعذر حفظ الدور';
   } finally {
     isLoading.value = false;
   }
@@ -113,7 +119,7 @@ const allSelected = computed(() => {
   const allPermissionIds = controllers.value.flatMap((controller) =>
     controller.permissions.map((action) => action.id)
   );
-  return selectedPermissions.value.length === allPermissionIds.length;
+  return allPermissionIds.length > 0 && allPermissionIds.every(id => selectedPermissions.value.includes(id));
 });
 </script>
 
@@ -180,7 +186,7 @@ const allSelected = computed(() => {
                 <button
                   type="button"
                   @click="record.id ? update() : submit()"
-                  :disabled="isLoading"
+                  :disabled="isLoading || catalogLoading || !!formError && !controllers.length"
                   class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
                 >
                   <svg v-if="isLoading" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
@@ -195,6 +201,9 @@ const allSelected = computed(() => {
               </div>
             </div>
 
+            <p v-if="formError" role="alert" class="mb-4 rounded-lg bg-red-50 p-3 text-red-700">{{ formError }}</p>
+            <p class="mb-4 text-sm leading-7 text-slate-600">حدد صلاحية عرض الصفحة مع إجراءاتها المطلوبة. الحساب بدون صلاحيات يبقى مسجلاً ويعرض رسالة تطلب مراجعة مدير المختبر.</p>
+            <p v-if="catalogLoading" class="mb-4 text-slate-500">جارٍ تحميل الصلاحيات…</p>
             <!-- Permissions Grid -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div
@@ -254,7 +263,7 @@ const allSelected = computed(() => {
             <button
               type="button"
               @click="record.id ? update() : submit()"
-              :disabled="isLoading"
+              :disabled="isLoading || catalogLoading || !!formError && !controllers.length"
               class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50"
             >
               {{ record.id ? t("save") : t("add") }}
