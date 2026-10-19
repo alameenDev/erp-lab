@@ -26,7 +26,7 @@ class DesktopInstallation
         if (User::withTrashed()->exists()) throw new \RuntimeException('This database already contains accounts.');
         // Keep reference IDs stable if account creation fails and is retried.
         // InnoDB rolls rows back but does not roll AUTO_INCREMENT counters back.
-        (new ReferenceDataSeeder)->run();
+        \Illuminate\Database\Eloquent\Model::unguarded(fn () => (new ReferenceDataSeeder)->run());
         foreach (['Admin', 'Lab', 'Patient', 'Branch Lab', 'Doctor', 'Sample Collector', 'User'] as $i => $name) {
             if ((int) Role::where('name', $name)->where('guard_name', 'api')->value('id') !== $i + 1) {
                 throw new \RuntimeException('Unexpected role IDs.');

@@ -10,6 +10,6 @@ try {
     exit(2);
 } catch (\Throwable $e) {
     // No credentials or SQL values in setup diagnostics.
-    fwrite(STDERR, get_class($e));
+    fwrite(STDERR, get_class($e).' at '.basename($e->getFile()).':'.$e->getLine());
     exit(1);
 }

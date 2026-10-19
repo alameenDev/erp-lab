@@ -12,6 +12,7 @@ const {paths,PORT,ORIGIN} = require('./constants.cjs');
 const {allowedRequest} = require('./network.cjs');
 protocol.registerSchemesAsPrivileged([{scheme:'dlprint',privileges:{standard:true,secure:true,supportFetchAPI:true}}]);
 const smoke = process.argv.includes('--smoke-test');
+if (smoke) app.on('window-all-closed',()=>{});
 if (smoke) app.setPath('userData',process.env.DLD_SMOKE_DATA || path.join(app.getPath('temp'),'DigitalLabDesktop-smoke-'+crypto.randomUUID()));
 else app.setPath('userData',path.join(app.getPath('appData'),'DigitalLabDesktopV1'));
 const bundle = app.isPackaged ? path.join(process.resourcesPath,'bundle') : path.join(__dirname,'../bundle');
