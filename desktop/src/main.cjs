@@ -62,9 +62,9 @@ async function openMain() {
 async function maintenance(operation) {
   if(busy) throw new Error('انتظر اكتمال العملية الحالية.');
   if(printers.pending) throw new Error('انتظر اكتمال الطباعة قبل النسخ أو الاستعادة.');
-  busy=true;
+  busy=true;main?.setEnabled(false);
   try {await gateway.pause();await runtime.stopDatabase();return await operation();}
-  finally {try {if(!runtime.db) await runtime.startDatabase();} finally {gateway.resume();busy=false;}}
+  finally {try {if(!runtime.db) await runtime.startDatabase();} finally {gateway.resume();busy=false;if(main&&!main.isDestroyed())main.setEnabled(true);}}
 }
 function registerIpc() {
   ipcMain.handle('desktop:status',e=>{validSender(e,true);return {ready,installed:!!runtime?.status?.installed,version:'1.0.0',dataPath:p.data};});
@@ -128,7 +128,8 @@ app.whenReady().then(async()=>{
   const secret=crypto.randomBytes(32).toString('hex');gateway=createGateway(proxyRuntime,secret);
   await new Promise((resolve,reject)=>{gateway.server.once('error',reject);gateway.server.listen(PORT,'127.0.0.1',resolve);});
   const ses=session.fromPartition('persist:desktop-v1');
-  ses.setPermissionRequestHandler((_w,_permission,callback)=>callback(false));ses.setPermissionCheckHandler(()=>false);
+  ses.setPermissionRequestHandler((contents,permission,callback)=>callback(permission==='clipboard-sanitized-write' && contents===main?.webContents && contents.getURL().startsWith(ORIGIN+'/')));
+  ses.setPermissionCheckHandler((contents,permission,origin)=>permission==='clipboard-sanitized-write' && contents===main?.webContents && origin===ORIGIN);
   ses.webRequest.onBeforeRequest((details,callback)=>callback({cancel:!allowedRequest(details)}));
   ses.webRequest.onBeforeSendHeaders((details,callback)=>{if(details.url.startsWith(ORIGIN+'/'))details.requestHeaders['X-Digital-Lab-Desktop']=secret;callback({requestHeaders:details.requestHeaders});});
   ses.on('will-download',(_e,item)=>{

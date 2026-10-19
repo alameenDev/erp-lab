@@ -71,6 +71,7 @@ const submit = async (e) => {
 };
 
 const forgetPassword = async () => {
+  if (globalThis.window?.digitalLabDesktop) { errorMessage.value = 'استعادة كلمة السر بالبريد تحتاج خدمة بريد مستقلة. يمكن لحساب المدير تعديل كلمة سر حساب المختبر والمستخدمين من إدارة الحسابات.'; return; }
   if (!email.value) {
     errorMessage.value = t("please_enter_email") || "Please enter your email";
     return;

@@ -62,7 +62,9 @@ async function run({app,bundle,p,vault}){
     await fsp.writeFile(path.join(qa,'acceptance.json'),JSON.stringify({version:'1.0.0',packaged:app.isPackaged,passed:true,checks:['install','isolation','login','patient','invoice','result-entry','result-edit','register','barcode','attachments','frontend','backup','restore','restart','native-print']}));
   }catch(e){
     // Synthetic test data only, useful when Windows CI cannot display a console.
-    await fsp.writeFile(path.join(qa,'failure.txt'),e.stack+'\n'+(e.detail||''));throw e;
+    await fsp.writeFile(path.join(qa,'failure.txt'),e.stack+'\n'+(e.detail||''));
+    for(const file of ['database.log']){try{await fsp.copyFile(path.join(p.storage,'logs',file),path.join(qa,file));}catch{}}
+    throw e;
   }finally{if(win&&!win.isDestroyed())win.destroy();if(gateway)await gateway.pause();await runtime.stopDatabase();if(gateway)await gateway.close();}
 }
 module.exports={run};

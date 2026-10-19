@@ -9,7 +9,7 @@ function run(file, args, {env = process.env, cwd, input, timeout = 180000, outpu
     child.stderr.on('data', b => {if (stderr.length < 16000) stderr += b.toString();});
     child.stdin.on('error', () => {});
     child.on('error', e => {clearTimeout(timer);reject(e);});
-    child.on('close', code => {clearTimeout(timer);code === 0 ? resolve(Buffer.concat(chunks).toString()) : reject(Object.assign(new Error(`Process failed: ${require('node:path').basename(file)} (${code})`), {detail: stderr}));});
+    child.on('close', code => {clearTimeout(timer);code === 0 ? resolve(Buffer.concat(chunks).toString()) : reject(Object.assign(new Error(`Process failed: ${require('node:path').basename(file)} (${code})`), {detail: stderr + Buffer.concat(chunks).toString()}));});
     child.stdin.end(input);
   });
 }

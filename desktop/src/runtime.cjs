@@ -56,7 +56,10 @@ class Runtime {
       APP_EVENTS_CACHE: path.join(this.p.cache, 'events.php'), VIEW_COMPILED_PATH: path.join(this.p.storage, 'framework/views')};
   }
   phpArgs() {
-    return ['-c', path.join(this.p.bundle, 'php/php.ini'), '-d', `extension_dir=${path.join(this.p.bundle, 'php/ext')}`, '-d', `sys_temp_dir=${path.join(this.p.data, 'tmp')}`, '-d', `upload_tmp_dir=${path.join(this.p.data, 'tmp')}`];
+    // PHP parses -d values as INI syntax: quote Windows paths containing ~,
+    // spaces or parentheses, including the runner's RUNNER~1 short home path.
+    const quoted = value => '"' + value.replaceAll('\\', '/') + '"';
+    return ['-c', path.join(this.p.bundle, 'php/php.ini'), '-d', `extension_dir=${quoted(path.join(this.p.bundle, 'php/ext'))}`, '-d', `sys_temp_dir=${quoted(path.join(this.p.data, 'tmp'))}`, '-d', `upload_tmp_dir=${quoted(path.join(this.p.data, 'tmp'))}`];
   }
   php(script, options = {}) {return run(this.p.php, [...this.phpArgs(), path.join(this.p.bundle, 'desktop-php', script)], {env: this.env, cwd: this.p.backend, ...options});}
   console(args, options = {}) {return run(this.p.php, [...this.phpArgs(), path.join(this.p.bundle, 'desktop-php/console.php'), ...args], {env: this.env, cwd: this.p.backend, ...options});}

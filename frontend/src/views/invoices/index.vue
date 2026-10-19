@@ -284,6 +284,16 @@ const barcodePrinter = ref(null);
 const printParcode = (data) => barcodePrinter.value?.open(data);
 
 const sendWhatsUp = (data) => {
+  if (globalThis.window?.digitalLabDesktop) {
+    let phone = String(data?.patient?.phone || '').replace(/\D/g, '');
+    if (phone.startsWith('00')) phone = phone.slice(2);
+    if (phone.startsWith('0')) phone = '964' + phone.slice(1);
+    if (!phone.startsWith('964')) phone = '964' + phone;
+    if (phone.length < 12 || phone.length > 15) { window.alert('أضف رقم هاتف صحيح للمريض أولاً.'); return; }
+    const message = `أهلاً ${data?.patient?.name || 'المريض'}،\nفاتورتك رقم ${data.id} لدى ${labSettingsStore.settings.lab_display_name || User.value?.name || 'المختبر'}.\nالمبلغ الكلي: ${data.total ?? 0} د.ع\nالمدفوع: ${data.paid ?? 0} د.ع`;
+    window.digitalLabDesktop.openExternal(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`).catch(error => window.alert(error.message));
+    return;
+  }
   printRecord.value = data;
   const labName = labSettingsStore.settings.lab_display_name || User.value?.name;
   const patientName = data?.patient?.name;
