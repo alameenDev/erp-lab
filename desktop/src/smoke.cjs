@@ -34,8 +34,10 @@ async function run({app,bundle,p,vault}){
     assert.ok(saved.attachments[0].file.startsWith(ORIGIN+'/'),JSON.stringify(saved.attachments[0]));
     const attachment=await fetch(saved.attachments[0].file,{headers:headers()});assert.equal(attachment.status,200);assert.ok((await attachment.text()).startsWith('%PDF'));
     console.log('PASS: fresh local install, private accounts, login, patient, invoice, register, barcode reference and multipart PDF attachment.');
-    const ses=session.fromPartition('desktop-smoke-'+crypto.randomUUID());const blocked=[];
-    ses.webRequest.onBeforeRequest((details,callback)=>{const allow=details.url.startsWith(ORIGIN+'/')||/^(data:|blob:|about:)/.test(details.url);if(!allow)blocked.push(new URL(details.url).hostname);callback({cancel:!allow});});
+    const ses=session.fromPartition('desktop-smoke-'+crypto.randomUUID());const blocked=[],apiErrors=[],pending=new Set();let lastApiActivity=Date.now();
+    ses.webRequest.onBeforeRequest((details,callback)=>{const allow=details.url.startsWith(ORIGIN+'/')||/^(data:|blob:|about:)/.test(details.url);if(!allow)blocked.push(new URL(details.url).hostname);if(allow&&details.url.startsWith(ORIGIN+'/api/')){pending.add(details.id);lastApiActivity=Date.now();}callback({cancel:!allow});});
+    ses.webRequest.onCompleted(details=>{if(pending.delete(details.id)){lastApiActivity=Date.now();if(details.statusCode>=500)apiErrors.push(new URL(details.url).pathname+' '+details.statusCode);}});
+    ses.webRequest.onErrorOccurred(details=>{if(pending.delete(details.id))lastApiActivity=Date.now();});
     ses.webRequest.onBeforeSendHeaders((details,callback)=>{if(details.url.startsWith(ORIGIN+'/'))details.requestHeaders['X-Digital-Lab-Desktop']=secret;callback({requestHeaders:details.requestHeaders});});
     win=new BrowserWindow({show:false,width:1440,height:1000,webPreferences:{session:ses,sandbox:true,nodeIntegration:false,contextIsolation:true,preload:path.join(__dirname,'preload.cjs')}});
     const errors=[];win.webContents.on('console-message',(_e,_level,message)=>{if(/Uncaught/.test(message))errors.push(message);});
@@ -43,11 +45,15 @@ async function run({app,bundle,p,vault}){
     await win.loadURL(ORIGIN+'/login');await pause(1500);
     await win.webContents.executeJavaScript(`localStorage.setItem('token',${JSON.stringify(token)});localStorage.setItem('user',${JSON.stringify(JSON.stringify(login.user))});localStorage.setItem('rolePermissions',${JSON.stringify(JSON.stringify(login.user.roles.flatMap(r=>r.permissions).map(p=>p.name)))});`);
     for(const route of ['/patients','/invoices','/medical_reports','/patients/work-register','/devices','/printer-settings']){
-      await win.loadURL(ORIGIN+route);await pause(1800);const text=await win.webContents.executeJavaScript('document.body.innerText');assert.ok(text.length>80,route+' empty');assert.equal(new URL(win.webContents.getURL()).pathname,route,route+' redirected unexpectedly');
-      if(route==='/printer-settings'){assert.ok(text.includes('مدمج'));assert.ok(!text.includes('رمز الربط'));assert.equal(await win.webContents.executeJavaScript('typeof window.require'),'undefined');}
+      await win.loadURL(ORIGIN+route);await pause(1800);
+      const expectsPatient=['/patients','/invoices','/medical_reports','/patients/work-register'].includes(route);
+      const until=Date.now()+45000;let text='',settled=false;
+      while(Date.now()<until){text=await win.webContents.executeJavaScript('document.body.innerText');if(text.length>80&&!pending.size&&Date.now()-lastApiActivity>500&&(!expectsPatient||text.includes('مريض فحص اصطناعي'))){settled=true;break;}await pause(250);}
       await fsp.writeFile(path.join(qa,route.replaceAll('/','_')+'.png'),(await win.webContents.capturePage()).toPNG());
+      assert.ok(settled,route+' did not finish loading: '+text.slice(0,600));assert.equal(new URL(win.webContents.getURL()).pathname,route,route+' redirected unexpectedly');
+      if(route==='/printer-settings'){assert.ok(text.includes('مدمج'));assert.ok(!text.includes('رمز الربط'));assert.equal(await win.webContents.executeJavaScript('typeof window.require'),'undefined');}
     }
-    assert.equal(errors.length,0,errors.join('\n'));assert.ok(!blocked.some(h=>h.includes('hostingersite')));win.destroy();win=null;
+    assert.equal(errors.length,0,errors.join('\n'));assert.equal(apiErrors.length,0,apiErrors.join('\n'));assert.ok(!blocked.some(h=>h.includes('hostingersite')));win.destroy();win=null;
     console.log('PASS: packaged frontend routes, Arabic UI, sandbox and native printer settings; network restricted to this installation.');
     await gateway.pause();await runtime.stopDatabase();
     const backup=path.join(qa,'roundtrip.dlbackup');await writeBackup({data:p.data,secrets:runtime.secrets,destination:backup,password});
