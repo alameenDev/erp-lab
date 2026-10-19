@@ -104,9 +104,13 @@ jobs:
         shell: pwsh
         run: |
           $setup = (Get-ChildItem desktop/dist/*Setup*.exe | Select-Object -First 1).FullName
-          $install = "$env:RUNNER_TEMP/DigitalLabDesktop-Installed"
+          $install = Join-Path $env:RUNNER_TEMP 'DigitalLabDesktop-Installed'
           $p = Start-Process $setup -ArgumentList '/S',"/D=$install" -PassThru -Wait
           if ($p.ExitCode -ne 0) { throw 'Installer failed' }
+          if (!(Test-Path (Join-Path $install 'Digital Lab Desktop.exe'))) {
+            Get-ChildItem 'HKCU:/Software/Microsoft/Windows/CurrentVersion/Uninstall' | Get-ItemProperty | Where-Object DisplayName -like '*Lab*' | Select-Object DisplayName,InstallLocation
+            throw 'Installed executable missing from requested directory'
+          }
           $env:DLD_SMOKE_OUTPUT = "$pwd/desktop/qa/installed"
           $env:DLP_SMOKE_OUTPUT = "$pwd/desktop/qa/installed/prints"
           $env:DLP_SMOKE_FIXTURES = "$pwd/desktop/qa/fixtures/documents.json"
