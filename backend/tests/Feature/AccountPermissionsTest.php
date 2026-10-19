@@ -244,11 +244,20 @@ class AccountPermissionsTest extends TestCase
     public function test_missing_catalog_upgrade_is_idempotent_and_does_not_expand_custom_roles(): void
     {
         $role = $this->customRole('Unchanged', ['patients view']);
-        Permission::findByName('doctors edit', 'api')->delete();
+        foreach (['doctors edit', 'super admin dashboard', 'subscriptions edit'] as $name) {
+            Permission::findByName($name, 'api')->delete();
+        }
         $migration = require database_path('migrations/2026_10_19_000001_complete_permission_catalog.php');
         $migration->up(); $migration->up();
         $this->assertEquals(['patients view'], $role->fresh()->permissions->pluck('name')->all());
         $this->assertSame(1, Permission::where('name', 'doctors edit')->where('guard_name', 'api')->count());
+        $admin = Role::findByName('Admin', 'api');
+        $lab = Role::findByName('Lab', 'api');
+        $this->assertTrue($lab->hasPermissionTo('doctors edit', 'api'));
+        foreach (['super admin dashboard', 'subscriptions edit'] as $name) {
+            $this->assertTrue($admin->hasPermissionTo($name, 'api'));
+            $this->assertFalse($lab->hasPermissionTo($name, 'api'));
+        }
     }
 
     public function test_new_feature_permissions_enforce_view_and_write_separately(): void

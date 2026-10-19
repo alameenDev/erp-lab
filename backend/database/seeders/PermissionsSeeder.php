@@ -35,9 +35,11 @@ class PermissionsSeeder extends Seeder
 
         foreach ($roles as $roleName) {
             $role = Role::firstOrCreate(['name' => $roleName, 'guard_name' => 'api']);
-            // Admin and Lab roles get all permissions
-            if ($role->name == 'Admin' || $role->name == 'Lab') {
+            if ($role->name === 'Admin') {
                 $role->givePermissionTo($permissions);
+            } elseif ($role->name === 'Lab') {
+                $role->givePermissionTo(array_values(array_filter($permissions,
+                    fn ($name) => ! \Illuminate\Support\Str::startsWith($name, ['super admin ', 'subscriptions ']))));
             }
         }
 
