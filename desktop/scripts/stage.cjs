@@ -10,6 +10,7 @@ for(const dir of ['app','bootstrap','config','database','public','resources','ro
 fs.rmSync(path.join(backend,'bootstrap/cache'),{recursive:true,force:true});fs.mkdirSync(path.join(backend,'bootstrap/cache'));
 for(const file of ['composer.json','composer.lock','artisan'])fs.copyFileSync(path.join(root,'backend',file),path.join(backend,file));
 fs.rmSync(path.join(bundle,'frontend'),{recursive:true,force:true});fs.cpSync(path.join(root,'frontend/dist'),path.join(bundle,'frontend'),{recursive:true});
+fs.cpSync(path.join(root,'desktop/node_modules/leaflet/dist'),path.join(bundle,'frontend/desktop-vendor/leaflet'),{recursive:true});
 let html=fs.readFileSync(path.join(bundle,'frontend/index.html'),'utf8');
 html=html.replace(/<script[^>]*type="application\/ld\+json"[^>]*>[\s\S]*?<\/script>/gi,'').replace(/<link[^>]*(?:canonical|alternate|preconnect|https:\/\/fonts)[^>]*>/gi,'').replace(/<meta[^>]*(?:og:|twitter:)[^>]*>/gi,'');
 fs.writeFileSync(path.join(bundle,'frontend/index.html'),html);

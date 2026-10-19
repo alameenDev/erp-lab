@@ -60,6 +60,8 @@ jobs:
           VITE_IMAGE_URL: /storage
       - run: npm ci
         working-directory: desktop
+      - run: node node_modules/electron/install.js
+        working-directory: desktop
       - name: Download and verify bundled runtimes
         run: ./desktop/scripts/download-runtime.ps1
       - uses: actions/setup-python@v5
@@ -70,10 +72,13 @@ jobs:
         run: |
           python -m unittest discover -s bridge/tests -v
           if ($LASTEXITCODE -ne 0) { throw 'Bridge tests failed' }
+          python desktop/tests/test_local_bridge.py
+          if ($LASTEXITCODE -ne 0) { throw 'Independent bridge validation failed' }
           python -m pip install pyinstaller==6.16.0 pypdf pymupdf pillow zxing-cpp
+          python -m PyInstaller --clean --noconfirm --onefile --windowed --paths bridge --distpath desktop/bundle/bridges --workpath desktop/.downloads/bridge --specpath desktop/.downloads --name DigitalLabDesktopBridge-dxh500 desktop/bridge/desktop_local.py
+          if ($LASTEXITCODE -ne 0) { throw 'Receiver build failed' }
           foreach ($adapter in @('dxh500','np21h','bm850')) {
-            python -m PyInstaller --clean --noconfirm --onefile --windowed --paths bridge --distpath desktop/bundle/bridges --workpath desktop/.downloads/bridge-$adapter --specpath desktop/.downloads --name DigitalLabDesktopBridge-$adapter desktop/bridge/desktop_local.py
-            if ($LASTEXITCODE -ne 0) { throw 'Receiver build failed' }
+            if ($adapter -ne 'dxh500') { Copy-Item desktop/bundle/bridges/DigitalLabDesktopBridge-dxh500.exe desktop/bundle/bridges/DigitalLabDesktopBridge-$adapter.exe }
             $p = Start-Process desktop/bundle/bridges/DigitalLabDesktopBridge-$adapter.exe -ArgumentList '--smoke-test' -PassThru -Wait
             if ($p.ExitCode -ne 0) { throw 'Receiver startup failed' }
           }

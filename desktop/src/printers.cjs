@@ -20,7 +20,7 @@ function createPrinters(bundle, data) {
           try {state.update(job,'rendering');await native.print(input,()=>state.update(job,'submitting'));state.update(job,'submitted');}
           catch(e){state.update(job,job.status==='submitting'?'unknown':'failed',e.safeMessage||'تعذرت الطباعة. تحقق من قائمة Windows قبل الإعادة.');}
           finally{pending--;}
-        });}
+        }).catch(()=>{});}
         return publicJob(job);
       }
       throw new Error('UNSUPPORTED_PRINT_REQUEST');

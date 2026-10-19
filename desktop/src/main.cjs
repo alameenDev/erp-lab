@@ -9,6 +9,7 @@ const {createGateway} = require('./gateway.cjs');
 const {createPrinters} = require('./printers.cjs');
 const {writeBackup,prepareRestore} = require('./backup.cjs');
 const {paths,PORT,ORIGIN} = require('./constants.cjs');
+const {allowedRequest} = require('./network.cjs');
 protocol.registerSchemesAsPrivileged([{scheme:'dlprint',privileges:{standard:true,secure:true,supportFetchAPI:true}}]);
 const smoke = process.argv.includes('--smoke-test');
 if (smoke) app.setPath('userData',process.env.DLD_SMOKE_DATA || path.join(app.getPath('temp'),'DigitalLabDesktop-smoke-'+crypto.randomUUID()));
@@ -35,6 +36,7 @@ function showControl() {
   control = new BrowserWindow({width:860,height:900,minWidth:620,minHeight:650,title:'Digital Lab Desktop V1',backgroundColor:'#f8fafc',autoHideMenuBar:true,webPreferences:{preload:path.join(__dirname,'control-preload.cjs'),sandbox:true,nodeIntegration:false,contextIsolation:true}});
   control.webContents.setWindowOpenHandler(()=>({action:'deny'}));
   control.webContents.on('will-navigate',e=>e.preventDefault());
+  control.on('close',e=>{if(!quitting && (busy||!ready)){e.preventDefault();errorBox(new Error('انتظر اكتمال تشغيل الخدمات أو العملية الحالية قبل الإغلاق.'));}});
   control.on('closed',()=>{control=null;if(!main&&!busy)app.quit();});
   return control.loadURL(controlUrl);
 }
@@ -52,6 +54,7 @@ async function openMain() {
   });
   main.webContents.on('will-navigate',(event,url)=>{if(!url.startsWith(ORIGIN+'/')) {event.preventDefault();external(url).catch(errorBox);}});
   main.on('page-title-updated',e=>e.preventDefault());
+  main.on('close',e=>{if(!quitting && (busy||printers?.pending)){e.preventDefault();errorBox(new Error('انتظر اكتمال العملية أو الطباعة قبل الإغلاق.'));}});
   main.on('closed',()=>{main=null;if(!busy)app.quit();});
   await main.loadURL(ORIGIN+'/login');
   control?.hide();
@@ -126,7 +129,7 @@ app.whenReady().then(async()=>{
   await new Promise((resolve,reject)=>{gateway.server.once('error',reject);gateway.server.listen(PORT,'127.0.0.1',resolve);});
   const ses=session.fromPartition('persist:desktop-v1');
   ses.setPermissionRequestHandler((_w,_permission,callback)=>callback(false));ses.setPermissionCheckHandler(()=>false);
-  ses.webRequest.onBeforeRequest((details,callback)=>callback({cancel:!details.url.startsWith(ORIGIN+'/')&&!/^(blob:|data:|about:)/.test(details.url)}));
+  ses.webRequest.onBeforeRequest((details,callback)=>callback({cancel:!allowedRequest(details)}));
   ses.webRequest.onBeforeSendHeaders((details,callback)=>{if(details.url.startsWith(ORIGIN+'/'))details.requestHeaders['X-Digital-Lab-Desktop']=secret;callback({requestHeaders:details.requestHeaders});});
   ses.on('will-download',(_e,item)=>{
     const file=dialog.showSaveDialogSync(main||control,{title:'حفظ الملف',defaultPath:item.getFilename()});

@@ -19,9 +19,16 @@ async function run({app,bundle,p,vault}){
     const login=await api('/user/login',{email:'lab@example.test',password});token=login.token;assert.equal(login.user.role_id,2);
     assert.deepEqual(await api('/patients'),[]);
     const patient=await api('/patients/create',{name:'مريض فحص اصطناعي',title_id_fk:1,gender_id_fk:1,age:30,age_unit_id_fk:1});assert.ok(patient.id);
-    const invoice=await api('/invoices/create',{patient_id_fk:patient.id,total:25000,sub_total:25000,paid:10000,work_register_amount:1234});assert.ok(invoice.id);
+    const category=await api('/categories/create',{name:'فئة فحص'});
+    const createdTest=await api('/tests/create',{name:'CBC QA',category_id_fk:category.id,result_type_id_fk:1,price:25000,unit:'g/dL'});assert.ok(createdTest.test.id);
+    const testId=createdTest.test.id;
+    const invoice=await api('/invoices/create',{patient_id_fk:patient.id,total:25000,sub_total:25000,paid:10000,work_register_amount:1234,tests:[{test_id_fk:testId,price:25000}]});assert.ok(invoice.id);
     const day=await api('/work-register');assert.equal(day.entries.length,1);assert.equal(day.totals.work_register_amount,1234);
     const barcode=await api(`/invoices/${invoice.id}/barcode-register`);assert.equal(barcode.work_register_number,1);
+    await api('/invoices/update-result?silent=1',{id:invoice.id,tests:[{test_id_fk:testId,result:'12.3',price:25000,is_done:true}]});
+    assert.equal((await runtime.sql(`SELECT result FROM digital_lab_desktop.invoice_test_rels WHERE invoice_id_fk=${Number(invoice.id)} AND test_id_fk=${Number(testId)}`)).trim(),'12.3');
+    await api('/invoices/update-result?silent=1',{id:invoice.id,tests:[{test_id_fk:testId,result:'13.1',price:25000,is_done:true}]});
+    assert.equal((await runtime.sql(`SELECT result FROM digital_lab_desktop.invoice_test_rels WHERE invoice_id_fk=${Number(invoice.id)} AND test_id_fk=${Number(testId)}`)).trim(),'13.1');
     const multipart=new FormData();multipart.append('id',invoice.id);multipart.append('existing_attachments','[]');multipart.append('attachments[0][name]','مرفق الفحص');multipart.append('attachments[0][upload_id]',crypto.randomUUID());multipart.append('attachments[0][file]',new Blob(['%PDF-1.4\n% synthetic attachment\n%%EOF'],{type:'application/pdf'}),'qa.pdf');
     const upload=await fetch(ORIGIN+'/api/invoices/update-result?silent=1',{method:'POST',headers:headers(),body:multipart});assert.equal(upload.status,200,await upload.clone().text());const saved=await upload.json();assert.equal(saved.attachments.length,1);
     assert.ok(saved.attachments[0].file.startsWith(ORIGIN+'/'),JSON.stringify(saved.attachments[0]));
@@ -52,7 +59,7 @@ async function run({app,bundle,p,vault}){
     const restoredPdf=await fetch(saved.attachments[0].file,{headers:headers()});assert.equal(restoredPdf.status,200);
     console.log('PASS: encrypted backup round trip preserves accounts, patient, invoice, register and PDF; existing data survives restart.');
     await require(path.join(bundle,'print/smoke.cjs')).run();
-    await fsp.writeFile(path.join(qa,'acceptance.json'),JSON.stringify({version:'1.0.0',packaged:app.isPackaged,passed:true,checks:['install','isolation','login','patient','invoice','register','barcode','attachments','frontend','backup','restore','restart','native-print']}));
+    await fsp.writeFile(path.join(qa,'acceptance.json'),JSON.stringify({version:'1.0.0',packaged:app.isPackaged,passed:true,checks:['install','isolation','login','patient','invoice','result-entry','result-edit','register','barcode','attachments','frontend','backup','restore','restart','native-print']}));
   }catch(e){
     // Synthetic test data only, useful when Windows CI cannot display a console.
     await fsp.writeFile(path.join(qa,'failure.txt'),e.stack+'\n'+(e.detail||''));throw e;

@@ -3,6 +3,13 @@ const fs=require('node:fs/promises');const path=require('node:path');const os=re
 const {validPath,createGateway}=require('../src/gateway.cjs');
 const {Runtime}=require('../src/runtime.cjs');const {paths}=require('../src/constants.cjs');
 const {writeBackup,prepareRestore,safeEntry}=require('../src/backup.cjs');
+const {allowedRequest}=require('../src/network.cjs');
+test('network isolation allows only this API and optional public map images',()=>{
+  assert.equal(allowedRequest({url:'http://127.0.0.1:17892/api/patients',method:'POST'}),true);
+  assert.equal(allowedRequest({url:'https://a.tile.openstreetmap.org/10/2/3.png',resourceType:'image'}),true);
+  for(const url of ['https://lightpink-badger-650079.hostingersite.com/api','http://127.0.0.1:17892.evil.test/api','https://foreign.test/api','https://cdn.jsdelivr.net/evil.js'])assert.equal(allowedRequest({url,resourceType:'script'}),false);
+  assert.equal(allowedRequest({url:'https://a.tile.openstreetmap.org/10/2/3.png',resourceType:'xhr',method:'POST'}),false);
+});
 test('gateway denies other origins, unauthenticated pages and traversal; bridge still requires backend token',async()=>{
   for(const input of ['/../secrets.dat','/%2e%2e/secrets.dat','/%252e%252e/secrets.dat','/a\\b','/.env','/%00'])assert.equal(validPath(input),false,input);
   assert.equal(validPath('/api/patients?search=abc'),true);

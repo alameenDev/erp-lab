@@ -1,6 +1,7 @@
 """Independent device inbox bridge. Only the V1 loopback API is permitted."""
 import os
 import sys
+import urllib.request
 from pathlib import Path
 import core
 import desktop
@@ -18,6 +19,15 @@ def local_validate(config, require_destination=True):
 
 core.validate_config = local_validate
 desktop.validate_config = local_validate
+
+class LocalApi(core.Api):
+    def __init__(self, config):
+        super().__init__(local_validate(config, require_destination=False))
+        # A system HTTP proxy must never receive localhost device tokens/results.
+        self.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), core.NoRedirect())
+
+core.Api = LocalApi
+desktop.Api = LocalApi
 
 name = Path(sys.executable if getattr(sys, 'frozen', False) else sys.argv[0]).stem.lower()
 adapter = 'np21h' if 'np21h' in name else 'bm850' if 'bm850' in name else 'dxh500'
