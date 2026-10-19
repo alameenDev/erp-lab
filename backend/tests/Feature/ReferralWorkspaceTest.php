@@ -131,7 +131,7 @@ class ReferralWorkspaceTest extends TestCase
         $this->postJson('/api/lab-settings', ['lab_display_name' => 'Changed by partner'])->assertForbidden();
         $this->assertDatabaseHas('lab_settings', ['lab_id_fk' => $lab->id, 'lab_display_name' => 'Destination branding', 'report_template' => 'modern']);
 
-        $employee = User::create(['name' => 'No referral membership', 'email' => 'ordinary@example.test', 'password' => 'secret-password-123', 'creator_id' => $lab->id]);
+        $employee = User::create(['name' => 'No referral membership', 'email' => 'ordinary@example.test', 'password' => 'secret-password-123', 'role_id' => 7, 'creator_id' => $lab->id]);
         $this->actingAs($employee);
         $this->getJson('/api/referral-portal/workspace/lab-settings')->assertForbidden();
         $this->postJson('/api/referral-portal/workspace/lab-settings', ['lab_display_name' => 'Unauthorized'])->assertForbidden();
