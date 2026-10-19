@@ -1,6 +1,7 @@
 <script setup>
 import {ref, onMounted} from 'vue';
 import {PRINT_TYPES, readPrintSettings, savePrintSettings, helperRequest, pairPrintHelper, unpairPrintHelper, routePrintDocument} from '@/utils/localPrint';
+const desktop = !!globalThis.window?.digitalLabDesktop;
 const settings = ref(readPrintSettings()), printers = ref([]), code = ref(''), busy = ref(false), checking = ref(false);
 const connected = ref(false), error = ref(''), notice = ref('');
 const downloadUrl = /^https:\/\//.test(import.meta.env.VITE_PRINT_HELPER_DOWNLOAD_URL || '') ? import.meta.env.VITE_PRINT_HELPER_DOWNLOAD_URL : '';
@@ -60,12 +61,13 @@ onMounted(() => {if (settings.value.token) refresh();});
     </header>
     <p v-if="error" role="alert" class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-800">{{ error }}</p>
     <p v-if="notice" role="status" class="rounded-xl border border-teal-200 bg-teal-50 p-4 text-teal-900">{{ notice }}</p>
-    <section class="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
+    <section v-if="desktop" class="rounded-2xl border border-teal-200 bg-teal-50 p-5"><p>محرك الطباعة مدمج داخل نسخة سطح المكتب. اختر طابعاتك واحفظ الإعدادات.</p><button type="button" @click="refresh" :disabled="busy || checking" class="mt-3 border border-teal-700 rounded-lg px-4 py-2">تحديث الطابعات</button></section>
+    <section v-if="!desktop" class="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
       <h2 class="font-bold text-lg">ربط مساعد الطباعة</h2>
       <p class="text-sm text-slate-600 leading-7">ثبّت Digital Lab Print على Windows وافتحه، ثم اضغط «إنشاء رمز ربط». أدخل الرمز هنا ووافق على عنوان موقعك داخل نافذة المساعد. قد يطلب Chrome أو Edge إذن الاتصال المحلي أول مرة.</p>
       <a v-if="downloadUrl" :href="downloadUrl" class="inline-block text-teal-700 underline" target="_blank" rel="noopener">تحميل مساعد الطباعة لـ Windows</a>
       <p v-else class="text-sm text-slate-500">ملف التثبيت: Digital-Lab-Print-Setup-1.0.0.exe — احصل عليه من مسؤول Digital Lab.</p>
-      <div class="flex flex-wrap gap-3 items-end">
+      <div v-if="!desktop" class="flex flex-wrap gap-3 items-end">
         <label class="text-sm">رمز الربط<input v-model="code" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="12345678" class="block border border-slate-300 rounded-lg p-2 mt-1 w-48" dir="ltr" /></label>
         <button type="button" @click="pair" :disabled="busy || !/^\d{8}$/.test(code)" class="bg-teal-700 text-white px-4 py-2 rounded-lg disabled:opacity-50">{{ busy ? 'جارٍ التنفيذ…' : 'ربط الحاسبة' }}</button>
         <button type="button" @click="refresh" :disabled="busy || checking" class="border border-slate-300 px-4 py-2 rounded-lg disabled:opacity-50">تحديث الاتصال والطابعات</button>

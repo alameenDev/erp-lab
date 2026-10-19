@@ -644,6 +644,7 @@ const appBaseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
 
 const printReferralReport = () => printFromQR();
 const shareReferralReport = async () => {
+  if (globalThis.window?.digitalLabDesktop) { shareError.value = 'روابط التقارير الخارجية تحتاج استضافة مستقلة. احفظ التقرير PDF وأرسله للمريض.'; return; }
   if (sharing.value || !reportLoaded.value) return;
   sharing.value = true;
   shareError.value = "";

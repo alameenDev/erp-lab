@@ -18,8 +18,13 @@ export async function sendMedicalReportWhatsApp({ record, settings, output, tab,
   downloadMedicalReportFile(output);
   if (afterDownload) await afterDownload();
   checkTab();
-  tab.opener = null;
-  tab.location.href = share.whatsappUrl;
+  if (globalThis.window?.digitalLabDesktop) {
+    await window.digitalLabDesktop.openExternal(share.whatsappUrl);
+    tab.close();
+  } else {
+    tab.opener = null;
+    tab.location.href = share.whatsappUrl;
+  }
   try {
     await markSent(record.id, output.withBackground);
     return { statusError: null };
@@ -37,6 +42,11 @@ export async function prepareMedicalReportWhatsApp(record, settings, fallbackLab
   if (!phone.startsWith('964')) phone = '964' + phone;
   if (phone.length < 12 || phone.length > 15) throw new Error('رقم هاتف المريض المسجل غير صالح.');
 
+  if (globalThis.window?.digitalLabDesktop) {
+    const labName = settings?.lab_display_name || fallbackLabName || 'المختبر';
+    const message = `أهلاً ${record?.patient?.name || 'المريض'}،\nنتائجك من ${labName}. سنرفق لك ملف PDF من التقرير في هذه المحادثة. نتمنى لك الصحة والعافية.`;
+    return {phone, message, whatsappUrl: `https://wa.me/${phone}?text=${encodeURIComponent(message)}`};
+  }
   const { data } = await $http.post('/portal/generate', { patient_id: patientId });
   if (!data?.url || !new URL(data.url).pathname.startsWith('/portal/')) throw new Error('تعذر إنشاء رابط بوابة المريض.');
   if (options.withBackground !== undefined) {
@@ -59,6 +69,7 @@ export async function prepareMedicalReportWhatsApp(record, settings, fallbackLab
 }
 
 export async function sharePatientPortal(record, settings, fallbackLabName, kind = "result") {
+  if (globalThis.window?.digitalLabDesktop) throw new Error('بوابة المريض الخارجية تحتاج استضافة مستقلة. في نسخة سطح المكتب احفظ التقرير PDF وأرسله إلى المريض.');
   const patientId = record?.patient?.id || record?.patient_id_fk;
   if (!patientId) throw new Error('لا يوجد مريض مرتبط بهذه الفاتورة.');
   let phone = String(record?.patient?.phone || '').replace(/[\s()+-]/g, '');

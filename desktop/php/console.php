@@ -1,0 +1,3 @@
+<?php
+$app = require __DIR__.'/bootstrap.php';
+exit($app->handleCommand(new \Symfony\Component\Console\Input\ArgvInput));

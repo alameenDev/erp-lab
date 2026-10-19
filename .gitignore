@@ -34,3 +34,11 @@ print-helper/fixtures/
 print-helper/qa/
 
 frontend/barcode-qa/
+
+# Independent desktop build/runtime output
+desktop/node_modules/
+desktop/dist/
+desktop/bundle/
+desktop/.downloads/
+desktop/qa/
+desktop/*.log

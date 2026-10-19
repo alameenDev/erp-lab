@@ -11,18 +11,19 @@ const active = new Set();
 export function readPrintSettings() {
   try {
     const value = JSON.parse(globalThis.localStorage?.getItem(PRINT_STORAGE_KEY) || '{}');
-    return {enabled: value.enabled === true, token: /^[a-f0-9]{64}$/.test(value.token || '') ? value.token : '',
+    return {enabled: value.enabled === true, token: globalThis.window?.digitalLabDesktop ? 'd'.repeat(64) : /^[a-f0-9]{64}$/.test(value.token || '') ? value.token : '',
       routes: Object.fromEntries(PRINT_TYPES.map(([kind]) => [kind, {
         printer: typeof value.routes?.[kind]?.printer === 'string' ? value.routes[kind].printer : '',
         copies: Math.max(1, Math.min(20, Math.trunc(Number(value.routes?.[kind]?.copies) || 1))),
       }]))};
-  } catch {return {enabled: false, token: '', routes: {}};}
+  } catch {return {enabled: false, token: globalThis.window?.digitalLabDesktop ? 'd'.repeat(64) : '', routes: {}};}
 }
 export function savePrintSettings(value) {
   localStorage.setItem(PRINT_STORAGE_KEY, JSON.stringify(value));
   window.dispatchEvent(new Event('digital-lab-print-settings'));
 }
 export async function helperRequest(path, {method = 'GET', body, token = readPrintSettings().token, timeout = 7000} = {}) {
+  if (globalThis.window?.digitalLabDesktop) return window.digitalLabDesktop.printRequest(path, {method, body});
   const response = await fetch(BASE + path, {method, mode: 'cors', credentials: 'omit', cache: 'no-store',
     headers: {...(token ? {Authorization: `Bearer ${token}`} : {}), ...(body ? {'Content-Type': 'application/json'} : {})},
     ...(body ? {body: JSON.stringify(body)} : {}), signal: AbortSignal.timeout(timeout)});

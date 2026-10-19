@@ -46,6 +46,7 @@ export function googleMapsUrl(latitude, longitude) {
   return `https://www.google.com/maps?q=${encodeURIComponent(lat)},${encodeURIComponent(lng)}`;
 }
 
+const leafletBase = globalThis.window?.digitalLabDesktop ? '/desktop-vendor/leaflet' : 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist';
 let leafletPromise;
 export function loadLeaflet() {
   if (globalThis.L?.map) return Promise.resolve(globalThis.L);
@@ -57,7 +58,7 @@ export function loadLeaflet() {
       const link = document.createElement('link');
       link.id = cssId;
       link.rel = 'stylesheet';
-      link.href = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css';
+      link.href = leafletBase + '/leaflet.css';
       document.head.appendChild(link);
     }
 
@@ -70,7 +71,7 @@ export function loadLeaflet() {
 
     const script = document.createElement('script');
     script.id = 'digital-lab-leaflet-js';
-    script.src = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js';
+    script.src = leafletBase + '/leaflet.js';
     script.async = true;
     script.crossOrigin = 'anonymous';
     script.onload = () => globalThis.L?.map ? resolve(globalThis.L) : reject(new Error('Leaflet unavailable'));
