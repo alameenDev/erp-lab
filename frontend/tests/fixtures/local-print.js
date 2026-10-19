@@ -40,7 +40,7 @@ createApp({setup() {
   return () => h('main',{},[
     h(Settings),h('div',{style:'position:absolute;left:-10000px;top:0'},[
       h('div',{id:'qa-document'},[h('h1','مستند تجريبي'),h('img',{src:pixel}),h('table',[h('tbody',[h('tr',[h('td','Test'),h('td','12.5')])])])]),
-      h('div',{id:'qa-label'},[h(BarcodeLabel,{config,data:{barcode:'1234567890',number:'1234567890',register_number:'#12',name:'QA Patient',info:'30 Years / Male',sample:'EDTA',tests:'CBC'}})])
+      h('div',{id:'qa-label'},[h(BarcodeLabel,{config,data:{barcode:'1234567890',number:'1234567890',register_number:'#12',patient:'مريض تجريبي',age:'30 سنة',gender:'ذكر',date:'19/10/2026',sample:'EDTA',tests:'CBC'}})])
     ])
   ]);
 }}).mount('#app');

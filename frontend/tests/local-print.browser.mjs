@@ -38,7 +38,7 @@ try {
   await page.getByRole('button',{name:'حفظ اختيارات الطابعات'}).click();
   const saved=await page.evaluate(()=>window.qa.readPrintSettings());assert.equal(saved.routes.invoice.printer,'');
   await page.evaluate(()=>window.qa.send('invoice'));assert.equal(jobs.length,0,'unmapped type retains browser');
-  await page.evaluate(()=>window.qa.send('barcode'));assert.equal(jobs.at(-1).printer,'Label USB');assert.deepEqual(jobs.at(-1).paper,{width:50,height:30});assert.match(jobs.at(-1).html,/#12/);assert.match(jobs.at(-1).html,/<svg/);fixtures.push(jobs.at(-1));
+  await page.evaluate(()=>window.qa.send('barcode'));assert.equal(jobs.at(-1).printer,'Label USB');assert.deepEqual(jobs.at(-1).paper,{width:50,height:30});assert.match(jobs.at(-1).html,/#12/);assert.match(jobs.at(-1).html,/مريض تجريبي/);assert.match(jobs.at(-1).html,/19\/10\/2026/);assert.match(jobs.at(-1).html,/<svg/);fixtures.push(jobs.at(-1));
   await page.evaluate(()=>window.qa.report());assert.equal(jobs.at(-1).kind,'report');assert.equal((jobs.at(-1).html.match(/class="report-sheet"/g)||[]).length,2);fixtures.push(jobs.at(-1));
   await page.evaluate(()=>{const s=window.qa.readPrintSettings();for(const k of Object.keys(s.routes))s.routes[k]={printer:k==='barcode'?'Label USB':'Office A4',copies:2};window.qa.savePrintSettings(s);});
   for(const kind of ['invoice','thermal','job','worksheet','history','register']) {
