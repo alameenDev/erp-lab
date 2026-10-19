@@ -49,7 +49,7 @@ async function print() {
       if (notice.value && !dialog.value?.open) toast.warning(notice.value);
     }
     await nextTick();
-    await printWithIframe(printId, barcodePrintCss(config.value), 'Print Barcode', 100, null, {throwOnError:true});
+    await printWithIframe(printId, barcodePrintCss(config.value), 'Print Barcode', 100, null, {throwOnError:true, printKind:'barcode'});
   } catch (err) {
     if (disposed) return;
     error.value = err.response ? 'تعذر تحميل رقم سجل العمل. حاول الطباعة مجدداً.' : err.message || 'تعذرت طباعة الباركود. حاول مرة أخرى.';

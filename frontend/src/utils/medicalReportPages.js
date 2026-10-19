@@ -1,3 +1,4 @@
+import { routePrintDocument } from './localPrint.js';
 export function reportMargins(raw = {}) {
   const defaults = { top: 20, right: 15, bottom: 20, left: 15 };
   const m = Object.fromEntries(Object.entries(defaults).map(([key, fallback]) => {
@@ -49,6 +50,7 @@ export async function printMedicalReportPages(pages, printWindow) {
     doc.body.appendChild(sheet);
   }
   await waitForReportAssets(doc);
+  if (await routePrintDocument(doc, 'report')) { printWindow.close(); return; }
   printWindow.focus();
   printWindow.print();
 }

@@ -70,7 +70,7 @@ async function print() {
     // Refresh the selected day so the printout includes every saved visit and total.
     if (!await load(false)) return;
     const {content, css} = workRegisterPrint(report.value);
-    await printWithCustomContent(content, css, `سجل العمل ${report.value.date}`);
+    await printWithCustomContent(content, css, `سجل العمل ${report.value.date}`, 50, {printKind: 'register'});
   } catch (err) { error.value = message(err); }
   finally { followToday.value = wasFollowingToday; printing.value = false; }
 }

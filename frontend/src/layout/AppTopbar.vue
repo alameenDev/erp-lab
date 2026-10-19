@@ -411,6 +411,7 @@ const headerStyle = computed(() => {
               </div>
 
               <div class="py-2">
+                <router-link to="/printer-settings" @click="closeMenus" class="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50">الطابعات لهذا الجهاز</router-link>
                 <router-link
                   to="/app/profile"
                   class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"

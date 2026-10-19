@@ -1,0 +1,102 @@
+name: Digital Lab Print helper
+on:
+  pull_request:
+    paths:
+      - 'print-helper/**'
+      - 'frontend/src/utils/localPrint.js'
+      - 'frontend/src/composables/usePrint.js'
+      - 'frontend/src/utils/medicalReportPages.js'
+      - 'frontend/src/views/lab-settings/**'
+      - 'frontend/src/views/invoices/**'
+      - 'frontend/src/views/medical_reports/**'
+      - 'frontend/src/views/patients/work-register.vue'
+      - 'frontend/src/components/barcode/**'
+      - 'frontend/tests/local-print*'
+      - 'frontend/tests/fixtures/local-print.js'
+      - '.github/workflows/print-helper.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test print-helper/tests/*.test.cjs
+      - run: npm ci
+        working-directory: frontend
+      - run: npm install --no-save --package-lock=false playwright@1.55.1
+        working-directory: frontend
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - run: node --test tests/local-print.test.mjs tests/print-lifecycle.test.mjs tests/medical-report-pages.test.mjs tests/barcode-labels.test.mjs
+        working-directory: frontend
+      - run: node tests/local-print.browser.mjs
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: digital-lab-print-browser-qa
+          path: frontend/print-helper-qa/
+          retention-days: 14
+  windows:
+    needs: browser
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: digital-lab-print-browser-qa
+          path: print-helper/fixtures
+      - run: npm ci
+        working-directory: print-helper
+      - run: npm test
+        working-directory: print-helper
+      - name: Verify Windows Electron rendering for all print types
+        shell: pwsh
+        working-directory: print-helper
+        run: |
+          $env:DLP_SMOKE_FIXTURES = "$pwd/fixtures/documents.json"
+          $env:DLP_SMOKE_OUTPUT = "$pwd/qa"
+          npm run smoke
+          if ($LASTEXITCODE -ne 0) { throw 'Native renderer check failed' }
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify native paper dimensions and scan barcode
+        run: |
+          python -m pip install pypdf pymupdf pillow zxing-cpp
+          python print-helper/tests/check_pdfs.py print-helper/qa
+      - run: npm run build:win
+        working-directory: print-helper
+      - name: Check packaged app starts and renders
+        shell: pwsh
+        run: |
+          $process = Start-Process 'print-helper/dist/win-unpacked/Digital Lab Print.exe' -ArgumentList '--smoke-test' -PassThru -Wait
+          if ($process.ExitCode -ne 0) { throw 'Packaged app failed' }
+          Get-FileHash print-helper/dist/*.exe -Algorithm SHA256 | Format-List | Out-File print-helper/dist/SHA256.txt
+          Copy-Item print-helper/README_AR.md print-helper/dist/README_AR.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Digital-Lab-Print-Windows-Setup
+          path: |
+            print-helper/dist/*.exe
+            print-helper/dist/SHA256.txt
+            print-helper/dist/README_AR.md
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: digital-lab-print-native-qa
+          path: print-helper/qa/
+          retention-days: 14

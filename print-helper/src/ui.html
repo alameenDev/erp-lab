@@ -1,0 +1,6 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'"><title>Digital Lab Print</title><link rel="stylesheet" href="ui.css"></head>
+<body><header><img src="../assets/icon.png" width="46" height="46" alt=""><div><h1>Digital Lab Print</h1><p>طابعاتك جاهزة من مكان واحد</p></div><span id="version"></span></header>
+<main><section><h2>ربط الموقع بهذه الحاسبة</h2><p>افتح «الطابعات لهذا الجهاز» داخل Digital Lab، ثم أدخل الرمز ووافق على اسم موقعك هنا.</p><button id="new-code">إنشاء رمز ربط</button><output id="code" dir="ltr">—</output><small id="expiry">الرمز صالح لخمس دقائق ولمرة واحدة.</small></section>
+<section><label><input id="startup" type="checkbox"> تشغيل المساعد تلقائياً عند الدخول إلى Windows</label><p class="hint">إغلاق هذه النافذة يبقي المساعد بجانب الساعة. اختر «إنهاء» من أيقونته لإيقافه.</p></section>
+<section><h2>المواقع المرتبطة</h2><div id="clients"></div></section>
+<section><h2>الطابعات المثبتة</h2><button id="refresh">تحديث القائمة</button><ul id="printers"></ul></section><p id="error" role="alert"></p></main><script src="ui.js"></script></body></html>

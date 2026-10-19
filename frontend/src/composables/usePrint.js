@@ -1,3 +1,4 @@
+import { routePrintDocument } from '../utils/localPrint.js';
 import { barcodePrintCss } from '../utils/barcodeLabels.js';
 import { reportColumnCss } from "../utils/medicalReportColumns.js";
 import { getReportTemplateCss } from "../utils/medicalReportTemplate.js";
@@ -45,7 +46,7 @@ export function usePrint() {
    * @param {number} delay - Delay before printing (ms)
    * @param {Function} fetchData - Optional async function to fetch data before printing
    */
-  const printWithIframe = async (elementId, css, title = "Print", delay = 100, fetchData = null, {throwOnError = false} = {}) => {
+  const printWithIframe = async (elementId, css, title = "Print", delay = 100, fetchData = null, {throwOnError = false, printKind = null} = {}) => {
     if (fetchData) {
       await fetchData();
       await nextTick();
@@ -93,6 +94,8 @@ export function usePrint() {
             return;
           }
           if (!frames.has(printFrame)) return;
+          const kind = printKind || ({parcode: "barcode", job: "job", thermalRecord: "thermal", printInvoice: "invoice"})[elementId];
+          if (kind && await routePrintDocument(frameDoc, kind, {canSend: () => frames.has(printFrame)})) { removeFrame(printFrame); return; }
           printFrame.contentWindow.onafterprint = () => {
             removeFrame(printFrame);
             resolve();
@@ -100,7 +103,7 @@ export function usePrint() {
           printFrame.contentWindow.focus();
           printFrame.contentWindow.print();
         };
-        runPrint().catch(error => { if (throwOnError) reject(error); removeFrame(printFrame); resolve(); });
+        runPrint().catch(error => { if (throwOnError) reject(error); else if (error?.localPrintFailure) window.alert(error.message); removeFrame(printFrame); resolve(); });
       }, delay, resolve);
     });
   };
@@ -108,7 +111,7 @@ export function usePrint() {
   /**
    * Print with custom content (for adding header/footer images)
    */
-  const printWithCustomContent = async (content, css, title = "Print", delay = 50) => {
+  const printWithCustomContent = async (content, css, title = "Print", delay = 50, {printKind = null} = {}) => {
     return new Promise((resolve) => {
       schedule(() => {
         const printFrame = createFrame(resolve);
@@ -139,6 +142,7 @@ export function usePrint() {
             return;
           }
           if (!frames.has(printFrame)) return;
+          if (printKind && await routePrintDocument(frameDoc, printKind, {canSend: () => frames.has(printFrame)})) { removeFrame(printFrame); return; }
           printFrame.contentWindow.onafterprint = () => {
             removeFrame(printFrame);
             resolve();
@@ -146,7 +150,7 @@ export function usePrint() {
           printFrame.contentWindow.focus();
           printFrame.contentWindow.print();
         };
-        runPrint().catch(() => { removeFrame(printFrame); resolve(); });
+        runPrint().catch(error => { if (error?.localPrintFailure) window.alert(error.message); removeFrame(printFrame); resolve(); });
       }, delay, resolve);
     });
   };

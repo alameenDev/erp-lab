@@ -63,7 +63,7 @@ const toggle = (key, visible) => key === 'register_number'
 async function printTest() {
   if (printing.value) return;
   printing.value = true; printError.value = '';
-  try { await printWithIframe('barcode-test-print', barcodePrintCss(c.value), 'Barcode calibration label', 100, null, {throwOnError:true}); }
+  try { await printWithIframe('barcode-test-print', barcodePrintCss(c.value), 'Barcode calibration label', 100, null, {throwOnError:true, printKind:'barcode'}); }
   catch (error) { printError.value = error.message || tr('تعذرت الطباعة. حاول مجدداً.', 'Printing failed. Try again.'); }
   finally { printing.value = false; }
 }

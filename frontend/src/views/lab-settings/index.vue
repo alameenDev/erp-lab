@@ -9,6 +9,7 @@ import { applyBranding } from "@/utils/branding";
 import DocumentPreview from "./DocumentPreview.vue";
 import ReportTemplatePicker from "./ReportTemplatePicker.vue";
 import ReportTemplatePreview from "./ReportTemplatePreview.vue";
+import LocalPrinterSettings from "./LocalPrinterSettings.vue";
 import BarcodeLabelDesigner from "./BarcodeLabelDesigner.vue";
 import { labelConfig } from "@/utils/barcodeLabels";
 import ReportColumnWidths from "./ReportColumnWidths.vue";
@@ -229,7 +230,7 @@ const resetBranding = async () => {
                     <h1 class="text-2xl font-bold text-slate-800">{{ t("lab_settings") }}</h1>
                     <p class="text-sm text-slate-500 mt-1">{{ t("lab_settings_desc") }}</p>
                </div>
-               <button v-if="activeTab !== 'notifications'" @click="resetBranding" :disabled="resetting" class="px-4 py-2 text-sm font-medium bg-red-50 text-red-600 rounded-xl hover:bg-red-100 border border-red-200 transition-colors flex items-center gap-2 disabled:opacity-50">
+               <button v-if="!['notifications', 'printers'].includes(activeTab)" @click="resetBranding" :disabled="resetting" class="px-4 py-2 text-sm font-medium bg-red-50 text-red-600 rounded-xl hover:bg-red-100 border border-red-200 transition-colors flex items-center gap-2 disabled:opacity-50">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                     {{ t("reset_branding") }}
                </button>
@@ -244,9 +245,11 @@ const resetBranding = async () => {
                     {{ t("print_settings") || "إعدادات الطباعة" }}
                </button>
                <button v-if="!referralMode && canManageNotifications" @click="activeTab = 'notifications'" :class="['px-5 py-2.5 text-sm font-medium rounded-xl transition-colors', activeTab === 'notifications' ? 'bg-primary-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50']">إشعارات المرضى</button>
+               <button @click="activeTab = 'printers'" :class="['px-5 py-2.5 text-sm font-medium rounded-xl border transition-colors', activeTab === 'printers' ? 'bg-primary-600 text-white' : 'bg-white text-slate-600 border-slate-200']">الطابعات لهذا الجهاز</button>
           </div>
 
           <NotificationSettings v-if="!referralMode && canManageNotifications && activeTab === 'notifications'" />
+          <LocalPrinterSettings v-else-if="activeTab === 'printers'" />
           <div v-else class="grid grid-cols-1 lg:grid-cols-5 gap-6">
                <!-- Main Content (3 cols) -->
                <div class="lg:col-span-3 space-y-6">

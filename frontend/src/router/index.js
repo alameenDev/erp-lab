@@ -12,6 +12,7 @@ const router = createRouter({
                },
                meta: { requiresAuth: true },
                children: [
+                    {path: "/printer-settings", name: "printer-settings", component: () => import("@/views/lab-settings/LocalPrinterSettings.vue"), meta: {title: "الطابعات لهذا الجهاز | Digital Lab"}},
                     {
                          path: "/super-admin",
                          name: "super-admin-dashboard",

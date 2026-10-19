@@ -1,0 +1,24 @@
+{
+  "name": "digital-lab-print",
+  "version": "1.0.0",
+  "description": "Local, opt-in printer routing for Digital Lab",
+  "private": true,
+  "author": "Digital Lab",
+  "main": "src/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test tests/*.test.cjs",
+    "smoke": "electron . --smoke-test",
+    "build:win": "electron-builder --win nsis --x64 --publish never"
+  },
+  "devDependencies": {"electron": "44.9.0", "electron-builder": "26.15.3"},
+  "build": {
+    "appId": "com.digitallab.print",
+    "productName": "Digital Lab Print",
+    "asar": true,
+    "files": ["src/**/*", "assets/**/*", "package.json"],
+    "directories": {"output": "dist"},
+    "win": {"target": "nsis", "icon": "assets/icon.ico", "signAndEditExecutable": false},
+    "nsis": {"oneClick": false, "perMachine": false, "allowToChangeInstallationDirectory": true, "createDesktopShortcut": true, "deleteAppDataOnUninstall": false, "artifactName": "Digital-Lab-Print-Setup-${version}.${ext}"}
+  }
+}
