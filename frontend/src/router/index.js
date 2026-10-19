@@ -375,8 +375,10 @@ const router = createRouter({
                name: "logout",
                beforeEnter: (to, from, next) => {
                     let lang = localStorage.getItem("locale") ? localStorage.getItem("locale") : "ar";
+                    const localPrinters = localStorage.getItem("digital-lab-print-v1");
                     localStorage.clear();
                     localStorage.setItem("locale", lang);
+                    if (localPrinters) localStorage.setItem("digital-lab-print-v1", localPrinters);
                     next("/");
                },
                meta: { requiresAuth: true },
