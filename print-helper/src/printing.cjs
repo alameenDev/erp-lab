@@ -1,4 +1,5 @@
-const {BrowserWindow, session} = require('electron');
+const {BrowserWindow, session, ipcMain} = require('electron');
+const path = require('node:path');
 const safeError = message => Object.assign(new Error(message), {safeMessage: message});
 const CSP = "default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; base-uri 'none'; form-action 'none'; frame-src 'none'; object-src 'none'";
 
@@ -13,36 +14,31 @@ async function loadDocument(job) {
   ses.webRequest.onBeforeRequest((details, callback) => callback({cancel: details.url !== url && !details.url.startsWith('data:')}));
   ses.on('will-download', event => event.preventDefault());
   const win = new BrowserWindow({show: false, width: Math.ceil(job.paper.width * 96 / 25.4), height: 1123,
-    webPreferences: {session: ses, nodeIntegration: false, contextIsolation: true, sandbox: true, javascript: false,
+    webPreferences: {session: ses, preload: path.join(__dirname, 'print-preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true, javascript: false,
       webSecurity: true, allowRunningInsecureContent: false, backgroundThrottling: false, spellcheck: false}});
   win.webContents.setWindowOpenHandler(() => ({action: 'deny'}));
   win.webContents.on('will-navigate', event => event.preventDefault());
   win.webContents.on('will-attach-webview', event => event.preventDefault());
-  const close = () => {if (!win.isDestroyed()) win.destroy(); ses.protocol.unhandle('dlprint');};
+  const renderDeadline = setTimeout(() => {if (!win.isDestroyed()) win.destroy();}, 45000);
+  const close = () => {clearTimeout(renderDeadline); if (!win.isDestroyed()) win.destroy(); ses.protocol.unhandle('dlprint');};
   try {
-    await win.loadURL(url);
-    const details = await win.webContents.executeJavaScript(`(async () => {
-      await document.fonts.ready;
-      await Promise.all([...document.images].map(i => i.complete ? Promise.resolve() : new Promise(r => {i.onload=r;i.onerror=r;})));
-      if ([...document.images].some(i => !i.naturalWidth)) throw new Error('IMAGE_NOT_READY');
-      const labels = [...document.querySelectorAll('.barcode-label')];
-      if (labels.some(l => l.dataset.labelErrors || [...l.querySelectorAll('[data-label-text]')].some(e => e.scrollHeight > e.clientHeight+1 || e.scrollWidth > e.clientWidth+1))) throw new Error('LABEL_OVERFLOW');
-      return {height: Math.ceil(Math.max(document.body.scrollHeight, document.body.getBoundingClientRect().height) * 25.4 / 96)};
-    })()`);
-    let height = job.paper.height;
-    if (height === null) {
-      // Receipt width is inherited from the web document, never from the
-      // system default printer. Remove viewport minimums before measuring.
-      height = await win.webContents.executeJavaScript(`(() => {
-        const s=document.createElement('style');s.textContent='html,body{height:auto!important;min-height:0!important;}';document.head.appendChild(s);
-        return Math.ceil(document.body.getBoundingClientRect().height * 25.4 / 96) + 12;
-      })()`);
-      if (height > 2000) throw safeError('الوصل أطول من حد الطباعة المباشرة. استخدم الطباعة الاعتيادية لهذا الوصل.');
-      height = Math.max(30, height);
-    }
+    const details = await new Promise((resolve, reject) => {
+      const cleanup = () => {ipcMain.removeListener('dlprint:prepared', prepared);win.removeListener('closed', closed);};
+      const closed = () => {cleanup();reject(new Error('RENDERER_CLOSED'));};
+      const prepared = (event, data) => {
+        if (event.sender !== win.webContents || event.senderFrame !== win.webContents.mainFrame || event.senderFrame.url !== url) return;
+        cleanup();resolve(data);
+      };
+      ipcMain.on('dlprint:prepared', prepared);win.once('closed', closed);
+      win.loadURL(url).then(() => win.webContents.send('dlprint:prepare', job.paper)).catch(error => {cleanup();reject(error);});
+    });
+    if (details.error) throw Object.assign(safeError(details.error === 'LABEL_OVERFLOW' ? 'نص الملصق لا يتسع في محرك الطباعة. راجع حجم الخط أو استخدم الطباعة الاعتيادية.' : 'تعذر تحميل محتوى المستند للطباعة.'), {cause: new Error(JSON.stringify(details))});
+    const height = details.height;
+    if (!Number.isFinite(height) || height < 10 || height > 2000) throw safeError('مقاس الورق غير صالح للطباعة المباشرة.');
     // CSS owns margins, backgrounds and content layout. Set only media size;
     // no scaling or changes to any patient/test content are introduced here.
     await win.webContents.insertCSS(`@page { size: ${job.paper.width}mm ${height}mm; }`);
+    clearTimeout(renderDeadline);
     return {win, close, paper: {width: job.paper.width, height}, details};
   } catch (error) {close(); throw error.safeMessage ? error : Object.assign(safeError('تعذر تجهيز المستند أو تحميل صورة/ملصق. استخدم الطباعة الاعتيادية أو راجع إعدادات المستند.'), {cause: error});}
 }

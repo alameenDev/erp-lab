@@ -25,6 +25,7 @@ on:
       - 'frontend/src/views/lab-settings/**'
       - 'frontend/src/views/medical_reports/**'
       - 'frontend/src/composables/usePrint.js'
+      - 'frontend/src/utils/localPrint.js'
       - 'frontend/tests/*report*'
       - 'frontend/tests/ReportTemplateFixture.vue'
       - 'frontend/tests/GroupReportPagesFixture.vue'

@@ -10,6 +10,7 @@ on:
       - 'frontend/src/views/medical_reports/index.vue'
       - 'frontend/src/views/lab-settings/BarcodeLabelDesigner.vue'
       - 'frontend/src/composables/usePrint.js'
+      - 'frontend/src/utils/localPrint.js'
       - 'frontend/tests/barcode*'
       - 'frontend/tests/fixtures/barcode*'
       - '.github/workflows/barcode-labels.yml'
