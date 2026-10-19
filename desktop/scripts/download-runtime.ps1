@@ -28,11 +28,11 @@ foreach ($name in @('vcruntime140.dll','vcruntime140_1.dll','msvcp140.dll','conc
   $runtimeManifest += @{name=$name; sha256=(Get-FileHash $dll -Algorithm SHA256).Hash; publisher=$signature.SignerCertificate.Subject}
 }
 $runtimeManifest | ConvertTo-Json | Set-Content "$bundle/runtime-provenance.json"
-$extensions = @('curl','fileinfo','gd','intl','mbstring','mysqli','openssl','pdo_mysql','sodium','zip')
+$extensions = @('curl','fileinfo','gd','intl','mbstring','exif','mysqli','openssl','pdo_mysql','sodium','zip')
 $ini = @('extension_dir=ext','date.timezone=Asia/Baghdad','memory_limit=512M','max_execution_time=120','upload_max_filesize=64M','post_max_size=128M','max_file_uploads=30','max_input_vars=10000','display_errors=Off','log_errors=On','expose_php=Off','cgi.force_redirect=1','cgi.fix_pathinfo=0','allow_url_fopen=Off','variables_order=EGPCS')
 foreach ($extension in $extensions) { $ini += "extension=$extension" }
 $ini -join "`n" | Set-Content "$bundle/php/php.ini" -Encoding utf8NoBOM
-& "$bundle/php/php.exe" -c "$bundle/php/php.ini" -v
+& "$bundle/php/php.exe" -c "$bundle/php/php.ini" -d "extension_dir=$bundle/php/ext" -v
 if ($LASTEXITCODE -ne 0) { throw 'Bundled PHP failed' }
 & "$bundle/mariadb/bin/mariadbd.exe" --no-defaults --version
 if ($LASTEXITCODE -ne 0) { throw 'Bundled MariaDB failed' }

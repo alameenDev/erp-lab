@@ -17,6 +17,19 @@ test('desktop environment cannot inherit hosted database or cloud credentials',(
   const env=runtime.environment();assert.equal(env.DB_URL,undefined);assert.equal(env.AWS_ACCESS_KEY_ID,undefined);assert.equal(env.DB_DATABASE,'digital_lab_desktop');assert.equal(env.DB_HOST,'127.0.0.1');assert.equal(env.APP_URL,'http://127.0.0.1:17892');assert.equal(env.MAIL_MAILER,'array');
   delete process.env.DB_URL;delete process.env.AWS_ACCESS_KEY_ID;
 });
+test('CGI gateway queues concurrent application requests and drains before backups',async()=>{
+  const root=await fs.mkdtemp(path.join(os.tmpdir(),'dld-cgi-'));
+  const script=path.join(root,'cgi.cjs');
+  await fs.writeFile(script,"process.stdin.resume();process.stdin.on('end',()=>setTimeout(()=>{process.stdout.write('Status: 200 OK\\r\\nContent-Type: application/json\\r\\n\\r\\n'+JSON.stringify({uri:process.env.REQUEST_URI}));},80));");
+  const runtime={p:{bundle:root,backend:root,cgi:process.execPath},env:process.env,phpArgs:()=>[script]};
+  const gateway=createGateway(runtime,'b'.repeat(64),17994);await new Promise(r=>gateway.server.listen(17994,'127.0.0.1',r));
+  try{
+    const responses=await Promise.all(Array.from({length:16},(_,i)=>fetch('http://127.0.0.1:17994/api/example?id='+i,{headers:{'X-Digital-Lab-Desktop':'b'.repeat(64)}})));
+    assert.ok(responses.every(r=>r.status===200));
+    assert.equal((await responses[12].json()).uri,'/api/example?id=12');
+    await gateway.pause();assert.equal((await fetch('http://127.0.0.1:17994/api/example',{headers:{'X-Digital-Lab-Desktop':'b'.repeat(64)}})).status,503);
+  }finally{await gateway.close();await fs.rm(root,{recursive:true,force:true});}
+});
 test('encrypted complete backup restores database, attachments and keys; wrong password and tamper fail before restore',async()=>{
   const root=await fs.mkdtemp(path.join(os.tmpdir(),'dld-backup-test-'));const data=path.join(root,'data');
   const vault={encrypt:s=>Buffer.from(s),decrypt:b=>b.toString()};

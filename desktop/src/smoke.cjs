@@ -24,8 +24,8 @@ async function run({app,bundle,p,vault}){
     const barcode=await api(`/invoices/${invoice.id}/barcode-register`);assert.equal(barcode.work_register_number,1);
     const multipart=new FormData();multipart.append('id',invoice.id);multipart.append('existing_attachments','[]');multipart.append('attachments[0][name]','مرفق الفحص');multipart.append('attachments[0][upload_id]',crypto.randomUUID());multipart.append('attachments[0][file]',new Blob(['%PDF-1.4\n% synthetic attachment\n%%EOF'],{type:'application/pdf'}),'qa.pdf');
     const upload=await fetch(ORIGIN+'/api/invoices/update-result?silent=1',{method:'POST',headers:headers(),body:multipart});assert.equal(upload.status,200,await upload.clone().text());const saved=await upload.json();assert.equal(saved.attachments.length,1);
-    assert.ok(saved.attachments[0].url.startsWith(ORIGIN+'/'),JSON.stringify(saved.attachments[0]));
-    const attachment=await fetch(saved.attachments[0].url,{headers:headers()});assert.equal(attachment.status,200);assert.ok((await attachment.text()).startsWith('%PDF'));
+    assert.ok(saved.attachments[0].file.startsWith(ORIGIN+'/'),JSON.stringify(saved.attachments[0]));
+    const attachment=await fetch(saved.attachments[0].file,{headers:headers()});assert.equal(attachment.status,200);assert.ok((await attachment.text()).startsWith('%PDF'));
     console.log('PASS: fresh local install, private accounts, login, patient, invoice, register, barcode reference and multipart PDF attachment.');
     const ses=session.fromPartition('desktop-smoke-'+crypto.randomUUID());const blocked=[];
     ses.webRequest.onBeforeRequest((details,callback)=>{const allow=details.url.startsWith(ORIGIN+'/')||/^(data:|blob:|about:)/.test(details.url);if(!allow)blocked.push(new URL(details.url).hostname);callback({cancel:!allow});});
@@ -35,8 +35,8 @@ async function run({app,bundle,p,vault}){
     ipcMain.handle('desktop:print',async(_e,route)=>route==='/health'?{name:'Digital Lab Print',protocol:1}:{printers:[]});
     await win.loadURL(ORIGIN+'/login');await pause(1500);
     await win.webContents.executeJavaScript(`localStorage.setItem('token',${JSON.stringify(token)});localStorage.setItem('user',${JSON.stringify(JSON.stringify(login.user))});localStorage.setItem('rolePermissions',${JSON.stringify(JSON.stringify(login.user.roles.flatMap(r=>r.permissions).map(p=>p.name)))});`);
-    for(const route of ['/patients','/invoices','/medical-reports','/patients/work-register','/devices','/printer-settings']){
-      await win.loadURL(ORIGIN+route);await pause(1800);const text=await win.webContents.executeJavaScript('document.body.innerText');assert.ok(text.length>80,route+' empty');assert.ok(!/403|404/.test(new URL(win.webContents.getURL()).pathname),route+' denied');
+    for(const route of ['/patients','/invoices','/medical_reports','/patients/work-register','/devices','/printer-settings']){
+      await win.loadURL(ORIGIN+route);await pause(1800);const text=await win.webContents.executeJavaScript('document.body.innerText');assert.ok(text.length>80,route+' empty');assert.equal(new URL(win.webContents.getURL()).pathname,route,route+' redirected unexpectedly');
       if(route==='/printer-settings'){assert.ok(text.includes('مدمج'));assert.ok(!text.includes('رمز الربط'));assert.equal(await win.webContents.executeJavaScript('typeof window.require'),'undefined');}
       await fsp.writeFile(path.join(qa,route.replaceAll('/','_')+'.png'),(await win.webContents.capturePage()).toPNG());
     }
@@ -49,7 +49,7 @@ async function run({app,bundle,p,vault}){
     runtime=new Runtime(p,vault);const restored=await runtime.init();assert.equal(restored.installed,true);gateway.resume();
     const restoredLogin=await api('/user/login',{email:'lab@example.test',password});token=restoredLogin.token;
     assert.equal((await api('/patients')).length,1);assert.equal((await api('/work-register')).totals.work_register_amount,1234);
-    const restoredPdf=await fetch(saved.attachments[0].url,{headers:headers()});assert.equal(restoredPdf.status,200);
+    const restoredPdf=await fetch(saved.attachments[0].file,{headers:headers()});assert.equal(restoredPdf.status,200);
     console.log('PASS: encrypted backup round trip preserves accounts, patient, invoice, register and PDF; existing data survives restart.');
     await require(path.join(bundle,'print/smoke.cjs')).run();
     await fsp.writeFile(path.join(qa,'acceptance.json'),JSON.stringify({version:'1.0.0',packaged:app.isPackaged,passed:true,checks:['install','isolation','login','patient','invoice','register','barcode','attachments','frontend','backup','restore','restart','native-print']}));

@@ -71,7 +71,7 @@ class Runtime {
   async startDatabase() {
     const ini = `[mysqld]\nbasedir="${path.dirname(this.p.maria).replaceAll('\\', '/')}"\ndatadir="${this.p.database.replaceAll('\\', '/')}"\nbind-address=127.0.0.1\nport=${this.dbPort}\ncharacter-set-server=utf8mb4\ncollation-server=utf8mb4_unicode_ci\nmax-allowed-packet=64M\ninnodb-buffer-pool-size=128M\ninnodb-flush-log-at-trx-commit=1\nlog-error="${path.join(this.p.data, 'storage/logs/database.log').replaceAll('\\', '/')}"\n`;
     const config = path.join(this.p.data, 'database.ini');await fsp.writeFile(config, ini);
-    this.db = spawn(path.join(this.p.maria, 'mariadbd.exe'), [`--defaults-file=${config}`, '--console'], {cwd: this.p.maria, windowsHide: true, stdio: 'ignore'});
+    this.db = spawn(process.execPath, [path.join(__dirname, 'database-watchdog.cjs'), path.join(this.p.maria, 'mariadbd.exe'), config, path.join(this.p.maria, 'mariadb-admin.exe'), String(this.dbPort), String(process.pid)], {cwd: this.p.maria, env: {...process.env, ELECTRON_RUN_AS_NODE: '1', MYSQL_PWD: this.secrets.rootPassword}, windowsHide: true, stdio: ['ignore', 'ignore', 'ignore', 'ipc']});
     let startupError;this.db.on('error', e => {startupError = e;});
     const deadline = Date.now() + 60000;
     while (Date.now() < deadline) {

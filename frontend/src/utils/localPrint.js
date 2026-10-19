@@ -16,7 +16,7 @@ export function readPrintSettings() {
         printer: typeof value.routes?.[kind]?.printer === 'string' ? value.routes[kind].printer : '',
         copies: Math.max(1, Math.min(20, Math.trunc(Number(value.routes?.[kind]?.copies) || 1))),
       }]))};
-  } catch {return {enabled: false, token: '', routes: {}};}
+  } catch {return {enabled: false, token: globalThis.window?.digitalLabDesktop ? 'd'.repeat(64) : '', routes: {}};}
 }
 export function savePrintSettings(value) {
   localStorage.setItem(PRINT_STORAGE_KEY, JSON.stringify(value));
