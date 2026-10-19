@@ -1848,8 +1848,16 @@ class InvoiceController extends Controller
      * Search for patients by name.
      * Returns matching patient records with user details.
      */
+    private function authorizePatientLookup(): void
+    {
+        $user = Auth::user();
+        abort_unless(collect(['patients view', 'patients create', 'patients edit', 'invoices view', 'invoices create', 'invoices edit'])
+            ->contains(fn ($permission) => $user->can($permission)), 403);
+    }
+
     public function searchByName(Request $request)
     {
+        $this->authorizePatientLookup();
         $searchTerm = $request->name;
 
         // Get the authenticated user for multi-tenant filtering
@@ -1910,6 +1918,7 @@ class InvoiceController extends Controller
      */
     public function searchByPhone(Request $request)
     {
+        $this->authorizePatientLookup();
         // Get the authenticated user for multi-tenant filtering
         $authUser = Auth::user();
 
@@ -1961,6 +1970,7 @@ class InvoiceController extends Controller
      */
     public function searchByCode(Request $request)
     {
+        $this->authorizePatientLookup();
         // Get the authenticated user for multi-tenant filtering
         $authUser = Auth::user();
 

@@ -3,9 +3,12 @@ import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useLayout } from "@/layout/composables/layout";
 import { useRouter } from "vue-router";
 import { t } from "@/utils/helper";
+import { useAuthStore } from "@/store/modules/auth";
 import { $http } from "@/plugins/axios";
 
 const router = useRouter();
+const authStore = useAuthStore();
+const canSearchPatients = computed(() => authStore.havePermission('invoices view'));
 const { toggleSidebar, isSidebarCollapsed, toggleDarkMode, isDarkMode } = useLayout();
 
 const currentLocale = ref(localStorage.getItem("locale") || "ar");
@@ -20,7 +23,7 @@ const showSearchResults = ref(false);
 let searchTimeout = null;
 
 const performSearch = async () => {
-  if (!searchQuery.value || searchQuery.value.trim() === "") {
+  if (!canSearchPatients.value || !searchQuery.value || searchQuery.value.trim() === "") {
     searchResults.value = [];
     showSearchResults.value = false;
     return;
@@ -192,7 +195,7 @@ const headerStyle = computed(() => {
         </button>
 
         <!-- Search Bar (Desktop) -->
-        <div class="hidden md:block relative">
+        <div v-if="canSearchPatients" class="hidden md:block relative">
           <div class="flex items-center gap-3 bg-primary-50 rounded-xl px-4 py-2.5 min-w-[280px] group focus-within:bg-white focus-within:ring-2 focus-within:ring-primary-500/30 border border-primary-200 focus-within:border-primary-400 transition-all duration-200">
             <svg v-if="!isSearching" class="w-5 h-5 text-primary-400 group-focus-within:text-primary-600 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
               <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />

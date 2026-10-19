@@ -104,6 +104,13 @@ class AccountPermissionsTest extends TestCase
             'cultures', 'antibiotics', 'roles', 'user/show', 'reports/dashboard-stats', 'reports', 'devices'] as $path) {
             $this->getJson('/api/'.$path)->assertForbidden();
         }
+        foreach (['patients/search-name', 'invoices/search-name', 'invoices/search-phone', 'invoices/search-code'] as $path) {
+            $this->postJson('/api/'.$path, ['name' => 'Synthetic', 'phone_number' => '1', 'code' => '1'])->assertForbidden();
+        }
+        $staff->givePermissionTo('invoices create');
+        foreach (['patients/search-name', 'invoices/search-name', 'invoices/search-phone', 'invoices/search-code'] as $path) {
+            $this->postJson('/api/'.$path, ['name' => 'Synthetic', 'phone_number' => '1', 'code' => '1'])->assertOk();
+        }
         $this->getJson('/api/user/access')->assertOk();
     }
 
