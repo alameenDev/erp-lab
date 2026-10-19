@@ -41,7 +41,7 @@ jobs:
       - run: composer install --no-interaction --prefer-dist
       - run: cp .env.example .env
       - run: php artisan key:generate
-      - run: php artisan test --filter='AccountPermissionsTest|SubscriptionRenewalTest|ReferralPortalSafetyTest|DoctorPortalTest|LoyaltyTest|LabSettingsTest'
+      - run: php artisan test --filter='AccountPermissionsTest|SubscriptionRenewalTest|ReferralPortalSafetyTest|ReferralWorkspaceTest|DoctorPortalTest|LoyaltyTest|LabSettingsTest'
       - if: failure()
         run: tail -100 storage/logs/laravel.log
   accounts-browser:

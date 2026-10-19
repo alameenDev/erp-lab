@@ -3,6 +3,11 @@ namespace App\Http\Controllers;
 use App\Models\{Referal, ReferralPrintSetting};
 use Illuminate\Http\Request;
 class ReferralPrintSettingsController extends LabSettingController {
+ protected function authorizeSettingsMutation(\App\Models\User $user): void {
+  // Portal branding belongs to this referral account, not its destination lab.
+  // Keep the referral membership check for every inherited write operation.
+  $this->resolveLabOwnerId($user);
+ }
  protected function settings() { return ReferralPrintSetting::query(); }
  protected function resolveLabOwnerId($user): int {
   abort_unless(Referal::where('referral_id_fk', $user->id)->exists(), 403);

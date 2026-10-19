@@ -70,7 +70,7 @@ class LabSettingController extends Controller
         $user = Auth::user();
         $labOwnerId = $this->resolveLabOwnerId($user);
 
-        abort_unless(in_array((int) $user->role_id, [1, 2], true) || $user->can('lab settings edit'), 403);
+        $this->authorizeSettingsMutation($user);
 
         $validated = $request->validate([
             'whatsapp_invoice_message' => 'nullable|string|max:3000',
@@ -358,7 +358,7 @@ class LabSettingController extends Controller
         $user = Auth::user();
         $labOwnerId = $this->resolveLabOwnerId($user);
 
-        abort_unless(in_array((int) $user->role_id, [1, 2], true) || $user->can('lab settings edit'), 403);
+        $this->authorizeSettingsMutation($user);
 
         $setting = $this->settings()->where('lab_id_fk', $labOwnerId)->first();
         if (! $setting || ! $setting->logo) {
@@ -379,7 +379,7 @@ class LabSettingController extends Controller
         $user = Auth::user();
         $labOwnerId = $this->resolveLabOwnerId($user);
 
-        abort_unless(in_array((int) $user->role_id, [1, 2], true) || $user->can('lab settings edit'), 403);
+        $this->authorizeSettingsMutation($user);
 
         $setting = $this->settings()->where('lab_id_fk', $labOwnerId)->first();
         if (! $setting || ! $setting->getRawOriginal('report_background')) {
@@ -402,7 +402,7 @@ class LabSettingController extends Controller
         $request->validate(['section' => 'required|in:branding,print,all']);
         $section = $request->input('section', 'all'); // branding, print, or all
 
-        abort_unless(in_array((int) $user->role_id, [1, 2], true) || $user->can('lab settings edit'), 403);
+        $this->authorizeSettingsMutation($user);
 
         $setting = $this->settings()->where('lab_id_fk', $labOwnerId)->first();
         if (! $setting) {
@@ -466,6 +466,11 @@ class LabSettingController extends Controller
             'message' => 'Settings reset to defaults',
             'setting' => $setting,
         ]);
+    }
+
+    protected function authorizeSettingsMutation(User $user): void
+    {
+        abort_unless(in_array((int) $user->role_id, [1, 2], true) || $user->can('lab settings edit'), 403);
     }
 
     protected function resolveLabOwnerId($user): int
