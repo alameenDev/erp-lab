@@ -193,7 +193,7 @@ class SubscriptionController extends Controller
             return response()->json(['has_subscription' => true, 'subscription' => null]);
         }
 
-        $labId = $user->role_id == 2 ? $user->id : $user->creator_id;
+        $labId = app(\App\Services\AccountAccess::class)->tenantId($user);
         $subscription = Subscription::where('lab_id_fk', $labId)
             ->with('plan:id,name,name_ar')
             ->orderByRaw("CASE WHEN status IN ('active', 'trial') AND end_date >= ? THEN 0 ELSE 1 END", [today()->toDateString()])

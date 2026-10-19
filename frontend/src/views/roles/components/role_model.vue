@@ -14,6 +14,7 @@ const lang = computed(() => localStorage.getItem("locale") || "ar");
 const isLoading = ref(false);
 const catalogLoading = ref(false);
 const formError = ref("");
+const restrictedPermissions = ref(false);
 const selectedPermissions = ref([]);
 const expandedControllers = ref({});
 
@@ -22,6 +23,7 @@ const expandedControllers = ref({});
 watch(dialog, async (newValue) => {
   if (newValue) {
     formError.value = '';
+    restrictedPermissions.value = false;
     catalogLoading.value = true;
     try { await GetPermissions(); }
     catch (error) { formError.value = error.response?.data?.message || 'تعذر تحميل الصلاحيات'; }
@@ -29,7 +31,10 @@ watch(dialog, async (newValue) => {
     if (record.value.id) {
       // permissions may be array of IDs (from index) or array of objects (from API)
       const perms = record.value.permissions || [];
-      selectedPermissions.value = perms.map((p) => typeof p === "object" ? p.id : p);
+      const available = new Set(controllers.value.flatMap(group => group.permissions.map(permission => Number(permission.id))));
+      const ids = perms.map(p => Number(typeof p === 'object' ? p.id : p));
+      selectedPermissions.value = ids.filter(id => available.has(id));
+      restrictedPermissions.value = selectedPermissions.value.length !== ids.length;
       record.value.role = record.value.name || record.value.role;
     } else {
       selectedPermissions.value = [];
@@ -201,6 +206,7 @@ const allSelected = computed(() => {
               </div>
             </div>
 
+            <p v-if="restrictedPermissions" class="mb-4 rounded-lg bg-amber-50 p-3 text-amber-800">يتضمن الدور صلاحيات لا يمكنك منحها. ستُستبعد من هذا الدور عند الحفظ.</p>
             <p v-if="formError" role="alert" class="mb-4 rounded-lg bg-red-50 p-3 text-red-700">{{ formError }}</p>
             <p class="mb-4 text-sm leading-7 text-slate-600">حدد صلاحية عرض الصفحة مع إجراءاتها المطلوبة. الحساب بدون صلاحيات يبقى مسجلاً ويعرض رسالة تطلب مراجعة مدير المختبر.</p>
             <p v-if="catalogLoading" class="mb-4 text-slate-500">جارٍ تحميل الصلاحيات…</p>

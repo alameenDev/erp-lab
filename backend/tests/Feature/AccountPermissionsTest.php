@@ -84,6 +84,29 @@ class AccountPermissionsTest extends TestCase
         $this->assertTrue($staff->can('tests view'));
     }
 
+    public function test_saving_an_existing_legacy_role_repairs_a_stale_role_pivot(): void
+    {
+        $old = $this->customRole('Legacy old', ['patients view']);
+        $new = $this->customRole('Legacy new', ['samples view']);
+        $staff = $this->account('legacy', $old->id, $this->lab->id);
+        $staff->update(['role_id' => $new->id]);
+        $this->postJson('/api/user/update', ['id' => $staff->id, 'role_id' => $new->id])->assertOk();
+        $this->assertTrue($staff->fresh()->can('samples view'));
+        $this->assertFalse($staff->fresh()->can('patients view'));
+    }
+
+    public function test_authenticated_permission_denials_are_forbidden_not_unauthenticated(): void
+    {
+        $role = $this->customRole('No access');
+        $staff = $this->account('no-access', $role->id, $this->lab->id);
+        $this->actingAs($staff);
+        foreach (['patients', 'invoices', 'tests', 'test_groups', 'samples', 'categories', 'packages',
+            'cultures', 'antibiotics', 'roles', 'user/show', 'reports/dashboard-stats', 'reports', 'devices'] as $path) {
+            $this->getJson('/api/'.$path)->assertForbidden();
+        }
+        $this->getJson('/api/user/access')->assertOk();
+    }
+
     public function test_role_assignment_and_removal_keep_legacy_role_id_consistent(): void
     {
         $one = $this->customRole('One', ['patients view']);
@@ -95,6 +118,8 @@ class AccountPermissionsTest extends TestCase
         $this->postJson('/api/roles/remove-role', ['user_id' => $staff->id, 'role_id' => $two->id])->assertOk();
         $this->assertNull($staff->fresh()->role_id);
         $this->assertCount(0, $staff->fresh()->roles);
+        $this->postJson('/api/roles/assign-role', ['user_id' => $staff->id, 'role_id' => $one->id])->assertOk();
+        $this->assertTrue($staff->fresh()->can('patients view'));
     }
 
     public function test_empty_role_and_direct_permissions_are_returned_correctly_after_login_and_reload(): void

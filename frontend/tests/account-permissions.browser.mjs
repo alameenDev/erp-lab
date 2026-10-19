@@ -1,8 +1,11 @@
+import { createServer } from 'vite';
 import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 
 await mkdir('test-results/account-permissions', { recursive: true });
+const server = process.env.PERMISSIONS_START_VITE ? await createServer({ server: { host: '127.0.0.1', port: 5173, strictPort: true, fs: { allow: ['..', process.cwd() + '/node_modules'] } } }) : null;
+if (server) await server.listen();
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
 const failures = [];
@@ -43,7 +46,8 @@ await page.route('**/api/**', async route => {
 const navigate = path => page.evaluate(async path => { const { default: router } = await import('/src/router/index.js'); await router.push(path); }, path);
 const token = () => page.evaluate(() => localStorage.getItem('token'));
 try {
-  await page.goto('http://127.0.0.1:5173/login');
+  await page.goto('http://127.0.0.1:5173/login', { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.locator('#app input').first().waitFor({ timeout: 60000 });
   await page.evaluate(async () => {
     localStorage.setItem('locale', 'ar');
     localStorage.setItem('rolePermissions', JSON.stringify(['super admin dashboard', 'reports view']));
@@ -80,7 +84,7 @@ try {
   // A child item remains reachable without the parent menu's tests permission.
   permissions = ['packages view'];
   await navigate('/packages');
-  await page.locator('aside').getByText('الفحوصات', { exact: true }).first().waitFor().catch(() => {});
+  assert.ok(await page.locator('aside nav button').count() > 0, 'the parent laboratory menu remains visible for a child permission');
   assert.equal(await token(), 'test-account-token');
 
   // User editors can assign a role without access to the roles administration page.
@@ -102,7 +106,7 @@ try {
   await page.evaluate(async () => { const { useRolesstore } = await import('/src/store/modules/roles.js'); const store = useRolesstore(); store.record = { id: 50, role: 'الاستقبال', name: 'الاستقبال', permissions: [101] }; store.dialog = true; });
   await page.locator('input[type="checkbox"]').first().waitFor();
   await page.locator('input[type="checkbox"]').first().uncheck();
-  await page.locator('.fixed.inset-0.z-50').getByRole('button', { name: /حفظ/ }).click();
+  await page.locator('.fixed.inset-0.z-50').getByRole('button', { name: /حفظ/ }).first().click();
   await page.waitForFunction(() => !document.querySelector('.fixed.inset-0.z-50 input[type="checkbox"]'));
   assert.deepEqual(requests.findLast(request => request.path === '/roles/update').body.permissions, [], 'removing all permissions is sent explicitly');
 
@@ -113,4 +117,4 @@ try {
   assert.equal(await token(), null);
   assert.deepEqual(failures, []);
   console.log('PASS: custom/empty/direct roles, forbidden actions, guarded routes, reload, assignment UI, empty role save, genuine session expiry.');
-} finally { await browser.close(); }
+} finally { await browser.close(); await server?.close(); }

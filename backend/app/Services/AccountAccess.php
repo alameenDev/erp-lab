@@ -29,7 +29,8 @@ class AccountAccess
         $next = $ids;
         while ($next) {
             $next = User::withTrashed()->whereIn('creator_id', $next)
-                ->whereNotIn('role_id', [1, 2])->whereNotIn('id', $ids)->pluck('id')->all();
+                ->where(fn ($q) => $q->whereNull('role_id')->orWhereNotIn('role_id', [1, 2]))
+                ->whereNotIn('id', $ids)->pluck('id')->map(fn ($id) => (int) $id)->all();
             $ids = array_merge($ids, $next);
         }
         return $ids;
@@ -75,6 +76,7 @@ class AccountAccess
     public function canEditRole(User $actor, Role $role): bool
     {
         if ((int) $actor->role_id === 1) return true;
+        if ((int) $actor->role_id === 2) return $role->lab_id_fk !== null && in_array((int) $role->lab_id_fk, $this->tenantUserIds($actor), true);
         return $role->lab_id_fk !== null && $this->canAssign($actor, $role);
     }
 
@@ -92,6 +94,7 @@ class AccountAccess
         abort_unless(in_array((int) $target->id, $this->tenantUserIds($actor), true), 403);
         if ($actor->is($target)) return;
         abort_if(in_array((int) $target->role_id, [1, 2], true), 403);
+        if ((int) $actor->role_id === 2) return;
         abort_unless($target->getAllPermissions()->pluck('id')->diff($this->permissions($actor)->pluck('id'))->isEmpty(), 403);
     }
 

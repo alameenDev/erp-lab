@@ -1,4 +1,5 @@
 <script setup>
+import { useAuthStore } from "@/store/modules/auth";
 import { ref, computed, watch, onMounted } from "vue";
 import { storeToRefs } from "pinia";
 import { usePatientsStore } from "@/store/modules/patients";
@@ -206,7 +207,7 @@ onMounted(() => {
   patientsStore.GetAgeUnits();
   patientsStore.GetGenders();
   titlesStore.GetTitles();
-  contractsStore.GetRecords();
+  if (useAuthStore().havePermission('contracts view')) contractsStore.GetRecords();
   nationalitiesStore.GetNationalities();
 });
 </script>

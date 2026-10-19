@@ -149,7 +149,9 @@ class UserController extends Controller
         $access = app(AccountAccess::class);
         $changingRole = $request->filled('role_id') && (int) $request->role_id !== (int) $user->role_id;
         $access->manageUser($authUser, $user, $changingRole);
-        $role = $changingRole ? $access->assignableRole($authUser, $request->integer('role_id')) : null;
+        // Older updates changed role_id without synchronizing model_has_roles.
+        $needsRoleSync = $request->filled('role_id') && ($changingRole || $user->roles->pluck('id')->all() !== [$request->integer('role_id')]);
+        $role = $needsRoleSync ? $access->assignableRole($authUser, $request->integer('role_id')) : null;
         $oldName = $user->name;
         $olduser = clone $user;
 

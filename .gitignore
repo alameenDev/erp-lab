@@ -34,3 +34,5 @@ print-helper/fixtures/
 print-helper/qa/
 
 frontend/barcode-qa/
+
+/frontend/test-results/
