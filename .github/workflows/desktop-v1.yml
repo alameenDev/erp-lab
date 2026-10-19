@@ -1,0 +1,129 @@
+name: Digital Lab Desktop V1
+on:
+  pull_request:
+    paths: ['desktop/**', 'backend/**', 'frontend/**', 'print-helper/**', 'bridge/**', '.github/workflows/desktop-v1.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+        working-directory: desktop
+      - run: npm test
+        working-directory: desktop
+      - run: npm ci
+        working-directory: frontend
+      - run: npm install --no-save --package-lock=false playwright@1.55.1
+        working-directory: frontend
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - run: node --test tests/local-print.test.mjs tests/print-lifecycle.test.mjs tests/medical-report-pages.test.mjs tests/barcode-labels.test.mjs tests/medical-report-output.test.mjs
+        working-directory: frontend
+      - run: node tests/local-print.browser.mjs
+        working-directory: frontend
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-print-fixtures
+          path: frontend/print-helper-qa/documents.json
+          retention-days: 14
+  windows:
+    needs: browser
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_mysql, mbstring, xml, gd, zip, bcmath, intl, sodium
+          tools: composer:v2
+          coverage: none
+      - run: composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+        working-directory: backend
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+        env:
+          VITE_BASE_URL: /api
+          VITE_ImageURL: /storage/
+          VITE_IMAGE_URL: /storage
+      - run: npm ci
+        working-directory: desktop
+      - name: Download and verify bundled runtimes
+        run: ./desktop/scripts/download-runtime.ps1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build isolated analyzer receivers
+        shell: pwsh
+        run: |
+          python -m unittest discover -s bridge/tests -v
+          if ($LASTEXITCODE -ne 0) { throw 'Bridge tests failed' }
+          python -m pip install pyinstaller==6.16.0 pypdf pymupdf pillow zxing-cpp
+          foreach ($adapter in @('dxh500','np21h','bm850')) {
+            python -m PyInstaller --clean --noconfirm --onefile --windowed --paths bridge --distpath desktop/bundle/bridges --workpath desktop/.downloads/bridge-$adapter --specpath desktop/.downloads --name DigitalLabDesktopBridge-$adapter desktop/bridge/desktop_local.py
+            if ($LASTEXITCODE -ne 0) { throw 'Receiver build failed' }
+            $p = Start-Process desktop/bundle/bridges/DigitalLabDesktopBridge-$adapter.exe -ArgumentList '--smoke-test' -PassThru -Wait
+            if ($p.ExitCode -ne 0) { throw 'Receiver startup failed' }
+          }
+      - run: npm run stage
+        working-directory: desktop
+      - uses: actions/download-artifact@v4
+        with:
+          name: desktop-print-fixtures
+          path: desktop/qa/fixtures
+      - name: Test actual Windows local installation and backup restore
+        shell: pwsh
+        run: |
+          $env:DLD_SMOKE_OUTPUT = "$pwd/desktop/qa/source"
+          $env:DLP_SMOKE_OUTPUT = "$pwd/desktop/qa/source/prints"
+          $env:DLP_SMOKE_FIXTURES = "$pwd/desktop/qa/fixtures/documents.json"
+          $p = Start-Process desktop/node_modules/electron/dist/electron.exe -ArgumentList 'desktop','--smoke-test' -PassThru -Wait
+          if ($p.ExitCode -ne 0) { Get-Content desktop/qa/source/failure.txt -ErrorAction SilentlyContinue; throw 'Desktop integration failed' }
+          python print-helper/tests/check_pdfs.py desktop/qa/source/prints
+          if ($LASTEXITCODE -ne 0) { throw 'Print PDF validation failed' }
+      - run: npm run build:win
+        working-directory: desktop
+      - name: Install EXE and verify installed application
+        shell: pwsh
+        run: |
+          $setup = (Get-ChildItem desktop/dist/*Setup*.exe | Select-Object -First 1).FullName
+          $install = "$env:RUNNER_TEMP/DigitalLabDesktop-Installed"
+          $p = Start-Process $setup -ArgumentList '/S',"/D=$install" -PassThru -Wait
+          if ($p.ExitCode -ne 0) { throw 'Installer failed' }
+          $env:DLD_SMOKE_OUTPUT = "$pwd/desktop/qa/installed"
+          $env:DLP_SMOKE_OUTPUT = "$pwd/desktop/qa/installed/prints"
+          $env:DLP_SMOKE_FIXTURES = "$pwd/desktop/qa/fixtures/documents.json"
+          $p = Start-Process "$install/Digital Lab Desktop.exe" -ArgumentList '--smoke-test' -PassThru -Wait
+          if ($p.ExitCode -ne 0) { Get-Content desktop/qa/installed/failure.txt -ErrorAction SilentlyContinue; throw 'Installed app failed' }
+          python print-helper/tests/check_pdfs.py desktop/qa/installed/prints
+          if ($LASTEXITCODE -ne 0) { throw 'Installed print PDF validation failed' }
+          Get-FileHash desktop/dist/*Setup*.exe -Algorithm SHA256 | Format-List | Out-File desktop/dist/SHA256.txt
+          Copy-Item desktop/README_AR.md desktop/dist/README_AR.md
+          Copy-Item desktop/bundle/build.json desktop/dist/build.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Digital-Lab-Desktop-V1-Windows-Setup
+          path: |
+            desktop/dist/*Setup*.exe
+            desktop/dist/SHA256.txt
+            desktop/dist/README_AR.md
+            desktop/dist/build.json
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: desktop-v1-windows-qa
+          path: desktop/qa/
+          retention-days: 14
