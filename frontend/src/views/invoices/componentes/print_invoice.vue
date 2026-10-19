@@ -1,4 +1,5 @@
 <script setup>
+import { printPreparedWindow } from "@/utils/localPrint";
 import { ref, computed, onMounted, nextTick } from "vue";
 import { useLabSettingsStore } from "@/store/modules/labSettings";
 import { documentConfig, documentCss } from "@/utils/labDocuments";
@@ -192,10 +193,8 @@ const openprintINvoiceTemplate = (data) => {
     `);
     newWindow.document.close();
     newWindow.onload = () => {
-      newWindow.print();
-      newWindow.onafterprint = () => {
-        newWindow.close();
-      };
+      newWindow.onafterprint = () => newWindow.close();
+      void printPreparedWindow(newWindow, 'invoice', () => newWindow.close());
     };
   }, 50);
 };

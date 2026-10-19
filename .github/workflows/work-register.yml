@@ -9,6 +9,7 @@ on:
       - 'frontend/tests/invoice-referrals-browser.html'
       - 'frontend/src/utils/workRegister.js'
       - 'frontend/src/composables/usePrint.js'
+      - 'frontend/src/utils/localPrint.js'
       - 'frontend/src/router/**'
       - 'frontend/tests/work-register*'
       - '.github/workflows/work-register.yml'

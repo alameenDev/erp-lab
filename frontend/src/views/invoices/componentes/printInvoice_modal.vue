@@ -1,4 +1,5 @@
 <script setup>
+import { printPreparedWindow } from "@/utils/localPrint";
 import { computed, ref, watch, nextTick } from "vue";
 import { sharePatientPortal } from "@/utils/sharePatientPortal";
 import { storeToRefs } from "pinia";
@@ -102,11 +103,8 @@ const openprintINvoiceTemplate = (data) => {
     frameDoc.write(`<html><head><title>Print Invoice</title><style>${css}</style></head><body>${jobContent}</body></html>`);
     frameDoc.close();
 
-    printFrame.contentWindow.focus();
-    printFrame.contentWindow.print();
-    printFrame.contentWindow.onafterprint = () => {
-      document.body.removeChild(printFrame);
-    };
+    printFrame.contentWindow.onafterprint = () => printFrame.remove();
+    void printPreparedWindow(printFrame.contentWindow, 'invoice', () => printFrame.remove());
   }, 50);
 };
 
@@ -127,11 +125,8 @@ const openthermalRecord = (data) => {
     frameDoc.write(`<html><head><title>Print Thermal Receipt</title><style>${css}</style></head><body>${jobContent}</body></html>`);
     frameDoc.close();
 
-    printFrame.contentWindow.focus();
-    printFrame.contentWindow.print();
-    printFrame.contentWindow.onafterprint = () => {
-      document.body.removeChild(printFrame);
-    };
+    printFrame.contentWindow.onafterprint = () => printFrame.remove();
+    void printPreparedWindow(printFrame.contentWindow, 'thermal', () => printFrame.remove());
   }, 200);
 };
 </script>

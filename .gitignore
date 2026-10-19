@@ -27,3 +27,10 @@ __pycache__/
 *.sqlite3*
 bridge/build/
 *.spec
+
+# Local printer QA and packaging intermediates
+frontend/print-helper-qa/
+print-helper/fixtures/
+print-helper/qa/
+
+frontend/barcode-qa/

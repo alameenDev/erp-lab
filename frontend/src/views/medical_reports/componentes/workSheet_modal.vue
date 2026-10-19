@@ -1,4 +1,5 @@
 <script setup>
+import { printPreparedWindow } from "@/utils/localPrint";
 import { ref, computed, watch, onMounted } from "vue";
 import { storeToRefs } from "pinia";
 import { useinvoicesStore } from "@/store/modules/invoices";
@@ -225,11 +226,8 @@ const print = () => {
     `);
     frameDoc.close();
 
-    printFrame.contentWindow.focus();
-    printFrame.contentWindow.print();
-    printFrame.contentWindow.onafterprint = () => {
-      document.body.removeChild(printFrame);
-    };
+    printFrame.contentWindow.onafterprint = () => printFrame.remove();
+    void printPreparedWindow(printFrame.contentWindow, 'worksheet', () => printFrame.remove());
   }, 50);
 };
 

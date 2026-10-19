@@ -1,4 +1,5 @@
 <script setup>
+import { printPreparedWindow } from "@/utils/localPrint";
 import { ref, computed } from "vue";
 import { storeToRefs } from "pinia";
 import { useinvoicesStore } from "@/store/modules/invoices";
@@ -36,9 +37,8 @@ const print = () => {
     </style>
   </head><body>${content.innerHTML}</body></html>`);
   doc.close();
-  iframe.contentWindow.focus();
-  iframe.contentWindow.print();
-  setTimeout(() => document.body.removeChild(iframe), 1000);
+  iframe.contentWindow.onafterprint = () => iframe.remove();
+  void printPreparedWindow(iframe.contentWindow, 'history', () => iframe.remove());
 };
 </script>
 
