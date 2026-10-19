@@ -63,7 +63,7 @@ async function run({app,bundle,p,vault}){
   }catch(e){
     // Synthetic test data only, useful when Windows CI cannot display a console.
     await fsp.writeFile(path.join(qa,'failure.txt'),e.stack+'\n'+(e.detail||''));
-    for(const file of ['database.log']){try{await fsp.copyFile(path.join(p.storage,'logs',file),path.join(qa,file));}catch{}}
+    for(const file of await fsp.readdir(path.join(p.storage,'logs')).catch(()=>[])){if(/^(database|laravel).*\.log$/.test(file)){try{await fsp.copyFile(path.join(p.storage,'logs',file),path.join(qa,file));}catch{}}}
     throw e;
   }finally{if(win&&!win.isDestroyed())win.destroy();if(gateway)await gateway.pause();await runtime.stopDatabase();if(gateway)await gateway.close();}
 }

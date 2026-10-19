@@ -68,7 +68,8 @@ class Runtime {
     try {const result = JSON.parse(await this.php('install.php', {input: JSON.stringify(input)}));this.status = {installed: true};return result;}
     catch (e) {
       if (e.detail?.startsWith('{')) {try {throw new Error(Object.values(JSON.parse(e.detail).errors).flat().join('\n'));} catch (parsed) {if (!(parsed instanceof SyntaxError)) throw parsed;}}
-      throw new Error('تعذر إنشاء الحسابات. راجع الحقول وحاول مرة ثانية؛ لا تستخدم بريداً واحداً للحسابين.');
+      const error = new Error('تعذر إنشاء الحسابات. راجع الحقول وحاول مرة ثانية؛ لا تستخدم بريداً واحداً للحسابين.');
+      error.detail = e.detail;throw error;
     }
   }
   async startDatabase() {

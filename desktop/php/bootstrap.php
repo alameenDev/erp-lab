@@ -9,6 +9,9 @@ if (!$backend || !$data || getenv('DESKTOP_MODE') !== 'true') {
 }
 require $backend.'/vendor/autoload.php';
 $app = require $backend.'/bootstrap/app.php';
+// Laravel otherwise treats a Windows drive path (C:\...) as relative to the
+// read-only bundled backend. All desktop cache paths live under this data root.
+$app->addAbsoluteCachePathPrefix($data);
 $app->useEnvironmentPath($data.'/environment');
 $app->useStoragePath($data.'/storage');
 $app->booted(function () {
