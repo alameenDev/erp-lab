@@ -20,25 +20,6 @@ abstract class Controller
             return [];
         }
 
-        // Determine the lab owner ID
-        // If user is a lab owner (role_id=2), they are the anchor
-        // Otherwise, their creator_id points to the lab owner (or another staff who was created by the lab)
-        $labOwnerId = $user->role_id == 2 ? $user->id : ($user->creator_id ?? $user->id);
-
-        // If creator is also not a lab owner, walk up one more level
-        if ($labOwnerId !== $user->id) {
-            $creator = User::find($labOwnerId);
-            if ($creator && $creator->role_id != 2 && $creator->creator_id) {
-                $labOwnerId = $creator->creator_id;
-            }
-        }
-
-        // Get all users created by the lab owner
-        $users_ids = User::where('creator_id', $labOwnerId)
-            ->pluck('id')
-            ->toArray();
-        $users_ids[] = $labOwnerId;
-
-        return $users_ids;
+        return app(\App\Services\AccountAccess::class)->tenantUserIds($user);
     }
 }

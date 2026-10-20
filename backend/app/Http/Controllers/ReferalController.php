@@ -64,7 +64,7 @@ class ReferalController extends Controller
     {
         $user = Auth::user();
         if (! $user->hasPermissionTo('referrals view')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
         $query = Referal::with(['user.role', 'user.lab.priceList', 'lab', 'priceList']);
         $invoiceQuery = Invoice::query();
@@ -129,7 +129,7 @@ class ReferalController extends Controller
     {
         $user = Auth::user();
         if (! $user->hasPermissionTo('referrals view')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $query = User::with(['role', 'referals'])->whereLike('name', '%'.$request->name.'%')->whereIn('role_id', [2, 4, 5]);
@@ -166,7 +166,7 @@ class ReferalController extends Controller
     {
         $user = Auth::user();
         if (! $user->hasPermissionTo('referrals view')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $referrals = Referal::where('id', $request->id)->with(['user.role', 'lab'])->get();
@@ -205,7 +205,7 @@ class ReferalController extends Controller
     {
         $user = Auth::user();
         if (! $user->hasPermissionTo('referrals create')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $validatedData = $request->validate([
@@ -258,7 +258,7 @@ class ReferalController extends Controller
     {
         $user = Auth::user();
         if (! $user->hasPermissionTo('referrals edit')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $validatedData = $request->validate([
@@ -313,7 +313,7 @@ class ReferalController extends Controller
     {
         $user = Auth::user();
         if (! $user->hasPermissionTo('referrals delete')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $referral = Referal::find($request->id);

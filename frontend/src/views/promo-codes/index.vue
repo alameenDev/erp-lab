@@ -1,9 +1,13 @@
 <script setup>
 import { ref, computed, onMounted } from "vue";
+import { useAuthStore } from "@/store/modules/auth";
+import { readStoredJson } from "@/utils/accessControl";
 import { $http } from "@/plugins/axios";
 
 const codes = ref([]);
 const loading = ref(true);
+const auth = useAuthStore();
+const allowed = permission => [1, 2].includes(Number(readStoredJson('user')?.role_id)) || auth.havePermission(permission);
 const activeOnly = ref(false);
 
 // Single-code form
@@ -127,13 +131,13 @@ onMounted(load);
       <h1 class="text-xl font-bold text-gray-800">أكواد الخصم (البروموكود)</h1>
       <div class="flex gap-2">
         <button
-          @click="showSingleForm = !showSingleForm"
+          v-if="allowed('promo codes create')" @click="showSingleForm = !showSingleForm"
           class="bg-white border border-gray-200 hover:border-teal-400 text-gray-700 text-sm font-bold px-4 py-2 rounded-xl transition"
         >
           + كود واحد
         </button>
         <button
-          @click="showBatchForm = !showBatchForm"
+          v-if="allowed('promo codes create')" @click="showBatchForm = !showBatchForm"
           class="bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold px-4 py-2 rounded-xl transition"
         >
           + توليد دفعة أكواد
@@ -291,14 +295,14 @@ onMounted(load);
               </td>
               <td class="px-4 py-2">
                 <button
-                  @click="toggleActive(promo)"
+                  v-if="allowed('promo codes edit')" @click="toggleActive(promo)"
                   :class="['text-xs font-bold px-2 py-1 rounded-full', promo.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500']"
                 >
                   {{ promo.is_active ? "مفعّل" : "متوقف" }}
                 </button>
               </td>
               <td class="px-4 py-2 text-left">
-                <button @click="remove(promo)" class="text-red-500 hover:text-red-700 text-xs font-bold">حذف</button>
+                <button v-if="allowed('promo codes delete')" @click="remove(promo)" class="text-red-500 hover:text-red-700 text-xs font-bold">حذف</button>
               </td>
             </tr>
           </tbody>

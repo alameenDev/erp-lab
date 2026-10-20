@@ -35,7 +35,7 @@ export const useRolesstore = defineStore("roles", {
           },
           async GetPermissions() {
                try {
-                    const { data } = await $http.get("/permissions");
+                    const { data } = await $http.get("/permissions?catalog=1");
                     this.permissions = data.permissions.map((item, index) => ({
                          ...item,
                          index: index + 1, // Adding 1 to start indexing from 1 instead of 0
@@ -48,29 +48,30 @@ export const useRolesstore = defineStore("roles", {
                     this.totalCount = this.permissions.length;
                } catch (error) {
                     this.permissions = [];
+                    this.controllers = [];
+                    throw error;
                }
           },
 
           async AddRoles(body) {
                try {
                     await $http.post(`/roles/create`, body);
-                    this.GetRoles();
+                    await this.GetRoles();
                } catch (error) {
                     throw error;
                }
           },
           async UpdateRoles(body) {
                try {
-                    await $http.put(`/roles/update`, checkObjectParams(body));
-                    this.GetRoles();
+                    await $http.put(`/roles/update`, body);
+                    await this.GetRoles();
                } catch (error) {
                     throw error;
                }
           },
           async AssignRoleToUser(body) {
                try {
-                    await $http.post(`/roles/assign-role`,body);
-                    this.GetRoles();
+                    await $http.post(`/roles/assign-role`, body);
                } catch (error) {
                     throw error;
                }
@@ -78,8 +79,8 @@ export const useRolesstore = defineStore("roles", {
 
           async RemoveRoles() {
                try {
-                    await $http.delete(`/roles/delete`, { data: { id: this.record.id } });
-                    this.GetRoles();
+                    await $http.delete(`/roles/delete`, { data: { role_id: this.record.id } });
+                    await this.GetRoles();
                } catch (error) {
                     throw error;
                }

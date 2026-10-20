@@ -126,7 +126,7 @@ class DeviceResultController extends Controller
     {
         $user = Auth::user();
         if (! $user->hasPermissionTo('devices view')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $query = DeviceResult::with(['device:id,name', 'invoice:id,barcode,patient_id_fk']);
@@ -173,7 +173,7 @@ class DeviceResultController extends Controller
     {
         $user = Auth::user();
         if (! $user->hasPermissionTo('medical reports update')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $result = DeviceResult::with('device')->find((int) $id);
@@ -301,7 +301,7 @@ class DeviceResultController extends Controller
     {
         $user = Auth::user();
         if (! $user->hasPermissionTo('devices edit')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $request->validate([

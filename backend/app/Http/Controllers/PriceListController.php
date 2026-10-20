@@ -18,7 +18,7 @@ class PriceListController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('price list view')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $query = PriceList::with(['lab']);
@@ -49,7 +49,7 @@ class PriceListController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('price list view')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $PriceList = PriceList::with('priceListRels.test:id,name', 'priceListRels.testGroup:id,group_name', 'priceListRels.culture:id,name', 'priceListRels.package:id,name', 'lab:id,name')->find($request->id);
@@ -123,7 +123,7 @@ class PriceListController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('price list create')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $request->validate([
@@ -233,7 +233,7 @@ class PriceListController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('price list edit')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $request->validate([
@@ -413,7 +413,7 @@ class PriceListController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('price list delete')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $PriceList = PriceList::find($request->id);

@@ -37,7 +37,7 @@ class User extends Authenticatable
     // Add eager loading of permissions
     // protected $with = ['roles', 'permissions'];
 
-    protected $attributes = ['referral_portal_only' => false];
+    protected $attributes = ['referral_portal_only' => false, 'status' => 1];
 
     protected $guard_name = 'api';
 
@@ -95,6 +95,9 @@ class User extends Authenticatable
     {
         return [
             'referral_portal_only' => 'boolean',
+            'role_id' => 'integer',
+            'status' => 'integer',
+            'creator_id' => 'integer',
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'print_margins' => 'array',

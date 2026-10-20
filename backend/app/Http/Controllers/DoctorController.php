@@ -20,6 +20,7 @@ class DoctorController extends Controller
 
     public function index(Request $request)
     {
+        abort_unless(in_array((int) Auth::user()->role_id, [1, 2], true) || Auth::user()->can('doctors view'), 403);
         $query = Doctor::where('lab_id_fk', $this->labId())->orderBy('sort_order')->orderBy('name');
         if ($request->boolean('active_only')) {
             $query->where('is_active', true);
@@ -30,6 +31,7 @@ class DoctorController extends Controller
 
     public function store(Request $request)
     {
+        abort_unless(in_array((int) Auth::user()->role_id, [1, 2], true) || Auth::user()->can('doctors create'), 403);
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'specialty' => 'nullable|string|max:255',
@@ -68,6 +70,7 @@ class DoctorController extends Controller
 
     public function update(Request $request, $id)
     {
+        abort_unless(in_array((int) Auth::user()->role_id, [1, 2], true) || Auth::user()->can('doctors edit'), 403);
         $doctor = Doctor::where('lab_id_fk', $this->labId())->findOrFail($id);
 
         $validated = $request->validate([
@@ -106,6 +109,7 @@ class DoctorController extends Controller
 
     public function destroy($id)
     {
+        abort_unless(in_array((int) Auth::user()->role_id, [1, 2], true) || Auth::user()->can('doctors delete'), 403);
         $doctor = Doctor::where('lab_id_fk', $this->labId())->findOrFail($id);
         if ($doctor->getRawOriginal('photo')) {
             $this->safeDeleteFile($doctor->getRawOriginal('photo'));
@@ -120,6 +124,7 @@ class DoctorController extends Controller
      */
     public function bookingRequests(Request $request)
     {
+        abort_unless(in_array((int) Auth::user()->role_id, [1, 2], true) || Auth::user()->can('doctors view'), 403);
         $query = DoctorBookingRequest::with('doctor:id,name,specialty')
             ->where('lab_id_fk', $this->labId())
             ->orderByDesc('created_at');
@@ -133,6 +138,7 @@ class DoctorController extends Controller
 
     public function updateBookingRequest(Request $request, $id)
     {
+        abort_unless(in_array((int) Auth::user()->role_id, [1, 2], true) || Auth::user()->can('doctors edit'), 403);
         $validated = $request->validate(['status' => 'required|in:pending,confirmed,cancelled']);
         $booking = DoctorBookingRequest::where('lab_id_fk', $this->labId())->findOrFail($id);
         $booking->update($validated);

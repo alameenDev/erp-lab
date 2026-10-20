@@ -53,7 +53,7 @@ const activeFiltersCount = computed(() => {
 onMounted(async () => {
   isLoading.value = true;
   try {
-    await Promise.all([GetUserRoles(), GetRecords()]);
+    await Promise.all([authStore.havePermission('users create') || authStore.havePermission('users edit') ? GetUserRoles() : Promise.resolve(), GetRecords()]);
   } finally {
     isLoading.value = false;
   }
@@ -119,7 +119,7 @@ const addRecord = () => {
 
 const editRecord = (rec) => {
   Object.assign(record.value, rec);
-  record.value.role_id = UserRoles.value?.find((v) => v.label === rec.role)?.value ?? "";
+  record.value.role_id = rec.role_id ?? UserRoles.value?.find((v) => v.label === rec.role)?.value ?? "";
   dialog.value = true;
 };
 

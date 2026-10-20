@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, watch } from "vue";
+import { canAccessPage } from "@/utils/accessControl";
 import { useRoute, useRouter } from "vue-router";
 import { storeToRefs } from "pinia";
 import { useLayout } from "@/layout/composables/layout";
@@ -301,7 +302,9 @@ const visibleGroups = computed(() => {
     .filter((group) => isAdmin ? group.groupLabel === "super_admin" : group.groupLabel !== "super_admin")
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => hasPermission(item.permission)),
+      items: group.items.filter(item => item.items
+        ? item.items.some(child => canAccessPage(child.to, { role_id: userRoleId.value }, rolePermissions.value))
+        : canAccessPage(item.to, { role_id: userRoleId.value }, rolePermissions.value)),
     }))
     .filter((group) => group.items.length > 0);
 });
@@ -461,7 +464,7 @@ const sidebarClasses = computed(() => {
               <Transition name="slide">
                 <ul v-if="isExpanded(item.label) && !isSidebarCollapsed" class="mt-1 space-y-0.5 ps-4 ms-4 border-s border-white/10">
                   <template v-for="subItem in item.items" :key="subItem.label">
-                    <li v-if="hasPermission(subItem.permission)">
+                    <li v-if="canAccessPage(subItem.to, { role_id: userRoleId }, rolePermissions)">
                       <button
                         class="w-full flex items-center gap-3 py-2 px-3 text-sm rounded-lg transition-all duration-200 text-start"
                         :class="[

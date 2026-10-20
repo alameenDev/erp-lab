@@ -20,7 +20,7 @@ class CultureController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('cultures view')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $query = Culture::with(['test_group', 'category', 'sample', 'duration_unit', 'attribute.resultType', 'price_list_rel.priceList', 'lab:id,name']);
@@ -43,7 +43,7 @@ class CultureController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('cultures view')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $culture = Culture::with(['test_group', 'category', 'sample', 'duration_unit', 'attribute.resultType', 'price_list_rel.priceList', 'lab:id,name'])->find($request->id);
@@ -63,7 +63,7 @@ class CultureController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('cultures create')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         // validate request
@@ -129,7 +129,7 @@ class CultureController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('cultures edit')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         // validate request
@@ -201,7 +201,7 @@ class CultureController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('cultures delete')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $culture = Culture::find($request->id);

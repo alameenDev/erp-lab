@@ -140,11 +140,12 @@ Route::post('device/results', [DeviceResultController::class, 'receiveResults'])
 Route::post('device/heartbeat', [DeviceResultController::class, 'heartbeat'])
     ->middleware('throttle:120,1');
 
-Route::group(['middleware' => ['auth:sanctum', \App\Http\Middleware\RestrictReferralPortal::class, \App\Http\Middleware\AuditActivity::class]], function (): void {
+Route::group(['middleware' => ['auth:sanctum', \App\Http\Middleware\EnsureActiveAccount::class, \App\Http\Middleware\RestrictReferralPortal::class, \App\Http\Middleware\AuditActivity::class]], function (): void {
 
     /**
      @ User Api Routes
      */
+    Route::get('user/access', [AuthController::class, 'access']);
     Route::post('user/create', [AuthController::class, 'store']); // store new user
     Route::post('user/logout', [AuthController::class, 'logoutUser']); // logout user
     Route::get('user/show', [UserController::class, 'index']); // get all users

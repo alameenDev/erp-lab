@@ -119,6 +119,28 @@ class ReferralWorkspaceTest extends TestCase
         $this->actingAs($other);
         $this->getJson('/api/referral-portal/workspace/lab-settings')->assertOk()->assertJsonMissing(['lab_display_name'=>'My referral'])->assertJsonPath('report_template','classic')->assertJsonPath('report_form_default',true);
     }
+    public function test_portal_settings_mutations_require_membership_and_stay_separate_from_lab_settings(): void
+    {
+        [$lab, $partner] = $this->fixture();
+        \App\Models\LabSetting::create(['lab_id_fk' => $lab->id, 'lab_display_name' => 'Destination branding', 'report_template' => 'modern']);
+        $this->postJson('/api/referral-portal/workspace/lab-settings', ['report_template' => 'modern'])->assertOk();
+        $this->postJson('/api/referral-portal/workspace/lab-settings/reset', ['section' => 'print'])->assertOk()
+            ->assertJsonPath('setting.report_template', 'classic');
+        $this->deleteJson('/api/referral-portal/workspace/lab-settings/logo')->assertNotFound();
+        $this->deleteJson('/api/referral-portal/workspace/lab-settings/background')->assertNotFound();
+        $this->postJson('/api/lab-settings', ['lab_display_name' => 'Changed by partner'])->assertForbidden();
+        $this->assertDatabaseHas('lab_settings', ['lab_id_fk' => $lab->id, 'lab_display_name' => 'Destination branding', 'report_template' => 'modern']);
+
+        $employee = User::create(['name' => 'No referral membership', 'email' => 'ordinary@example.test', 'password' => 'secret-password-123', 'role_id' => 7, 'creator_id' => $lab->id]);
+        $this->actingAs($employee);
+        $this->getJson('/api/referral-portal/workspace/lab-settings')->assertForbidden();
+        $this->postJson('/api/referral-portal/workspace/lab-settings', ['lab_display_name' => 'Unauthorized'])->assertForbidden();
+        $this->postJson('/api/referral-portal/workspace/lab-settings/reset', ['section' => 'all'])->assertForbidden();
+        $this->deleteJson('/api/referral-portal/workspace/lab-settings/logo')->assertForbidden();
+        $this->deleteJson('/api/referral-portal/workspace/lab-settings/background')->assertForbidden();
+        $this->assertDatabaseHas('referral_print_settings', ['lab_id_fk' => $partner->id, 'report_template' => 'classic']);
+    }
+
     public function test_unlisted_tests_and_other_partner_patient_ids_are_rejected(): void
     {
         [$lab,$partner,$other,$test]=$this->fixture();

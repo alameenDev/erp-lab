@@ -1,10 +1,14 @@
 <script setup>
 import { ref, onMounted } from "vue";
+import { useAuthStore } from "@/store/modules/auth";
+import { readStoredJson } from "@/utils/accessControl";
 import { $http } from "@/plugins/axios";
 
 const doctors = ref([]);
 const bookings = ref([]);
 const loading = ref(true);
+const auth = useAuthStore();
+const allowed = permission => [1, 2].includes(Number(readStoredJson('user')?.role_id)) || auth.havePermission(permission);
 const activeTab = ref("doctors"); // doctors | bookings
 
 const showForm = ref(false);
@@ -156,8 +160,7 @@ onMounted(loadDoctors);
     <div class="flex items-center justify-between mb-6">
       <h1 class="text-xl font-bold text-gray-800">الأطباء</h1>
       <button
-        v-if="activeTab === 'doctors'"
-        @click="openCreate"
+        v-if="activeTab === 'doctors' && allowed('doctors create')" @click="openCreate"
         class="bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold px-4 py-2 rounded-xl"
       >
         + إضافة طبيب
@@ -269,8 +272,8 @@ onMounted(loadDoctors);
         <span :class="['text-xs font-bold px-2 py-1 rounded-full', doc.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500']">
           {{ doc.is_active ? "ظاهر" : "مخفي" }}
         </span>
-        <button @click="openEdit(doc)" class="text-teal-600 text-sm font-bold">تعديل</button>
-        <button @click="remove(doc)" class="text-red-500 text-sm font-bold">حذف</button>
+        <button v-if="allowed('doctors edit')" @click="openEdit(doc)" class="text-teal-600 text-sm font-bold">تعديل</button>
+        <button v-if="allowed('doctors delete')" @click="remove(doc)" class="text-red-500 text-sm font-bold">حذف</button>
       </div>
     </div>
 
@@ -293,7 +296,7 @@ onMounted(loadDoctors);
           <div v-if="b.preferred_date">🗓 الموعد المفضل: {{ new Date(b.preferred_date).toLocaleString("ar-IQ") }}</div>
           <div v-if="b.notes">📝 {{ b.notes }}</div>
         </div>
-        <div v-if="b.status === 'pending'" class="flex gap-2 mt-3">
+        <div v-if="b.status === 'pending' && allowed('doctors edit')" class="flex gap-2 mt-3">
           <button @click="setBookingStatus(b, 'confirmed')" class="text-xs font-bold bg-emerald-600 text-white px-3 py-1.5 rounded-lg">تأكيد</button>
           <button @click="setBookingStatus(b, 'cancelled')" class="text-xs font-bold bg-gray-200 text-gray-600 px-3 py-1.5 rounded-lg">إلغاء</button>
         </div>

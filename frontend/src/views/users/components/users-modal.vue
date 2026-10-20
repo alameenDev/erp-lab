@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, watch, ref } from "vue";
 import { storeToRefs } from "pinia";
 import { useUsersStore } from "@/store/modules/users";
 import { priceListStore } from "@/store/modules/priceList";
@@ -17,8 +17,8 @@ const { GetpriceList, price_list } = priceStore;
 const lang = computed(() => localStorage.getItem("locale") || "ar");
 const showPassword = ref(false);
 
-onMounted(() => {
-  GetpriceList();
+watch(() => [dialog.value, Number(record.value.role_id)], ([open, role]) => {
+  if (open && role === 4) GetpriceList();
 });
 
 const create = async () => {

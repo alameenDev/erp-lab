@@ -14,7 +14,7 @@ class PaymentMethodController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('payments view')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
         $query = PaymentMethod::with('lab:id,name');
 
@@ -48,7 +48,7 @@ class PaymentMethodController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('payments create')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         // validation
@@ -68,7 +68,7 @@ class PaymentMethodController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('payments view')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $paymentMethod = PaymentMethod::with('lab:id,name')->find($request->id);
@@ -92,7 +92,7 @@ class PaymentMethodController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('payments edit')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $paymentMethod = PaymentMethod::find($request->id);
@@ -119,7 +119,7 @@ class PaymentMethodController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('payments delete')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $paymentMethod = PaymentMethod::find($request->id);

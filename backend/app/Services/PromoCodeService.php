@@ -17,7 +17,7 @@ class PromoCodeService
      */
     public function resolveLabId(User $user): int
     {
-        return $user->role_id == 2 ? $user->id : ($user->creator_id ?? $user->id);
+        return app(AccountAccess::class)->tenantId($user);
     }
 
     public function generateUniqueCode(int $labId, ?string $prefix = null): string

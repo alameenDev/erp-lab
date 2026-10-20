@@ -362,9 +362,9 @@ const handleSearch = async () => {
   isLoading.value = true;
   try {
     await Promise.all([
-      reportsStore.Getreports(),
+      authStore.havePermission('reports view') ? reportsStore.Getreports() : Promise.resolve(),
       reportsStore.GetDashboardStats(),
-      reportsStore.GetComparisonData(),
+      authStore.havePermission('reports view') ? reportsStore.GetComparisonData() : Promise.resolve(),
     ]);
   } finally {
     isLoading.value = false;
@@ -409,10 +409,10 @@ onMounted(async () => {
 
   try {
     const promises = [
-      reportsStore.Getreports(),
+      authStore.havePermission('reports view') ? reportsStore.Getreports() : Promise.resolve(),
       reportsStore.GetDashboardStats(),
-      reportsStore.GetComparisonData(),
-      usersStore.GetRecords(),
+      authStore.havePermission('reports view') ? reportsStore.GetComparisonData() : Promise.resolve(),
+      authStore.havePermission('users view') ? usersStore.GetRecords() : Promise.resolve(),
     ];
 
     // Check subscription for non-admin users

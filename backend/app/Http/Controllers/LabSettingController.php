@@ -70,12 +70,7 @@ class LabSettingController extends Controller
         $user = Auth::user();
         $labOwnerId = $this->resolveLabOwnerId($user);
 
-        // Only lab owner can edit settings
-        if ($user->role_id != 1 && $user->role_id != 2) {
-            if ($user->id !== $labOwnerId) {
-                return response()->json(['message' => 'Only the lab owner can update settings'], 403);
-            }
-        }
+        $this->authorizeSettingsMutation($user);
 
         $validated = $request->validate([
             'whatsapp_invoice_message' => 'nullable|string|max:3000',
@@ -363,9 +358,7 @@ class LabSettingController extends Controller
         $user = Auth::user();
         $labOwnerId = $this->resolveLabOwnerId($user);
 
-        if (! in_array((int) $user->role_id, [1, 2], true) && (int) $user->id !== $labOwnerId) {
-            return response()->json(['message' => 'Only the lab owner can update settings'], 403);
-        }
+        $this->authorizeSettingsMutation($user);
 
         $setting = $this->settings()->where('lab_id_fk', $labOwnerId)->first();
         if (! $setting || ! $setting->logo) {
@@ -386,9 +379,7 @@ class LabSettingController extends Controller
         $user = Auth::user();
         $labOwnerId = $this->resolveLabOwnerId($user);
 
-        if (! in_array((int) $user->role_id, [1, 2], true) && (int) $user->id !== $labOwnerId) {
-            return response()->json(['message' => 'Only the lab owner can update settings'], 403);
-        }
+        $this->authorizeSettingsMutation($user);
 
         $setting = $this->settings()->where('lab_id_fk', $labOwnerId)->first();
         if (! $setting || ! $setting->getRawOriginal('report_background')) {
@@ -411,9 +402,7 @@ class LabSettingController extends Controller
         $request->validate(['section' => 'required|in:branding,print,all']);
         $section = $request->input('section', 'all'); // branding, print, or all
 
-        if ($user->role_id != 1 && $user->role_id != 2 && $user->id !== $labOwnerId) {
-            return response()->json(['message' => 'Only the lab owner can reset settings'], 403);
-        }
+        $this->authorizeSettingsMutation($user);
 
         $setting = $this->settings()->where('lab_id_fk', $labOwnerId)->first();
         if (! $setting) {
@@ -479,20 +468,13 @@ class LabSettingController extends Controller
         ]);
     }
 
+    protected function authorizeSettingsMutation(User $user): void
+    {
+        abort_unless(in_array((int) $user->role_id, [1, 2], true) || $user->can('lab settings edit'), 403);
+    }
+
     protected function resolveLabOwnerId($user): int
     {
-        if ($user->role_id == 2) {
-            return $user->id;
-        }
-
-        $labOwnerId = $user->creator_id ?? $user->id;
-        if ($labOwnerId !== $user->id) {
-            $creator = User::find($labOwnerId);
-            if ($creator && $creator->role_id != 2 && $creator->creator_id) {
-                $labOwnerId = $creator->creator_id;
-            }
-        }
-
-        return $labOwnerId;
+        return app(\App\Services\AccountAccess::class)->tenantId($user);
     }
 }

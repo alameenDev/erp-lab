@@ -7,6 +7,9 @@ use App\Models\User;
 use App\Models\VerifyCode;
 use App\Traits\SecureFileUpload;
 use DateTime;
+use App\Services\AccountAccess;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -26,10 +29,10 @@ class UserController extends Controller
 
         $user = Auth::user();
         if (!$user->hasPermissionTo(permission: 'users view')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
         $tenantIds = $this->getTenantUserIds();
-        $users = User::whereIn('id', $tenantIds)->with(['role', 'referals', 'creator', 'lab', 'permissions'])
+        $users = User::query()->when((int) $user->role_id !== 1, fn ($q) => $q->whereIn('id', $tenantIds))->with(['role', 'referals', 'creator', 'lab', 'permissions'])
             ->where('id', '!=', $user->id)
             ->where('role_id', '!=', 3)
             ->orderBy('created_at', 'desc')
@@ -50,7 +53,8 @@ class UserController extends Controller
                     'belong_to' => $user->creator?->name,
                     'address' => $user->address,
                     'role' => $user->role?->name,
-                    'permissions' => $user->permissions->pluck('name'),
+                    'role_id' => $user->role_id,
+                    'permissions' => $user->getAllPermissions()->pluck('name'),
                     'discount_percentage' => $user->role_id == 6 ? $user->referals?->commission : $user->lab?->discount_percentage,
                     'signiture' => $user->signiture,
                     'commission' => $user->role_id == 6 ? $user->referals?->commission : $user->lab?->discount_percentage,
@@ -89,12 +93,9 @@ class UserController extends Controller
             return response()->json(['message' => 'User not found'], 404);
         }
 
-        // SECURITY: Authorization check - verify access to this user
-        // Users can view their own profile, or users they created (if admin/lab owner)
-        if ($authUser->role_id !== 1) { // Not admin
-            if ($user->id !== $authUser->id && $user->creator_id !== $authUser->id) {
-                return response()->json(['message' => 'Unauthorized access to this user'], 403);
-            }
+        if (! $authUser->is($user)) {
+            abort_unless($authUser->can('users view'), 403);
+            app(AccountAccess::class)->manageUser($authUser, $user);
         }
 
         $user_data = [
@@ -104,11 +105,12 @@ class UserController extends Controller
             'phone_number' => $user->phone_number,
             'image' => $user->image,
             'address' => $user->address,
-            'role' => $user->role->name,
+            'role' => $user->role?->name,
+            'role_id' => $user->role_id,
             'signiture' => $user->signiture,
             'commission' => $user->role_id == 6 ? $user->referals?->commission : $user->lab?->discount_percentage,
             'discount_percentage' => $user->role_id == 6 ? $user->referals?->commission : $user->lab?->discount_percentage,
-            'permissions' => $user->permissions->pluck('name'),
+            'permissions' => $user->getAllPermissions()->pluck('name'),
         ];
 
         return response()->json($user_data, 200);
@@ -123,7 +125,7 @@ class UserController extends Controller
     {
         $authUser = Auth::user();
         if (!$authUser->hasPermissionTo(permission: 'users edit')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
         // Validate incoming request
         $request->validate([
@@ -132,6 +134,10 @@ class UserController extends Controller
             'address' => 'nullable|string|max:255',
             'phone' => 'nullable|string|max:255',
             'image' => 'nullable|image|mimes:jpg,jpeg,png',
+            'signiture' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
+            'password' => 'sometimes|nullable|string|min:8|max:128',
+            'email' => ['sometimes', 'required', 'email', 'max:255', Rule::unique('users')->ignore($request->integer('id'))],
+            'role_id' => 'sometimes|nullable|integer|exists:roles,id',
         ]);
 
         // Find the user by ID
@@ -140,13 +146,12 @@ class UserController extends Controller
             return response()->json(['message' => 'User not found'], 404);
         }
 
-        // SECURITY: Authorization check - verify ownership
-        // Admin can edit anyone, others can only edit users they created or themselves
-        if ($authUser->role_id !== 1) { // Not admin
-            if ($user->id !== $authUser->id && $user->creator_id !== $authUser->id) {
-                return response()->json(['message' => 'Unauthorized to update this user'], 403);
-            }
-        }
+        $access = app(AccountAccess::class);
+        $changingRole = $request->filled('role_id') && (int) $request->role_id !== (int) $user->role_id;
+        $access->manageUser($authUser, $user, $changingRole);
+        // Older updates changed role_id without synchronizing model_has_roles.
+        $needsRoleSync = $request->filled('role_id') && ($changingRole || $user->roles->pluck('id')->all() !== [$request->integer('role_id')]);
+        $role = $needsRoleSync ? $access->assignableRole($authUser, $request->integer('role_id')) : null;
         $oldName = $user->name;
         $olduser = clone $user;
 
@@ -182,13 +187,7 @@ class UserController extends Controller
         }
         $user->phone_number = $request->phone ?? $user->phone_number;
 
-        // Prevent non-admin users from escalating role to admin
-        if ($request->filled('role_id')) {
-            if ($authUser->role_id !== 1 && (int) $request->role_id === 1) {
-                return response()->json(['message' => 'Cannot assign admin role'], 403);
-            }
-            $user->role_id = $request->role_id;
-        }
+        if ($request->filled('email')) $user->email = $request->email;
 
         if (isset($request->discount_percentage)) {
 
@@ -198,8 +197,15 @@ class UserController extends Controller
                 $referral->save();
             }
         }
-        // $user->email_verified_at = new DateTime();
-        $user->save();
+        DB::transaction(function () use ($user, $role) {
+            if ($role) {
+                \Spatie\Permission\Models\Role::whereKey($role->id)->lockForUpdate()->firstOrFail();
+                $user->syncRoles([$role]);
+                $user->role_id = $role->id;
+            }
+            $user->save();
+        });
+        $user->load(['roles.permissions', 'permissions']);
         ActivityLogController::updateActivity('تعديل بيانات المستخدم', $olduser, $user);
 
         // Return a successful response
@@ -215,7 +221,7 @@ class UserController extends Controller
     {
         $authUser = Auth::user();
         if (!$authUser->hasPermissionTo(permission: 'users delete')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
         // Find the user by ID
         $user = User::find($request->id);
@@ -225,14 +231,7 @@ class UserController extends Controller
             return response()->json(['message' => 'User not found'], 404);
         }
 
-        // SECURITY: Authorization check - verify ownership
-        // Admin can delete anyone, others can only delete users they created
-        // Users cannot delete themselves
-        if ($authUser->role_id !== 1) { // Not admin
-            if ($user->creator_id !== $authUser->id) {
-                return response()->json(['message' => 'Unauthorized to delete this user'], 403);
-            }
-        }
+        app(AccountAccess::class)->manageUser($authUser, $user);
 
         // Prevent self-deletion
         if ($user->id === $authUser->id) {
@@ -245,6 +244,7 @@ class UserController extends Controller
             $verify->delete();
         }
         // Soft delete the user
+        $user->tokens()->delete();
         $user->delete();
         ActivityLogController::deleteActivity('حذف مستخدم', $user);
 

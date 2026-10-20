@@ -14,7 +14,7 @@ class CategoryController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('categories view')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $query = Category::with(['testGroups', 'lab']);
@@ -42,7 +42,7 @@ class CategoryController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('categories view')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $category = Category::with(['testGroups', 'lab'])->find($request->id);
@@ -69,7 +69,7 @@ class CategoryController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('categories create')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $validatedData = $request->validate([
@@ -88,7 +88,7 @@ class CategoryController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('categories edit')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $category = Category::findOrFail($request->id);
@@ -115,7 +115,7 @@ class CategoryController extends Controller
     {
         $user = Auth::user();
         if (!$user->hasPermissionTo('categories delete')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $category = Category::findOrFail($request->id);

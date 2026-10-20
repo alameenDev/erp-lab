@@ -14,6 +14,7 @@ class PromoCodeController extends Controller
 
     public function index(Request $request)
     {
+        abort_unless(in_array((int) Auth::user()->role_id, [1, 2], true) || Auth::user()->can('promo codes view'), 403);
         $labId = $this->service->resolveLabId(Auth::user());
 
         $query = PromoCode::where('lab_id_fk', $labId)->orderByDesc('created_at');
@@ -29,6 +30,7 @@ class PromoCodeController extends Controller
 
     public function store(Request $request)
     {
+        abort_unless(in_array((int) Auth::user()->role_id, [1, 2], true) || Auth::user()->can('promo codes create'), 403);
         $labId = $this->service->resolveLabId(Auth::user());
 
         $validated = $request->validate([
@@ -68,6 +70,7 @@ class PromoCodeController extends Controller
      */
     public function generateBatch(Request $request)
     {
+        abort_unless(in_array((int) Auth::user()->role_id, [1, 2], true) || Auth::user()->can('promo codes create'), 403);
         $labId = $this->service->resolveLabId(Auth::user());
 
         $validated = $request->validate([
@@ -110,6 +113,7 @@ class PromoCodeController extends Controller
 
     public function update(Request $request, $id)
     {
+        abort_unless(in_array((int) Auth::user()->role_id, [1, 2], true) || Auth::user()->can('promo codes edit'), 403);
         $labId = $this->service->resolveLabId(Auth::user());
         $promo = PromoCode::where('lab_id_fk', $labId)->findOrFail($id);
 
@@ -129,6 +133,7 @@ class PromoCodeController extends Controller
 
     public function destroy($id)
     {
+        abort_unless(in_array((int) Auth::user()->role_id, [1, 2], true) || Auth::user()->can('promo codes delete'), 403);
         $labId = $this->service->resolveLabId(Auth::user());
         $promo = PromoCode::where('lab_id_fk', $labId)->findOrFail($id);
         $promo->delete();

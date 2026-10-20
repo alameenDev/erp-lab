@@ -69,7 +69,7 @@ class InvoiceReferralUsageTest extends TestCase
         $lab = $this->user('lab');
         $doctor = $this->user('doctor', 5);
         Referal::create(['lab_id_fk' => $lab->id, 'referral_id_fk' => $doctor->id]);
-        $this->actingAs($lab)->getJson('/api/referrals')->assertStatus(401);
+        $this->actingAs($lab)->getJson('/api/referrals')->assertForbidden();
         $lab->givePermissionTo('referrals view');
         $this->getJson('/api/referrals')->assertOk()->assertJsonCount(1)
             ->assertJsonPath('0.user_id', $doctor->id)->assertJsonPath('0.invoice_usage_count', 0);

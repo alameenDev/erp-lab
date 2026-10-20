@@ -131,7 +131,7 @@ class MedicalReportTestFilterTest extends TestCase
         $this->filtered([$this->cbc->id, $this->cbc->id])->assertUnprocessable()->assertJsonValidationErrors('test_ids.0');
         $this->getJson('/api/invoices?test_ids=invalid')->assertUnprocessable()->assertJsonValidationErrors('test_ids');
         $this->getJson('/api/invoices?'.http_build_query(['test_ids' => range(1, 51)]))->assertUnprocessable()->assertJsonValidationErrors('test_ids');
-        $this->actingAs($foreign)->getJson('/api/invoices/test-filter-options')->assertUnauthorized();
+        $this->actingAs($foreign)->getJson('/api/invoices/test-filter-options')->assertForbidden();
     }
 
     public function test_patient_medical_records_apply_the_same_test_filter_without_leaking_other_patients(): void
