@@ -49,10 +49,10 @@
                 </button>
               </div>
 
-              <!-- Inline Personal Info (hidden when patient already linked: edit mode OR preselected via responseData) -->
-              <div v-if="!isEditMode && !responseData?.id" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              <!-- Basic patient details; optional information opens on demand. -->
+              <div v-if="!isEditMode && !responseData?.id" class="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <!-- Name (with search dropdown) -->
-                <div class="md:col-span-2 lg:col-span-3">
+                <div class="md:col-span-2">
                   <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("name") }} <span class="text-red-500">*</span></label>
                   <div class="relative">
                     <span class="absolute inset-y-0 start-0 flex items-center ps-4 text-slate-400">
@@ -93,32 +93,12 @@
                   </div>
                 </div>
 
-                <!-- Title -->
-                <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("title") }} <span class="text-red-500">*</span></label>
-                  <select v-model="patientStore.record.title_id_fk" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:ring-4 focus:ring-primary-500/15 focus:border-primary-500 focus:bg-white outline-none transition-all min-h-[44px] appearance-none cursor-pointer">
-                    <option :value="null">{{ t("select") }}...</option>
-                    <option v-for="title in titlesStore.titles" :key="title.value" :value="title.value">{{ title.label }}</option>
-                  </select>
-                </div>
-
                 <!-- Gender -->
                 <div>
                   <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("gender") }} <span class="text-red-500">*</span></label>
                   <select v-model="patientStore.record.gender_type_id_fk" @change="changePatientTitle(patientStore.record.gender_type_id_fk)" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:ring-4 focus:ring-primary-500/15 focus:border-primary-500 focus:bg-white outline-none transition-all min-h-[44px] appearance-none cursor-pointer">
                     <option :value="null">{{ t("select") }}...</option>
                     <option v-for="g in patientGenders" :key="g.value" :value="g.value">{{ g.label }}</option>
-                  </select>
-                </div>
-
-                <PatientAgeInput ref="patientAgeInput" v-model="patientStore.record" :units="patientStore.AgeUnits" :locale="lang" class="md:col-span-2 lg:col-span-3" />
-
-                <!-- Nationality -->
-                <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("nationality") }}</label>
-                  <select v-model="patientStore.record.nationality_id_fk" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:ring-4 focus:ring-primary-500/15 focus:border-primary-500 focus:bg-white outline-none transition-all min-h-[44px] appearance-none cursor-pointer">
-                    <option :value="null">{{ t("select") }}...</option>
-                    <option v-for="n in nationalitiesStore.nationalities" :key="n.value" :value="n.value">{{ n.label }}</option>
                   </select>
                 </div>
 
@@ -131,41 +111,62 @@
                   </div>
                 </div>
 
-                <!-- Email -->
-                <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("email") }}</label>
-                  <input type="email" v-model="patientStore.record.email" :placeholder="t('enter_email') || 'البريد الإلكتروني'" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:ring-4 focus:ring-primary-500/15 focus:border-primary-500 focus:bg-white outline-none transition-all min-h-[44px]" dir="ltr" />
-                </div>
+                <PatientAgeInput ref="patientAgeInput" v-model="patientStore.record" :units="patientStore.AgeUnits" :locale="lang" class="md:col-span-2" />
 
-                <!-- Address -->
-                <div class="md:col-span-2 lg:col-span-3">
-                  <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("address") }}</label>
-                  <input type="text" v-model="patientStore.record.address" :placeholder="t('enter_address') || 'العنوان الكامل'" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:ring-4 focus:ring-primary-500/15 focus:border-primary-500 focus:bg-white outline-none transition-all min-h-[44px]" />
-                </div>
+                <PatientAdditionalInfo id="invoice-patient-additional" :locale="lang" :reset-key="draftRevision" class="md:col-span-2">
+                  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    <!-- Title is derived from the selected gender -->
+                    <div>
+                      <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("title") }} <span class="text-xs text-slate-400">({{ lang === 'en' ? 'Automatic' : 'تلقائي' }})</span></label>
+                      <input type="text" readonly :value="titlesStore.titles.find(title => String(title.value) === String(patientStore.record.title_id_fk))?.label || ''" class="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-slate-600" />
+                    </div>
 
-                <!-- National ID -->
-                <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("national_id_no") }}</label>
-                  <input type="text" v-model="patientStore.record.national_id_no" :placeholder="t('enter_national_id') || 'رقم الهوية'" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:ring-4 focus:ring-primary-500/15 focus:border-primary-500 focus:bg-white outline-none transition-all min-h-[44px]" />
-                </div>
+                    <!-- Nationality -->
+                    <div>
+                      <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("nationality") }}</label>
+                      <select v-model="patientStore.record.nationality_id_fk" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:ring-4 focus:ring-primary-500/15 focus:border-primary-500 focus:bg-white outline-none transition-all min-h-[44px] appearance-none cursor-pointer">
+                        <option :value="null">{{ t("select") }}...</option>
+                        <option v-for="n in nationalitiesStore.nationalities" :key="n.value" :value="n.value">{{ n.label }}</option>
+                      </select>
+                    </div>
 
-                <!-- Passport -->
-                <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("passport_no") }}</label>
-                  <input type="text" v-model="patientStore.record.passport_no" :placeholder="t('enter_passport') || 'رقم الجواز'" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:ring-4 focus:ring-primary-500/15 focus:border-primary-500 focus:bg-white outline-none transition-all min-h-[44px]" />
-                </div>
+                    <!-- Email -->
+                    <div>
+                      <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("email") }}</label>
+                      <input type="email" v-model="patientStore.record.email" :placeholder="t('enter_email') || 'البريد الإلكتروني'" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:ring-4 focus:ring-primary-500/15 focus:border-primary-500 focus:bg-white outline-none transition-all min-h-[44px]" dir="ltr" />
+                    </div>
 
-                <!-- File -->
-                <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("addfile") || "صورة المريض" }}</label>
-                  <label class="flex items-center justify-center gap-3 w-full px-4 py-3 bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl text-slate-500 hover:border-primary-400 hover:bg-primary-50 hover:text-primary-600 cursor-pointer transition-all">
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <span class="text-sm font-medium truncate">{{ patientStore.selectedFile?.name || t('choose_file') || 'اختر ملف...' }}</span>
-                    <input ref="patientFileInput" type="file" @change="onPatientFileChange" accept=".png,.jpg,.jpeg" class="hidden" />
-                  </label>
-                </div>
+                    <!-- Address -->
+                    <div class="md:col-span-2 lg:col-span-3">
+                      <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("address") }}</label>
+                      <input type="text" v-model="patientStore.record.address" :placeholder="t('enter_address') || 'العنوان الكامل'" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:ring-4 focus:ring-primary-500/15 focus:border-primary-500 focus:bg-white outline-none transition-all min-h-[44px]" />
+                    </div>
+
+                    <!-- National ID -->
+                    <div>
+                      <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("national_id_no") }}</label>
+                      <input type="text" v-model="patientStore.record.national_id_no" :placeholder="t('enter_national_id') || 'رقم الهوية'" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:ring-4 focus:ring-primary-500/15 focus:border-primary-500 focus:bg-white outline-none transition-all min-h-[44px]" />
+                    </div>
+
+                    <!-- Passport -->
+                    <div>
+                      <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("passport_no") }}</label>
+                      <input type="text" v-model="patientStore.record.passport_no" :placeholder="t('enter_passport') || 'رقم الجواز'" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:ring-4 focus:ring-primary-500/15 focus:border-primary-500 focus:bg-white outline-none transition-all min-h-[44px]" />
+                    </div>
+
+                    <!-- File -->
+                    <div>
+                      <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("addfile") || "صورة المريض" }}</label>
+                      <label class="flex items-center justify-center gap-3 w-full px-4 py-3 bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl text-slate-500 hover:border-primary-400 hover:bg-primary-50 hover:text-primary-600 cursor-pointer transition-all">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span class="text-sm font-medium truncate">{{ patientStore.selectedFile?.name || t('choose_file') || 'اختر ملف...' }}</span>
+                        <input ref="patientFileInput" type="file" @change="onPatientFileChange" accept=".png,.jpg,.jpeg" class="hidden" />
+                      </label>
+                    </div>
+                  </div>
+                </PatientAdditionalInfo>
               </div>
             </div>
           </div>
@@ -766,6 +767,7 @@ import { usePatientsStore } from "@/store/modules/patients";
 import PreviousInvoice from './PreviousInvoice.vue';
 import AnalysisName from './AnalysisName.vue';
 import PatientAgeInput from '@/components/patients/PatientAgeInput.vue';
+import PatientAdditionalInfo from '@/components/patients/PatientAdditionalInfo.vue';
 import InvoicePackageContents from './InvoicePackageContents.vue';
 import InvoiceReferralSelect from './InvoiceReferralSelect.vue';
 import { invoicePackageContents } from '@/utils/invoicePackageContents';
@@ -824,6 +826,7 @@ export default {
     AnalysisName,
     InvoicePackageContents,
     PatientAgeInput,
+    PatientAdditionalInfo,
     InvoiceReferralSelect,
     printInvoiceModal,
     Dialog,
@@ -1055,6 +1058,7 @@ export default {
     changePatientTitle(value) {
       if (value == 1) this.patientStore.record.title_id_fk = 1;
       else if (value == 2) this.patientStore.record.title_id_fk = 2;
+      else this.patientStore.record.title_id_fk = '';
     },
     // Single source of truth for turning any stored/typed form of an Iraqi number
     // (+964…, 00964…, 964…, 07…) into the local 10-digit form the input expects.
@@ -1095,9 +1099,7 @@ export default {
         return false;
       }
       // Defaults required by backend
-      if (!pr.title_id_fk) {
-        pr.title_id_fk = pr.gender_type_id_fk == 2 ? 2 : 1;
-      }
+      this.changePatientTitle(pr.gender_type_id_fk);
       if (!pr.age_unit_id_fk) pr.age_unit_id_fk = 1;
       if (!pr.gender_type_id_fk) {
         this.alertError(this.t("errorMessage") || "الجنس مطلوب");
@@ -1719,6 +1721,12 @@ export default {
     },
   },
   watch: {
+    "patientStore.record.gender_type_id_fk": {
+      immediate: true,
+      handler(value) {
+        if (!this.responseData?.id && !this.isEditMode) this.changePatientTitle(value);
+      },
+    },
     "responseData.id": { immediate:true, async handler(id) {
       this.loyaltyKey=""; this.loyalty=null; this.loyaltyError="";
       if (!id || this.isEditMode) return;
