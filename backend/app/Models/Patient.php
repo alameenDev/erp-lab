@@ -21,6 +21,7 @@ class Patient extends Model
         'creator_id',
         'parent_id',
         'dob',
+        'dob_is_estimated',
         'gender_id_fk',
         'age',
         'age_unit_id_fk',
@@ -35,7 +36,10 @@ class Patient extends Model
         'referred_by_patient_id',
     ];
 
+    protected $attributes = ['dob_is_estimated' => false];
+
     protected $casts = [
+        'dob_is_estimated' => 'boolean',
         'dob' => 'date',
         'age' => 'integer',
         'loyalty_points' => 'integer',

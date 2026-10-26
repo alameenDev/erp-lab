@@ -60,7 +60,7 @@ const close = () => {
                 {{ t("dob") }}
               </th>
               <td class="px-4 py-3 text-sm text-gray-600">
-                {{ patient?.dob }}
+                {{ patient?.dob?.slice(0, 10) }} <small v-if="patient?.dob_is_estimated">({{ t("estimated_birth_date") }})</small>
               </td>
             </tr>
             <tr class="hover:bg-gray-50">

@@ -141,6 +141,20 @@ class ReferralWorkspaceTest extends TestCase
         $this->assertDatabaseHas('referral_print_settings', ['lab_id_fk' => $partner->id, 'report_template' => 'classic']);
     }
 
+    public function test_invoice_inline_birth_date_calculates_age_and_persists_precision(): void
+    {
+        [$lab, , , $test] = $this->fixture();
+        $this->travelTo(\Carbon\CarbonImmutable::parse('2026-10-26 12:00', 'Asia/Baghdad'));
+        $input = $this->payload($lab, $test);
+        $input['inline_patient'] = array_replace($input['inline_patient'], ['dob' => '2026-10-20', 'dob_is_estimated' => false, 'age' => 99]);
+        $id = $this->postJson('/api/referral-portal/workspace/invoices/create', $input)->assertCreated()->json('id');
+        $patient = Patient::findOrFail(Invoice::findOrFail($id)->patient_id_fk);
+        $this->assertSame(6, $patient->age);
+        $this->assertEquals(3, $patient->age_unit_id_fk);
+        $this->assertSame('2026-10-20', $patient->dob->toDateString());
+        $this->assertFalse($patient->dob_is_estimated);
+    }
+
     public function test_unlisted_tests_and_other_partner_patient_ids_are_rejected(): void
     {
         [$lab,$partner,$other,$test]=$this->fixture();

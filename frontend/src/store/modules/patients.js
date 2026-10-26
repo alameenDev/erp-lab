@@ -16,6 +16,7 @@ const freshPatientRecord = () => ({
      address: "",
      nationality_id_fk: "",
      dob: "",
+     dob_is_estimated: false,
      gender_id_fk: "",
      gender_type_id_fk: "",
      age: "",
@@ -115,7 +116,7 @@ export const usePatientsStore = defineStore("patient", {
                }
                for (let key in this.record) {
                     if (this.record[key] !== null && this.record[key] !== undefined) {
-                         formData.append(key, this.record[key]);
+                         formData.append(key, typeof this.record[key] === 'boolean' ? (this.record[key] ? '1' : '0') : this.record[key]);
                     }
                }
                const data = await $http.post(`/patients/create`, formData);
@@ -129,7 +130,7 @@ export const usePatientsStore = defineStore("patient", {
                }
                for (let key in this.record) {
                     if (this.record[key] !== null && this.record[key] !== undefined) {
-                         formData.append(key, this.record[key]);
+                         formData.append(key, typeof this.record[key] === 'boolean' ? (this.record[key] ? '1' : '0') : this.record[key]);
                     }
                }
                const data = await $http.post(`/patients/update`, formData);
