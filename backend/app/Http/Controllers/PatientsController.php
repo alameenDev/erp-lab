@@ -95,6 +95,7 @@ class PatientsController extends Controller
                 'lab_card',
                 'nationality_id_fk',
                 'dob',
+                'dob_is_estimated',
                 'gender_id_fk',
                 'age',
                 'age_unit_id_fk',
@@ -151,13 +152,16 @@ class PatientsController extends Controller
             'contract_id_fk' => 'nullable|exists:contracts,id',
             'address' => 'nullable|string',
             'nationality_id_fk' => 'nullable|exists:nationalities,id',
-            'dob' => 'nullable|date',
+            'dob' => 'nullable|date|before_or_equal:'.today('Asia/Baghdad')->toDateString(),
+            'dob_is_estimated' => 'sometimes|boolean',
             'gender_id_fk' => 'required|exists:genders,id',
-            'age' => 'required|integer',
-            'age_unit_id_fk' => 'required|exists:age_units,id',
+            'age' => 'required_without:dob|nullable|integer|min:0|max:50000',
+            'age_unit_id_fk' => 'required_without:dob|nullable|exists:age_units,id',
             'passport_no' => 'nullable|string',
             'national_id_no' => 'nullable|integer',
         ]);
+
+        $validatedData = app(\App\Services\PatientAge::class)->normalize($validatedData);
 
         $code = random_int(100000, 999999);
 
@@ -206,6 +210,7 @@ class PatientsController extends Controller
             'address' => $validatedData['address'] ?? null,
             'nationality_id_fk' => $validatedData['nationality_id_fk'] ?? null,
             'dob' => $validatedData['dob'] ?? null,
+            'dob_is_estimated' => $validatedData['dob_is_estimated'] ?? false,
             'gender_id_fk' => $validatedData['gender_id_fk'] ?? null,
             'age' => $validatedData['age'] ?? null,
             'age_unit_id_fk' => $validatedData['age_unit_id_fk'] ?? null,
@@ -276,9 +281,10 @@ class PatientsController extends Controller
             'contract_id_fk' => 'nullable|exists:contracts,id',
             'address' => 'nullable|string',
             'nationality_id_fk' => 'nullable|exists:nationalities,id',
-            'dob' => 'nullable|date',
+            'dob' => 'nullable|date|before_or_equal:'.today('Asia/Baghdad')->toDateString(),
+            'dob_is_estimated' => 'sometimes|boolean',
             'gender_id_fk' => 'nullable|exists:genders,id',
-            'age' => 'nullable|integer',
+            'age' => 'nullable|integer|min:0|max:50000',
             'age_unit_id_fk' => 'nullable|exists:age_units,id',
             'passport_no' => 'nullable|string',
             'national_id_no' => 'nullable|integer',
@@ -297,6 +303,8 @@ class PatientsController extends Controller
                 return response()->json(['message' => 'Unauthorized to update this patient'], 403);
             }
         }
+
+        $validatedData = app(\App\Services\PatientAge::class)->normalize($validatedData, $patient);
 
         $user = User::find($patient->user_id);
         $old_patient = clone $patient;
@@ -331,6 +339,7 @@ class PatientsController extends Controller
         $patient->address = $validatedData['address'] ?? $patient->address;
         $patient->nationality_id_fk = $validatedData['nationality_id_fk'] ?? $patient->nationality_id_fk;
         $patient->dob = $validatedData['dob'] ?? $patient->dob;
+        $patient->dob_is_estimated = $validatedData['dob_is_estimated'] ?? $patient->dob_is_estimated;
         $patient->gender_id_fk = $validatedData['gender_id_fk'] ?? $patient->gender_id_fk;
         $patient->age = $validatedData['age'] ?? $patient->age;
         $patient->age_unit_id_fk = $validatedData['age_unit_id_fk'] ?? $patient->age_unit_id_fk;

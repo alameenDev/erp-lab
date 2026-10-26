@@ -1,4 +1,5 @@
 <script setup>
+import PatientAgeInput from '@/components/patients/PatientAgeInput.vue';
 import { useAuthStore } from "@/store/modules/auth";
 import { ref, computed, watch, onMounted } from "vue";
 import { storeToRefs } from "pinia";
@@ -11,6 +12,7 @@ import { LoaderStore } from "@/store/modules/loader";
 import { t } from "@/utils/helper";
 import { useToast } from "@/composables/useToast";
 
+const patientAgeInput = ref(null);
 const patientsStore = usePatientsStore();
 const contractsStore = useContractsStore();
 const nationalitiesStore = useNationalitiesStore();
@@ -135,7 +137,7 @@ const onPhoneInput = (e) => {
 
 // Validation
 const validate = () => {
-  let isValid = true;
+  let isValid = patientAgeInput.value?.validate() ?? false;
   errors.value = { name: "", age: "", age_unit: "", gender: "", title: "", phone: "" };
 
   if (!record.value.name?.trim()) {
@@ -365,62 +367,7 @@ onMounted(() => {
                 </p>
               </div>
 
-              <!-- Age -->
-              <div>
-                <label class="block text-sm font-medium text-slate-700 mb-2">
-                  {{ t("age") }} <span class="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  v-model="record.age"
-                  min="0"
-                  required
-                  :placeholder="t('enter_age') || 'Enter age'"
-                  class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white outline-none transition-all"
-                  :class="{ 'border-red-500 bg-red-50': errors.age }"
-                />
-                <p v-if="errors.age" class="mt-1.5 text-sm text-red-500 flex items-center gap-1">
-                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  {{ errors.age }}
-                </p>
-              </div>
-
-              <!-- Age Unit -->
-              <div>
-                <label class="block text-sm font-medium text-slate-700 mb-2">
-                  {{ t("age_unit") }} <span class="text-red-500">*</span>
-                </label>
-                <select
-                  v-model="record.age_unit_id_fk"
-                  required
-                  class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white outline-none transition-all appearance-none cursor-pointer"
-                  :class="{ 'border-red-500 bg-red-50': errors.age_unit }"
-                >
-                  <option :value="null">{{ t("select") }}...</option>
-                  <option v-for="unit in AgeUnits" :key="unit.value" :value="unit.value">
-                    {{ unit.label }}
-                  </option>
-                </select>
-                <p v-if="errors.age_unit" class="mt-1.5 text-sm text-red-500 flex items-center gap-1">
-                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  {{ errors.age_unit }}
-                </p>
-              </div>
-
-              <!-- DOB -->
-              <div>
-                <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("dob") }}</label>
-                <input
-                  type="date"
-                  v-model="record.dob"
-                  @click="$event.target.showPicker()"
-                  class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white outline-none transition-all"
-                />
-              </div>
+              <PatientAgeInput ref="patientAgeInput" v-model="record" :units="AgeUnits" :locale="lang" class="md:col-span-2" />
 
               <!-- Nationality -->
               <div>

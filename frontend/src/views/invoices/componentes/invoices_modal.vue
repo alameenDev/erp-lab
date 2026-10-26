@@ -111,26 +111,7 @@
                   </select>
                 </div>
 
-                <!-- Age -->
-                <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("age") }} <span class="text-red-500">*</span></label>
-                  <input type="number" v-model="patientStore.record.age" min="0" required :placeholder="t('enter_age') || 'أدخل العمر'" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:ring-4 focus:ring-primary-500/15 focus:border-primary-500 focus:bg-white outline-none transition-all min-h-[44px]" />
-                </div>
-
-                <!-- Age Unit -->
-                <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("age_unit") }} <span class="text-red-500">*</span></label>
-                  <select v-model="patientStore.record.age_unit_id_fk" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:ring-4 focus:ring-primary-500/15 focus:border-primary-500 focus:bg-white outline-none transition-all min-h-[44px] appearance-none cursor-pointer">
-                    <option :value="null">{{ t("select") }}...</option>
-                    <option v-for="u in patientStore.AgeUnits" :key="u.value" :value="u.value">{{ u.label }}</option>
-                  </select>
-                </div>
-
-                <!-- DOB -->
-                <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("dob") }}</label>
-                  <input type="date" v-model="patientStore.record.dob" @click="$event.target.showPicker()" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:ring-4 focus:ring-primary-500/15 focus:border-primary-500 focus:bg-white outline-none transition-all min-h-[44px]" />
-                </div>
+                <PatientAgeInput ref="patientAgeInput" v-model="patientStore.record" :units="patientStore.AgeUnits" :locale="lang" class="md:col-span-2 lg:col-span-3" />
 
                 <!-- Nationality -->
                 <div>
@@ -784,6 +765,7 @@ import { useresultStatusStore } from "@/store/modules/result-status";
 import { usePatientsStore } from "@/store/modules/patients";
 import PreviousInvoice from './PreviousInvoice.vue';
 import AnalysisName from './AnalysisName.vue';
+import PatientAgeInput from '@/components/patients/PatientAgeInput.vue';
 import InvoicePackageContents from './InvoicePackageContents.vue';
 import InvoiceReferralSelect from './InvoiceReferralSelect.vue';
 import { invoicePackageContents } from '@/utils/invoicePackageContents';
@@ -841,6 +823,7 @@ export default {
     PreviousInvoice,
     AnalysisName,
     InvoicePackageContents,
+    PatientAgeInput,
     InvoiceReferralSelect,
     printInvoiceModal,
     Dialog,
@@ -1105,6 +1088,7 @@ export default {
     async ensurePatientExists() {
       // Existing patient already selected
       if (this.responseData?.id) return true;
+      if (this.$refs.patientAgeInput && !this.$refs.patientAgeInput.validate()) return false;
       const pr = this.patientStore.record;
       if (!pr.name?.trim()) {
         this.alertError(this.t("errorMessage") || "اسم المريض مطلوب");

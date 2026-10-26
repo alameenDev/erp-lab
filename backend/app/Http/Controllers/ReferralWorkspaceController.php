@@ -71,7 +71,7 @@ class ReferralWorkspaceController extends Controller {
   $patients=Patient::with(['user','gender','ageUnit'])->where('creator_id',$c->lab_id_fk)
    ->whereIn('id',Invoice::where('from_lab_id_fk',Auth::id())->where('lab_id_fk',$c->lab_id_fk)->select('patient_id_fk'))
    ->whereHas('user',fn($q)=>$q->whereNull('deleted_at')->where('name','like','%'.$name.'%'))->limit(20)->get();
-  return response()->json($patients->map(fn($p)=>['id'=>$p->id,'name'=>$p->user->name,'code'=>$p->code,'phone'=>$p->user->phone_number,'dob'=>$p->dob?->format('Y-m-d'),'age'=>$p->age,'age_unit_id_fk'=>$p->age_unit_id_fk,'age_unit'=>$p->ageUnit?->unit_name,'gender_type_id_fk'=>$p->gender_id_fk,'gender_id_fk'=>$p->gender_id_fk,'gender'=>$p->gender?->gender_type,'title_id_fk'=>$p->title_id_fk,'address'=>$p->address]));
+  return response()->json($patients->map(fn($p)=>['id'=>$p->id,'name'=>$p->user->name,'code'=>$p->code,'phone'=>$p->user->phone_number,'dob'=>$p->dob?->format('Y-m-d'),'dob_is_estimated'=>(bool)$p->dob_is_estimated,'age'=>$p->age,'age_unit_id_fk'=>$p->age_unit_id_fk,'age_unit'=>$p->ageUnit?->unit_name,'gender_type_id_fk'=>$p->gender_id_fk,'gender_id_fk'=>$p->gender_id_fk,'gender'=>$p->gender?->gender_type,'title_id_fk'=>$p->title_id_fk,'address'=>$p->address]));
  }
  public function questions(Request $r) {
   $c=$this->connection($r); $ids=$r->input('tests_ids',[]);
@@ -123,7 +123,7 @@ class ReferralWorkspaceController extends Controller {
    'inline_patient'=>'nullable|array','inline_patient.name'=>'required_without:patient_id_fk|string|max:255',
    'inline_patient.phone_number'=>'nullable|string|max:50','inline_patient.gender_id_fk'=>'nullable|exists:genders,id',
    'inline_patient.age'=>'nullable|integer|min:0|max:50000','inline_patient.age_unit_id_fk'=>'nullable|exists:age_units,id',
-   'inline_patient.dob'=>'nullable|date|before_or_equal:today','inline_patient.title_id_fk'=>'nullable|exists:titles,id',
+   'inline_patient.dob'=>'nullable|date|before_or_equal:'.today('Asia/Baghdad')->toDateString(),'inline_patient.dob_is_estimated'=>'sometimes|boolean','inline_patient.title_id_fk'=>'nullable|exists:titles,id',
    'inline_patient.address'=>'nullable|string|max:255',
    'inline_patient.nationality_id_fk'=>'nullable|exists:nationalities,id',
    'inline_patient.national_id_no'=>'nullable|string|max:100','inline_patient.passport_no'=>'nullable|string|max:100',
@@ -165,8 +165,8 @@ class ReferralWorkspaceController extends Controller {
    if(!empty($v['patient_id_fk'])) $patient=Patient::where('creator_id',$c->lab_id_fk)->whereIn('id',Invoice::where('from_lab_id_fk',Auth::id())->where('lab_id_fk',$c->lab_id_fk)->select('patient_id_fk'))->lockForUpdate()->findOrFail($v['patient_id_fk']);
    if(!$patient) {
     if($r->hasFile('image')) { $upload=$this->secureUploadImage($r->file('image'),'referral-patients'); abort_unless($upload['success'],422,$upload['error']??'تعذر رفع الصورة'); $uploaded=$upload['path']; }
-    $pr=$v['inline_patient']; $u=User::create(['name'=>$pr['name'],'phone_number'=>$pr['phone_number']??null,'email'=>'ref-'.Str::uuid().'@example.invalid','password'=>Hash::make(Str::random(40)),'role_id'=>3,'creator_id'=>$c->lab_id_fk]);
-    $patient=Patient::create(array_merge(\Illuminate\Support\Arr::only($pr,['dob','gender_id_fk','age','age_unit_id_fk','title_id_fk','address','nationality_id_fk','national_id_no','passport_no']),['image'=>$uploaded,'user_id'=>$u->id,'creator_id'=>$c->lab_id_fk,'code'=>'R'.$u->id,'barcode'=>'P'.$u->id]));
+    $pr=app(\App\Services\PatientAge::class)->normalize($v['inline_patient'], null, 'inline_patient.'); $u=User::create(['name'=>$pr['name'],'phone_number'=>$pr['phone_number']??null,'email'=>'ref-'.Str::uuid().'@example.invalid','password'=>Hash::make(Str::random(40)),'role_id'=>3,'creator_id'=>$c->lab_id_fk]);
+    $patient=Patient::create(array_merge(\Illuminate\Support\Arr::only($pr,['dob','dob_is_estimated','gender_id_fk','age','age_unit_id_fk','title_id_fk','address','nationality_id_fk','national_id_no','passport_no']),['image'=>$uploaded,'user_id'=>$u->id,'creator_id'=>$c->lab_id_fk,'code'=>'R'.$u->id,'barcode'=>'P'.$u->id]));
    }
    $discount=(int)($v['discount']??0); $type=$v['discount_type_id_fk']??null;
    $amount=$type==2?(int)round($total*$discount/100):($type==3?$discount:0);

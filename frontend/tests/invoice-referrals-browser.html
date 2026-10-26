@@ -31,6 +31,7 @@ $http.defaults.adapter=async config=>{
  requests.push({url:config.url,method:config.method,body,params:config.params});
  let data=[];
  if(config.url==='/referrals')data=referrals;
+ else if(config.url==='/age-units')data=[{id:1,unit_name:'Years'},{id:2,unit_name:'Months'},{id:3,unit_name:'Days'}];
  else if(config.url==='/packages')data=packages;
  else if(config.url==='/tests')data=[test,group];
  else if(config.url==='/patients/create')data={id:state.patientSeq++,name:body.name,phone:body.phone};
