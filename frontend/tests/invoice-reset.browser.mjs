@@ -15,7 +15,7 @@ const clean=async()=>{
 try {
  await page.goto('http://127.0.0.1:5173/tests/invoice-referrals-browser.html?page=1');await clean();
  await page.evaluate(async()=>{const f=invoiceFixture.form();
-  Object.assign(f.patientStore.record,{name:'First new patient',gender_type_id_fk:1,age:30,phone:'7700000000'});
+  Object.assign(f.patientStore.record,{name:'First new patient',gender_type_id_fk:1,age:30,age_unit_id_fk:1,phone:'7700000000'});
   f.addSelection('test',invoiceFixture.test,false);f.record.notes='First invoice only';
   f.payment_details=[{amount:3000,contract_id_fk:null,payment_method_id_fk:1},{amount:1000,contract_id_fk:null,payment_method_id_fk:2}];
   await f.create();
@@ -25,7 +25,7 @@ try {
  await page.evaluate(()=>{invoiceFixture.store.printInvoiceDialog=false;});
  await page.waitForFunction(()=>invoiceFixture.router.currentRoute.value.path==='/invoices');
  await page.evaluate(()=>invoiceFixture.router.push('/invoices/create'));await clean();
- await page.evaluate(async()=>{const f=invoiceFixture.form();Object.assign(f.patientStore.record,{name:'Second new patient',gender_type_id_fk:2,age:25});f.addSelection('test',invoiceFixture.test,false);await f.create();});
+ await page.evaluate(async()=>{const f=invoiceFixture.form();Object.assign(f.patientStore.record,{name:'Second new patient',gender_type_id_fk:2,age:25,age_unit_id_fk:1});f.addSelection('test',invoiceFixture.test,false);await f.create();});
  await page.waitForFunction(()=>invoiceFixture.state.saved===2);
  assert.equal(await page.evaluate(()=>invoiceFixture.state.lastSaved.payment_details[0].amount),null,'second invoice never submits first payment');
  assert.equal(await page.evaluate(()=>invoiceFixture.state.lastSaved.notes),undefined);
