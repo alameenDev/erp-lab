@@ -5,6 +5,8 @@ import { useLabSettingsStore } from "@/store/modules/labSettings";
 import { reportFormChoice } from "@/utils/medicalReportOutput";
 import { useinvoicesStore } from "@/store/modules/invoices";
 
+import PatientDebtWarning from '@/components/PatientDebtWarning.vue';
+
 import ReportSelectionNode from './ReportSelectionNode.vue';
 import { reportSelectionModel, reportNodeKeys, searchReportNodes } from '@/utils/reportItemSelection';
 
@@ -16,6 +18,7 @@ const props = defineProps({
 });
 const emit = defineEmits(["update:modelValue", "execute"]);
 const { printRecord } = storeToRefs(useinvoicesStore());
+const debtChecking = ref(false);
 const search = ref("");
 const action = ref("print");
 const withBackground = ref(null);
@@ -65,7 +68,7 @@ function toggle(keys) {
 function toggleSection(section) { toggle(sectionKeys(section)); }
 function close() { if (!props.busy) emit("update:modelValue", false); }
 function execute(nextAction = action.value) {
-  if (props.busy || !selectedCount.value || (sharing(nextAction) && (!phoneValid.value || !props.canShare))) return;
+  if (props.busy || debtChecking.value || !selectedCount.value || (sharing(nextAction) && (!phoneValid.value || !props.canShare))) return;
   const chosen = key => sections.value.find(section => section.key === key).nodes.flatMap((node, i) => reportNodeKeys(node).some(k => selected.value.has(k)) ? [i] : []);
   emit("execute", {
     tests: chosen("tests"), cultures: chosen("cultures"), testGroups: chosen("test_groups"), packages: chosen("packages"),
@@ -91,6 +94,7 @@ function execute(nextAction = action.value) {
             <div><span class="block text-slate-500">الباركود</span><strong>{{ printRecord?.barcode || '—' }}</strong></div>
             <div><span class="block text-slate-500">تاريخ التسجيل</span><strong>{{ printRecord?.registration_date ? new Date(printRecord.registration_date).toLocaleString('ar-IQ') : '—' }}</strong></div>
           </div>
+          <PatientDebtWarning :invoice="printRecord" :active="modelValue" @checking="debtChecking = $event" />
           <div class="mb-3 flex flex-wrap gap-2">
             <input v-model="search" type="search" placeholder="بحث في التحاليل والكروبات والباقات..." aria-label="بحث في عناصر التقرير" class="min-w-0 flex-1 rounded-lg border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500" />
             <button type="button" :disabled="busy" class="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white" @click="selected = new Set(allKeys)">تحديد الكل</button>
@@ -123,8 +127,8 @@ function execute(nextAction = action.value) {
         <div class="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-white px-5 py-4 sm:px-7">
           <button type="button" class="rounded-lg border border-slate-200 px-5 py-2.5 text-sm" @click="close">إلغاء</button>
           <div class="flex gap-2">
-            <button type="button" :disabled="!selectedCount || busy" class="rounded-lg border border-blue-600 px-5 py-2.5 text-sm font-semibold text-blue-700 disabled:opacity-50" @click="execute('preview')">معاينة التقرير</button>
-            <button type="button" :disabled="!selectedCount || busy || (sharing(action) && (!phoneValid || !canShare))" class="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-50" @click="execute()">{{ busy ? 'جاري تجهيز التقرير...' : 'تنفيذ' }}</button>
+            <button type="button" :disabled="!selectedCount || busy || debtChecking" class="rounded-lg border border-blue-600 px-5 py-2.5 text-sm font-semibold text-blue-700 disabled:opacity-50" @click="execute('preview')">معاينة التقرير</button>
+            <button type="button" :disabled="!selectedCount || busy || debtChecking || (sharing(action) && (!phoneValid || !canShare))" class="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-50" @click="execute()">{{ busy ? 'جاري تجهيز التقرير...' : 'تنفيذ' }}</button>
           </div>
         </div>
       </div>

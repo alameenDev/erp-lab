@@ -12,6 +12,7 @@ import JsBarcode from "jsbarcode";
 import QrcodeVue from "qrcode.vue";
 import parcodModal from "@/components/barcode/InvoiceBarcodeLabels.vue";
 import thermalReciptModal from "./thermal_reciptModal.vue";
+import PatientDebtWarning from '@/components/PatientDebtWarning.vue';
 import BarcodeComponent from "@/components/BarcodeComponent.vue";
 
 const invoicesStore = useinvoicesStore();
@@ -20,6 +21,7 @@ const { printRecord, printInvoiceDialog } = storeToRefs(invoicesStore);
 const { printStyles, printWithCustomContent } = usePrint();
 
 const dialog = ref(null);
+const debtChecking = ref(false);
 let previousFocus = null;
 watch(printInvoiceDialog, async (open) => {
   if (open) { previousFocus = document.activeElement; await nextTick(); dialog.value?.focus(); }
@@ -142,6 +144,7 @@ const openthermalRecord = (data) => {
             <button type="button" @click="close" aria-label="إغلاق ملخص الفاتورة" class="rounded-xl px-3 py-2 bg-white/10 hover:bg-white/20">✕</button>
           </header>
           <div class="overflow-y-auto p-4 sm:p-6 space-y-5">
+            <PatientDebtWarning :invoice="printRecord" :active="printInvoiceDialog" @checking="debtChecking = $event" />
             <section class="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col sm:flex-row justify-between gap-4">
               <div><p class="text-xs text-slate-500 mb-1">المريض</p><h3 class="text-xl font-bold text-slate-900">{{ printRecord?.patient?.name }}</h3><div class="flex flex-wrap gap-4 text-sm text-slate-500 mt-2"><span>رقم الملف: {{ printRecord?.patient?.code || '—' }}</span><span>{{ printRecord?.patient?.age }} {{ printRecord?.patient?.age_unit }} · {{ printRecord?.patient?.gender }}</span><span dir="ltr">{{ printRecord?.patient?.phone || 'لا يوجد رقم هاتف' }}</span></div></div>
               <div class="text-sm text-slate-500 space-y-2"><p>تاريخ التسجيل: {{ dateTimeFormat(printRecord?.registration_date) }}</p><p>موعد النتائج: {{ printRecord?.result_date ? dateTimeFormat(printRecord.result_date) : 'غير محدد' }}</p><p v-if="printRecord?.referral?.name">الطبيب المحيل: {{ printRecord.referral.name }}</p></div>
@@ -162,9 +165,9 @@ const openthermalRecord = (data) => {
               </section>
               <aside class="space-y-4">
                 <section class="bg-white rounded-2xl border border-slate-200 p-4 space-y-3"><h3 class="font-bold text-slate-800">الطباعة</h3>
-                  <button type="button" @click="openthermalRecord(printRecord)" class="w-full rounded-xl bg-slate-900 text-white p-3 font-semibold hover:bg-slate-800">طباعة الوصل الحراري</button>
-                  <button type="button" @click="openprintINvoiceTemplate(printRecord)" class="w-full rounded-xl border border-slate-300 p-3 text-slate-700 hover:bg-slate-50">طباعة الفاتورة الورقية</button>
-                  <button type="button" @click="printParcode(printRecord)" :disabled="barcodePrinter?.busy" class="w-full rounded-xl border border-slate-300 p-3 text-slate-700 hover:bg-slate-50">طباعة ملصق الباركود</button>
+                  <button type="button" :disabled="debtChecking" @click="openthermalRecord(printRecord)" class="disabled:opacity-50 w-full rounded-xl bg-slate-900 text-white p-3 font-semibold hover:bg-slate-800">طباعة الوصل الحراري</button>
+                  <button type="button" :disabled="debtChecking" @click="openprintINvoiceTemplate(printRecord)" class="disabled:opacity-50 w-full rounded-xl border border-slate-300 p-3 text-slate-700 hover:bg-slate-50">طباعة الفاتورة الورقية</button>
+                  <button type="button" @click="printParcode(printRecord)" :disabled="barcodePrinter?.busy || debtChecking" class="disabled:opacity-50 w-full rounded-xl border border-slate-300 p-3 text-slate-700 hover:bg-slate-50">طباعة ملصق الباركود</button>
                   <div v-if="printRecord?.barcode" class="flex flex-col items-center overflow-hidden pt-2" dir="ltr"><BarcodeComponent :value="printRecord.barcode" /><span class="text-xs text-slate-500">{{ printRecord.barcode }}</span></div>
                 </section>
                 <section class="bg-teal-50 rounded-2xl border border-teal-100 p-4"><h3 class="font-bold text-teal-900">بوابة المريض</h3><p class="text-sm text-teal-800 my-2 leading-6">رسالة ترحيبية ورابط خاص لمتابعة النقاط والفواتير والتحاليل والنتائج.</p>

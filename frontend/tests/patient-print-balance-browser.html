@@ -1,0 +1,33 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Patient print balance</title></head><body><div id="app"></div><script type="module">
+import { createApp, h, ref, nextTick } from 'vue';
+import { createPinia } from 'pinia';
+import ReportDialog from '/src/views/medical_reports/componentes/printSelectModal.vue';
+import InvoiceDialog from '/src/views/invoices/componentes/printInvoice_modal.vue';
+import { useinvoicesStore } from '/src/store/modules/invoices';
+import { useAuthStore } from '/src/store/modules/auth';
+import { useLabSettingsStore } from '/src/store/modules/labSettings';
+import UiModal from '/src/components/ui/Modal.vue';
+import '/src/assets/main.css';
+localStorage.setItem('token', 'synthetic-balance');
+localStorage.setItem('locale', 'ar');
+localStorage.setItem('user', JSON.stringify({ id: 1, role_id: 2, name: 'مختبر تجريبي' }));
+const app = createApp({ setup() {
+  const invoices = useinvoicesStore(), auth = useAuthStore(), reportOpen = ref(false), actions = [];
+  auth.setPermissions(['invoices print']);
+  useLabSettingsStore().settings = { report_form_default: false };
+  window.debtFixture = {
+    invoices, actions,
+    async open(kind, id, referral = false) {
+      reportOpen.value = false; invoices.printInvoiceDialog = false; await nextTick();
+      invoices.printRecord = { id, total: 10000, paid: 5000, referral_document: referral,
+        patient: { id: id + 100, name: 'مريض تجريبي', age: 30, age_unit: 'Years', gender: 'Male' },
+        tests: [{ id: 1, name: 'Glucose', result: '90', is_done: true }], cultures: [], test_groups: [], packages: [] };
+      if (kind === 'report') reportOpen.value = true; else invoices.printInvoiceDialog = true;
+      await nextTick();
+    },
+    close() { reportOpen.value = false; invoices.printInvoiceDialog = false; },
+  };
+  return () => h('main', [h(ReportDialog, { modelValue: reportOpen.value, 'onUpdate:modelValue': v => reportOpen.value = v, canShare: true, onExecute: action => actions.push(action) }), h(InvoiceDialog)]);
+} });
+app.use(createPinia()); app.component('UiModal', UiModal); app.mount('#app');
+</script></body></html>
