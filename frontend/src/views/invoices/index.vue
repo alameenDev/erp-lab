@@ -1,5 +1,4 @@
 <script setup>
-import ReportActionStatus from "@/components/ReportActionStatus.vue";
 import { ref, computed, onMounted, watch, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import { storeToRefs } from "pinia";
@@ -108,6 +107,13 @@ const cannotAccess = (roles) => !canAccess(roles);
 const formatCurrency = (value) => {
   if (!value && value !== 0) return "0";
   return new Intl.NumberFormat("en-US").format(value);
+};
+
+// Use the payment status returned by the invoice API, refreshed after payments.
+const paymentStatuses = {
+  paid: { label: "payment_paid", color: "bg-emerald-50 text-emerald-700 ring-emerald-200" },
+  unpaid: { label: "unpaid", color: "bg-red-50 text-red-700 ring-red-200" },
+  partial: { label: "payment_partial", color: "bg-amber-50 text-amber-800 ring-amber-200" },
 };
 
 // Pagination (server-side)
@@ -620,9 +626,9 @@ onMounted(async () => {
                   class="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all"
                 >
                   <option value="">{{ t("all") }}</option>
-                  <option value="paid">{{ t("paid") || "Paid" }}</option>
+                  <option value="paid">{{ t("payment_paid") }}</option>
                   <option value="unpaid">{{ t("unpaid") || "Unpaid" }}</option>
-                  <option value="partial">{{ t("partial") || "Partial" }}</option>
+                  <option value="partial">{{ t("payment_partial") }}</option>
                 </select>
               </div>
 
@@ -725,7 +731,7 @@ onMounted(async () => {
                 <th class="px-5 py-4 text-start text-xs font-semibold text-slate-600 uppercase tracking-wider">{{ t("contract") }}</th>
                 <th class="px-5 py-4 text-start text-xs font-semibold text-slate-600 uppercase tracking-wider">{{ t("from_lab") }}</th>
                 <th class="px-5 py-4 text-start text-xs font-semibold text-slate-600 uppercase tracking-wider">{{ t("Barcode") }}</th>
-                <th class="px-5 py-4 text-start text-xs font-semibold text-slate-600 uppercase tracking-wider">{{ t("theStatus") }}</th>
+                <th class="px-5 py-4 text-start text-xs font-semibold text-slate-600 uppercase tracking-wider">{{ t("payment_status") }}</th>
                 <th class="px-5 py-4 text-start text-xs font-semibold text-slate-600 uppercase tracking-wider">{{ t("actions") }}</th>
               </tr>
             </thead>
@@ -783,7 +789,14 @@ onMounted(async () => {
                   </div>
                 </td>
                 <td class="px-5 py-4">
-                  <ReportActionStatus :record="invoice" />
+                  <span
+                    class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-xs font-semibold leading-5 ring-1 ring-inset"
+                    :class="paymentStatuses[invoice.payment_status]?.color || 'bg-slate-50 text-slate-600 ring-slate-200'"
+                    role="status"
+                  >
+                    <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-current" aria-hidden="true"></span>
+                    {{ t(paymentStatuses[invoice.payment_status]?.label) || '—' }}
+                  </span>
                 </td>
                 <td class="px-5 py-4">
                   <div class="flex items-center gap-1">
