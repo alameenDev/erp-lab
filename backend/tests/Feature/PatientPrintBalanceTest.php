@@ -54,8 +54,12 @@ class PatientPrintBalanceTest extends TestCase
         $deleted = $this->invoice(90000); $deleted->delete();
         $this->invoice(0);
         $before = DB::table('invoices')->orderBy('id')->get()->toJson();
-        $r = $this->getJson('/api/invoices/'.$current->id.'/patient-balance')->assertOk()
-            ->assertHeader('Cache-Control', 'no-store, private')->assertJsonPath('unpaid_invoice_count', 2)->json();
+        $response = $this->getJson('/api/invoices/'.$current->id.'/patient-balance')->assertOk()
+            ->assertJsonPath('unpaid_invoice_count', 2);
+        // SecurityHeaders adds stricter cache directives to authenticated responses.
+        $this->assertTrue($response->baseResponse->headers->hasCacheControlDirective('no-store'));
+        $this->assertTrue($response->baseResponse->headers->hasCacheControlDirective('private'));
+        $r = $response->json();
         $this->assertEquals(17000, $r['outstanding_amount']);
         $this->assertEquals(10000, $r['current_invoice_amount']);
         $this->assertEquals(7000, $r['other_invoices_amount']);
