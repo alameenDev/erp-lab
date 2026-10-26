@@ -1,5 +1,6 @@
 <script setup>
 import PatientAgeInput from '@/components/patients/PatientAgeInput.vue';
+import PatientAdditionalInfo from '@/components/patients/PatientAdditionalInfo.vue';
 import { useAuthStore } from "@/store/modules/auth";
 import { ref, computed, watch, onMounted } from "vue";
 import { storeToRefs } from "pinia";
@@ -72,10 +73,13 @@ const changeTitle = (value) => {
   }
   if (value == 1) {
     record.value.title_id_fk = 1;
-  } else {
+  } else if (value == 2) {
     record.value.title_id_fk = 2;
+  } else {
+    record.value.title_id_fk = '';
   }
 };
+watch(() => record.value.gender_type_id_fk, changeTitle, { immediate: true });
 
 // Handle file change
 const onFileChange = (event) => {
@@ -137,6 +141,7 @@ const onPhoneInput = (e) => {
 
 // Validation
 const validate = () => {
+  changeTitle(record.value.gender_type_id_fk);
   let isValid = patientAgeInput.value?.validate() ?? false;
   errors.value = { name: "", age: "", age_unit: "", gender: "", title: "", phone: "" };
 
@@ -318,30 +323,6 @@ onMounted(() => {
                 </p>
               </div>
 
-              <!-- Title -->
-              <div>
-                <label class="block text-sm font-medium text-slate-700 mb-2">
-                  {{ t("title") }} <span class="text-red-500">*</span>
-                </label>
-                <select
-                  v-model="record.title_id_fk"
-                  required
-                  class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white outline-none transition-all appearance-none cursor-pointer"
-                  :class="{ 'border-red-500 bg-red-50': errors.title }"
-                >
-                  <option :value="null">{{ t("select") }}...</option>
-                  <option v-for="title in titles" :key="title.value" :value="title.value">
-                    {{ title.label }}
-                  </option>
-                </select>
-                <p v-if="errors.title" class="mt-1.5 text-sm text-red-500 flex items-center gap-1">
-                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  {{ errors.title }}
-                </p>
-              </div>
-
               <!-- Gender -->
               <div>
                 <label class="block text-sm font-medium text-slate-700 mb-2">
@@ -367,43 +348,6 @@ onMounted(() => {
                 </p>
               </div>
 
-              <PatientAgeInput ref="patientAgeInput" v-model="record" :units="AgeUnits" :locale="lang" class="md:col-span-2" />
-
-              <!-- Nationality -->
-              <div>
-                <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("nationality") }}</label>
-                <select
-                  v-model="record.nationality_id_fk"
-                  class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white outline-none transition-all appearance-none cursor-pointer"
-                >
-                  <option :value="null">{{ t("select") }}...</option>
-                  <option v-for="nat in nationalities" :key="nat.value" :value="nat.value">
-                    {{ nat.label }}
-                  </option>
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ==================== CONTACT INFORMATION CARD ==================== -->
-        <div class="bg-white rounded-2xl border border-slate-200/80 overflow-hidden">
-          <div class="px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-green-50 to-emerald-50">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-green-500/25">
-                <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                </svg>
-              </div>
-              <div>
-                <h4 class="font-semibold text-slate-800">{{ t("contact_information") || "Contact Information" }}</h4>
-                <p class="text-sm text-slate-500">{{ t("phone_email_address") || "Phone, email and address" }}</p>
-              </div>
-            </div>
-          </div>
-
-          <div class="p-5">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
               <!-- Phone -->
               <div>
                 <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("phone_number") }}</label>
@@ -423,120 +367,126 @@ onMounted(() => {
                 <p v-if="errors.phone" class="text-red-500 text-xs mt-1">{{ errors.phone }}</p>
               </div>
 
-              <!-- Email -->
-              <div>
-                <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("email") }}</label>
-                <div class="relative">
-                  <span class="absolute inset-y-0 start-0 flex items-center ps-4 text-slate-400">
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                  </span>
-                  <input
-                    type="email"
-                    v-model="record.email"
-                    :placeholder="t('enter_email') || 'Enter email address'"
-                    class="w-full ps-12 pe-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white outline-none transition-all"
-                    dir="ltr"
-                  />
-                </div>
-              </div>
-
-              <!-- Address -->
-              <div class="md:col-span-2">
-                <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("address") }}</label>
-                <div class="relative">
-                  <span class="absolute top-3.5 start-4 text-slate-400">
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                  </span>
-                  <input
-                    type="text"
-                    v-model="record.address"
-                    :placeholder="t('enter_address') || 'Enter full address'"
-                    class="w-full ps-12 pe-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white outline-none transition-all"
-                  />
-                </div>
-              </div>
+              <PatientAgeInput ref="patientAgeInput" v-model="record" :units="AgeUnits" :locale="lang" class="md:col-span-2" />
             </div>
           </div>
         </div>
 
-        <!-- ==================== IDENTIFICATION & CONTRACT CARD ==================== -->
-        <div class="bg-white rounded-2xl border border-slate-200/80 overflow-hidden">
-          <div class="px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-amber-50 to-orange-50">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/25">
-                <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
-                </svg>
-              </div>
-              <div>
-                <h4 class="font-semibold text-slate-800">{{ t("identification_contract") || "Identification & Contract" }}</h4>
-                <p class="text-sm text-slate-500">{{ t("id_passport_contract") || "ID, passport and contract details" }}</p>
-              </div>
+        <PatientAdditionalInfo id="patient-dialog-additional" :locale="lang" :reset-key="dialog + ':' + (record.id || 'new')">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <!-- Title is derived from the selected gender -->
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("title") }} <span class="text-xs text-slate-400">({{ lang === 'en' ? 'Automatic' : 'تلقائي' }})</span></label>
+              <input type="text" readonly :value="titles.find(title => String(title.value) === String(record.title_id_fk))?.label || ''" class="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-slate-600" />
             </div>
-          </div>
 
-          <div class="p-5">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <!-- National ID -->
-              <div>
-                <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("national_id_no") }}</label>
-                <input
-                  type="text"
-                  v-model="record.national_id_no"
-                  :placeholder="t('enter_national_id') || 'Enter national ID'"
-                  class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white outline-none transition-all"
-                />
-              </div>
+            <!-- Nationality -->
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("nationality") }}</label>
+              <select
+                v-model="record.nationality_id_fk"
+                class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white outline-none transition-all appearance-none cursor-pointer"
+              >
+                <option :value="null">{{ t("select") }}...</option>
+                <option v-for="nat in nationalities" :key="nat.value" :value="nat.value">
+                  {{ nat.label }}
+                </option>
+              </select>
+            </div>
 
-              <!-- Passport -->
-              <div>
-                <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("passport_no") }}</label>
-                <input
-                  type="text"
-                  v-model="record.passport_no"
-                  :placeholder="t('enter_passport') || 'Enter passport number'"
-                  class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white outline-none transition-all"
-                />
-              </div>
-
-              <!-- Contract -->
-              <div>
-                <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("contract") }}</label>
-                <select
-                  v-model="record.contract_id_fk"
-                  class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white outline-none transition-all appearance-none cursor-pointer"
-                >
-                  <option :value="null">{{ t("select") }}...</option>
-                  <option v-for="contract in contracts" :key="contract.value" :value="contract.value">
-                    {{ contract.label }}
-                  </option>
-                </select>
-              </div>
-
-              <!-- File Upload -->
-              <div>
-                <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("addfile") || "Profile Photo" }}</label>
-                <label class="flex items-center justify-center gap-3 w-full px-4 py-3 bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl text-slate-500 hover:border-primary-400 hover:bg-primary-50 hover:text-primary-600 cursor-pointer transition-all group">
-                  <svg class="w-5 h-5 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            <!-- Email -->
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("email") }}</label>
+              <div class="relative">
+                <span class="absolute inset-y-0 start-0 flex items-center ps-4 text-slate-400">
+                  <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
-                  <span class="text-sm font-medium">{{ selectedFile?.name || t('choose_file') || 'Choose file...' }}</span>
-                  <input
-                    type="file"
-                    @change="onFileChange"
-                    accept=".png,.jpg,.jpeg"
-                    class="hidden"
-                  />
-                </label>
+                </span>
+                <input
+                  type="email"
+                  v-model="record.email"
+                  :placeholder="t('enter_email') || 'Enter email address'"
+                  class="w-full ps-12 pe-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white outline-none transition-all"
+                  dir="ltr"
+                />
               </div>
             </div>
+
+            <!-- Address -->
+            <div class="md:col-span-2">
+              <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("address") }}</label>
+              <div class="relative">
+                <span class="absolute top-3.5 start-4 text-slate-400">
+                  <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </span>
+                <input
+                  type="text"
+                  v-model="record.address"
+                  :placeholder="t('enter_address') || 'Enter full address'"
+                  class="w-full ps-12 pe-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white outline-none transition-all"
+                />
+              </div>
+            </div>
+
+            <!-- National ID -->
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("national_id_no") }}</label>
+              <input
+                type="text"
+                v-model="record.national_id_no"
+                :placeholder="t('enter_national_id') || 'Enter national ID'"
+                class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white outline-none transition-all"
+              />
+            </div>
+
+            <!-- Passport -->
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("passport_no") }}</label>
+              <input
+                type="text"
+                v-model="record.passport_no"
+                :placeholder="t('enter_passport') || 'Enter passport number'"
+                class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white outline-none transition-all"
+              />
+            </div>
+
+            <!-- Contract -->
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("contract") }}</label>
+              <select
+                v-model="record.contract_id_fk"
+                class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white outline-none transition-all appearance-none cursor-pointer"
+              >
+                <option :value="null">{{ t("select") }}...</option>
+                <option v-for="contract in contracts" :key="contract.value" :value="contract.value">
+                  {{ contract.label }}
+                </option>
+              </select>
+            </div>
+
+            <!-- File Upload -->
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("addfile") || "Profile Photo" }}</label>
+              <label class="flex items-center justify-center gap-3 w-full px-4 py-3 bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl text-slate-500 hover:border-primary-400 hover:bg-primary-50 hover:text-primary-600 cursor-pointer transition-all group">
+                <svg class="w-5 h-5 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span class="text-sm font-medium">{{ selectedFile?.name || t('choose_file') || 'Choose file...' }}</span>
+                <input
+                  type="file"
+                  @change="onFileChange"
+                  accept=".png,.jpg,.jpeg"
+                  class="hidden"
+                />
+              </label>
+            </div>
+
           </div>
-        </div>
+        </PatientAdditionalInfo>
       </div>
 
       <!-- ==================== FOOTER ACTIONS ==================== -->
