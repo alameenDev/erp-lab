@@ -382,8 +382,6 @@ class PatientsController extends Controller
             }
         }
 
-        $validatedData = app(\App\Services\PatientAge::class)->normalize($validatedData, $patient);
-
         $user = User::find($patient->user_id);
         $patient->delete();
         if ($user) {

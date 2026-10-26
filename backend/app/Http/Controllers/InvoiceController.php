@@ -1362,7 +1362,7 @@ class InvoiceController extends Controller
             'title_id_fk' => $patient?->title_id_fk,
             'title' => $patient?->title?->title,
             'dob' => $patient?->dob?->format('Y-m-d'),
-                'dob_is_estimated' => (bool) $patient?->dob_is_estimated,
+            'dob_is_estimated' => (bool) $patient?->dob_is_estimated,
             'gender_id_fk' => $patient?->gender_id_fk,
             'gender' => $patient?->gender?->gender_type,
             'age' => $patient?->age,

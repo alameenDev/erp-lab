@@ -63,8 +63,9 @@ class PatientAgeTest extends TestCase
 
     public function test_legacy_age_only_clients_remain_compatible(): void
     {
-        $this->postJson('/api/patients/create', $this->payload(['age' => 5, 'age_unit_id_fk' => 3]))
+        $created = $this->postJson('/api/patients/create', $this->payload(['age' => 5, 'age_unit_id_fk' => 3]))
             ->assertCreated()->assertJsonPath('age', 5)->assertJsonPath('dob', null)->assertJsonPath('dob_is_estimated', false);
+        $this->deleteJson('/api/patients/delete', ['id' => $created->json('id')])->assertOk();
     }
 
     public function test_future_invalid_dates_and_invalid_ages_are_rejected_before_creating_patient(): void

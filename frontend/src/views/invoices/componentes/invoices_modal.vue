@@ -111,7 +111,7 @@
                   </select>
                 </div>
 
-                <PatientAgeInput ref="patientAgeInput" v-model="patientStore.record" :units="patientStore.AgeUnits" :locale="lang" class="md:col-span-2 xl:col-span-3" />
+                <PatientAgeInput ref="patientAgeInput" v-model="patientStore.record" :units="patientStore.AgeUnits" :locale="lang" class="md:col-span-2 lg:col-span-3" />
 
                 <!-- Nationality -->
                 <div>
