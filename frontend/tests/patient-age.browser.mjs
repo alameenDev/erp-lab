@@ -76,8 +76,9 @@ try {
   });
   await input('birth-year').waitFor(); assert.equal(await input('birth-year').inputValue(), '1996');
   await enterDate(15, 12, 1996); assert.equal(await input('age-value').inputValue(), '29');
-  await page.locator('[role=dialog] button[type=submit]').click();
-  await page.waitForFunction(() => !document.querySelector('[role=dialog]'));
+  const patientForm = page.locator('form').filter({ has: page.locator('[data-patient-age]') });
+  await patientForm.locator('button[type=submit]').click();
+  await patientForm.waitFor({ state: 'detached' });
   assert.equal(saved.at(-1).dob, '1996-12-15'); assert.equal(saved.at(-1).age, '29'); assert.equal(saved.at(-1).dob_is_estimated, '0');
   await page.evaluate(async () => {
     const { usePatientsStore } = await import('/src/store/modules/patients.js');
