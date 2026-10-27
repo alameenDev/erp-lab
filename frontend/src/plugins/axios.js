@@ -162,7 +162,8 @@ _axios.interceptors.response.use(
       case 503:
         // Keep the notification draft and its idempotency key mounted so an
         // interrupted campaign request can be retried without sending twice.
-        if (!error.config?.url?.startsWith('/lab-notifications/')) router.push("/error/503");
+        // Owner screens also provide an inline retry and must retain their lab/date selection.
+        if (!['/lab-notifications/', '/owner-portal/'].some(prefix => error.config?.url?.startsWith(prefix))) router.push("/error/503");
         break;
 
       default:
