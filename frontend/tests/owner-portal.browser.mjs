@@ -92,7 +92,7 @@ try {
   await page.waitForFunction(() => ownerFixture.requests.some(r => r.url === '/super-admin/owners' && r.method === 'post'));
   assert.ok(await page.evaluate(() => ownerFixture.requests.some(r => r.url === '/super-admin/owners' && r.method === 'post' && r.payload.lab_ids.includes(1))));
   await page.evaluate(async () => { ownerFixture.admin = false; localStorage.removeItem('token'); await ownerFixture.router.push('/owner-portal/notifications?notice=11111111-1111-4111-8111-111111111111'); });
-  await page.waitForURL('**/owner-portal/login?*');
+  await page.waitForURL(url => url.pathname === '/owner-portal/login');
   assert.equal(new URL(page.url()).searchParams.get('redirect'),'/owner-portal/notifications?notice=11111111-1111-4111-8111-111111111111');
   assert.equal(await page.locator('link[rel="manifest"]').getAttribute('href'),'/owner-app/manifest.webmanifest');
   assert.deepEqual(errors,[]);

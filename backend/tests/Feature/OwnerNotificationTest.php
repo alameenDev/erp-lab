@@ -158,7 +158,7 @@ class OwnerNotificationTest extends TestCase
         $this->subscribe()->update(['auth_token_id' => $token->accessToken->id]);
         $this->postJson('/api/owner-portal/notifications/push/subscribe', $this->payload('tablet'))->assertOk();
         OwnerPushSubscription::where('endpoint_hash', hash('sha256', $this->payload('tablet')['subscription']['endpoint']))->update(['auth_token_id' => $other->accessToken->id]);
-        Auth::guard('web')->logout(); Auth::forgetGuards();
+        Auth::guard('web')->forgetUser(); Auth::forgetGuards();
         $this->withToken($token->plainTextToken)->postJson('/api/user/logout')->assertOk();
         $this->assertSame(1, OwnerPushSubscription::count());
         $this->assertSame($other->accessToken->id, OwnerPushSubscription::firstOrFail()->auth_token_id);
