@@ -91,6 +91,7 @@
   "all": "All",
   "filters": "Filters",
   "payment_status": "Payment Status",
+  "owner_accounts": "Owner accounts",
   "payment_paid": "Paid",
   "payment_partial": "Partially paid",
   "unpaid": "Unpaid",

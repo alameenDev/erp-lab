@@ -16,7 +16,7 @@ export const useAuthStore = defineStore("auth", {
       // Replace permissions even when the new account has no grants.
       localStorage.setItem('token', data.token);
       this.applyAccess(data);
-      if (!data.user.is_referral_partner) {
+      if (!data.user.is_referral_partner && !data.user.owner_portal_only) {
         try {
           const settings = useLabSettingsStore();
           await settings.GetSettings();
@@ -31,7 +31,7 @@ export const useAuthStore = defineStore("auth", {
         ...(data.user?.roles || []).flatMap(role => role.permissions || []),
         ...(data.user?.permissions || []),
       ];
-      this.setPermissions(data.user?.is_referral_partner ? [] : effective);
+      this.setPermissions(data.user?.is_referral_partner || data.user?.owner_portal_only ? [] : effective);
     },
     async refreshAccess() {
       const token = localStorage.getItem('token');

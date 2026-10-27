@@ -91,6 +91,7 @@
   "all": "الكل",
   "filters": "الفلاتر",
   "payment_status": "حالة الدفع",
+  "owner_accounts": "حسابات المالكين",
   "payment_paid": "مدفوع",
   "payment_partial": "مدفوع جزئياً",
   "unpaid": "غير مدفوع",

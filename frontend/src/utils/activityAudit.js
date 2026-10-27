@@ -3,7 +3,7 @@ let recent = null;
 let installed = false;
 let queue = [];
 let timer;
-const excluded = path => /^\/(login|register|portal|result|invoice|doctor-portal|referral-portal)(\/|$)/.test(path);
+const excluded = path => /^\/(login|register|portal|result|invoice|doctor-portal|referral-portal|owner-portal)(\/|$)/.test(path);
 
 export function activityRequestHeaders(method, url) {
   if (!recent || Date.now() - recent.at > 15000 || !['post', 'put', 'patch', 'delete'].includes(String(method).toLowerCase()) || /activity\/|\/log\/|search|heartbeat/.test(url || '')) return {};
