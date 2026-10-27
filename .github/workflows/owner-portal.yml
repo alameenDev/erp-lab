@@ -70,7 +70,14 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm install --no-save --package-lock=false playwright@1.55.1
-      - run: npx playwright install --with-deps chromium
+      - name: Prepare Chromium
+        timeout-minutes: 5
+        run: |
+          if command -v google-chrome > /dev/null; then
+            echo "OWNER_CHROMIUM_EXECUTABLE=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          else
+            npx playwright install --with-deps chromium
+          fi
       - run: |
           npm run dev -- --host 127.0.0.1 --port 5173 > /tmp/owner-vite.log 2>&1 &
           for attempt in $(seq 1 30); do

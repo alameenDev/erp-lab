@@ -2,13 +2,13 @@ import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 await mkdir('test-results/owner-portal', {recursive:true});
-const browser = await chromium.launch();
+const browser = await chromium.launch({ executablePath:process.env.OWNER_CHROMIUM_EXECUTABLE || undefined });
 const page = await browser.newPage({viewport:{width:1440,height:1100}});
 const errors = []; page.on('pageerror', e => errors.push(e.message));
 await page.route('**/fonts.googleapis.com/**', r => r.abort()); await page.route('**/fonts.gstatic.com/**', r => r.abort());
 const ready = async () => { await page.locator('.owner-skeleton').waitFor({state:'hidden'}); };
 const go = async section => { await page.evaluate(s => ownerFixture.router.push('/owner-portal/' + s), section); await ready(); };
-const screenshot = name => page.screenshot({path:`test-results/owner-portal/${name}.png`,fullPage:true,animations:'disabled'});
+const screenshot = async name => { await page.waitForTimeout(300); return page.screenshot({path:`test-results/owner-portal/${name}.png`,fullPage:true,animations:'disabled'}); };
 try {
   await page.goto('http://127.0.0.1:5173/tests/owner-portal-browser.html'); await page.locator('.owner-hero').waitFor();
   assert.ok((await page.locator('.owner-kpis').innerText()).includes('التحاليل المصروفة'));
@@ -37,7 +37,7 @@ try {
   await go('subscriptions'); assert.equal(await page.locator('.owner-subscription').count(),2);
   await go('team'); assert.ok((await page.locator('.owner-empty').innerText()).includes('اختر المختبر'));
   await page.getByRole('combobox',{name:'المختبر',exact:true}).selectOption('1'); await ready(); await page.getByRole('button',{name:'إضافة موظف',exact:true}).click();
-  await page.getByLabel('الاسم الكامل',{exact:true}).fill('موظف جديد'); await page.getByLabel('البريد الإلكتروني',{exact:true}).fill('new@example.test'); await page.getByLabel('كلمة المرور',{exact:true}).fill('test-password-123'); await page.getByLabel('الدور والصلاحيات',{exact:true}).selectOption('7'); await page.getByRole('button',{name:'حفظ الحساب',exact:true}).click(); await page.locator('.owner-team-card').filter({hasText:'موظف جديد'}).waitFor();
+  await page.getByLabel('الاسم الكامل',{exact:true}).fill('موظف جديد'); await page.getByLabel('البريد الإلكتروني',{exact:true}).fill('new@example.test'); await page.getByLabel('كلمة المرور',{exact:true}).fill('test-password-123'); await page.getByLabel('الدور والصلاحيات',{exact:false}).selectOption('7'); await page.getByRole('button',{name:'حفظ الحساب',exact:true}).click(); await page.locator('.owner-team-card').filter({hasText:'موظف جديد'}).waitFor();
   assert.ok(await page.evaluate(() => ownerFixture.requests.some(r => r.url === '/owner-portal/team' && r.method === 'post' && r.payload.lab_id === 1)));
   await go('overview'); await page.evaluate(() => ownerFixture.fail = true); await page.getByRole('button',{name:'تحديث البيانات',exact:true}).click(); await page.locator('.owner-error').waitFor();
   await page.evaluate(() => ownerFixture.fail = false); await page.getByRole('button',{name:'إعادة المحاولة',exact:true}).click(); await page.locator('.owner-hero').waitFor();
