@@ -91,6 +91,8 @@
   "all": "الكل",
   "filters": "الفلاتر",
   "payment_status": "حالة الدفع",
+  "payment_paid": "مدفوع",
+  "payment_partial": "مدفوع جزئياً",
   "unpaid": "غير مدفوع",
   "partial": "دفع جزئي",
   "date_from": "من",

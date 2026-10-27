@@ -91,6 +91,8 @@
   "all": "All",
   "filters": "Filters",
   "payment_status": "Payment Status",
+  "payment_paid": "Paid",
+  "payment_partial": "Partially paid",
   "unpaid": "Unpaid",
   "partial": "Partial",
   "date_from": "From",
