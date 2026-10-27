@@ -52,7 +52,7 @@ export function canAccessPage(path, user, permissions = []) {
 }
 
 export function landingPage(user, permissions = []) {
-  if (user?.owner_portal_only) return '/owner-portal';
+  if (user?.owner_portal_only) return '/owner-portal/';
   if (user?.is_referral_partner) return user.is_doctor_portal ? '/doctor-portal' : '/referral-portal';
   if (Number(user?.role_id) === 1) return '/super-admin';
   const preferred = Number(user?.role_id) === 4 ? '/patients' : Number(user?.role_id) === 6 ? '/invoices' : '/dashboard';

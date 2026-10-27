@@ -1,3 +1,4 @@
+import { ownerPortalHead } from '@/utils/ownerPortalApp';
 import { createRouter, createWebHistory } from "vue-router";
 import { canAccessPage, landingPage, readStoredJson } from "@/utils/accessControl";
 import { useAuthStore } from "@/store/modules/auth";
@@ -242,7 +243,7 @@ const router = createRouter({
                ],
           },
           {
-               path: '/owner-portal/:section(overview|invoices|analyses|results|referrals|activity|changes|team|subscriptions)?',
+               path: '/owner-portal/:section(overview|invoices|analyses|results|referrals|activity|changes|team|subscriptions|notifications|app)?',
                name: 'owner-portal',
                component: () => import('@/views/owner-portal/index.vue'),
                meta: { requiresAuth: true, title: 'بوابة المالك | Digital Lab' },
@@ -364,6 +365,7 @@ const router = createRouter({
           },
           {
                path: "/login",
+               alias: "/owner-portal/login",
                name: "login",
                component: () => import("@/views/auth/login.vue"),
                meta: {
@@ -383,7 +385,8 @@ const router = createRouter({
           {
                path: "/logout",
                name: "logout",
-               beforeEnter: (to, from, next) => {
+               beforeEnter: async (to, from, next) => {
+                    if (readStoredJson('user')?.owner_portal_only) { await useAuthStore().logout(); next(false); return; }
                     let lang = localStorage.getItem("locale") ? localStorage.getItem("locale") : "ar";
                     const localPrinters = localStorage.getItem("digital-lab-print-v1");
                     localStorage.clear();
@@ -444,13 +447,14 @@ const router = createRouter({
 router.beforeEach(async (to) => {
      const authenticated = Boolean(localStorage.getItem('token'));
      const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
-     if (requiresAuth && !authenticated) return '/login';
+     const login = to.path.startsWith('/owner-portal') ? { path:'/owner-portal/login', query:{ redirect:to.fullPath } } : '/login';
+     if (requiresAuth && !authenticated) return login;
      if (!authenticated) return true;
      const auth = useAuthStore();
      if (requiresAuth && to.path !== '/logout') {
           try { await auth.refreshAccess(); }
           catch (error) {
-               if (!localStorage.getItem('token')) return '/login';
+               if (!localStorage.getItem('token')) return login;
                // Do not grant a protected route when session refresh failed.
                if (to.path !== '/access-denied') return '/access-denied';
           }
@@ -466,6 +470,7 @@ router.beforeEach(async (to) => {
 
 // Update document title and meta tags after each navigation
 router.afterEach((to) => {
+     ownerPortalHead(to.path.startsWith('/owner-portal'));
      const defaultTitle = "Digital Lab | المختبر الرقمي";
      const defaultDescription =
           "Digital Lab - نظام إدارة المختبرات الطبية الرقمي. Medical Laboratory Management System.";

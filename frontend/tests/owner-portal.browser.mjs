@@ -45,7 +45,43 @@ try {
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),'mobile has no horizontal overflow');
   await page.getByRole('button',{name:'المزيد من الأقسام',exact:true}).click(); await page.locator('.owner-more').getByRole('button',{name:'إحالات',exact:false}).click(); await ready(); await screenshot('referrals-mobile');
   await page.getByRole('navigation',{name:'التنقل السريع'}).getByRole('button',{name:'الرقابة',exact:true}).click(); await ready(); await screenshot('changes-mobile');
-  await page.evaluate(() => ownerFixture.router.push('/invoices')); await page.waitForURL('**/owner-portal');
+  await go('notifications'); await page.locator('.owner-notice-row').first().waitFor();
+  assert.equal(await page.locator('.owner-notice-row').count(),2); await screenshot('notifications-mobile');
+  await page.locator('.owner-notice-row').filter({hasText:'ملخص يوم العمل'}).click(); await page.locator('.owner-digest-grid').waitFor();
+  assert.ok((await page.locator('.owner-digest-grid').innerText()).includes('التحصيل خلال اليوم')); await screenshot('daily-summary-mobile');
+  await go('app'); await page.locator('.owner-app-settings').waitFor();
+  await page.waitForFunction(() => ownerFixture.requests.some(r => r.url === '/owner-portal/notifications/config'));
+  await screenshot('owner-app-mobile');
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
+  assert.equal(await page.locator('link[rel="manifest"]').getAttribute('href'),'/owner-portal/manifest.webmanifest');
+  const manifest = await page.evaluate(async () => (await fetch('/owner-portal/manifest.webmanifest')).json());
+  assert.equal(manifest.scope,'/owner-portal/'); assert.equal(manifest.start_url,'/owner-portal/');
+  // Exercise permission opt-in without contacting a browser push provider.
+  await page.evaluate(() => {
+    ownerFixture.pushEnabled = true;
+    PushManager.prototype.getSubscription = async () => ownerFixture.subscription || null;
+    PushManager.prototype.subscribe = function() {
+      ownerFixture.gesture = navigator.userActivation.isActive;
+      const sub = { endpoint:'https://fcm.googleapis.com/fcm/send/browser-test', toJSON:() => ({endpoint:sub.endpoint, keys:{p256dh:'fixture',auth:'fixture'}}), unsubscribe:async () => {ownerFixture.subscription = null; return true;} };
+      ownerFixture.subscription = sub; return Promise.resolve(sub);
+    };
+  });
+  await page.getByRole('button',{name:'إعادة التجهيز',exact:true}).click();
+  await page.getByRole('button',{name:'تفعيل الإشعارات',exact:true}).waitFor();
+  await page.waitForFunction(() => ![...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'تفعيل الإشعارات').disabled);
+  assert.equal(await page.evaluate(() => ownerFixture.requests.filter(r => r.url.endsWith('/push/subscribe')).length),0,'no automatic opt-in');
+  await page.getByRole('button',{name:'تفعيل الإشعارات',exact:true}).click();
+  await page.getByRole('button',{name:'حفظ الاختيارات',exact:true}).waitFor();
+  assert.ok(await page.evaluate(() => ownerFixture.gesture),'subscribe starts inside click activation');
+  await page.getByLabel('إشعارات ملخص نهاية اليوم',{exact:true}).uncheck();
+  await page.getByRole('button',{name:'حفظ الاختيارات',exact:true}).click();
+  await page.waitForFunction(() => ownerFixture.requests.some(r => r.url.endsWith('/push/subscribe') && r.payload.daily_enabled === false));
+  await page.getByRole('button',{name:'إرسال إشعار تجريبي',exact:true}).click(); await page.getByText('أُضيف الإشعار إلى قائمة الإرسال. قد يستغرق وصوله دقيقة.',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'إيقاف على هذا الجهاز',exact:true}).click(); await page.getByRole('button',{name:'تفعيل الإشعارات',exact:true}).waitFor();
+  await page.evaluate(() => ownerFixture.router.push('/owner-portal/notifications?notice=11111111-1111-4111-8111-111111111111'));
+  await page.getByRole('button',{name:'عرض سجل العملية الكامل',exact:true}).waitFor();
+  await page.getByRole('button',{name:'عرض سجل العملية الكامل',exact:true}).click(); await page.locator('.owner-diff').first().waitFor();
+  await page.evaluate(() => ownerFixture.router.push('/invoices')); await page.waitForURL('**/owner-portal/');
   await page.setViewportSize({width:1280,height:960});
   await page.evaluate(async () => { ownerFixture.admin = true; await ownerFixture.router.push('/super-admin/owners'); });
   await page.locator('.owners-grid article').waitFor(); await page.getByRole('button',{name:'＋ إنشاء حساب مالك',exact:true}).click();

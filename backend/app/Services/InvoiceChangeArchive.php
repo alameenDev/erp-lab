@@ -9,7 +9,7 @@ use Spatie\Activitylog\Models\Activity;
 /** Append-only evidence. Application APIs expose no update/delete operation. */
 class InvoiceChangeArchive
 {
-    public function capture(Activity $activity): void
+    public function capture(Activity $activity, bool $notify = false): void
     {
         if ($activity->subject_type !== Invoice::class) return;
         $event = $activity->event ?: (['تعديل' => 'updated', 'حذف' => 'deleted'][$activity->log_name] ?? '');
@@ -40,7 +40,8 @@ class InvoiceChangeArchive
         $financial = $fields->contains(fn ($field) => preg_match('/^(?:invoice\.)?(total|sub_total|paid|discount|discount_type_id_fk|loyalty_discount)$|^payments\.|^analyses\..*\.price$/', $field));
         $results = $fields->contains(fn ($field) => preg_match('/^analyses\.|^(?:invoice\.)?is_done$/', $field));
         $context = $props['invoice'] ?? [];
-        DB::table('invoice_change_archive')->insertOrIgnore([
+        DB::transaction(function () use ($activity, $tenant, $props, $before, $after, $context, $oldInvoice, $newInvoice, $event, $financial, $results, $oldTotal, $newTotal, $oldPaid, $newPaid, $changes, $notify) {
+        $inserted = DB::table('invoice_change_archive')->insertOrIgnore([
             'activity_id' => $activity->id, 'tenant_id' => $tenant, 'invoice_id' => $activity->subject_id,
             'actor_id' => $activity->causer_type === User::class ? $activity->causer_id : null,
             'actor_name' => $props['actor_name'] ?? null, 'actor_role' => $props['actor_role'] ?? null,
@@ -54,5 +55,7 @@ class InvoiceChangeArchive
             'snapshot' => json_encode(['before' => $before, 'after' => $after, 'changes' => $changes], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE),
             'occurred_at' => $activity->created_at,
         ]);
+        if ($inserted && $notify) app(OwnerNotifications::class)->invoiceChanged(DB::table('invoice_change_archive')->where('activity_id', $activity->id)->first());
+        });
     }
 }

@@ -4,6 +4,11 @@ on:
     paths:
       - 'backend/app/**'
       - 'backend/routes/api.php'
+      - 'backend/routes/console.php'
+      - 'backend/tests/Feature/OwnerNotificationTest.php'
+      - 'frontend/public/owner-portal/**'
+      - 'frontend/src/composables/useOwnerPortalApp.js'
+      - 'frontend/src/utils/ownerPortalApp.js'
       - 'backend/database/migrations/**'
       - 'backend/tests/Feature/OwnerPortalTest.php'
       - 'frontend/src/views/owner-portal/**'
@@ -52,7 +57,7 @@ jobs:
       - run: composer install --no-interaction --prefer-dist
       - run: cp .env.example .env
       - run: php artisan key:generate
-      - run: php artisan test --filter='OwnerPortalTest|AccountingReportsTest|ActivityAuditTest|AccountPermissionsTest'
+      - run: php artisan test --filter='OwnerNotificationTest|OwnerPortalTest|AccountingReportsTest|ActivityAuditTest|AccountPermissionsTest|PortalPushTransportTest|PortalNotificationTest'
       - if: failure()
         run: test ! -f storage/logs/laravel.log || tail -100 storage/logs/laravel.log
   owner-browser:

@@ -145,6 +145,17 @@ Route::group(['middleware' => ['auth:sanctum', \App\Http\Middleware\EnsureActive
     Route::post('super-admin/owners', [\App\Http\Controllers\OwnerAccountController::class, 'store']);
     Route::put('super-admin/owners/{id}', [\App\Http\Controllers\OwnerAccountController::class, 'update'])->whereNumber('id');
     Route::prefix('owner-portal')->group(function () {
+        Route::prefix('notifications')->group(function () {
+            $controller = \App\Http\Controllers\OwnerNotificationController::class;
+            Route::get('/', [$controller, 'index']);
+            Route::get('config', [$controller, 'config']);
+            Route::post('push/status', [$controller, 'status'])->middleware('throttle:60,1');
+            Route::post('push/subscribe', [$controller, 'subscribe'])->middleware('throttle:10,1');
+            Route::post('push/unsubscribe', [$controller, 'unsubscribe'])->middleware('throttle:10,1');
+            Route::post('push/test', [$controller, 'test'])->middleware('throttle:3,1');
+            Route::get('{id}', [$controller, 'show'])->whereUuid('id');
+            Route::post('{id}/read', [$controller, 'read'])->whereUuid('id');
+        });
         Route::get('me', [\App\Http\Controllers\OwnerPortalController::class, 'me']);
         Route::get('overview', [\App\Http\Controllers\OwnerPortalController::class, 'overview']);
         Route::get('invoices', [\App\Http\Controllers\OwnerPortalController::class, 'invoices']);
