@@ -1,0 +1,58 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Owner portal preview</title></head><body><div id="app"></div><script type="module">
+import { createApp, h } from 'vue';
+import { createPinia } from 'pinia';
+import { RouterView } from 'vue-router';
+import PrimeVue from 'primevue/config';
+import Aura from '@primevue/themes/aura';
+import Mixins from '/src/utils/mixins';
+import router from '/src/router';
+import { $http } from '/src/plugins/axios';
+import { useAuthStore } from '/src/store/modules/auth';
+import '/src/assets/main.css';
+import 'primeicons/primeicons.css';
+localStorage.setItem('token', 'synthetic-owner-token'); localStorage.setItem('locale', 'ar');
+const owner = { id:90, name:'مالك تجريبي', email:'owner@example.test', owner_portal_only:true, role_id:null };
+const labs = [{ id:1, name:'مختبر النور', active:true, subscription:{ plan:'Digital Lab Pro', status:'active', end_date:'2026-11-30', days_left:34 } },
+  { id:2, name:'مختبر الحياة', active:true, subscription:{ plan:'Digital Lab Plus', status:'active', end_date:'2026-11-05', days_left:9 } }];
+localStorage.setItem('user', JSON.stringify(owner));
+const baseInvoice = { id:41, patient_name:'مراجع تجريبي', lab_name:'مختبر النور', lab_id:1, date:'2026-10-27T06:00:00Z', total:25000, paid:15000, balance:10000, payment_status:'partial', is_done:false };
+const ledger = [baseInvoice, { ...baseInvoice, id:42, patient_name:'مراجعة تجريبية', payment_status:'paid', paid:25000, balance:0, is_done:true }, { ...baseInvoice, id:43, payment_status:'unpaid', paid:0, balance:25000 }];
+const overview = {
+  meta:{ from:'2026-10-21', to:'2026-10-27', currency:'IQD', timezone:'Asia/Baghdad' },
+  summary:{ invoice_count:28, patient_count:22, analysis_count:132, total:780000, paid:580000, balance:200000, collections_in_period:650000, estimated_membership_invoices:0 },
+  results:{ completed:23, pending:5 },
+  trend:[12,18,15,22,20,16,28].map((count,i) => ({ period:`2026-10-${21+i}`, count })),
+  comparison:{ current:28, previous:35, percent:-20, from:'2026-10-26', to:'2026-10-26', same_elapsed_time:true, sources_decreased:[{ name:'طبيب تجريبي', previous:12, current:7, decrease:5 }], suggestions:['راجع مصادر الإحالة التي انخفض عددها، وتواصل مع الجهات المعنية لفهم السبب.', 'تابع التقارير غير المكتملة مع فريق المختبر وحدد موعد إنجازها.'], note:'مقارنة بالفترة السابقة المساوية وبنفس الوقت المنقضي. المؤشرات لا تثبت مسؤولية موظف.' },
+  analyses:[{ id:5, kind:'test', name:'Complete Blood Count', shortcut:'CBC', count:32, direct:20, in_groups:8, in_packages:4 },{ id:6, kind:'test', name:'Glucose', shortcut:'GLU', count:28, direct:15, in_groups:8, in_packages:5 },{ id:7, kind:'test', name:'Vitamin D', count:19, direct:11, in_groups:4, in_packages:4 }],
+  items:[{ id:5, kind:'test', name:'CBC', count:32, price:320000, net_allocated:280000 },{ id:2, kind:'package', name:'الفحص الشامل', count:8, price:400000, net_allocated:350000 }],
+  doctor_referrals:[{ id:4, name:'طبيب تجريبي', lab_id:1, lab_name:'مختبر النور', invoice_count:12, total:300000, paid:250000, balance:50000, commission_estimate:30000 }],
+  lab_referrals:[{ id:8, name:'مختبر محيل تجريبي', lab_id:1, lab_name:'مختبر النور', invoice_count:9, total:210000, paid:170000, balance:40000, commission_estimate:21000 }],
+};
+const change = { id:7, invoice_id:41, actor_name:'موظف تجريبي', patient_name:'مراجع تجريبي', event:'deleted', before_total:25000, after_total:0, total_delta:-25000, paid_delta:-15000, occurred_at:'2026-10-27T06:30:00Z', snapshot:{ changes:[{ field:'invoice.total', label:'إجمالي الفاتورة', before:25000, after:null },{ field:'analyses.cbc.result', label:'CBC / النتيجة', before:'12.5', after:null }] } };
+const staff = [{ id:20, name:'موظف تجريبي', email:'staff@example.test', role_id:7, status:1, role:{ name:'استقبال' } }];
+const fixture = window.ownerFixture = { requests:[], overview, fail:false, admin:false, staff, router, delayLab:0 };
+$http.defaults.adapter = async config => {
+  const url = config.url, p = config.params || {}, payload = typeof config.data === 'string' ? JSON.parse(config.data) : config.data;
+  fixture.requests.push({ url, params:p, method:config.method, payload });
+  if (fixture.fail && url.includes('/owner-portal/')) { const error = new Error('Synthetic outage'); error.config = config; error.response = { status:503, data:{ message:'تعذر الاتصال مؤقتاً' } }; throw error; }
+  if (fixture.delayLab && Number(p.lab_id) === fixture.delayLab) await new Promise(resolve => setTimeout(resolve, 600));
+  let data;
+  if (url === '/user/access') data = { user:fixture.admin ? { id:1, role_id:1, name:'Administrator' } : owner, permissions:fixture.admin ? ['super admin labs','super admin dashboard'] : [] };
+  else if (url === '/owner-portal/me') data = { owner, labs };
+  else if (url === '/owner-portal/overview') data = { ...overview, summary:{ ...overview.summary, total:Number(p.lab_id) === 2 ? 220000 : 780000 } };
+  else if (url === '/owner-portal/invoices') { const list = ledger.filter(i => !p.status || i.payment_status === p.status).filter(i => !p.result_status || i.is_done === (p.result_status === 'done')); data = { data:list, pagination:{ page:1, last_page:1, total:list.length } }; }
+  else if (/\/owner-portal\/invoices\/\d+$/.test(url)) data = { ...baseInvoice, items:[{ id:1, name:'CBC', kind:'test', net_allocated:25000, analyses:[{name:'CBC'}] }], payments:[{id:1, amount:15000, method:'نقد', date:'2026-10-27T06:00:00Z'}], results:{ test_1:{ name:'CBC', is_done:false, result:'12.5', unit:'g/dL', sub_tests:[{name:'WBC',result:6,unit:'10^9/L'}] } } };
+  else if (url === '/owner-portal/changes') data = { data:[change], summary:{ deleted_count:1, deleted_total:25000, increases:5000, decreases:2000, net_change:-22000, payments_change:-15000, unknown_amounts:0 }, pagination:{ page:1, last_page:1, total:1 }, note:'الإجماليات تمثل حركة التعديلات المسجلة، وليست إيراداً إضافياً.' };
+  else if (url === '/owner-portal/changes/7') data = change;
+  else if (url === '/owner-portal/activity') data = { data:[{id:10,actor:'موظف تجريبي',description:'تعديل نتيجة CBC',event:'updated',date:'2026-10-27T06:00:00Z'}], summary:{total:1,employees:1,failed:0},pagination:{page:1,last_page:1,total:1} };
+  else if (url === '/owner-portal/activity/10') data = { actor:'موظف تجريبي', event:'updated', date:'2026-10-27T06:00:00Z', details:{ changes:[{field:'result',label:'CBC',before:'12',after:'13'}] } };
+  else if (url.startsWith('/owner-portal/team') && config.method !== 'get') { if (config.method === 'post') staff.push({id:21,...payload,role:{name:'استقبال'}}); data={id:21}; }
+  else if (url === '/owner-portal/team') data = { staff, roles:[{id:7,name:'استقبال',permissions:['invoices view','invoices create']}] };
+  else if (url === '/super-admin/owners' && config.method === 'get') data = { owners:{ data:[{...owner, status:1, lab_ids:[1,2]}], last_page:1 }, labs:labs.map(l => ({...l,status:1})) };
+  else if (url.startsWith('/super-admin/owners')) data = { id:91 };
+  else if (url === '/user/logout') data = {};
+  else throw new Error('Unexpected request: ' + url);
+  return { data:JSON.parse(JSON.stringify(data)), status:200, statusText:'OK', headers:{}, config };
+};
+const app = createApp({ render:() => h(RouterView) }); const pinia = createPinia(); app.use(pinia); app.use(PrimeVue, {theme:{preset:Aura}}); app.mixin(Mixins); useAuthStore().applyAccess({user:owner,permissions:[]}); app.use(router); await router.replace('/owner-portal'); app.mount('#app');
+</script></body></html>

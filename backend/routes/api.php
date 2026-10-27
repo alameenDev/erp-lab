@@ -140,7 +140,23 @@ Route::post('device/results', [DeviceResultController::class, 'receiveResults'])
 Route::post('device/heartbeat', [DeviceResultController::class, 'heartbeat'])
     ->middleware('throttle:120,1');
 
-Route::group(['middleware' => ['auth:sanctum', \App\Http\Middleware\EnsureActiveAccount::class, \App\Http\Middleware\RestrictReferralPortal::class, \App\Http\Middleware\AuditActivity::class]], function (): void {
+Route::group(['middleware' => ['auth:sanctum', \App\Http\Middleware\EnsureActiveAccount::class, \App\Http\Middleware\RestrictOwnerPortal::class, \App\Http\Middleware\RestrictReferralPortal::class, \App\Http\Middleware\AuditActivity::class]], function (): void {
+    Route::get('super-admin/owners', [\App\Http\Controllers\OwnerAccountController::class, 'index']);
+    Route::post('super-admin/owners', [\App\Http\Controllers\OwnerAccountController::class, 'store']);
+    Route::put('super-admin/owners/{id}', [\App\Http\Controllers\OwnerAccountController::class, 'update'])->whereNumber('id');
+    Route::prefix('owner-portal')->group(function () {
+        Route::get('me', [\App\Http\Controllers\OwnerPortalController::class, 'me']);
+        Route::get('overview', [\App\Http\Controllers\OwnerPortalController::class, 'overview']);
+        Route::get('invoices', [\App\Http\Controllers\OwnerPortalController::class, 'invoices']);
+        Route::get('invoices/{id}', [\App\Http\Controllers\OwnerPortalController::class, 'invoice'])->whereNumber('id');
+        Route::get('activity', [\App\Http\Controllers\OwnerPortalController::class, 'activity']);
+        Route::get('activity/{id}', [\App\Http\Controllers\OwnerPortalController::class, 'activityDetail'])->whereNumber('id');
+        Route::get('changes', [\App\Http\Controllers\OwnerPortalController::class, 'changes']);
+        Route::get('changes/{id}', [\App\Http\Controllers\OwnerPortalController::class, 'changeDetail'])->whereNumber('id');
+        Route::get('team', [\App\Http\Controllers\OwnerTeamController::class, 'index']);
+        Route::post('team', [\App\Http\Controllers\OwnerTeamController::class, 'store'])->middleware('throttle:30,1');
+        Route::put('team/{id}', [\App\Http\Controllers\OwnerTeamController::class, 'update'])->whereNumber('id')->middleware('throttle:30,1');
+    });
 
     /**
      @ User Api Routes

@@ -59,6 +59,7 @@ const menuGroups = [
         items: [
           { label: "system_overview", to: "/super-admin", permission: "super admin dashboard" },
           { label: "lab_management", to: "/super-admin/labs", permission: "super admin labs" },
+          { label: "owner_accounts", to: "/super-admin/owners", permission: "super admin labs" },
           { label: "subscriptions", to: "/super-admin/subscriptions", permission: "subscriptions view" },
           { label: "system_activity_log", to: "/super-admin/activity-log", permission: "super admin activity log" },
           { label: "patients", to: "/super-admin/patients", permission: "super admin dashboard" },

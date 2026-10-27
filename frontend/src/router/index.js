@@ -14,6 +14,7 @@ const router = createRouter({
                },
                meta: { requiresAuth: true },
                children: [
+                    { path: '/super-admin/owners', name: 'owner-accounts', component: () => import('@/views/super-admin/owners.vue'), meta: { title: 'حسابات المالكين | Digital Lab' } },
                     { path: '/access-denied', name: 'access-denied', component: () => import('@/views/errors/AccessDenied.vue'), meta: { title: 'صلاحيات الوصول | Digital Lab' } },
                     {path: "/printer-settings", name: "printer-settings", component: () => import("@/views/lab-settings/LocalPrinterSettings.vue"), meta: {title: "الطابعات لهذا الجهاز | Digital Lab"}},
                     {
@@ -241,6 +242,12 @@ const router = createRouter({
                ],
           },
           {
+               path: '/owner-portal/:section(overview|invoices|analyses|results|referrals|activity|changes|team|subscriptions)?',
+               name: 'owner-portal',
+               component: () => import('@/views/owner-portal/index.vue'),
+               meta: { requiresAuth: true, title: 'بوابة المالك | Digital Lab' },
+          },
+          {
                path: "/referral-portal",
                component: () => import("@/layout/ReferralPortalLayout.vue"),
                meta: { requiresAuth: true },
@@ -452,7 +459,7 @@ router.beforeEach(async (to) => {
      const home = landingPage(user, auth.rolePermissions);
      if (to.name === 'welcome' || to.name === 'login' || to.path === '/app') return home;
      if (requiresAuth && !canAccessPage(to.path, user, auth.rolePermissions)) {
-          return user?.is_referral_partner ? home : '/access-denied';
+          return user?.is_referral_partner || user?.owner_portal_only ? home : '/access-denied';
      }
      return true;
 });

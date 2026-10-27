@@ -81,7 +81,7 @@ class AccountingReportService
         return $query;
     }
 
-    private function dateRange($query, string $column): void
+    protected function dateRange($query, string $column): void
     {
         $query->where($column, '>=', $this->filters['from'].' 00:00:00')
             ->where($column, '<', Carbon::parse($this->filters['to'])->addDay()->startOfDay());
@@ -317,12 +317,17 @@ class AccountingReportService
         }else foreach($this->overview()[$section] as $row)$write($row);
     }
 
+    protected function period(string $date, bool $monthly): string
+    {
+        return substr($date, 0, $monthly ? 7 : 10);
+    }
+
     public function overview(): array
     {
         $summary=['invoice_count'=>0,'patient_count'=>0,'sub_total'=>0,'discount_amount'=>0,'loyalty_discount'=>0,'adjustment'=>0,'total'=>0,'paid'=>0,'balance'=>0,'credit'=>0,'analysis_count'=>0,'billed_items'=>0,'known_cost'=>0,'commission_estimate'=>0,'profit_estimate'=>0,'incomplete_profit_invoices'=>0,'estimated_membership_invoices'=>0,'incomplete_cost_invoices'=>0,'incomplete_commission_invoices'=>0,'unallocated_revenue'=>0];
         $patients=[];$labs=[];$doctors=[];$operators=[];$contracts=[];$patientAccounts=[];$items=[];$analyses=[];$outbound=[];$trend=[];$aging=[0,0,0,0];$status=['paid'=>0,'partial'=>0,'unpaid'=>0,'credit'=>0];
         $monthly=Carbon::parse($this->filters['from'])->diffInDays(Carbon::parse($this->filters['to']))>90;
-        $period=fn($date)=>substr($date,0,$monthly?7:10);
+        $period=fn($date)=>$this->period($date, $monthly);
         $this->query()->chunkById(200,function($batch)use(&$summary,&$patients,&$labs,&$doctors,&$operators,&$contracts,&$patientAccounts,&$items,&$analyses,&$outbound,&$trend,&$aging,&$status,$period){
             foreach($this->rows($batch) as $row){
                 $summary['invoice_count']++;if($row['patient_id'])$patients[$row['patient_id']]=true;

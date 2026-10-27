@@ -242,7 +242,7 @@ class AuthController extends Controller
             $this->portalFlags($user);
             $isReferral = $user->is_referral_partner;
             // Check subscription for non-admin users
-            if ($user->role_id != 1) {
+            if ($user->role_id != 1 && ! $user->owner_portal_only) {
                 $labId = app(AccountAccess::class)->tenantId($user);
                 if ($labId) {
                     $subscription = \App\Models\Subscription::query()

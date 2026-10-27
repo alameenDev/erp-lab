@@ -94,6 +94,7 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
+            'owner_portal_only' => 'boolean',
             'referral_portal_only' => 'boolean',
             'role_id' => 'integer',
             'status' => 'integer',

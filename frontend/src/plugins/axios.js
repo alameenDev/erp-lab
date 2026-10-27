@@ -23,6 +23,7 @@ const shouldHideLoader = (url) => {
   if (!url) return false;
   const silentPatterns = [
     "/user/access",
+    "/owner-portal/",
     "/accounting-reports",
     "/search",
     "/invoices/search-name",

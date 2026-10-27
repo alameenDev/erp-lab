@@ -237,7 +237,7 @@ class AuditTrail
         [$controller, $method] = explode('@', $operation);
         $resource = [
             'PatientsController' => 'بيانات المريض', 'TestController' => 'التحاليل', 'TestGroupController' => 'كروبات التحاليل',
-            'PackageController' => 'الباقات', 'CultureController' => 'الزروع', 'UserController' => 'المستخدمين',
+            'PackageController' => 'الباقات', 'CultureController' => 'الزروع', 'UserController' => 'المستخدمين', 'OwnerTeamController' => 'حسابات الموظفين بواسطة المالك',
             'LabSettingController' => 'إعدادات المختبر', 'ReferalController' => 'الإحالات', 'InventoryController' => 'المخزون',
             'LabDeviceController' => 'الأجهزة', 'DeviceResultController' => 'نتائج الأجهزة', 'SampleController' => 'العينات',
             'AntibioticsController' => 'المضادات الحيوية', 'DoctorController' => 'الأطباء', 'ContractController' => 'العقود',
@@ -251,7 +251,7 @@ class AuditTrail
         $ownerUser = $owner ? User::withTrashed()->find($owner) : null;
         $tenant = self::tenantId($ownerUser ?? $this->actor);
         $actorName = $this->device ? 'جهاز: '.$this->device->name : $this->actor->name;
-        Activity::create([
+        $activity = Activity::create([
             'log_name' => ['created' => 'إنشاء', 'updated' => 'تعديل', 'deleted' => 'حذف', 'failed' => 'فشل', 'action' => 'إجراء'][$event],
             'event' => $event, 'description' => $description,
             'creator_id' => $tenant, 'audit_tenant_id' => $tenant,
@@ -268,6 +268,7 @@ class AuditTrail
                 'page' => self::safePage($this->request->header('X-Audit-Page', '')),
             ]),
         ]);
+        app(InvoiceChangeArchive::class)->capture($activity);
     }
 
     public static function safePage(string $page): string
