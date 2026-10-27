@@ -20,3 +20,19 @@ Artisan::command('portal:deliver-notifications {--limit=20}', function (): void 
 })->purpose('Send pending patient portal notifications and retry temporary failures');
 
 \Illuminate\Support\Facades\Schedule::command('portal:deliver-notifications --limit=20')->everyMinute()->withoutOverlapping(5);
+
+
+Artisan::command('owners:daily-summary {--date=}', function (): void {
+    try {
+        $count = app(\App\Services\OwnerNotifications::class)->daily($this->option('date') ?: null);
+        $this->info('Prepared '.$count.' owner daily summaries.');
+    } catch (\InvalidArgumentException $error) { $this->fail($error->getMessage()); }
+})->purpose('Prepare completed Baghdad-day summaries, with three-day automatic catch-up');
+
+Artisan::command('owners:deliver-notifications {--limit=20}', function (): void {
+    $count = app(\App\Services\OwnerNotifications::class)->deliver(max(1, min(100, (int) $this->option('limit'))));
+    $this->info('Processed '.$count.' owner notification delivery attempts.');
+})->purpose('Deliver and retry owner Web Push notifications');
+
+\Illuminate\Support\Facades\Schedule::command('owners:daily-summary')->everyMinute()->withoutOverlapping(30);
+\Illuminate\Support\Facades\Schedule::command('owners:deliver-notifications --limit=20')->everyMinute()->withoutOverlapping(5);

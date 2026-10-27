@@ -128,7 +128,7 @@ _axios.interceptors.response.use(
           const isPublic = publicPrefixes.some((p) => p === "/" ? path === "/" : path.startsWith(p));
           if (!isPublic) {
             // Send to /login (not /error/401) so user can re-auth and continue
-            router.push("/login");
+            router.push(path.startsWith("/owner-portal") ? { path:"/owner-portal/login", query:{ redirect:router.currentRoute.value.fullPath } } : "/login");
           }
         }
         break;

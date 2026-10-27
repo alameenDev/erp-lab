@@ -5,9 +5,13 @@ import { $http } from '@/plugins/axios';
 import { useAuthStore } from '@/store/modules/auth';
 import UiModal from '@/components/ui/Modal.vue';
 import OwnerValue from './OwnerValue.vue';
+import OwnerInbox from './OwnerInbox.vue';
+import OwnerAppSettings from './OwnerAppSettings.vue';
+import { useOwnerPortalApp } from '@/composables/useOwnerPortalApp';
 
 const route = useRoute(), router = useRouter(), auth = useAuthStore();
 const me = ref({ owner:{}, labs:[] }), labId = ref(''), loading = ref(true), error = ref(''), notice = ref('');
+const ownerApp = useOwnerPortalApp(computed(() => me.value.owner.id));
 const section = computed(() => route.params.section || 'overview');
 const today = new Intl.DateTimeFormat('en-CA', { timeZone:'Asia/Baghdad', year:'numeric', month:'2-digit', day:'2-digit' }).format(new Date());
 const range = ref({ from:today, to:today }), draftRange = ref({ ...range.value });
@@ -24,6 +28,8 @@ const nav = [
   { key:'activity', label:'حركة الموظفين', icon:'pi-history', subtitle:'سجل العمليات ومن نفّذها' },
   { key:'changes', label:'الرقابة والتعديلات', icon:'pi-shield', subtitle:'المحذوفات والتغييرات المالية والنتائج' },
   { key:'team', label:'فريق العمل', icon:'pi-users', subtitle:'إنشاء حسابات الموظفين وإدارتها' },
+  { key:'notifications', label:'الإشعارات', icon:'pi-bell', subtitle:'تنبيهات الفواتير وملخصات أيام العمل' },
+  { key:'app', label:'التطبيق والإشعارات', icon:'pi-mobile', subtitle:'ثبّت البوابة واضبط إشعارات جهازك' },
   { key:'subscriptions', label:'اشتراكاتي', icon:'pi-calendar', subtitle:'مواعيد انتهاء اشتراكات المختبرات' },
 ];
 const activeNav = computed(() => nav.find(n => n.key === section.value) || nav[0]);
@@ -48,7 +54,7 @@ async function load() {
   const version = ++revision;
   loading.value = true; error.value = ''; rows.value = []; summary.value = {}; report.value = null;
   if (section.value === 'team' && !labId.value) { loading.value = false; return; }
-  if (section.value === 'subscriptions') { loading.value = false; return; }
+  if (['subscriptions','notifications','app'].includes(section.value)) { loading.value = false; return; }
   try {
     const endpoint = ['overview','analyses','referrals'].includes(section.value) ? 'overview' : section.value === 'results' ? 'invoices' : section.value;
     const { data } = await $http.get(`/owner-portal/${endpoint}`, { params:params() });
@@ -94,7 +100,7 @@ async function saveStaff() {
     teamModal.value = false; await load();
   } catch(e) { formError.value = errorText(e); } finally { saving.value = false; }
 }
-async function logout() { try { await $http.post('/user/logout'); } finally { auth.clearSession(); router.push('/login'); } }
+async function logout() { try { await ownerApp.clearBinding().catch(() => {}); await $http.post('/user/logout'); } finally { auth.clearSession(); router.push('/owner-portal/login'); } }
 const changes = computed(() => detailKind.value === 'changes' ? detail.value?.snapshot?.changes || [] : detail.value?.details?.changes || []);
 const rolePermissions = computed(() => roles.value.find(r => r.id === Number(staffForm.value.role_id))?.permissions || []);
 watch(() => route.fullPath, () => {
@@ -115,16 +121,18 @@ onMounted(bootstrap);
       <div class="owner-sidebar-footer"><span class="owner-avatar">{{ me.owner.name?.slice(0,1) || 'م' }}</span><div>{{ me.owner.name || 'حساب المالك' }}<small>{{ number(me.labs.length) }} مختبر مرتبط</small></div><button @click="logout" title="تسجيل الخروج" aria-label="تسجيل الخروج"><i class="pi pi-sign-out" aria-hidden="true"></i></button></div>
     </aside>
     <main class="owner-main">
-      <header class="owner-header"><div><p class="owner-eyebrow">DIGITAL LAB · OWNER</p><h1>{{ activeNav.label }}</h1><p>{{ activeNav.subtitle }}</p></div><div class="owner-header-actions"><button class="owner-icon-button" @click="bootstrap" :disabled="loading" aria-label="تحديث البيانات"><i class="pi pi-refresh" :class="{ 'pi-spin':loading }" aria-hidden="true"></i></button><span class="owner-avatar">{{ me.owner.name?.slice(0,1) || 'م' }}</span></div></header>
-      <section class="owner-controls" aria-label="نطاق التقرير">
+      <header class="owner-header"><div><p class="owner-eyebrow">DIGITAL LAB · OWNER</p><h1>{{ activeNav.label }}</h1><p>{{ activeNav.subtitle }}</p></div><div class="owner-header-actions"><button class="owner-icon-button owner-bell" @click="go('notifications')" aria-label="الإشعارات"><i class="pi pi-bell" aria-hidden="true"></i><span v-if="ownerApp.unread">{{ ownerApp.unread > 99 ? "99+" : number(ownerApp.unread) }}</span></button><button class="owner-icon-button" @click="bootstrap" :disabled="loading" aria-label="تحديث البيانات"><i class="pi pi-refresh" :class="{ 'pi-spin':loading }" aria-hidden="true"></i></button><span class="owner-avatar">{{ me.owner.name?.slice(0,1) || 'م' }}</span></div></header>
+      <section v-if="section !== 'app'" class="owner-controls" aria-label="نطاق التقرير">
         <label class="owner-lab-select"><i class="pi pi-building" aria-hidden="true"></i><select v-model="labId" aria-label="المختبر"><option value="">كل مختبراتي</option><option v-for="lab in me.labs" :key="lab.id" :value="lab.id">{{ lab.name }}</option></select></label>
-        <div v-if="!['team','subscriptions'].includes(section)" class="owner-presets"><button @click="preset(1)" :class="{ active:range.from === today && range.to === today }">اليوم</button><button @click="preset(7)">٧ أيام</button><button @click="preset(30)">٣٠ يوماً</button></div>
-        <details v-if="!['team','subscriptions'].includes(section)" class="owner-date-menu"><summary><i class="pi pi-calendar" aria-hidden="true"></i> تحديد الفترة</summary><form @submit.prevent="applyRange"><label>من<input v-model="draftRange.from" type="date" :max="today" required></label><label>إلى<input v-model="draftRange.to" type="date" :min="draftRange.from" :max="today" required></label><button class="owner-primary">تطبيق</button></form></details>
+        <div v-if="!['team','subscriptions','notifications','app'].includes(section)" class="owner-presets"><button @click="preset(1)" :class="{ active:range.from === today && range.to === today }">اليوم</button><button @click="preset(7)">٧ أيام</button><button @click="preset(30)">٣٠ يوماً</button></div>
+        <details v-if="!['team','subscriptions','notifications','app'].includes(section)" class="owner-date-menu"><summary><i class="pi pi-calendar" aria-hidden="true"></i> تحديد الفترة</summary><form @submit.prevent="applyRange"><label>من<input v-model="draftRange.from" type="date" :max="today" required></label><label>إلى<input v-model="draftRange.to" type="date" :min="draftRange.from" :max="today" required></label><button class="owner-primary">تطبيق</button></form></details>
       </section>
       <div v-if="error" class="owner-error" role="alert"><i class="pi pi-exclamation-circle" aria-hidden="true"></i>{{ error }}<button @click="bootstrap">إعادة المحاولة</button></div>
-      <div v-if="!me.labs.length && !loading && !error" class="owner-empty"><i class="pi pi-building" aria-hidden="true"></i><h2>مختبراتك تظهر هنا</h2><p>يرجى من الأدمن الرئيسي ربط المختبرات بحسابك لبدء المتابعة.</p></div>
+      <div v-if="!me.labs.length && !loading && !error && !['notifications','app'].includes(section)" class="owner-empty"><i class="pi pi-building" aria-hidden="true"></i><h2>مختبراتك تظهر هنا</h2><p>يرجى من الأدمن الرئيسي ربط المختبرات بحسابك لبدء المتابعة.</p></div>
       <div v-else-if="loading" class="owner-skeleton" role="status" aria-label="جاري تحميل البيانات"><div></div><div></div><div></div><div></div></div>
       <template v-else-if="!error">
+        <OwnerInbox v-if="section === 'notifications'" :lab-id="labId" @read="ownerApp.refreshUnread" @archive="id => openDetail(id, 'changes')" />
+        <OwnerAppSettings v-if="section === 'app'" :app="ownerApp" />
         <template v-if="section === 'overview' && report">
           <section class="owner-hero"><div><span class="owner-live"><span></span> نظرة على {{ labName }}</span><h2>أهلاً، {{ me.owner.name }}<br><span>أعمالك أمامك، بوضوح.</span></h2><p>{{ range.from }} — {{ range.to }} · توقيت بغداد</p></div><div class="owner-hero-total"><span>صافي قيمة الفواتير</span><strong>{{ money(report.summary.total) }}</strong><small>دينار عراقي</small><span class="owner-comparison" :class="report.comparison.percent < 0 ? 'down' : 'up'">{{ report.comparison.percent === null ? 'لا توجد قاعدة مقارنة' : `${report.comparison.percent > 0 ? '+' : ''}${report.comparison.percent}% زيارات` }}</span></div></section>
           <div v-if="expired.length" class="owner-alert"><i class="pi pi-calendar" aria-hidden="true"></i><span>راجع اشتراكات {{ number(expired.length) }} من مختبراتك.</span><button @click="go('subscriptions')">عرض التفاصيل ←</button></div>

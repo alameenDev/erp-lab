@@ -30,7 +30,11 @@ const overview = {
 };
 const change = { id:7, invoice_id:41, actor_name:'موظف تجريبي', patient_name:'مراجع تجريبي', event:'deleted', before_total:25000, after_total:0, total_delta:-25000, paid_delta:-15000, occurred_at:'2026-10-27T06:30:00Z', snapshot:{ changes:[{ field:'invoice.total', label:'إجمالي الفاتورة', before:25000, after:null },{ field:'analyses.cbc.result', label:'CBC / النتيجة', before:'12.5', after:null }] } };
 const staff = [{ id:20, name:'موظف تجريبي', email:'staff@example.test', role_id:7, status:1, role:{ name:'استقبال' } }];
-const fixture = window.ownerFixture = { requests:[], overview, fail:false, admin:false, staff, router, delayLab:0 };
+const notices = [
+  { id:'11111111-1111-4111-8111-111111111111', lab_id:1, kind:'invoice_deleted', title:'حذف فاتورة · مختبر النور', body:'فاتورة #41 · موظف تجريبي · القيمة: 25,000 د.ع', read_at:null, created_at:'2026-10-27T06:30:00Z', data:{lab_name:'مختبر النور',archive_id:7,invoice_id:41,actor_name:'موظف تجريبي',before_total:25000,after_total:0} },
+  { id:'22222222-2222-4222-8222-222222222222', lab_id:1, kind:'daily_summary', title:'ملخص يوم العمل · مختبر النور', body:'2026-10-26 · 22 مريض · المدفوع 580,000 د.ع · المتبقي 200,000 د.ع · 21 إحالة', read_at:null, created_at:'2026-10-26T21:05:00Z', data:{lab_name:'مختبر النور',day:'2026-10-26',generated_at:'2026-10-26T21:05:00Z', summary:{...overview.summary,referral_count:21,doctor_referrals:12,lab_referrals:9,completed:23,pending:5,deleted_count:1,deleted_total:25000,increases:5000,decreases:2000},note:'المدفوع والمتبقي لفواتير اليوم. التحصيل يشمل تسديد ديون سابقة.'} }
+];
+const fixture = window.ownerFixture = { requests:[], overview, fail:false, admin:false, staff, router, delayLab:0, notices, pushEnabled:false, pushSubscribed:false };
 $http.defaults.adapter = async config => {
   const url = config.url, p = config.params || {}, payload = typeof config.data === 'string' ? JSON.parse(config.data) : config.data;
   fixture.requests.push({ url, params:p, method:config.method, payload });
@@ -38,6 +42,14 @@ $http.defaults.adapter = async config => {
   if (fixture.delayLab && Number(p.lab_id) === fixture.delayLab) await new Promise(resolve => setTimeout(resolve, 600));
   let data;
   if (url === '/user/access') data = { user:fixture.admin ? { id:1, role_id:1, name:'Administrator' } : owner, permissions:fixture.admin ? ['super admin labs','super admin dashboard'] : [] };
+  else if (url === '/owner-portal/notifications/config') data = {enabled:fixture.pushEnabled,public_key:'B'+ 'a'.repeat(86),daily_time:'00:05',timezone:'Asia/Baghdad'};
+  else if (url === '/owner-portal/notifications/push/status') data = {subscribed:fixture.pushSubscribed,invoice_enabled:true,daily_enabled:true};
+  else if (url === '/owner-portal/notifications/push/subscribe') { fixture.pushSubscribed = true; data = {subscribed:true,invoice_enabled:payload.invoice_enabled,daily_enabled:payload.daily_enabled}; }
+  else if (url === '/owner-portal/notifications/push/unsubscribe') { fixture.pushSubscribed = false; data = {ok:true}; }
+  else if (url === '/owner-portal/notifications/push/test') data = {message:'أُضيف الإشعار إلى قائمة الإرسال. قد يستغرق وصوله دقيقة.'};
+  else if (url === '/owner-portal/notifications') { const list = notices.filter(n => (!p.lab_id || n.lab_id === Number(p.lab_id)) && (!p.kind || n.kind === p.kind)); data = {data:list,unread:list.filter(n => !n.read_at).length,pagination:{page:1,last_page:1,total:list.length}}; }
+  else if (/\/owner-portal\/notifications\/[a-f0-9-]+\/read$/.test(url)) { notices.find(n => n.id === url.split('/').at(-2)).read_at = new Date().toISOString(); data = {ok:true}; }
+  else if (url.startsWith('/owner-portal/notifications/')) data = notices.find(n => n.id === url.split('/').at(-1));
   else if (url === '/owner-portal/me') data = { owner, labs };
   else if (url === '/owner-portal/overview') data = { ...overview, summary:{ ...overview.summary, total:Number(p.lab_id) === 2 ? 220000 : 780000 } };
   else if (url === '/owner-portal/invoices') { const list = ledger.filter(i => !p.status || i.payment_status === p.status).filter(i => !p.result_status || i.is_done === (p.result_status === 'done')); data = { data:list, pagination:{ page:1, last_page:1, total:list.length } }; }

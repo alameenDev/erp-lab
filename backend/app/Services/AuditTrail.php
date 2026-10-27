@@ -106,6 +106,7 @@ class AuditTrail
         }
         // Push infrastructure contains bearer credentials and UUID subjects;
         // confirmed invoice changes retain their normal detailed audit.
+        if ($model instanceof \App\Models\OwnerNotification || $model instanceof \App\Models\OwnerPushSubscription) return;
         if ($model instanceof \App\Models\PortalPushSubscription || $model instanceof \App\Models\PortalNotification || $model instanceof \App\Models\PortalPushDelivery || $model instanceof \App\Models\PortalNotificationCampaign) return;
         $verb = explode(':', substr($event, strlen('eloquent.')))[0];
         $attrs = $model->getAttributes();
@@ -268,7 +269,7 @@ class AuditTrail
                 'page' => self::safePage($this->request->header('X-Audit-Page', '')),
             ]),
         ]);
-        app(InvoiceChangeArchive::class)->capture($activity);
+        app(InvoiceChangeArchive::class)->capture($activity, true);
     }
 
     public static function safePage(string $page): string

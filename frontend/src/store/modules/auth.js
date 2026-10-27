@@ -1,3 +1,4 @@
+import { bindOwnerWorker } from '@/utils/ownerPortalApp';
 import { defineStore } from "pinia";
 import { $http } from "@/plugins/axios";
 import router from "@/router";
@@ -23,9 +24,13 @@ export const useAuthStore = defineStore("auth", {
           applyBranding(settings.settings);
         } catch (error) { console.error('Error loading lab branding:', error); }
       }
-      await router.push(landingPage(data.user, this.rolePermissions));
+      const redirect = router.currentRoute.value.query.redirect;
+      const ownerTarget = data.user.owner_portal_only && typeof redirect === 'string' && /^\/owner-portal\/(notifications|app)(\?|$)/.test(redirect);
+      await router.push(ownerTarget ? redirect : landingPage(data.user, this.rolePermissions));
     },
     applyAccess(data) {
+      const previous = readStoredJson('user');
+      if (!data.user?.owner_portal_only || (previous?.owner_portal_only && previous.id !== data.user.id)) bindOwnerWorker(null).catch(() => {});
       localStorage.setItem('user', JSON.stringify(data.user));
       const effective = data.permissions ?? [
         ...(data.user?.roles || []).flatMap(role => role.permissions || []),
@@ -56,6 +61,13 @@ export const useAuthStore = defineStore("auth", {
       this.rolePermissions = [];
       for (const key of ['token', 'user', 'rolePermissions']) localStorage.removeItem(key);
     },
-    logout() { this.clearSession(); router.push('/'); },
+    async logout() {
+      const owner = readStoredJson('user')?.owner_portal_only;
+      if (owner) {
+        await bindOwnerWorker(null).catch(() => {});
+        try { await $http.post('/user/logout'); } catch {}
+      }
+      this.clearSession(); return router.push(owner ? '/owner-portal/login' : '/');
+    },
   },
 });
