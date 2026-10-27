@@ -16,13 +16,13 @@ export function useOwnerPortalApp(ownerId) {
   }
   async function prepare() {
     const version = ++revision;
-    state.ready = false; state.preparing = true; state.error = ''; state.subscribed = false;
+    state.ready = false; state.busy = false; state.preparing = true; state.error = ''; state.subscribed = false;
     state.device = portalDevice(); state.permission = window.Notification?.permission || 'default';
     if (!ownerId.value) { state.preparing = false; return; }
     try {
       const [config, reg] = await Promise.all([
         $http.get('/owner-portal/notifications/config'),
-        navigator.serviceWorker && window.isSecureContext ? navigator.serviceWorker.register('/owner-portal/sw.js', { scope:'/owner-portal/', updateViaCache:'none' }).then(waitForPortalWorker) : Promise.resolve(null),
+        navigator.serviceWorker && window.isSecureContext ? navigator.serviceWorker.register('/owner-portal-sw.js', { scope:'/owner-portal/', updateViaCache:'none' }).then(waitForPortalWorker) : Promise.resolve(null),
       ]);
       if (!current(version)) return;
       state.config = config.data; registration = reg;

@@ -22,7 +22,7 @@ export function ownerPortalHead(active, doc = document) {
     Object.entries(attrs).forEach(([key,value]) => el.setAttribute(key,value));
     undo.push(() => previous ? el.replaceWith(previous) : el.remove());
   };
-  claim('link[rel="manifest"]', 'link', { rel:'manifest', href:'/owner-portal/manifest.webmanifest' });
+  claim('link[rel="manifest"]', 'link', { rel:'manifest', href:'/owner-app/manifest.webmanifest' });
   for (const [name,content] of Object.entries({ 'theme-color':'#102f30', 'apple-mobile-web-app-capable':'yes', 'mobile-web-app-capable':'yes', 'apple-mobile-web-app-title':'مالك Digital Lab' })) claim(`meta[name="${name}"]`, 'meta', { name,content });
   restoreHead = () => undo.reverse().forEach(fn => fn());
 }

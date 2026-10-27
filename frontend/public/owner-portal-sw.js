@@ -1,6 +1,6 @@
 /* Owner notifications only. Never cache API responses, patient data or login credentials. */
 const OFFLINE_CACHE = 'owner-offline-v1';
-const OFFLINE = '/owner-portal/offline.html';
+const OFFLINE = '/owner-app/offline.html';
 function binding(value, write = false) {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open('owner-push-binding', 1);

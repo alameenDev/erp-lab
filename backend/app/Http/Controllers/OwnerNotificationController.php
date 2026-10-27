@@ -56,7 +56,7 @@ class OwnerNotificationController extends Controller
     public function status(Request $r)
     {
         $sub = $this->device($r);
-        if ($sub) $sub->update(['auth_token_id' => $r->user()->currentAccessToken()?->id]);
+        if ($sub) $sub->update(['auth_token_id' => ($r->user()->currentAccessToken()->id ?? null)]);
         return response()->json($this->state($sub))->header('Cache-Control', 'private, no-store');
     }
     public function subscribe(Request $r)
@@ -70,7 +70,7 @@ class OwnerNotificationController extends Controller
             // Explicit opt-in on a shared browser transfers this endpoint, never its old deliveries.
             if ($sub && (int) $sub->owner_id !== (int) $owner->id) { $sub->delete(); $sub = null; }
             $sub ??= new OwnerPushSubscription;
-            $sub->fill(['owner_id' => $owner->id, 'auth_token_id' => $owner->currentAccessToken()?->id,
+            $sub->fill(['owner_id' => $owner->id, 'auth_token_id' => ($owner->currentAccessToken()->id ?? null),
                 'endpoint_hash' => $hash, 'subscription' => ['endpoint' => $data['subscription']['endpoint'], 'keys' => $data['subscription']['keys']],
                 'invoice_enabled' => $data['invoice_enabled'], 'daily_enabled' => $data['daily_enabled']])->save();
             return $sub;

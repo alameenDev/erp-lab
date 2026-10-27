@@ -53,8 +53,8 @@ try {
   await page.waitForFunction(() => ownerFixture.requests.some(r => r.url === '/owner-portal/notifications/config'));
   await screenshot('owner-app-mobile');
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
-  assert.equal(await page.locator('link[rel="manifest"]').getAttribute('href'),'/owner-portal/manifest.webmanifest');
-  const manifest = await page.evaluate(async () => (await fetch('/owner-portal/manifest.webmanifest')).json());
+  assert.equal(await page.locator('link[rel="manifest"]').getAttribute('href'),'/owner-app/manifest.webmanifest');
+  const manifest = await page.evaluate(async () => (await fetch('/owner-app/manifest.webmanifest')).json());
   assert.equal(manifest.scope,'/owner-portal/'); assert.equal(manifest.start_url,'/owner-portal/');
   // Exercise permission opt-in without contacting a browser push provider.
   await page.evaluate(() => {
@@ -73,6 +73,7 @@ try {
   await page.getByRole('button',{name:'تفعيل الإشعارات',exact:true}).click();
   await page.getByRole('button',{name:'حفظ الاختيارات',exact:true}).waitFor();
   assert.ok(await page.evaluate(() => ownerFixture.gesture),'subscribe starts inside click activation');
+  await screenshot('owner-app-enabled-mobile');
   await page.getByLabel('إشعارات ملخص نهاية اليوم',{exact:true}).uncheck();
   await page.getByRole('button',{name:'حفظ الاختيارات',exact:true}).click();
   await page.waitForFunction(() => ownerFixture.requests.some(r => r.url.endsWith('/push/subscribe') && r.payload.daily_enabled === false));
@@ -90,6 +91,10 @@ try {
   await page.getByRole('button',{name:'حفظ حساب المالك',exact:true}).click();
   await page.waitForFunction(() => ownerFixture.requests.some(r => r.url === '/super-admin/owners' && r.method === 'post'));
   assert.ok(await page.evaluate(() => ownerFixture.requests.some(r => r.url === '/super-admin/owners' && r.method === 'post' && r.payload.lab_ids.includes(1))));
+  await page.evaluate(async () => { ownerFixture.admin = false; localStorage.removeItem('token'); await ownerFixture.router.push('/owner-portal/notifications?notice=11111111-1111-4111-8111-111111111111'); });
+  await page.waitForURL('**/owner-portal/login?*');
+  assert.equal(new URL(page.url()).searchParams.get('redirect'),'/owner-portal/notifications?notice=11111111-1111-4111-8111-111111111111');
+  assert.equal(await page.locator('link[rel="manifest"]').getAttribute('href'),'/owner-app/manifest.webmanifest');
   assert.deepEqual(errors,[]);
   console.log('PASS owner mobile/desktop, scopes/stale responses, invoices/results, analyses/referrals, audit/archive detail, team creation, subscriptions, retry, route isolation and admin provisioning');
 } catch (e) { await screenshot('failure'); throw e; } finally { await browser.close(); }

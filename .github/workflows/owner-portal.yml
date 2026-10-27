@@ -6,7 +6,8 @@ on:
       - 'backend/routes/api.php'
       - 'backend/routes/console.php'
       - 'backend/tests/Feature/OwnerNotificationTest.php'
-      - 'frontend/public/owner-portal/**'
+      - 'frontend/public/owner-app/**'
+      - 'frontend/public/owner-portal-sw.js'
       - 'frontend/src/composables/useOwnerPortalApp.js'
       - 'frontend/src/utils/ownerPortalApp.js'
       - 'backend/database/migrations/**'
@@ -74,6 +75,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run build
+      - run: node tests/owner-portal-worker.test.mjs
       - run: npm install --no-save --package-lock=false playwright@1.55.1
       - name: Prepare Chromium
         timeout-minutes: 5

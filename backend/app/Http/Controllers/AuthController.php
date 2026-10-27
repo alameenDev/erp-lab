@@ -416,7 +416,7 @@ class AuthController extends Controller
         // => Set oauth_access_tokens.revoked to TRUE (t)
         if ($request->user()->owner_portal_only) {
             \App\Models\OwnerPushSubscription::where('owner_id', $request->user()->id)
-                ->where('auth_token_id', $request->user()->currentAccessToken()?->id)->delete();
+                ->where('auth_token_id', ($request->user()->currentAccessToken()->id ?? null))->delete();
         }
         $request->user()->currentAccessToken()->delete();
 

@@ -4,7 +4,7 @@
 
 ## تشغيل النسخة بعد الدمج
 
-1. انشر backend وملفات frontend الناتجة من `npm ci && npm run build` معاً عبر طريقة النشر المعتادة. يجب أن تعمل روابط `/owner-portal/*` بمسار SPA fallback، وأن تُقدَّم الملفات الموجودة فعلياً أولاً، خصوصاً `sw.js` بنوع JavaScript و`manifest.webmanifest` بنوع JSON أو manifest. لا ترجع صفحة HTML بدلاً من هذه الملفات.
+1. انشر backend وملفات frontend الناتجة من `npm ci && npm run build` معاً عبر طريقة النشر المعتادة. يجب أن تعمل روابط `/owner-portal/*` بمسار SPA fallback، وأن تُقدَّم الملفات الموجودة فعلياً أولاً، خصوصاً `/owner-portal-sw.js` بنوع JavaScript و`/owner-app/manifest.webmanifest` بنوع JSON أو manifest. لا ترجع صفحة HTML بدلاً من هذه الملفات.
 2. شغّل `php artisan migrate --force` و`php artisan optimize:clear`.
 3. شغّل `php artisan portal:push-setup` مرة واحدة. يُستخدم نفس مفتاح VAPID الموجود لخدمة المرضى؛ الأمر لا يدوّر المفتاح. احتفظ بملف `storage/app/private/portal-push-vapid.json` بين النشرات، خارج الملفات العامة، وبنفس `APP_KEY` المستخدم لتشفير اشتراكات الأجهزة.
 4. تأكد من `PORTAL_PUSH_ENABLED=true` ومن `PORTAL_PUSH_SUBJECT` برابط HTTPS حقيقي أو `mailto:` صالح، ومن توافر اتصال الخادم الخارجي بخدمات Push الخاصة بالمتصفحات.
