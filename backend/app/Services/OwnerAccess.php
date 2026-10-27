@@ -27,6 +27,13 @@ class OwnerAccess
 
     public function accounts(Collection $labs): array
     {
-        return $labs->flatMap(fn ($lab) => app(AccountAccess::class)->tenantUserIds($lab))->unique()->values()->all();
+        return $labs->flatMap(function ($lab) {
+            $ids = app(AccountAccess::class)->tenantUserIds($lab);
+            return User::withTrashed()->whereIn('id', $ids)->where(function ($q) use ($lab) {
+                $q->where('id', $lab->id)->orWhere(fn ($staff) => $staff
+                    ->where(fn ($role) => $role->whereNull('role_id')->orWhereNotIn('role_id', [1, 2, 3, 5]))
+                    ->where('referral_portal_only', false)->where('owner_portal_only', false));
+            })->pluck('id');
+        })->unique()->values()->all();
     }
 }
