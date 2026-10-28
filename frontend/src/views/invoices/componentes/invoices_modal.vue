@@ -247,7 +247,7 @@
                     </button>
                   </div>
                   <!-- Bottom row: to_lab dropdown + sample received -->
-                  <div class="flex flex-wrap items-center gap-2 ps-11">
+                  <div v-if="!isCollectorMode" class="flex flex-wrap items-center gap-2 ps-11">
                     <Dropdown v-model="item.to_lab" :options="fromLap" optionLabel="name" optionValue="user_id" :placeholder="t('to_lab')" class="flex-1 min-w-0 text-sm" />
                     <label class="flex items-center gap-1.5 px-2 py-1.5 bg-white border border-slate-200 rounded-lg cursor-pointer">
                       <Checkbox v-model="item.is_sample_received" binary />
@@ -375,8 +375,8 @@
                     </p>
                   </div>
                   <div class="flex items-center gap-2 shrink-0">
-                    <Dropdown v-model="item.to_lab" :options="fromLap" optionLabel="name" optionValue="user_id" :placeholder="t('to_lab')" class="w-28 text-sm" />
-                    <div class="flex items-center gap-1.5 px-2 py-1.5 bg-white border border-slate-200 rounded-lg">
+                    <Dropdown v-if="!isCollectorMode" v-model="item.to_lab" :options="fromLap" optionLabel="name" optionValue="user_id" :placeholder="t('to_lab')" class="w-28 text-sm" />
+                    <div v-if="!isCollectorMode" class="flex items-center gap-1.5 px-2 py-1.5 bg-white border border-slate-200 rounded-lg">
                       <Checkbox v-model="item.is_sample_received" binary />
                       <span class="text-xs text-slate-600">{{ t("Sample_received") }}</span>
                     </div>
@@ -708,7 +708,7 @@
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
-                    {{ record.id ? t("save") : t("create_invoice") || t("add") }}
+                    {{ isCollectorMode ? "إرسال إلى قائمة انتظار المختبر" : record.id ? t("save") : t("create_invoice") || t("add") }}
                   </button>
                   <button
                     type="button"
@@ -746,7 +746,7 @@
     </form>
   </Dialog>
 
-  <printInvoiceModal></printInvoiceModal>
+  <printInvoiceModal v-if="!isCollectorMode"></printInvoiceModal>
 </template>
 
 <script>

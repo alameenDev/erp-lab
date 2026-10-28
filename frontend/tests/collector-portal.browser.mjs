@@ -8,7 +8,8 @@ try{
  await page.getByLabel('عدد العينات المستلمة',{exact:true}).fill('3');await page.getByRole('button',{name:'تأكيد استلام العينة',exact:true}).click();await page.getByRole('button',{name:'تأكيد توصيل العينة',exact:true}).click();await page.locator('article p').filter({hasText:'تم توصيل العينة'}).waitFor();
  await go('/collector-portal/statistics');await page.getByText('عينات مستلمة',{exact:false}).waitFor();await screenshot('collector-statistics-mobile');
  await go('/collector-portal/new');await page.getByRole('combobox',{name:'جهة المريض',exact:true}).selectOption('2');await page.getByRole('button',{name:'إدخال بيانات الفاتورة',exact:true}).click();await page.waitForFunction(()=>collectorFixture.requests.some(r=>r.url==='/collector-portal/workspace/tests'));
- await page.evaluate(()=>{const inv=collectorFixture.invoices(),pat=collectorFixture.patients();pat.record.name='مريض تجريبي';pat.record.age=35;pat.record.age_unit_id_fk=1;pat.record.gender_type_id_fk=1;inv.selectedTests=[{id:5,name:'CBC',type:'test',price:12000,for_customer_price:12000,prices:[]}];});
+ await page.evaluate(()=>{const inv=collectorFixture.invoices(),pat=collectorFixture.patients();pat.record.name='مريض تجريبي';pat.record.age=35;pat.record.age_unit_id_fk=1;pat.record.gender_type_id_fk=1;});
+ await page.locator('[data-invoice-picker=analysis] input').fill('CBC');await page.getByRole('option',{name:'CBC',exact:true}).click();await page.locator('[data-invoice-analysis="5"]').waitFor();
  await screenshot('collector-invoice-mobile');
  // Submit the real shared component, not a mock form.
  await page.locator('form').first().evaluate(form=>form.requestSubmit());await page.waitForFunction(()=>collectorFixture.requests.some(r=>r.url==='/collector-portal/workspace/invoices/create'));
