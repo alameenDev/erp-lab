@@ -1,4 +1,6 @@
 {
+  "sample_logistics": "Sample collection",
+  "collector_waiting_list": "Waiting list",
   "estimated_birth_date": "Estimated",
   "set_default_result": "Set as default",
   "default_result_selected": "Default ✓",

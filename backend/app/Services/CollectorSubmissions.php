@@ -19,7 +19,7 @@ class CollectorSubmissions
             'inline_patient.age'=>'nullable|integer|min:0|max:50000','inline_patient.age_unit_id_fk'=>'nullable|exists:age_units,id',
             'inline_patient.dob'=>'nullable|date|before_or_equal:'.today('Asia/Baghdad')->toDateString(), 'inline_patient.dob_is_estimated'=>'sometimes|boolean',
             'inline_patient.title_id_fk'=>'nullable|exists:titles,id','inline_patient.address'=>'nullable|string|max:255','inline_patient.nationality_id_fk'=>'nullable|exists:nationalities,id',
-            'inline_patient.national_id_no'=>'nullable|string|max:100','inline_patient.passport_no'=>'nullable|string|max:100',
+            'inline_patient.national_id_no'=>'nullable|digits_between:1,18','inline_patient.passport_no'=>'nullable|string|max:100',
             'show_result_date'=>'nullable|boolean','show_patient_card_id'=>'nullable|boolean','show_patient_pic'=>'nullable|boolean',
             'notes'=>'nullable|string|max:5000','registration_date'=>'required|date_format:Y-m-d',
             'discount'=>'nullable|integer|min:0','discount_type_id_fk'=>'nullable|in:2,3',
@@ -93,7 +93,8 @@ class CollectorSubmissions
         $lab=app(CollectorAccess::class)->manager($r,'sample logistics review');
         abort_if((int)$r->user()->role_id===1,403,'اعتماد الفواتير يتم من حساب المختبر أو موظفيه.');
         $v=$r->validate(['decision'=>'required|in:approved,rejected','note'=>'required_if:decision,rejected|nullable|string|max:2000']);
-        return DB::transaction(function()use($r,$lab,$id,$v){
+        $published=null;
+        try { return DB::transaction(function()use($r,$lab,$id,$v,&$published){
             $s=CollectionSubmission::where('lab_id',$lab->id)->lockForUpdate()->findOrFail($id);
             if($s->status===$v['decision'])return $s;
             abort_unless($s->status==='pending',409,'تمت مراجعة الطلب سابقاً.');
@@ -110,7 +111,7 @@ class CollectorSubmissions
                 $image=null;
                 if($s->image_path) {
                     abort_unless(Storage::disk('local')->exists($s->image_path),422,'صورة المريض غير متاحة؛ أعد إرسال الطلب.');
-                    $image=$s->image_path;
+                    $image=$s->image_path; $published=$image;
                     abort_unless(Storage::disk('public')->put($image,Storage::disk('local')->get($image)),500,'تعذر حفظ صورة المريض.');
                 }
                 $p=Patient::create(Arr::only($pr,['dob','dob_is_estimated','gender_id_fk','age','age_unit_id_fk','title_id_fk','address','nationality_id_fk','national_id_no','passport_no'])+['user_id'=>$u->id,'creator_id'=>$lab->id,'image'=>$image,'code'=>'C'.$u->id,'barcode'=>'P'.$u->id]);
@@ -126,6 +127,6 @@ class CollectorSubmissions
             $s->update($updates); app(CollectorTasks::class)->event($lab->id,$v['decision'],['invoice_id'=>$s->invoice_id,'note'=>$s->review_note],null,$s->id);
             app(CollectorNotifications::class)->create($s->collector_id,$lab->id,'submission:'.$s->id.':'.$s->status,$s->status==='approved'?'تم اعتماد الفاتورة':'طلب الفاتورة يحتاج مراجعة','افتح قائمة فواتيرك لمراجعة القرار.',null,$s->id);
             return $s;
-        });
+        }); } catch(\Throwable $error) { if($published)Storage::disk('public')->delete($published);throw $error; }
     }
 }

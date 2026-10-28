@@ -41,3 +41,8 @@ Artisan::command('collectors:deliver-notifications {--limit=20}', function (): v
     $this->info('Processed '.app(\App\Services\CollectorNotifications::class)->deliver(max(1,min(100,(int)$this->option('limit')))).' collector notification attempts.');
 })->purpose('Deliver sample collection notifications with durable retries');
 \Illuminate\Support\Facades\Schedule::command('collectors:deliver-notifications --limit=20')->everyMinute()->withoutOverlapping(5);
+
+Artisan::command('collectors:reconcile', function (): void {
+    $this->info('Recovered '.app(\App\Services\CollectorTasks::class)->reconcile().' pickup requests.');
+})->purpose('Recover missing pickup captures since collector setup without replaying old invoices');
+\Illuminate\Support\Facades\Schedule::command('collectors:reconcile')->everyFiveMinutes()->withoutOverlapping(10);

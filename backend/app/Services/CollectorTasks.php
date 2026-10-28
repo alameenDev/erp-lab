@@ -17,7 +17,7 @@ class CollectorTasks
         $p=DB::table('referral_lab_profiles')->where('user_id_fk',$id)->first();
         return ['id'=>$u->id,'name'=>$p?->display_name?:$u->name,'phone'=>$p?->phone?:$u->phone_number,'address'=>$p?->address?:$u->address];
     }
-    public function projection(Invoice $invoice): array
+    public function projection(Invoice $invoice,?int $source=null): array
     {
         $invoice->loadMissing(['patient.user','patient.ageUnit','patient.gender','invoiceTestRels']);
         $p=$invoice->patient; $items=[];
@@ -42,7 +42,7 @@ class CollectorTasks
             }
             $items[]=['kind'=>$kind,'id'=>$m->id,'name'=>$kind==='test_groups'?$m->group_name:$m->name,'sample'=>in_array($kind,['tests','cultures'])?$m->sample?->sample_name:null,'children'=>$children];
         }
-        return ['patient'=>['name'=>$p?->user?->name,'age'=>$p?->age,'age_unit'=>$p?->ageUnit?->unit_name,'gender'=>$p?->gender?->gender_type,'phone'=>$p?->user?->phone_number,'address'=>$p?->address?:$u->address], 'items'=>$items,'source'=>$this->sourceInfo($invoice->from_lab_id_fk?:$invoice->referral_id_fk)];
+        return ['patient'=>['name'=>$p?->user?->name,'age'=>$p?->age,'age_unit'=>$p?->ageUnit?->unit_name,'gender'=>$p?->gender?->gender_type,'phone'=>$p?->user?->phone_number,'address'=>$p?->address], 'items'=>$items,'source'=>$this->sourceInfo($source)];
     }
     public function capture(int $id): ?CollectionTask
     {
@@ -73,9 +73,24 @@ class CollectorTasks
             }
             $collector=$source?$this->assigned($lab,$source):null;
             if($submission && $access->collectors($lab)->where('status',1)->whereKey($submission->collector_id)->exists())$collector=$submission->collector_id;
-            $task=CollectionTask::create(['lab_id'=>$lab->id,'source_lab_id'=>$source,'invoice_id'=>$id,'collector_id'=>$collector]);
+            $task=CollectionTask::create(['lab_id'=>$lab->id,'source_lab_id'=>$source,'invoice_id'=>$id,'collector_id'=>$collector,'snapshot'=>$this->projection($invoice,$source)]);
             $this->event($lab->id,'requested',[], $task->id); $this->notify($task,'requested','طلب جديد لسحب عينة'); return $task;
         });
+    }
+    /** Recover secondary captures after transient failure without replaying old invoices. */
+    public function reconcile(): int
+    {
+        $count=0;
+        foreach(DB::table('collector_accounts')->select('lab_id')->selectRaw('MIN(created_at) AS since')->groupBy('lab_id')->get() as $binding) {
+            $lab=User::find($binding->lab_id);if(!$lab||!$binding->since)continue;
+            $access=app(CollectorAccess::class);$sources=$access->sources($lab)->pluck('id');
+            $ids=Invoice::whereIn('lab_id_fk',$access->accounts($lab))->where('created_at','>=',$binding->since)
+                ->whereNotIn('id',CollectionTask::select('invoice_id'))
+                ->where(fn($q)=>$q->whereIn('from_lab_id_fk',$sources)->orWhereIn('referral_id_fk',$sources)->orWhereIn('id',\App\Models\CollectionSubmission::where('lab_id',$lab->id)->whereNotNull('invoice_id')->select('invoice_id')))
+                ->orderBy('id')->limit(200)->pluck('id');
+            foreach($ids as $id) { try { if($this->capture($id))$count++; } catch(\Throwable $e) { \Illuminate\Support\Facades\Log::warning('Collection recovery deferred',['invoice_id'=>$id,'exception'=>get_class($e)]); } }
+        }
+        return $count;
     }
     public function assigned(User $lab,int $source): ?int
     {
@@ -89,7 +104,7 @@ class CollectorTasks
     public function document(CollectionTask $task): array
     {
         $invoice=Invoice::find($task->invoice_id);
-        $details=$task->status==='requested' && $invoice ? $this->projection($invoice) : ($task->snapshot?:($invoice?$this->projection($invoice):['patient'=>null,'items'=>[],'source'=>$this->sourceInfo($task->source_lab_id)]));
+        $details=$task->status==='requested' && $invoice ? $this->projection($invoice,$task->source_lab_id) : ($task->snapshot?:($invoice?$this->projection($invoice,$task->source_lab_id):['patient'=>null,'items'=>[],'source'=>$this->sourceInfo($task->source_lab_id)]));
         return $task->only(['id','invoice_id','collector_id','source_lab_id','status','version','sample_count','collected_at','delivered_at','cancelled_at','note','created_at'])+['details'=>$details,'collector_name'=>User::withTrashed()->find($task->collector_id)?->name];
     }
     public function transition(User $collector,int $id,array $v): CollectionTask
@@ -107,7 +122,7 @@ class CollectorTasks
             $data=['status'=>$v['status'],'version'=>$task->version+1,'note'=>$v['note']??$task->note];
             if($v['status']==='collected') {
                 abort_unless(!empty($v['sample_count']),422,'أدخل عدد العينات المستلمة فعلياً.');
-                $invoice=Invoice::findOrFail($task->invoice_id); $data+=['sample_count'=>$v['sample_count'],'collected_at'=>now(),'collected_by'=>$collector->id,'snapshot'=>$this->projection($invoice)];
+                $invoice=Invoice::findOrFail($task->invoice_id); $data+=['sample_count'=>$v['sample_count'],'collected_at'=>now(),'collected_by'=>$collector->id,'snapshot'=>$this->projection($invoice,$task->source_lab_id)];
             } else $data+=['delivered_at'=>now(),'delivered_by'=>$collector->id];
             $task->update($data); $this->event($lab->id,$v['status'],['sample_count'=>$task->sample_count],$task->id); return $task;
         });

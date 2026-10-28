@@ -12,7 +12,7 @@ class CollectorCatalog
         $ids = app(CollectorAccess::class)->accounts($lab);
         $connection = $source ? Referal::whereIn('lab_id_fk',$ids)->where('referral_id_fk',$source)->first() : null;
         $linked = $source ? Lab::whereIn('parent_lab_id_fk',$ids)->where('user_id_fk',$source)->first() : null;
-        $listId = $connection?->price_list_id_fk ?? $linked?->price_list_id_fk;
+        $listId = $linked?->price_list_id_fk ?? $connection?->price_list_id_fk;
         $list = $listId ? \App\Models\PriceList::whereIn('lab_id_fk',$ids)->find($listId) : null;
         $prices = $list ? PriceListRel::whereIn('lab_id_fk',$ids)->where('price_list_id_fk',$list->id)->get() : collect();
         $all=[];
@@ -20,7 +20,11 @@ class CollectorCatalog
             $relations = $kind==='packages' ? ['tests.sample','cultures.sample','testGroups.tests.sample','testGroups.culture.sample'] : ($kind==='test_groups' ? ['tests.sample','culture.sample'] : ['sample']);
             $all[$kind] = $class::whereIn('lab_id_fk',$ids)->with($relations)->get()->map(function($m) use($kind,$field,$prices,$list,$ids) {
                 $priceRow=$prices->firstWhere($field,$m->id);
-                $base=$kind==='test_groups' ? ($m->for_customer_price ?? $m->original_price) : ($m->getAttribute($kind==='cultures'?'price_for_customer':($kind==='packages'?'price':'for_customer_price')) ?? $m->price);
+                $base=$this->retail($m,$kind);
+                if($kind==='test_groups' && $base<=0) {
+                    $base=$m->tests->filter(fn($t)=>!$t->trashed()&&in_array((int)$t->lab_id_fk,$ids))->sum(fn($t)=>$this->retail($t,'tests'))
+                        +$m->culture->filter(fn($t)=>!$t->trashed()&&in_array((int)$t->lab_id_fk,$ids))->sum(fn($t)=>$this->retail($t,'cultures'));
+                }
                 $price=$priceRow ? ($priceRow->price_for_customer ?? $priceRow->original_price)*(1-max(0,min(100,(float)$list->discount))/100) : $base;
                 $d=['id'=>$m->id,'name'=>$kind==='test_groups'?$m->group_name:$m->name,'group_name'=>$kind==='test_groups'?$m->group_name:null,'type'=>$kind==='test_groups'?'group':'test','shortcut'=>$m->getAttributes()['shortcut']??null,'price'=>(int)round($price??0),'for_customer_price'=>(int)round($price??0),'original_price'=>(int)round($price??0),'prices'=>[]];
                 $brief=fn($t)=>['id'=>$t->id,'name'=>$t->name,'sample_name'=>$t->sample?->sample_name,'sample_id_fk'=>$t->sample_id_fk,'price'=>0,'for_customer_price'=>0];
@@ -36,6 +40,12 @@ class CollectorCatalog
             })->keyBy('id')->all();
         }
         return $all;
+    }
+    private function retail($model,string $kind): float
+    {
+        $a=$model->getAttributes();
+        $customer=$a[$kind==='cultures'?'price_for_customer':'for_customer_price']??null;
+        return (float)($customer>0?$customer:($a['price']??$a['original_price']??0));
     }
     public function questions(User $lab, array $ids): array
     {

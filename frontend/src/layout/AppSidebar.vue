@@ -84,8 +84,8 @@ const menuGroups = [
   {
     groupLabel: "operations",
     items: [
-      { label: "سحب العينات", to: "/sample-logistics", permission: "sample logistics view", icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 7h12v11H3zM15 11h4l3 4v3h-7M7 18v3m11-3v3M6 4h6"/></svg>' },
-      { label: "قائمة الانتظار", to: "/sample-logistics/waiting", permission: "sample logistics review", icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></svg>' },
+      { label: "sample_logistics", to: "/sample-logistics", permission: "sample logistics view", icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 7h12v11H3zM15 11h4l3 4v3h-7M7 18v3m11-3v3M6 4h6"/></svg>' },
+      { label: "collector_waiting_list", to: "/sample-logistics/waiting", permission: "sample logistics review", icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></svg>' },
       {
         label: "invoices",
         to: "/invoices",

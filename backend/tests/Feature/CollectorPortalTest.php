@@ -34,7 +34,7 @@ class CollectorPortalTest extends TestCase
     private function payload(array $overrides=[]):array
     {
         return array_replace(['request_id'=>(string)Str::uuid(),'source_lab_id'=>$this->source->id,'registration_date'=>today()->toDateString(),
-            'inline_patient'=>['name'=>'Patient One','age'=>32,'age_unit_id_fk'=>1,'gender_id_fk'=>1,'phone_number'=>'+9647701234567','address'=>'Baghdad','passport_no'=>'P123','national_id_no'=>'N123'],
+            'inline_patient'=>['name'=>'Patient One','age'=>32,'age_unit_id_fk'=>1,'gender_id_fk'=>1,'phone_number'=>'+9647701234567','address'=>'Baghdad','passport_no'=>'P123','national_id_no'=>'123456789'],
             'tests'=>[['test_id_fk'=>$this->analysis->id,'price'=>1,'result'=>'FAKE RESULT','is_done'=>true]],
             'payment_details'=>[['amount'=>2000,'payment_method_id_fk'=>$this->method->id]],'discount'=>1000,'discount_type_id_fk'=>3,'work_register_amount'=>777,'notes'=>'Keep cool','selection_order'=>[['field'=>'tests','id'=>$this->analysis->id]]],$overrides);
     }
@@ -115,6 +115,29 @@ class CollectorPortalTest extends TestCase
         $this->actingAs($this->lab);$invoice=$this->postJson('/api/sample-logistics/waiting/'.$id.'/review',['decision'=>'approved'])->assertOk()->json('invoice_id');
         $task=CollectionTask::where('invoice_id',$invoice)->firstOrFail();$this->assertNull($task->source_lab_id);
         $this->actingAs($this->collector);$r=$this->getJson('/api/collector-portal/tasks')->assertOk()->assertJsonPath('data.0.details.items.0.children.0.name','CBC');$this->assertStringNotContainsString('BAD',$r->getContent());
+    }
+    public function test_failed_approval_rolls_back_patient_invoice_and_review_decision():void
+    {
+        $id=$this->submit();$this->actingAs($this->lab);
+        Invoice::creating(function(){throw new \RuntimeException('Simulated invoice failure');});
+        $this->postJson('/api/sample-logistics/waiting/'.$id.'/review',['decision'=>'approved'])->assertStatus(500);
+        $this->assertDatabaseCount('patients',0);$this->assertDatabaseCount('invoices',0);$this->assertDatabaseCount('invoice_paid_details',0);
+        $this->assertSame('pending',CollectionSubmission::findOrFail($id)->status);
+    }
+    public function test_reconciliation_recovers_missing_tasks_only_since_collector_setup():void
+    {
+        $i=$this->invoice();CollectionTask::query()->delete();
+        $this->assertSame(1,app(CollectorTasks::class)->reconcile());
+        $this->assertSame(0,app(CollectorTasks::class)->reconcile());
+        $this->assertDatabaseCount('collection_tasks',1);
+    }
+    public function test_direct_collectors_cannot_read_or_transition_another_collectors_tasks():void
+    {
+        $i=$this->invoice();$task=CollectionTask::firstOrFail();
+        $new=$this->postJson('/api/sample-logistics/accounts',['name'=>'Second','email'=>'second@test.invalid','password'=>'safe-password-123','status'=>true])->assertCreated()->json('id');
+        $this->actingAs(User::findOrFail($new));$this->getJson('/api/collector-portal/tasks')->assertOk()->assertJsonCount(0,'data');
+        $this->postJson('/api/collector-portal/tasks/'.$task->id.'/status',['status'=>'collected','version'=>1,'sample_count'=>2])->assertNotFound();
+        $this->getJson('/api/collector-portal/notifications')->assertOk()->assertJsonCount(0,'data');
     }
     public function test_push_endpoint_is_validated_private_and_disabled_account_revokes_tokens():void
     {

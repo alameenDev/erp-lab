@@ -1,4 +1,6 @@
 {
+  "sample_logistics": "سحب العينات",
+  "collector_waiting_list": "قائمة الانتظار",
   "estimated_birth_date": "تقريبي",
   "set_default_result": "تعيين كافتراضي",
   "default_result_selected": "الافتراضي ✓",
