@@ -1,0 +1,41 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Collector fixture</title></head><body><div id="app"></div><script type="module">
+import {createApp,h} from 'vue';import {createPinia} from 'pinia';import {RouterView} from 'vue-router';import PrimeVue from 'primevue/config';import Aura from '@primevue/themes/aura';import Mixins from '/src/utils/mixins';import router from '/src/router';import {$http} from '/src/plugins/axios';import {useAuthStore} from '/src/store/modules/auth';import {useinvoicesStore} from '/src/store/modules/invoices';import {usePatientsStore} from '/src/store/modules/patients';import '/src/assets/main.css';import 'primeicons/primeicons.css';
+const collector={id:20,name:'مندوب تجريبي',collector_portal_only:true,role_id:null},lab={id:1,name:'مختبر النور',role_id:2};
+const source={id:2,name:'مختبر الحياة',phone:'+9647701234567',address:'بغداد · المنصور'};
+const task={id:1,invoice_id:41,version:1,status:'requested',collector_id:20,collector_name:collector.name,sample_count:null,details:{patient:{name:'مريض تجريبي',age:35,age_unit:'سنة'},source,items:[{name:'CBC',sample:'EDTA',children:[]},{name:'الفحص الشامل',children:[{name:'Glucose',sample:'Serum'},{name:'Vitamin D',sample:'Serum'}]}]}};
+const definition={id:5,name:'CBC',type:'test',price:12000,for_customer_price:12000,prices:[]};
+let submission={id:10,status:'pending',collector_id:20,collector_name:collector.name,patient_name:'مريض تجريبي',total:12000,payload:{inline_patient:{name:'مريض تجريبي',age:35,address:'بغداد',phone_number:'+9647701234567'},registration_date:'2026-10-28',sub_total:12000,total:12000,paid:2000,payment_details:[],notes:'ملاحظة السحب'}};
+const fixture=window.collectorFixture={router,admin:false,requests:[],task,fail:false,invoices:useinvoicesStore,patients:usePatientsStore};
+const perms=['sample logistics view','sample logistics manage','sample logistics review','invoices create','invoices view'];
+localStorage.setItem('token','synthetic-collector-token');localStorage.setItem('locale','ar');localStorage.setItem('user',JSON.stringify(collector));
+$http.defaults.adapter=async config=>{const url=config.url,method=config.method,p=config.params||{},payload=typeof config.data==='string'?JSON.parse(config.data):config.data||{};fixture.requests.push({url,method,payload,params:p});let data;
+if(fixture.fail&&url.endsWith('/tasks'))throw {config,response:{status:503,data:{message:'تعذر الاتصال، أعد المحاولة'}}};
+if(url==='/user/access')data={user:fixture.admin?lab:collector,permissions:fixture.admin?perms:[]};
+else if(url==='/user/logout')data={};
+else if(url==='/collector-portal/context')data={collector,lab,sources:[source]};
+else if(url.endsWith('/notifications/config'))data={enabled:false};
+else if(url.endsWith('/notifications'))data={unread:1,data:[{id:'11111111-1111-4111-8111-111111111111',title:'طلب جديد لسحب عينة',body:'افتح الطلب لمراجعة التفاصيل.',task_id:1}]};
+else if(url.endsWith('/read'))data={ok:true};
+else if(url.endsWith('/tasks/1/status')){task.status=payload.status;task.version++;if(payload.sample_count)task.sample_count=payload.sample_count;data=task;}
+else if(url.endsWith('/tasks/1/assign'))data=task;
+else if(url.endsWith('/tasks'))data={data:[task],page:1,last_page:1,total:1};
+else if(url.endsWith('/statistics'))data={data:[{id:20,name:collector.name,collected_samples:3,collected_requests:1,delivered_samples:3,delivered_requests:1,pending:0}]};
+else if(url==='/sample-logistics/accounts'&&method==='get')data={data:[{...collector,email:'collector@example.test',status:1}],sources:[source],assignments:[{source_lab_id:2,collector_id:20}]};
+else if(url.startsWith('/sample-logistics/accounts')||url==='/sample-logistics/assignments')data={id:20};
+else if(url.endsWith('/waiting/10/review')){submission.status=payload.decision;submission.invoice_id=41;data={id:10,status:submission.status,invoice_id:41};}
+else if(url.endsWith('/waiting/10')||url.endsWith('/submissions/10'))data={submission,source,items:[{name:'CBC',price:12000,children:[],cultures:[],questions:[]}],references:{age_unit:'سنة',gender:'ذكر'}};
+else if(url.endsWith('/waiting')||url.endsWith('/submissions'))data={data:[submission],page:1,last_page:1,total:1};
+else if(url==='/collector-portal/workspace/invoices/create'){submission.payload=payload;data={id:10,status:'pending'};}
+else if(url.endsWith('/workspace/tests'))data=[definition];
+else if(url.endsWith('/workspace/tests/questions'))data={questions:[],result_comments:[]};
+else if(url.endsWith('/workspace/genders'))data=[{id:1,gender_type:'Male'},{id:2,gender_type:'Female'}];
+else if(url.endsWith('/workspace/age-units'))data=[{id:1,unit_name:'Years'}];
+else if(url.endsWith('/workspace/titles'))data=[{id:1,title:'Mr.'},{id:2,title:'Ms.'}];
+else if(url.endsWith('/workspace/payment-methods'))data=[{id:1,name:'نقدي'}];
+else if(url.startsWith('/collector-portal/workspace/'))data=[];
+else if(url==='/lab-settings')data={};
+else if(url.includes('/notifications')||url.includes('/subscriptions'))data={};
+else throw Error('Unexpected API request: '+url);
+return {data:JSON.parse(JSON.stringify(data)),status:200,statusText:'OK',headers:{},config};};
+const app=createApp({render:()=>h(RouterView)});app.use(createPinia());app.use(PrimeVue,{theme:{preset:Aura}});app.mixin(Mixins);useAuthStore().applyAccess({user:collector,permissions:[]});app.use(router);await router.replace('/collector-portal/');app.mount('#app');
+</script></body></html>

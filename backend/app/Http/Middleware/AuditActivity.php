@@ -14,7 +14,7 @@ class AuditActivity
 {
     public function handle(Request $request, Closure $next)
     {
-        if ($request->is('api/activity/*', 'api/log/*', 'api/device/heartbeat', 'api/owner-portal/notifications', 'api/owner-portal/notifications/*') ||
+        if ($request->is('api/collector-portal/notifications', 'api/collector-portal/notifications/*', 'api/activity/*', 'api/log/*', 'api/device/heartbeat', 'api/owner-portal/notifications', 'api/owner-portal/notifications/*') ||
             (in_array($request->method(), ['GET', 'HEAD', 'OPTIONS']) && ! $request->header('X-Audit-Action-Id')) ||
             preg_match('~/search[-/]|/heartbeat$~', $request->path())) {
             return $next($request);

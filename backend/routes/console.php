@@ -36,3 +36,8 @@ Artisan::command('owners:deliver-notifications {--limit=20}', function (): void 
 
 \Illuminate\Support\Facades\Schedule::command('owners:daily-summary')->everyMinute()->withoutOverlapping(30);
 \Illuminate\Support\Facades\Schedule::command('owners:deliver-notifications --limit=20')->everyMinute()->withoutOverlapping(5);
+
+Artisan::command('collectors:deliver-notifications {--limit=20}', function (): void {
+    $this->info('Processed '.app(\App\Services\CollectorNotifications::class)->deliver(max(1,min(100,(int)$this->option('limit')))).' collector notification attempts.');
+})->purpose('Deliver sample collection notifications with durable retries');
+\Illuminate\Support\Facades\Schedule::command('collectors:deliver-notifications --limit=20')->everyMinute()->withoutOverlapping(5);

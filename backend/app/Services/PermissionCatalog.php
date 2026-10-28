@@ -17,6 +17,11 @@ class PermissionCatalog
             'reports view',
             'accounting reports view',
 
+            // Sample collection
+            'sample logistics view',
+            'sample logistics manage',
+            'sample logistics review',
+
             // Invoices
             'invoices view',
             'invoices create',

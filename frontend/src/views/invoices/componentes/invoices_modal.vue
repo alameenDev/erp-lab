@@ -172,7 +172,7 @@
           </div>
 
           <!-- 3-col row: Tests / Cultures / Packages -->
-          <PreviousInvoice v-if="!isEditMode && !isReferralMode" :patient-id="responseData?.id" :selected="previousInvoiceSelections" @add="addPreviousInvoiceItems" />
+          <PreviousInvoice v-if="!isEditMode && !isReferralMode && !isCollectorMode" :patient-id="responseData?.id" :selected="previousInvoiceSelections" @add="addPreviousInvoiceItems" />
           <div v-if="orderedSelections.length" class="bg-white rounded-xl border border-slate-200 p-4" data-invoice-selection-order>
             <h3 class="font-semibold text-slate-800 mb-2">ترتيب الفحوصات في النتائج والتقرير</h3>
             <ol class="flex flex-wrap gap-2">
@@ -478,11 +478,11 @@
                 </div>
               </div>
               <div class="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                <div v-if="!isReferralMode">
+                <div v-if="!isReferralMode && !isCollectorMode">
                   <label for="invoice-referral-lab" class="block text-sm font-medium text-slate-700 mb-1.5">{{ t("from_lab") }}</label>
                   <InvoiceReferralSelect inputId="invoice-referral-lab" kind="lab" :lang="lang" v-model="record.from_lab_id_fk" :options="fromLap" @change="price_list(record.from_lab_id_fk); autofillPhoneFromReferral()" :placeholder="t('select')" />
                 </div>
-                <div v-if="!isReferralMode">
+                <div v-if="!isReferralMode && !isCollectorMode">
                   <label class="block text-sm font-medium text-slate-700 mb-1.5">{{ t("sample_collector") }}</label>
                   <Dropdown class="w-full" showClear v-model="record.sample_collector_id_fk" :options="collectorsList" @change="getTotal()" optionLabel="name" optionValue="id" :placeholder="t('select')" />
                 </div>
@@ -592,7 +592,7 @@
                     </div>
                   </div>
 
-                  <section v-if="!isReferralMode && !isEditMode && responseData?.id" class="rounded-xl border border-teal-200 bg-teal-50 p-4 mb-4">
+                  <section v-if="!isReferralMode && !isCollectorMode && !isEditMode && responseData?.id" class="rounded-xl border border-teal-200 bg-teal-50 p-4 mb-4">
                     <h3 class="font-bold text-teal-900">نقاط المريض وخصم الولاء</h3>
                     <p v-if="loyaltyLoading">جارٍ تحميل الرصيد…</p>
                     <p v-else-if="loyaltyError" role="alert" class="text-red-700">{{loyaltyError}}</p>
@@ -638,7 +638,7 @@
                     </div>
 
                     <!-- Promo code -->
-                    <div v-if="!isReferralMode" class="pt-3 mt-1 border-t border-slate-100">
+                    <div v-if="!isReferralMode && !isCollectorMode" class="pt-3 mt-1 border-t border-slate-100">
                       <label class="block text-sm font-medium text-slate-700 mb-2">بروموكود</label>
                       <div v-if="!promoCodeApplied" class="flex items-center gap-2">
                         <input
@@ -834,6 +834,7 @@ export default {
   computed: {
     selectionRecord() { return { tests: this.selectedTests, cultures: this.selectedCultures, test_groups: this.selectedtestGroups, packages: this.selectedPackages }; },
     orderedSelections() { return selectedInvoiceItems(this.selectionRecord); },
+    isCollectorMode() { return this.$route.path.startsWith("/collector-portal"); },
     isReferralMode() { return this.$route.path.startsWith("/referral-portal"); },
     loyaltyDiscount() { return this.isEditMode ? Number(this.record.loyalty_discount || 0) : Number(this.loyalty?.rewards?.find(x => x.key === this.loyaltyKey)?.discount_amount || 0); },
     ...mapWritableState(LoaderStore, ["hideLoading"]),
@@ -1111,7 +1112,7 @@ export default {
       }
       pr.gender_id_fk = pr.gender_type_id_fk;
       pr.phone_number = pr.phone ? `+964${pr.phone}` : "";
-      if (this.isReferralMode) {
+      if (this.isReferralMode || this.isCollectorMode) {
         this.record.patient_id_fk = null;
         this.record.inline_patient = { ...pr };
         return true;
@@ -1224,6 +1225,7 @@ export default {
     //   3. price_lists.discount on the referral's price-list (e.g. doctor referral)
     // Acts like the user typed the % in the discount field.
     applyFromLabDiscount() {
+      if (this.isCollectorMode) return;
       const lab = this.fromLap?.find((c) => c.user_id === this.record.from_lab_id_fk);
       const ref = this.records?.find((c) => c.user_id === this.record.referral_id_fk);
       const pct = Number(
@@ -1481,7 +1483,7 @@ export default {
       // Set patient_id_fk from selected/newly-created patient
       if (this.responseData?.id) {
         this.record.patient_id_fk = this.responseData.id;
-        if (this.isReferralMode) delete this.record.inline_patient;
+        if (this.isReferralMode || this.isCollectorMode) delete this.record.inline_patient;
       }
 
       this.record.show_patient_card_id = this.record?.show_patient_card_id ? true : false;
@@ -1564,9 +1566,13 @@ export default {
         questions: null,
       }));
 
-      if (this.isReferralMode && !this.record.request_id) this.record.request_id = crypto.randomUUID();
+      if ((this.isReferralMode || this.isCollectorMode) && !this.record.request_id) this.record.request_id = crypto.randomUUID();
       return this.Addinvoices()
         .then(async (createdInvoice) => {
+          if (this.isCollectorMode) {
+            this.alertSuccess('تم إرسال الفاتورة إلى قائمة انتظار المختبر.');
+            this.resetDraft(); this.$emit('saved', createdInvoice); return;
+          }
           this.GetReferrals();
           await this.commitPromoCode(createdInvoice?.id);
           this.alertSuccess(this.t("invoice_created_successfully") || this.t("alertSuccess"));
@@ -1615,7 +1621,7 @@ export default {
       // Ensure patient_id_fk is set from responseData if not already set
       if (!this.record.patient_id_fk && this.responseData?.id) {
         this.record.patient_id_fk = this.responseData.id;
-        if (this.isReferralMode) delete this.record.inline_patient;
+        if (this.isReferralMode || this.isCollectorMode) delete this.record.inline_patient;
       }
       this.record.show_patient_card_id = this.record?.show_patient_card_id ? true : false;
       this.record.show_result_date = this.record?.show_result_date ? true : false;
@@ -1730,7 +1736,7 @@ export default {
     "responseData.id": { immediate:true, async handler(id) {
       this.loyaltyKey=""; this.loyalty=null; this.loyaltyError="";
       if (!id || this.isEditMode) return;
-      if (this.isReferralMode) return;
+      if (this.isReferralMode || this.isCollectorMode) return;
       this.loyaltyLoading=true;
       try { const {data}=await $http.get('/patients/'+id+'/loyalty'); if(this.responseData?.id===id) this.loyalty=data; }
       catch(e) { if(this.responseData?.id===id) this.loyaltyError=e.response?.data?.message || 'تعذر تحميل نقاط المريض'; }

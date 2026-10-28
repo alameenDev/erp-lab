@@ -31,7 +31,7 @@ export default {
 
     if (this.isUserLoggedIn()) {
       const user = JSON.parse(localStorage.getItem("user"));
-      if (user?.is_referral_partner || user?.owner_portal_only) return;
+      if (user?.is_referral_partner || user?.owner_portal_only || user?.collector_portal_only) return;
       try {
         await authStore.refreshAccess();
       } catch (error) {
