@@ -127,6 +127,6 @@ class CollectorPortalTest extends TestCase
         $token=$this->collector->createToken('test')->plainTextToken;
         $this->putJson('/api/sample-logistics/accounts/'.$this->collector->id,['name'=>'Collector','email'=>$this->collector->email,'status'=>false])->assertOk();
         $this->assertDatabaseCount('collector_push_subscriptions',0);$this->assertDatabaseCount('personal_access_tokens',0);
-        $this->actingAs($this->collector->fresh());$this->getJson('/api/collector-portal/context')->assertForbidden();
+        $this->actingAs($this->collector->fresh());$this->getJson('/api/collector-portal/context')->assertUnauthorized();
     }
 }

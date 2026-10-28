@@ -5,7 +5,7 @@ const go=async path=>page.evaluate(p=>collectorFixture.router.push(p),path);
 try{
  await page.goto('http://127.0.0.1:5173/tests/collector-portal-browser.html');await page.getByRole('heading',{name:'مريض تجريبي',exact:true}).waitFor();await screenshot('collector-tasks-mobile');
  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
- await page.getByLabel('عدد العينات المستلمة',{exact:true}).fill('3');await page.getByRole('button',{name:'تأكيد استلام العينة',exact:true}).click();await page.getByRole('button',{name:'تأكيد توصيل العينة',exact:true}).click();await page.getByText('تم توصيل العينة',{exact:false}).waitFor();
+ await page.getByLabel('عدد العينات المستلمة',{exact:true}).fill('3');await page.getByRole('button',{name:'تأكيد استلام العينة',exact:true}).click();await page.getByRole('button',{name:'تأكيد توصيل العينة',exact:true}).click();await page.locator('article p').filter({hasText:'تم توصيل العينة'}).waitFor();
  await go('/collector-portal/statistics');await page.getByText('عينات مستلمة',{exact:false}).waitFor();await screenshot('collector-statistics-mobile');
  await go('/collector-portal/new');await page.getByRole('combobox',{name:'جهة المريض',exact:true}).selectOption('2');await page.getByRole('button',{name:'إدخال بيانات الفاتورة',exact:true}).click();await page.waitForFunction(()=>collectorFixture.requests.some(r=>r.url==='/collector-portal/workspace/tests'));
  await page.evaluate(()=>{const inv=collectorFixture.invoices(),pat=collectorFixture.patients();pat.record.name='مريض تجريبي';pat.record.age=35;pat.record.age_unit_id_fk=1;pat.record.gender_type_id_fk=1;inv.selectedTests=[{id:5,name:'CBC',type:'test',price:12000,for_customer_price:12000,prices:[]}];});

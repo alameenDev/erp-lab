@@ -2,7 +2,7 @@
   "id": "/collector-portal/",
   "name": "Digital Lab — ساحب العينات",
   "short_name": "ساحب العينات",
-  "description": "متابعة مختبراتك وإشعارات الفواتير وملخص يوم العمل",
+  "description": "استلام العينات وتوصيلها وإرسال فواتير المندوب إلى المختبر",
   "lang": "ar", "dir": "rtl",
   "start_url": "/collector-portal/", "scope": "/collector-portal/",
   "display": "standalone", "background_color": "#f5f7f5", "theme_color": "#102f30",

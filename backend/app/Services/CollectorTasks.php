@@ -15,7 +15,7 @@ class CollectorTasks
     {
         $u=$id?User::withTrashed()->find($id):null; if(!$u)return null;
         $p=DB::table('referral_lab_profiles')->where('user_id_fk',$id)->first();
-        return ['id'=>$u->id,'name'=>$p?->display_name?:$u->name,'phone'=>$p?->phone?:$u->phone_number,'address'=>$p?->address];
+        return ['id'=>$u->id,'name'=>$p?->display_name?:$u->name,'phone'=>$p?->phone?:$u->phone_number,'address'=>$p?->address?:$u->address];
     }
     public function projection(Invoice $invoice): array
     {
@@ -42,7 +42,7 @@ class CollectorTasks
             }
             $items[]=['kind'=>$kind,'id'=>$m->id,'name'=>$kind==='test_groups'?$m->group_name:$m->name,'sample'=>in_array($kind,['tests','cultures'])?$m->sample?->sample_name:null,'children'=>$children];
         }
-        return ['patient'=>['name'=>$p?->user?->name,'age'=>$p?->age,'age_unit'=>$p?->ageUnit?->unit_name,'gender'=>$p?->gender?->gender_type,'phone'=>$p?->user?->phone_number,'address'=>$p?->address], 'items'=>$items,'source'=>$this->sourceInfo($invoice->from_lab_id_fk?:$invoice->referral_id_fk)];
+        return ['patient'=>['name'=>$p?->user?->name,'age'=>$p?->age,'age_unit'=>$p?->ageUnit?->unit_name,'gender'=>$p?->gender?->gender_type,'phone'=>$p?->user?->phone_number,'address'=>$p?->address?:$u->address], 'items'=>$items,'source'=>$this->sourceInfo($invoice->from_lab_id_fk?:$invoice->referral_id_fk)];
     }
     public function capture(int $id): ?CollectionTask
     {
@@ -66,7 +66,7 @@ class CollectorTasks
             if($existing) {
                 // Requested tasks follow invoice edits; collected tasks retain their pickup snapshot.
                 if($existing->status==='requested' && (int)$existing->source_lab_id!==(int)$source) {
-                    $old=$existing->collector_id; $existing->update(['source_lab_id'=>$source,'collector_id'=>$this->assigned($lab,$source),'version'=>$existing->version+1]);
+                    $old=$existing->collector_id; $existing->update(['source_lab_id'=>$source,'collector_id'=>$source?$this->assigned($lab,$source):$submission?->collector_id,'version'=>$existing->version+1]);
                     $this->event($lab->id,'source_changed',['previous_collector'=>$old],$existing->id); $this->notify($existing,'source:'.$existing->version,'تم تحديث جهة استلام العينة');
                 }
                 return $existing;
@@ -96,6 +96,9 @@ class CollectorTasks
     {
         $lab=app(CollectorAccess::class)->lab($collector);
         return DB::transaction(function()use($collector,$id,$v,$lab){
+            $invoiceId=CollectionTask::where('lab_id',$lab->id)->where('collector_id',$collector->id)->whereKey($id)->value('invoice_id');
+            abort_unless($invoiceId,404);
+            Invoice::whereKey($invoiceId)->lockForUpdate()->firstOrFail();
             $task=CollectionTask::where('lab_id',$lab->id)->where('collector_id',$collector->id)->lockForUpdate()->findOrFail($id);
             abort_if($task->cancelled_at,409,'تم إلغاء هذا الطلب.');
             if($task->status===$v['status'] || ($task->status==='delivered' && $v['status']==='collected'))return $task;

@@ -5,7 +5,7 @@ import { bindCollectorWorker } from '@/utils/collectorPortalApp';
 
 export function useCollectorPortalApp(collectorId) {
   const state = reactive({ device:portalDevice(), ready:false, preparing:false, busy:false, error:'', message:'', config:null,
-    subscribed:false, invoice_enabled:true, daily_enabled:true, unread:0, installAvailable:false, permission:window.Notification?.permission || 'default' });
+    subscribed:false, unread:0, installAvailable:false, permission:window.Notification?.permission || 'default' });
   let registration, subscription, installEvent, revision = 0, timer, disposed = false;
   const current = version => !disposed && version === revision;
   const errorText = e => e.response?.data?.message || portalPushError(e);
@@ -48,7 +48,7 @@ export function useCollectorPortalApp(collectorId) {
       const sub = await pending;
       if (!current(version)) return;
       subscription = sub;
-      const { data } = await $http.post('/collector-portal/notifications/push/subscribe', { subscription:sub.toJSON(), invoice_enabled:state.invoice_enabled, daily_enabled:state.daily_enabled });
+      const { data } = await $http.post('/collector-portal/notifications/push/subscribe', { subscription:sub.toJSON() });
       if (!current(version)) return;
       await bindCollectorWorker(collectorId.value, registration);
       if (!current(version)) return;

@@ -103,7 +103,7 @@ class CollectorSubmissions
                 if($s->source_lab_id)app(CollectorAccess::class)->source($lab,$s->source_lab_id);
                 $payload=$this->validatePayload(new Request($s->payload),$lab,$s->source_lab_id);
                 // Changed prices require a new, explicitly reviewed submission, never a silent increase.
-                abort_unless($payload['total']===$s->payload['total'] && $payload['sub_total']===$s->payload['sub_total'] && Arr::only($payload,array_keys(CollectorCatalog::KINDS))===Arr::only($s->payload,array_keys(CollectorCatalog::KINDS)),409,'تغيرت الأسعار؛ ارفض الطلب واطلب إعادة إرساله بالأسعار الحالية.');
+                abort_unless($payload['total']===$s->payload['total'] && $payload['sub_total']===$s->payload['sub_total'] && Arr::only($payload,array_keys(CollectorCatalog::KINDS))==Arr::only($s->payload,array_keys(CollectorCatalog::KINDS)),409,'تغيرت الأسعار؛ ارفض الطلب واطلب إعادة إرساله بالأسعار الحالية.');
                 $pr=$payload['inline_patient'];
                 if(!empty($pr['email']))abort_if(User::withTrashed()->where('email',$pr['email'])->exists(),422,'البريد الإلكتروني مستخدم؛ عدّل معلومات المريض في طلب جديد.');
                 $u=User::create(['name'=>$pr['name'],'phone_number'=>$pr['phone_number']??null,'email'=>$pr['email']??('collector-'.Str::uuid().'@example.invalid'),'password'=>Hash::make(Str::random(50)),'role_id'=>3,'creator_id'=>$lab->id]);
