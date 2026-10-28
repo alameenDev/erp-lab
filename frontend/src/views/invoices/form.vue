@@ -111,6 +111,7 @@ let loadVersion = 0;
 
 // Navigation
 const returnTarget = () => {
+     if (route.path.startsWith("/collector-portal")) return "/collector-portal/submissions";
      if (route.path.startsWith("/referral-portal")) return "/referral-portal";
      if (route.query.return === "update-result") {
           const id = route.params.id || route.query.return_id;

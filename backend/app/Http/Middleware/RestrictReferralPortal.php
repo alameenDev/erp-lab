@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 class RestrictReferralPortal {
     public function handle(Request $request, Closure $next) {
         $user = $request->user();
-        if ($user && ($user->referral_portal_only || ((int) $user->role_id !== 6 && Referal::where('referral_id_fk', $user->id)->exists()))) {
+        if ($user && !$user->collector_portal_only && ($user->referral_portal_only || ((int) $user->role_id !== 6 && Referal::where('referral_id_fk', $user->id)->exists()))) {
             $doctor = (int) $user->role_id === 5 && $user->referral_portal_only
                 && ! \App\Models\ReferralLabProfile::where('user_id_fk', $user->id)->exists();
             $portal = $doctor ? 'api/doctor-portal/*' : 'api/referral-portal/*';

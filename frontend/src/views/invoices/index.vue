@@ -579,6 +579,7 @@ onMounted(async () => {
               </svg>
               <span class="hidden sm:inline">{{ t("Export to Excel") }}</span>
             </button>
+            <RouterLink v-if="authStore.havePermission('sample logistics review')" to="/sample-logistics/waiting" class="px-4 py-3 rounded-xl border border-teal-300 text-teal-800 bg-teal-50 font-semibold">قائمة الانتظار</RouterLink>
             <button
               v-if="authStore.havePermission('invoices create')"
               @click.stop="addRecord"

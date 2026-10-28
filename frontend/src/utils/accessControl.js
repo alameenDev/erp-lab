@@ -12,6 +12,8 @@ export function permissionNames(raw = []) {
 }
 
 export const pagePermissions = {
+  '/sample-logistics': ['sample logistics view', 'sample logistics manage'],
+  '/sample-logistics/waiting': ['sample logistics review'],
   '/dashboard': ['main dashboard view', 'reports view'],
   '/patients': ['patients view'],
   '/patients/work-register': ['patients view'],
@@ -34,6 +36,8 @@ export const pagePermissions = {
 export function canAccessPage(path, user, permissions = []) {
   if (!user) return false;
   if (path === '/logout') return true;
+  if (user.collector_portal_only) return path === '/collector-portal' || path.startsWith('/collector-portal/');
+  if (path.startsWith('/collector-portal')) return false;
   if (user.owner_portal_only) return path === '/owner-portal' || path.startsWith('/owner-portal/');
   if (path === '/owner-portal' || path.startsWith('/owner-portal/')) return false;
   if (user.is_referral_partner) {
@@ -52,6 +56,7 @@ export function canAccessPage(path, user, permissions = []) {
 }
 
 export function landingPage(user, permissions = []) {
+  if (user?.collector_portal_only) return '/collector-portal/';
   if (user?.owner_portal_only) return '/owner-portal/';
   if (user?.is_referral_partner) return user.is_doctor_portal ? '/doctor-portal' : '/referral-portal';
   if (Number(user?.role_id) === 1) return '/super-admin';

@@ -1,3 +1,4 @@
+import { collectorPortalHead } from '@/utils/collectorPortalApp';
 import { ownerPortalHead } from '@/utils/ownerPortalApp';
 import { createRouter, createWebHistory } from "vue-router";
 import { canAccessPage, landingPage, readStoredJson } from "@/utils/accessControl";
@@ -15,6 +16,8 @@ const router = createRouter({
                },
                meta: { requiresAuth: true },
                children: [
+                    { path: '/sample-logistics', component: () => import('@/views/collector-portal/management.vue'), meta: { title: 'إدارة سحب العينات' } },
+                    { path: '/sample-logistics/waiting', component: () => import('@/views/collector-portal/management.vue'), meta: { title: 'قائمة الانتظار' } },
                     { path: '/super-admin/owners', name: 'owner-accounts', component: () => import('@/views/super-admin/owners.vue'), meta: { title: 'حسابات المالكين | Digital Lab' } },
                     { path: '/access-denied', name: 'access-denied', component: () => import('@/views/errors/AccessDenied.vue'), meta: { title: 'صلاحيات الوصول | Digital Lab' } },
                     {path: "/printer-settings", name: "printer-settings", component: () => import("@/views/lab-settings/LocalPrinterSettings.vue"), meta: {title: "الطابعات لهذا الجهاز | Digital Lab"}},
@@ -249,6 +252,13 @@ const router = createRouter({
                meta: { requiresAuth: true, title: 'بوابة المالك | Digital Lab' },
           },
           {
+               path: '/collector-portal', component: () => import('@/views/collector-portal/index.vue'), meta: { requiresAuth: true, title: 'ساحب العينات | Digital Lab' },
+               children: [
+                    { path: ':section(tasks|submissions|statistics|notifications|app)?', component: () => import('@/views/collector-portal/workspace.vue') },
+                    { path: 'new', component: () => import('@/views/collector-portal/new.vue') },
+               ],
+          },
+          {
                path: "/referral-portal",
                component: () => import("@/layout/ReferralPortalLayout.vue"),
                meta: { requiresAuth: true },
@@ -365,7 +375,7 @@ const router = createRouter({
           },
           {
                path: "/login",
-               alias: "/owner-portal/login",
+               alias: ["/owner-portal/login", "/collector-portal/login"],
                name: "login",
                component: () => import("@/views/auth/login.vue"),
                meta: {
@@ -386,7 +396,7 @@ const router = createRouter({
                path: "/logout",
                name: "logout",
                beforeEnter: async (to, from, next) => {
-                    if (readStoredJson('user')?.owner_portal_only) { await useAuthStore().logout(); next(false); return; }
+                    if (readStoredJson('user')?.owner_portal_only || readStoredJson('user')?.collector_portal_only) { await useAuthStore().logout(); next(false); return; }
                     let lang = localStorage.getItem("locale") ? localStorage.getItem("locale") : "ar";
                     const localPrinters = localStorage.getItem("digital-lab-print-v1");
                     localStorage.clear();
@@ -447,7 +457,7 @@ const router = createRouter({
 router.beforeEach(async (to) => {
      const authenticated = Boolean(localStorage.getItem('token'));
      const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
-     const login = to.path.startsWith('/owner-portal') ? { path:'/owner-portal/login', query:{ redirect:to.fullPath } } : '/login';
+     const login = to.path.startsWith('/collector-portal') ? { path:'/collector-portal/login', query:{ redirect:to.fullPath } } : to.path.startsWith('/owner-portal') ? { path:'/owner-portal/login', query:{ redirect:to.fullPath } } : '/login';
      if (requiresAuth && !authenticated) return login;
      if (!authenticated) return true;
      const auth = useAuthStore();
@@ -463,14 +473,17 @@ router.beforeEach(async (to) => {
      const home = landingPage(user, auth.rolePermissions);
      if (to.name === 'welcome' || to.name === 'login' || to.path === '/app') return home;
      if (requiresAuth && !canAccessPage(to.path, user, auth.rolePermissions)) {
-          return user?.is_referral_partner || user?.owner_portal_only ? home : '/access-denied';
+          return user?.is_referral_partner || user?.owner_portal_only || user?.collector_portal_only ? home : '/access-denied';
      }
      return true;
 });
 
 // Update document title and meta tags after each navigation
 router.afterEach((to) => {
-     ownerPortalHead(to.path.startsWith('/owner-portal'));
+     if (!to.path.startsWith('/owner-portal')) ownerPortalHead(false);
+     if (!to.path.startsWith('/collector-portal')) collectorPortalHead(false);
+     if (to.path.startsWith('/owner-portal')) ownerPortalHead(true);
+     if (to.path.startsWith('/collector-portal')) collectorPortalHead(true);
      const defaultTitle = "Digital Lab | المختبر الرقمي";
      const defaultDescription =
           "Digital Lab - نظام إدارة المختبرات الطبية الرقمي. Medical Laboratory Management System.";

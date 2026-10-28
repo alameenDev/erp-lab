@@ -1,0 +1,25 @@
+import {chromium} from 'playwright';import assert from 'node:assert/strict';import {mkdir} from 'node:fs/promises';
+await mkdir('test-results/collector-portal',{recursive:true});const browser=await chromium.launch({executablePath:process.env.OWNER_CHROMIUM_EXECUTABLE||undefined});const page=await browser.newPage({viewport:{width:390,height:844}});const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.route('**/fonts.googleapis.com/**',r=>r.abort());await page.route('**/fonts.gstatic.com/**',r=>r.abort());
+const screenshot=async name=>page.screenshot({path:`test-results/collector-portal/${name}.png`,fullPage:true});
+const go=async path=>page.evaluate(p=>collectorFixture.router.push(p),path);
+try{
+ await page.goto('http://127.0.0.1:5173/tests/collector-portal-browser.html');await page.getByRole('heading',{name:'مريض تجريبي',exact:true}).waitFor();await screenshot('collector-tasks-mobile');
+ assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+ await page.getByLabel('عدد العينات المستلمة',{exact:true}).fill('3');await page.getByRole('button',{name:'تأكيد استلام العينة',exact:true}).click();await page.getByRole('button',{name:'تأكيد توصيل العينة',exact:true}).click();await page.locator('article p').filter({hasText:'تم توصيل العينة'}).waitFor();
+ await go('/collector-portal/statistics');await page.getByText('عينات مستلمة',{exact:false}).waitFor();await screenshot('collector-statistics-mobile');
+ await go('/collector-portal/new');await page.getByRole('combobox',{name:'جهة المريض',exact:true}).selectOption('2');await page.getByRole('button',{name:'إدخال بيانات الفاتورة',exact:true}).click();await page.waitForFunction(()=>collectorFixture.requests.some(r=>r.url==='/collector-portal/workspace/tests'));
+ await page.evaluate(()=>{const inv=collectorFixture.invoices(),pat=collectorFixture.patients();pat.record.name='مريض تجريبي';pat.record.age=35;pat.record.age_unit_id_fk=1;pat.record.gender_type_id_fk=1;});
+ await page.locator('[data-invoice-picker=analysis] input').fill('CBC');await page.getByRole('option',{name:'CBC',exact:true}).click();await page.locator('[data-invoice-analysis="5"]').waitFor();
+ await screenshot('collector-invoice-mobile');
+ // Submit the real shared component, not a mock form.
+ await page.locator('form').first().evaluate(form=>form.requestSubmit());await page.waitForFunction(()=>collectorFixture.requests.some(r=>r.url==='/collector-portal/workspace/invoices/create'));
+ const sent=await page.evaluate(()=>collectorFixture.requests.find(r=>r.url==='/collector-portal/workspace/invoices/create'));assert.equal(sent.payload.inline_patient.name,'مريض تجريبي');assert.equal(sent.payload.tests[0].test_id_fk,5);assert.equal(sent.params.source_lab_id,2);assert.ok(sent.payload.request_id);
+ await page.waitForURL('**/collector-portal/submissions');assert.equal(await page.evaluate(()=>collectorFixture.requests.filter(r=>r.url==='/patients/create').length),0);
+ await go('/collector-portal/app');await page.getByRole('heading',{name:'تطبيق ساحب العينات',exact:true}).waitFor();await screenshot('collector-app-mobile');assert.equal(await page.locator('link[rel="manifest"]').getAttribute('href'),'/collector-app/manifest.webmanifest');
+ await go('/invoices');await page.waitForURL('**/collector-portal/');
+ await page.setViewportSize({width:1440,height:1100});await page.evaluate(async()=>{collectorFixture.admin=true;await collectorFixture.router.push('/sample-logistics');});await page.getByRole('heading',{name:'إدارة سحب العينات',exact:true}).waitFor();await screenshot('management-desktop');
+ await page.getByRole('button',{name:'المندوبون والمختبرات',exact:true}).click();await page.getByRole('button',{name:'إنشاء حساب مندوب',exact:true}).click();await page.getByLabel('الاسم الكامل',{exact:true}).fill('مندوب جديد');await page.getByLabel('البريد الإلكتروني',{exact:true}).fill('new@example.test');await page.getByLabel('كلمة المرور',{exact:true}).fill('password-12345');await page.getByRole('button',{name:'حفظ الحساب',exact:true}).click();await page.waitForFunction(()=>collectorFixture.requests.some(r=>r.url==='/sample-logistics/accounts'&&r.method==='post'));await screenshot('management-accounts');
+ await go('/sample-logistics/waiting');await page.getByRole('button',{name:'مراجعة التفاصيل',exact:true}).click();await page.getByRole('dialog').waitFor();await screenshot('waiting-review');await page.getByRole('button',{name:'اعتماد وإرسال لإدخال النتائج',exact:true}).click();await page.getByRole('link',{name:'فتح الفاتورة لإدخال النتائج ←',exact:true}).waitFor();
+ await page.getByRole('button',{name:'إغلاق المراجعة',exact:true}).click();await page.setViewportSize({width:390,height:844});await screenshot('waiting-mobile');assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+ assert.deepEqual(errors,[]);console.log('PASS collector pickup/delivery, full shared invoice submission, restrictions, account management and waiting approval');
+}finally{await browser.close();}
