@@ -1,7 +1,7 @@
 'use strict';
 const fs=require('node:fs');const path=require('node:path');const crypto=require('node:crypto');
 module.exports=async context=>{
-  const root=context.appDir;const config=JSON.parse(fs.readFileSync(path.join(root,'src/license-config.json'),'utf8'));
+  const root=context.packager.info.appDir;const config=JSON.parse(fs.readFileSync(path.join(root,'src/license-config.json'),'utf8'));
   if(!['production','qa'].includes(config.channel)||crypto.createPublicKey(config.publicKey).asymmetricKeyType!=='ed25519')throw new Error('Configure the issuer public key before building');
   if(crypto.createHash('sha256').update(fs.readFileSync(path.join(root,'licensing/DigitalLab.DeviceIdentity.exe'))).digest('hex')!==config.deviceHelperSha256)throw new Error('Device helper changed; configure the release again');
   const {inventory}=require('../src/integrity.cjs');

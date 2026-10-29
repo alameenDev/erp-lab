@@ -12,6 +12,7 @@ async function run({app,bundle,p,vault,license}){
     const status=await runtime.init();assert.equal(status.installed,false);
     await runtime.install({owner_name:'QA Owner',owner_email:'owner@example.test',owner_password:password,lab_name:'مختبر فحص النسخة',lab_email:'lab@example.test',lab_password:password});
     await assert.rejects(runtime.install({}),/سابق/);
+    if(license?.type==='lifetime')assert.equal((await runtime.sql('SELECT end_date FROM digital_lab_desktop.subscriptions LIMIT 1')).trim(),'9999-12-31');
     gateway=createGateway(new Proxy({},{get:(_,key)=>typeof runtime[key]==='function'?runtime[key].bind(runtime):runtime[key]}),secret);await new Promise((r,j)=>{gateway.server.once('error',j);gateway.server.listen(PORT,'127.0.0.1',r);});
     assert.equal((await fetch(ORIGIN+'/api/patients')).status,403);
     assert.equal((await fetch(ORIGIN+'/api/patients',{headers:{...headers(),Origin:'https://original-site.example'}})).status,403);
@@ -65,7 +66,7 @@ async function run({app,bundle,p,vault,license}){
     const restoredPdf=await fetch(saved.attachments[0].file,{headers:headers()});assert.equal(restoredPdf.status,200);
     console.log('PASS: encrypted backup round trip preserves accounts, patient, invoice, register and PDF; existing data survives restart.');
     await require(path.join(bundle,'print/smoke.cjs')).run();
-    await fsp.writeFile(path.join(qa,'acceptance.json'),JSON.stringify({version:'1.0.0',packaged:app.isPackaged,passed:true,checks:['install','isolation','login','patient','invoice','result-entry','result-edit','register','barcode','attachments','frontend','backup','restore','restart','native-print']}));
+    await fsp.writeFile(path.join(qa,'acceptance.json'),JSON.stringify({version:'1.1.0',packaged:app.isPackaged,passed:true,checks:['install','isolation','login','patient','invoice','result-entry','result-edit','register','barcode','attachments','frontend','backup','restore','restart','native-print']}));
   }catch(e){
     // Synthetic test data only, useful when Windows CI cannot display a console.
     await fsp.writeFile(path.join(qa,'failure.txt'),e.stack+'\n'+(e.detail||''));
