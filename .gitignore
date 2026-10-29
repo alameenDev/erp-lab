@@ -42,3 +42,11 @@ desktop/bundle/
 desktop/.downloads/
 desktop/qa/
 desktop/*.log
+
+# Device identity build and local issuer configuration
+desktop/device/bin/
+desktop/device/obj/
+desktop/licensing/
+desktop/src/license-config.json
+*.dllicense
+desktop/node_modules

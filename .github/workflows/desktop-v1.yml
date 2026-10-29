@@ -62,6 +62,18 @@ jobs:
         working-directory: desktop
       - run: node node_modules/electron/install.js
         working-directory: desktop
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Build non-exportable Windows device key provider
+        run: dotnet publish desktop/device/DeviceIdentity.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o desktop/licensing
+      - name: Configure ephemeral QA issuer and device-bound license
+        run: node desktop/tests/prepare-license-qa.cjs
+      - name: Activate source test runner with signed QA license
+        shell: pwsh
+        run: |
+          $p = Start-Process desktop/node_modules/electron/dist/electron.exe -ArgumentList 'desktop','--installer-check','--license-file', ('"' + $env:DLD_QA_LICENSE + '"') -PassThru -Wait
+          if ($p.ExitCode -ne 0) { throw 'Signed device activation failed' }
       - name: Download and verify bundled runtimes
         run: ./desktop/scripts/download-runtime.ps1
       - uses: actions/setup-python@v5
@@ -123,7 +135,7 @@ jobs:
           Copy-Item desktop/bundle/build.json desktop/dist/build.json
       - uses: actions/upload-artifact@v4
         with:
-          name: Digital-Lab-Desktop-V1-Windows-Setup
+          name: Digital-Lab-Desktop-V1-Licensing-QA-NOT-FOR-SALE
           path: |
             desktop/dist/*Setup*.exe
             desktop/dist/SHA256.txt

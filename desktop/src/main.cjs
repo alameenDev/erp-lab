@@ -11,7 +11,16 @@ const {writeBackup,prepareRestore} = require('./backup.cjs');
 const {paths,PORT,ORIGIN} = require('./constants.cjs');
 const {allowedRequest} = require('./network.cjs');
 protocol.registerSchemesAsPrivileged([{scheme:'dlprint',privileges:{standard:true,secure:true,supportFetchAPI:true}}]);
+const {LicenseManager}=require('./license-manager.cjs');
+const licenseConfig=require('./license-config.json');
+const installerMode=process.argv.includes('--installer-activate');
+const installerCheck=process.argv.includes('--installer-check');
+const requestOnly=process.argv.includes('--installer-request');
+const option=name=>{const i=process.argv.indexOf(name);return i<0?null:process.argv[i+1];};
 const smoke = process.argv.includes('--smoke-test');
+const licenseUserData=path.join(app.getPath('appData'),'DigitalLabDesktopV1');
+let licensing,activationWindow,activationFinished=false,licenseTimer;
+const activationUrl=pathToFileURL(path.join(__dirname,'../assets/activation.html')).href;
 if (smoke) app.on('window-all-closed',()=>{});
 if (smoke) app.setPath('userData',process.env.DLD_SMOKE_DATA || path.join(app.getPath('temp'),'DigitalLabDesktop-smoke-'+crypto.randomUUID()));
 else app.setPath('userData',path.join(app.getPath('appData'),'DigitalLabDesktopV1'));
@@ -20,7 +29,7 @@ const p = paths(bundle,path.join(app.getPath('userData'),'lab-data'));
 const controlUrl = pathToFileURL(path.join(__dirname,'../assets/control.html')).href;
 let runtime,gateway,printers,main,control,busy=false,quitting=false,ready=false;
 const vault = {encrypt:value=>safeStorage.encryptString(value),decrypt:value=>safeStorage.decryptString(value)};
-if (!smoke && !app.requestSingleInstanceLock()) app.quit();
+if (!app.requestSingleInstanceLock()) app.exit(2);
 app.on('second-instance',()=>{const win=main||control;if(win){win.show();win.focus();}});
 const errorBox = e=>dialog.showMessageBox({type:'error',title:'Digital Lab Desktop',message:e.message||'تعذر تنفيذ العملية.'});
 function validSender(event,controlOnly=false) {
@@ -34,17 +43,19 @@ async function external(url) {
 }
 function showControl() {
   if(control&&!control.isDestroyed()){control.show();control.focus();return;}
-  control = new BrowserWindow({width:860,height:900,minWidth:620,minHeight:650,title:'Digital Lab Desktop V1',backgroundColor:'#f8fafc',autoHideMenuBar:true,webPreferences:{preload:path.join(__dirname,'control-preload.cjs'),sandbox:true,nodeIntegration:false,contextIsolation:true}});
+  control = new BrowserWindow({width:860,height:900,minWidth:620,minHeight:650,title:'Digital Lab Desktop V1',backgroundColor:'#f8fafc',autoHideMenuBar:true,webPreferences:{preload:path.join(__dirname,'control-preload.cjs'),sandbox:true,nodeIntegration:false,contextIsolation:true,devTools:false}});
   control.webContents.setWindowOpenHandler(()=>({action:'deny'}));
   control.webContents.on('will-navigate',e=>e.preventDefault());
-  control.on('close',e=>{if(!quitting && (busy||!ready)){e.preventDefault();errorBox(new Error('انتظر اكتمال تشغيل الخدمات أو العملية الحالية قبل الإغلاق.'));}});
+  control.on('close',e=>{if(!quitting && busy){e.preventDefault();errorBox(new Error('انتظر اكتمال تشغيل الخدمات أو العملية الحالية قبل الإغلاق.'));}});
   control.on('closed',()=>{control=null;if(!main&&!busy)app.quit();});
   return control.loadURL(controlUrl);
 }
 async function openMain() {
+  licensing.assertCurrent();
+  if(installerMode){if(!runtime.status?.installed)throw new Error('أكمل إنشاء الحسابات أولاً.');activationFinished=true;app.quit();return;}
   if (!runtime.status?.installed) return showControl();
   if(main&&!main.isDestroyed()){main.show();main.focus();return;}
-  main = new BrowserWindow({width:1440,height:940,minWidth:1000,minHeight:700,title:'Digital Lab Desktop V1',backgroundColor:'#f8fafc',webPreferences:{partition:'persist:desktop-v1',preload:path.join(__dirname,'preload.cjs'),sandbox:true,nodeIntegration:false,contextIsolation:true}});
+  main = new BrowserWindow({width:1440,height:940,minWidth:1000,minHeight:700,title:'Digital Lab Desktop V1',backgroundColor:'#f8fafc',webPreferences:{partition:'persist:desktop-v1',preload:path.join(__dirname,'preload.cjs'),sandbox:true,nodeIntegration:false,contextIsolation:true,devTools:false}});
   main.webContents.setWindowOpenHandler(({url})=>{
     if(url==='about:blank'||url.startsWith(ORIGIN+'/')||url.startsWith('blob:'+ORIGIN+'/')) return {action:'allow',overrideBrowserWindowOptions:{webPreferences:{sandbox:true,nodeIntegration:false,contextIsolation:true,preload:undefined},autoHideMenuBar:true}};
     external(url).catch(errorBox);return {action:'deny'};
@@ -58,6 +69,7 @@ async function openMain() {
   main.on('close',e=>{if(!quitting && (busy||printers?.pending)){e.preventDefault();errorBox(new Error('انتظر اكتمال العملية أو الطباعة قبل الإغلاق.'));}});
   main.on('closed',()=>{main=null;if(!busy)app.quit();});
   await main.loadURL(ORIGIN+'/login');
+  if(licenseConfig.channel==='qa')main.setTitle('Digital Lab — QA TEST BUILD — NOT FOR SALE');
   control?.hide();
 }
 async function maintenance(operation) {
@@ -68,19 +80,19 @@ async function maintenance(operation) {
   finally {try {if(!runtime.db) await runtime.startDatabase();} finally {gateway.resume();busy=false;if(main&&!main.isDestroyed())main.setEnabled(true);}}
 }
 function registerIpc() {
-  ipcMain.handle('desktop:status',e=>{validSender(e,true);return {ready,installed:!!runtime?.status?.installed,version:'1.0.0',dataPath:p.data};});
-  ipcMain.handle('desktop:install',async(e,input)=>{validSender(e,true);if(busy||!ready)throw new Error('انتظر اكتمال تشغيل الخدمات.');busy=true;try{return await runtime.install(input);}finally{busy=false;}});
+  ipcMain.handle('desktop:status',e=>{validSender(e,true);return {ready,installed:!!runtime?.status?.installed,version:'1.1.0',dataPath:p.data,installerMode,license:licensing?.claims};});
+  ipcMain.handle('desktop:install',async(e,input)=>{validSender(e,true);if(busy||!ready)throw new Error('انتظر اكتمال تشغيل الخدمات.');busy=true;try{licensing.assertCurrent();return await runtime.install(input);}finally{busy=false;}});
   ipcMain.handle('desktop:open',async e=>{validSender(e,true);await openMain();return true;});
   ipcMain.handle('desktop:print',(e,route,options)=>{validSender(e);return printers.request(route,options);});
   ipcMain.handle('desktop:external',(e,url)=>{validSender(e);return external(url);});
   ipcMain.handle('desktop:backup',async(e,password)=>{
-    validSender(e,true);if(!runtime.status.installed)throw new Error('أكمل الإعداد أولاً.');
+    validSender(e,true);licensing.assertCurrent();if(!runtime.status.installed)throw new Error('أكمل الإعداد أولاً.');
     const choice = await dialog.showSaveDialog(control,{title:'حفظ نسخة احتياطية مشفرة',defaultPath:`Digital-Lab-${new Date().toISOString().slice(0,10)}.dlbackup`,filters:[{name:'Digital Lab backup',extensions:['dlbackup']}]});
     if(choice.canceled)return {canceled:true};
     await maintenance(()=>writeBackup({data:p.data,secrets:runtime.secrets,destination:choice.filePath,password}));return {path:choice.filePath};
   });
   ipcMain.handle('desktop:restore',async(e,password)=>{
-    validSender(e,true);
+    validSender(e,true);licensing.assertCurrent();
     const choice=await dialog.showOpenDialog(control,{title:'اختيار نسخة احتياطية',properties:['openFile'],filters:[{name:'Digital Lab backup',extensions:['dlbackup']}]});
     if(choice.canceled)return {canceled:true};
     const confirm=await dialog.showMessageBox(control,{type:'warning',title:'استعادة النسخة',message:'الاستعادة تستبدل بيانات هذه الحاسبة ببيانات النسخة المختارة. سيُحفظ المجلد الحالي للاسترجاع. أغلق النماذج غير المحفوظة قبل المتابعة.',buttons:['إلغاء','استعادة'],defaultId:0,cancelId:0});
@@ -92,12 +104,12 @@ function registerIpc() {
       const previous=p.data+'.before-restore-'+Date.now();
       await fsp.rename(p.data,previous);
       try {
-        await fsp.rename(stage,p.data);runtime=new Runtime(p,vault);gatewayRuntime.current=runtime;
+        await fsp.rename(stage,p.data);runtime=new Runtime(p,vault,licensing.claims);gatewayRuntime.current=runtime;
         await runtime.init();
       } catch(e) {
         try {await runtime.stopDatabase();}catch{}
         await fsp.rename(p.data,p.data+'.failed-restore-'+Date.now());await fsp.rename(previous,p.data);
-        runtime=new Runtime(p,vault);gatewayRuntime.current=runtime;await runtime.init();throw new Error('لم تنجح الاستعادة. رجعت البيانات السابقة تلقائياً.');
+        runtime=new Runtime(p,vault,licensing.claims);gatewayRuntime.current=runtime;await runtime.init();throw new Error('لم تنجح الاستعادة. رجعت البيانات السابقة تلقائياً.');
       }
       await session.fromPartition('persist:desktop-v1').clearStorageData();
       return {restored:true,previous};
@@ -122,13 +134,36 @@ function menu() {
     {label:'مساعدة',submenu:[{label:'دليل V1',click:()=>shell.openPath(path.join(bundle,'README_AR.txt'))},{label:'عن البرنامج',click:()=>dialog.showMessageBox({title:'Digital Lab Desktop',message:'Digital Lab Desktop — V1.0.0',detail:'نسخة مستقلة بقاعدة بيانات ومرفقات محلية. لا تتصل بقاعدة بيانات الموقع.'})}]}
   ]));
 }
-app.whenReady().then(async()=>{
-  if(!safeStorage.isEncryptionAvailable())throw new Error('تعذر الوصول إلى حماية المفاتيح في Windows.');
-  if(smoke) {await require('./smoke.cjs').run({app,bundle,p,vault});app.exit(0);return;}
+function activationSender(e){if(!activationWindow||e.sender!==activationWindow.webContents||e.senderFrame!==activationWindow.webContents.mainFrame||e.senderFrame.url!==activationUrl)throw new Error('Unauthorized activation request');}
+function activationStatus(){return {claims:licensing.claims||null,channel:licenseConfig.channel,allowSoftware:licenseConfig.allowSoftwareBinding};}
+async function showActivation(){
+  try{await licensing.check();}catch{licensing.claims=null;}
+  activationWindow=new BrowserWindow({width:840,height:900,minWidth:640,minHeight:650,autoHideMenuBar:true,webPreferences:{preload:path.join(__dirname,'activation-preload.cjs'),sandbox:true,nodeIntegration:false,contextIsolation:true,devTools:false}});
+  activationWindow.webContents.setWindowOpenHandler(()=>({action:'deny'}));
+  activationWindow.webContents.on('will-navigate',e=>e.preventDefault());
+  activationWindow.on('closed',()=>{activationWindow=null;if(!control)app.exit(2);});
+  ipcMain.handle('activation:status',e=>{activationSender(e);return activationStatus();});
+  ipcMain.handle('activation:request',async(e,binding)=>{
+    activationSender(e);if(!['tpm','software'].includes(binding))throw new Error('Invalid binding');
+    const request=await licensing.device(binding);
+    const choice=await dialog.showSaveDialog(activationWindow,{defaultPath:'DigitalLab-activation-request.json',filters:[{name:'Device activation request',extensions:['json']}]});
+    if(choice.canceled)return {canceled:true};await fsp.writeFile(choice.filePath,JSON.stringify(request,null,2));return {saved:true};
+  });
+  ipcMain.handle('activation:import',async e=>{
+    activationSender(e);const choice=await dialog.showOpenDialog(activationWindow,{properties:['openFile'],filters:[{name:'Digital Lab license',extensions:['dllicense']}]});
+    if(choice.canceled)return {canceled:true};const file=choice.filePaths[0];if((await fsp.stat(file)).size>32768)throw new Error('ملف الترخيص غير صالح.');await licensing.activate(await fsp.readFile(file,'utf8'));return activationStatus();
+  });
+  ipcMain.handle('activation:continue',async e=>{
+    activationSender(e);if(busy)throw new Error('انتظر اكتمال الإعداد.');await licensing.check();
+    busy=true;try{await startApplication();activationWindow?.close();}finally{busy=false;}return true;
+  });
+  await activationWindow.loadURL(activationUrl);
+}
+async function startApplication(){
   menu();registerIpc();await showControl();
-  runtime=new Runtime(p,vault);gatewayRuntime.current=runtime;
+  runtime=new Runtime(p,vault,licensing.claims);gatewayRuntime.current=runtime;
   await runtime.init();
-  const secret=crypto.randomBytes(32).toString('hex');gateway=createGateway(proxyRuntime,secret);
+  const secret=crypto.randomBytes(32).toString('hex');gateway=createGateway(proxyRuntime,secret,PORT,()=>licensing.assertCurrent());
   await new Promise((resolve,reject)=>{gateway.server.once('error',reject);gateway.server.listen(PORT,'127.0.0.1',resolve);});
   const ses=session.fromPartition('persist:desktop-v1');
   ses.setPermissionRequestHandler((contents,permission,callback)=>callback(permission==='clipboard-sanitized-write' && contents===main?.webContents && contents.getURL().startsWith(ORIGIN+'/')));
@@ -140,12 +175,23 @@ app.whenReady().then(async()=>{
     if(!file)item.cancel();else item.setSavePath(file);
   });
   printers=createPrinters(bundle,app.getPath('userData'));ready=true;
-  if(runtime.status.installed)await openMain();
-}).catch(async e=>{if(smoke){console.error(e.stack);app.exit(1);return;}await errorBox(e);try{await runtime?.stopDatabase();}catch{}app.exit(1);});
+  if(runtime.status.installed && !installerMode)await openMain();
+}
+app.whenReady().then(async()=>{
+  if(!safeStorage.isEncryptionAvailable())throw new Error('تعذر الوصول إلى حماية المفاتيح في Windows.');
+  licensing=new LicenseManager({userData:licenseUserData,resources:app.isPackaged?path.join(process.resourcesPath,'licensing'):path.join(__dirname,'../licensing'),vault,config:licenseConfig});
+  if(requestOnly){const file=option('--request-file');if(!file)throw new Error('Request file required');await fsp.writeFile(file,JSON.stringify(await licensing.device(process.argv.includes('--software')?'software':'tpm')),{flag:'wx'});app.exit(0);return;}
+  if(installerCheck){const file=option('--license-file');if(file)await licensing.activate(await fsp.readFile(file,'utf8'));await licensing.check();app.exit(0);return;}
+  if(installerMode){await showActivation();return;}
+  await licensing.check();
+  if(smoke){await require('./smoke.cjs').run({app,bundle,p,vault});app.exit(0);return;}
+  await startApplication();
+  licenseTimer=setInterval(()=>licensing.check().catch(async e=>{clearInterval(licenseTimer);await errorBox(e);app.quit();}),60000);
+}).catch(async e=>{if(smoke||installerCheck||requestOnly){console.error(e.message);app.exit(1);return;}await errorBox(e);try{await runtime?.stopDatabase();}catch{}app.exit(1);});
 app.on('before-quit',e=>{
   if(quitting||smoke)return;e.preventDefault();
   if(busy){errorBox(new Error('انتظر اكتمال النسخ أو الإعداد قبل الإغلاق.'));return;}
   if(printers?.pending){errorBox(new Error('انتظر اكتمال إرسال الطباعة قبل الإغلاق.'));return;}
   quitting=true;
-  (async()=>{try{await gateway?.pause();await runtime?.stopDatabase();await gateway?.close();app.quit();}catch(error){quitting=false;gateway?.resume();await errorBox(error);}})();
+  (async()=>{try{await gateway?.pause();await runtime?.stopDatabase();await gateway?.close();clearInterval(licenseTimer);if(installerMode)app.exit(activationFinished?0:2);else app.quit();}catch(error){quitting=false;gateway?.resume();await errorBox(error);}})();
 });
