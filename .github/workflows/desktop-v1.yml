@@ -113,7 +113,7 @@ jobs:
           $env:DLP_SMOKE_OUTPUT = "$pwd/desktop/qa/source/prints"
           $env:DLP_SMOKE_FIXTURES = "$pwd/desktop/qa/fixtures/documents.json"
           $p = Start-Process desktop/node_modules/electron/dist/electron.exe -ArgumentList 'desktop','--smoke-test' -PassThru -Wait
-          if ($p.ExitCode -ne 0) { Get-Content desktop/qa/source/failure.txt -ErrorAction SilentlyContinue; throw 'Desktop integration failed' }
+          if ($p.ExitCode -ne 0) { Get-Content desktop/qa/source/*failure.txt -ErrorAction SilentlyContinue; throw 'Desktop integration failed' }
           python print-helper/tests/check_pdfs.py desktop/qa/source/prints
           if ($LASTEXITCODE -ne 0) { throw 'Print PDF validation failed' }
       - run: npm run build:win
@@ -133,7 +133,7 @@ jobs:
           $env:DLP_SMOKE_OUTPUT = "$pwd/desktop/qa/installed/prints"
           $env:DLP_SMOKE_FIXTURES = "$pwd/desktop/qa/fixtures/documents.json"
           $p = Start-Process "$install/Digital Lab Desktop.exe" -ArgumentList '--smoke-test' -PassThru -Wait
-          if ($p.ExitCode -ne 0) { Get-Content desktop/qa/installed/failure.txt -ErrorAction SilentlyContinue; throw 'Installed app failed' }
+          if ($p.ExitCode -ne 0) { Get-Content desktop/qa/installed/*failure.txt -ErrorAction SilentlyContinue; throw 'Installed app failed' }
           python print-helper/tests/check_pdfs.py desktop/qa/installed/prints
           if ($LASTEXITCODE -ne 0) { throw 'Installed print PDF validation failed' }
           Get-FileHash desktop/dist/*Setup*.exe -Algorithm SHA256 | Format-List | Out-File desktop/dist/SHA256.txt

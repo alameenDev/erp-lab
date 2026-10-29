@@ -22,10 +22,11 @@ const licenseUserData=path.join(app.getPath('appData'),'DigitalLabDesktopV1');
 let licensing,activationWindow,activationFinished=false,licenseTimer;
 const activationUrl=pathToFileURL(path.join(__dirname,'../assets/activation.html')).href;
 if (smoke) app.on('window-all-closed',()=>{});
-if (smoke) app.setPath('userData',process.env.DLD_SMOKE_DATA || path.join(app.getPath('temp'),'DigitalLabDesktop-smoke-'+crypto.randomUUID()));
-else app.setPath('userData',path.join(app.getPath('appData'),'DigitalLabDesktopV1'));
+// Keep Windows encryption identity stable; isolate test database/files, not the key vault.
+app.setPath('userData',licenseUserData);
+const dataRoot=smoke?(process.env.DLD_SMOKE_DATA||path.join(app.getPath('temp'),'DigitalLabDesktop-smoke-'+crypto.randomUUID())):app.getPath('userData');
 const bundle = app.isPackaged ? path.join(process.resourcesPath,'bundle') : path.join(__dirname,'../bundle');
-const p = paths(bundle,path.join(app.getPath('userData'),'lab-data'));
+const p = paths(bundle,path.join(dataRoot,'lab-data'));
 const controlUrl = pathToFileURL(path.join(__dirname,'../assets/control.html')).href;
 let runtime,gateway,printers,main,control,busy=false,quitting=false,ready=false;
 const vault = {encrypt:value=>safeStorage.encryptString(value),decrypt:value=>safeStorage.decryptString(value)};
@@ -188,7 +189,7 @@ app.whenReady().then(async()=>{
   if(smoke){await require('./smoke.cjs').run({app,bundle,p,vault,license:licensing.claims});app.exit(0);return;}
   await startApplication();
   licenseTimer=setInterval(()=>licensing.check().catch(async e=>{clearInterval(licenseTimer);await errorBox(e);app.quit();}),60000);
-}).catch(async e=>{if(smoke||installerCheck||requestOnly){console.error(e.message);app.exit(1);return;}await errorBox(e);try{await runtime?.stopDatabase();}catch{}app.exit(1);});
+}).catch(async e=>{if(smoke||installerCheck||requestOnly){if(process.env.DLD_SMOKE_OUTPUT){await fsp.mkdir(process.env.DLD_SMOKE_OUTPUT,{recursive:true});await fsp.writeFile(path.join(process.env.DLD_SMOKE_OUTPUT,'startup-failure.txt'),e.stack||e.message);}console.error(e.message);app.exit(1);return;}await errorBox(e);try{await runtime?.stopDatabase();}catch{}app.exit(1);});
 app.on('before-quit',e=>{
   if(quitting||smoke)return;e.preventDefault();
   if(busy){errorBox(new Error('انتظر اكتمال النسخ أو الإعداد قبل الإغلاق.'));return;}
