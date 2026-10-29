@@ -50,3 +50,4 @@ desktop/licensing/
 desktop/src/license-config.json
 *.dllicense
 desktop/node_modules
+desktop/src/integrity-manifest.json

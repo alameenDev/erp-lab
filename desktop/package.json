@@ -46,7 +46,7 @@
     "win": {
       "target": "nsis",
       "icon": "assets/icon.ico",
-      "signAndEditExecutable": false
+      "signAndEditExecutable": true
     },
     "nsis": {
       "oneClick": false,
@@ -57,6 +57,12 @@
       "artifactName": "Digital-Lab-Desktop-Setup-${version}.${ext}",
       "include": "build/installer.nsh"
     },
-    "beforePack": "scripts/validate-release.cjs"
+    "beforePack": "scripts/validate-release.cjs",
+    "electronFuses": {
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true
+    }
   }
 }

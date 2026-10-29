@@ -24,6 +24,12 @@ jobs:
         working-directory: frontend
       - run: npx playwright install --with-deps chromium
         working-directory: frontend
+      - name: Verify activation wizard
+        run: node desktop/tests/activation.browser.cjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-activation-preview
+          path: desktop/qa/activation
       - run: node --test tests/local-print.test.mjs tests/print-lifecycle.test.mjs tests/medical-report-pages.test.mjs tests/barcode-labels.test.mjs tests/medical-report-output.test.mjs
         working-directory: frontend
       - run: node tests/local-print.browser.mjs

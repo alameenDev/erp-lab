@@ -83,7 +83,7 @@ function registerIpc() {
   ipcMain.handle('desktop:status',e=>{validSender(e,true);return {ready,installed:!!runtime?.status?.installed,version:'1.1.0',dataPath:p.data,installerMode,license:licensing?.claims};});
   ipcMain.handle('desktop:install',async(e,input)=>{validSender(e,true);if(busy||!ready)throw new Error('انتظر اكتمال تشغيل الخدمات.');busy=true;try{licensing.assertCurrent();return await runtime.install(input);}finally{busy=false;}});
   ipcMain.handle('desktop:open',async e=>{validSender(e,true);await openMain();return true;});
-  ipcMain.handle('desktop:print',(e,route,options)=>{validSender(e);return printers.request(route,options);});
+  ipcMain.handle('desktop:print',(e,route,options)=>{validSender(e);licensing.assertCurrent();return printers.request(route,options);});
   ipcMain.handle('desktop:external',(e,url)=>{validSender(e);return external(url);});
   ipcMain.handle('desktop:backup',async(e,password)=>{
     validSender(e,true);licensing.assertCurrent();if(!runtime.status.installed)throw new Error('أكمل الإعداد أولاً.');
@@ -131,7 +131,7 @@ function menu() {
       const executable=path.join(bundle,'bridges',`DigitalLabDesktopBridge-${adapter}.exe`);
       const child=require('node:child_process').spawn(executable,[],{windowsHide:false,detached:true,stdio:'ignore'});child.on('error',()=>errorBox(new Error('تعذر فتح مستقبل الجهاز.')));child.unref();
     }}))},
-    {label:'مساعدة',submenu:[{label:'دليل V1',click:()=>shell.openPath(path.join(bundle,'README_AR.txt'))},{label:'عن البرنامج',click:()=>dialog.showMessageBox({title:'Digital Lab Desktop',message:'Digital Lab Desktop — V1.0.0',detail:'نسخة مستقلة بقاعدة بيانات ومرفقات محلية. لا تتصل بقاعدة بيانات الموقع.'})}]}
+    {label:'مساعدة',submenu:[{label:'دليل V1',click:()=>shell.openPath(path.join(bundle,'README_AR.txt'))},{label:'عن البرنامج',click:()=>dialog.showMessageBox({title:'Digital Lab Desktop',message:'Digital Lab Desktop — V1.1.0',detail:'نسخة مستقلة بقاعدة بيانات ومرفقات محلية. لا تتصل بقاعدة بيانات الموقع.'})}]}
   ]));
 }
 function activationSender(e){if(!activationWindow||e.sender!==activationWindow.webContents||e.senderFrame!==activationWindow.webContents.mainFrame||e.senderFrame.url!==activationUrl)throw new Error('Unauthorized activation request');}
@@ -155,7 +155,7 @@ async function showActivation(){
   });
   ipcMain.handle('activation:continue',async e=>{
     activationSender(e);if(busy)throw new Error('انتظر اكتمال الإعداد.');await licensing.check();
-    busy=true;try{await startApplication();activationWindow?.close();}finally{busy=false;}return true;
+    busy=true;try{await startApplication();activationWindow?.close();}catch(error){await errorBox(error);try{await runtime?.stopDatabase();}catch{}app.exit(2);}finally{busy=false;}return true;
   });
   await activationWindow.loadURL(activationUrl);
 }
@@ -178,13 +178,14 @@ async function startApplication(){
   if(runtime.status.installed && !installerMode)await openMain();
 }
 app.whenReady().then(async()=>{
+  if(app.isPackaged)await require('./integrity.cjs').verifyIntegrity(process.resourcesPath,require('./integrity-manifest.json'));
   if(!safeStorage.isEncryptionAvailable())throw new Error('تعذر الوصول إلى حماية المفاتيح في Windows.');
   licensing=new LicenseManager({userData:licenseUserData,resources:app.isPackaged?path.join(process.resourcesPath,'licensing'):path.join(__dirname,'../licensing'),vault,config:licenseConfig});
   if(requestOnly){const file=option('--request-file');if(!file)throw new Error('Request file required');await fsp.writeFile(file,JSON.stringify(await licensing.device(process.argv.includes('--software')?'software':'tpm')),{flag:'wx'});app.exit(0);return;}
   if(installerCheck){const file=option('--license-file');if(file)await licensing.activate(await fsp.readFile(file,'utf8'));await licensing.check();app.exit(0);return;}
   if(installerMode){await showActivation();return;}
   await licensing.check();
-  if(smoke){await require('./smoke.cjs').run({app,bundle,p,vault});app.exit(0);return;}
+  if(smoke){await require('./smoke.cjs').run({app,bundle,p,vault,license:licensing.claims});app.exit(0);return;}
   await startApplication();
   licenseTimer=setInterval(()=>licensing.check().catch(async e=>{clearInterval(licenseTimer);await errorBox(e);app.quit();}),60000);
 }).catch(async e=>{if(smoke||installerCheck||requestOnly){console.error(e.message);app.exit(1);return;}await errorBox(e);try{await runtime?.stopDatabase();}catch{}app.exit(1);});

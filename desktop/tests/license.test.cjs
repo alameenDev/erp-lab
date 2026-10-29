@@ -32,3 +32,25 @@ test('gateway blocks all work including analyzer ingestion when license expires'
   try {for(const [route,method] of [['/api/patients','GET'],['/api/device/bridge/results','POST'],['/','GET']])assert.equal((await fetch('http://127.0.0.1:17995'+route,{method,headers:{'X-Digital-Lab-Desktop':'x'.repeat(64)}})).status,402);}
   finally{await gateway.close();}
 });
+test('application inventory rejects modified, missing and added files',async()=>{
+  const fs=require('node:fs/promises'),os=require('node:os'),path=require('node:path');const {inventory,verifyIntegrity}=require('../src/integrity.cjs');
+  const root=await fs.mkdtemp(path.join(os.tmpdir(),'dld-integrity-'));
+  try{await fs.mkdir(path.join(root,'bundle'));await fs.mkdir(path.join(root,'licensing'));const file=path.join(root,'bundle/app.php');await fs.writeFile(file,'original');
+    const manifest=await inventory(root,'bundle');await inventory(root,'licensing',manifest);await verifyIntegrity(root,manifest);
+    await fs.writeFile(file,'modified');await assert.rejects(verifyIntegrity(root,manifest));await fs.writeFile(file,'original');
+    await fs.writeFile(path.join(root,'bundle/extra.php'),'injected');await assert.rejects(verifyIntegrity(root,manifest));await fs.rm(path.join(root,'bundle/extra.php'));
+    await fs.rm(file);await assert.rejects(verifyIntegrity(root,manifest));
+  }finally{await fs.rm(root,{recursive:true,force:true});}
+});
+test('activation survives restart; rejected replacement does not replace valid license',async()=>{
+  const fs=require('node:fs/promises'),os=require('node:os'),path=require('node:path');const {LicenseManager}=require('../src/license-manager.cjs');
+  const root=await fs.mkdtemp(path.join(os.tmpdir(),'dld-activation-'));
+  const vault={encrypt:s=>Buffer.from(s),decrypt:b=>b.toString()};
+  const make=()=>{const m=new LicenseManager({userData:root,resources:root,vault,config});m.device=async()=>device;return m;};
+  try{const lifetime=token({type:'lifetime',issuedAt:Date.now()-1000,expiresAt:null});await make().activate(lifetime);
+    assert.equal((await make().check()).type,'lifetime');const before=await fs.readFile(path.join(root,'activation.dat'));
+    await assert.rejects(make().activate(token({deviceId:'b'.repeat(64)})));assert.deepEqual(await fs.readFile(path.join(root,'activation.dat')),before);
+    const copied=make();copied.device=async()=>({...device,deviceId:'b'.repeat(64)});await assert.rejects(copied.check());
+    await fs.writeFile(path.join(root,'activation.dat'),'corrupt');await assert.rejects(make().check());
+  }finally{await fs.rm(root,{recursive:true,force:true});}
+});

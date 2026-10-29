@@ -2,9 +2,9 @@ const assert=require('node:assert/strict');const fs=require('node:fs');const fsp
 const {BrowserWindow,session,ipcMain}=require('electron');
 const {Runtime}=require('./runtime.cjs');const {createGateway}=require('./gateway.cjs');const {ORIGIN,PORT}=require('./constants.cjs');const {writeBackup,prepareRestore}=require('./backup.cjs');
 const pause=ms=>new Promise(r=>setTimeout(r,ms));
-async function run({app,bundle,p,vault}){
+async function run({app,bundle,p,vault,license}){
   const qa=process.env.DLD_SMOKE_OUTPUT||path.join(app.getPath('userData'),'qa');await fsp.mkdir(qa,{recursive:true});
-  let runtime=new Runtime(p,vault),gateway,win;
+  let runtime=new Runtime(p,vault,license),gateway,win;
   const secret=crypto.randomBytes(32).toString('hex'),password=crypto.randomBytes(16).toString('hex');let token='';
   const headers=()=>({'X-Digital-Lab-Desktop':secret,Accept:'application/json',...(token?{Authorization:'Bearer '+token}:{})});
   const api=async(route,body)=>{const response=await fetch(ORIGIN+'/api'+route,{method:body?'POST':'GET',headers:{...headers(),...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})});const text=await response.text();assert.ok(response.ok,route+' HTTP '+response.status+' '+text.slice(0,500));return JSON.parse(text);};
@@ -59,7 +59,7 @@ async function run({app,bundle,p,vault}){
     const backup=path.join(qa,'roundtrip.dlbackup');await writeBackup({data:p.data,secrets:runtime.secrets,destination:backup,password});
     const stage=p.data+'.roundtrip';await prepareRestore({source:backup,password,stage,vault});
     const previous=p.data+'.old';await fsp.rename(p.data,previous);await fsp.rename(stage,p.data);
-    runtime=new Runtime(p,vault);const restored=await runtime.init();assert.equal(restored.installed,true);gateway.resume();
+    runtime=new Runtime(p,vault,license);const restored=await runtime.init();assert.equal(restored.installed,true);gateway.resume();
     const restoredLogin=await api('/user/login',{email:'lab@example.test',password});token=restoredLogin.token;
     assert.equal((await api('/patients')).length,1);assert.equal((await api('/work-register')).totals.work_register_amount,1234);
     const restoredPdf=await fetch(saved.attachments[0].file,{headers:headers()});assert.equal(restoredPdf.status,200);
