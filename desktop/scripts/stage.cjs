@@ -19,5 +19,6 @@ fs.cpSync(path.join(root,'desktop/php'),path.join(bundle,'desktop-php'),{recursi
 fs.mkdirSync(path.join(bundle,'print'),{recursive:true});
 for(const file of ['printing.cjs','print-preload.cjs','validation.cjs','state.cjs','smoke.cjs'])fs.copyFileSync(path.join(root,'print-helper/src',file),path.join(bundle,'print',file));
 fs.copyFileSync(path.join(root,'desktop/README_AR.md'),path.join(bundle,'README_AR.txt'));
-fs.writeFileSync(path.join(bundle,'build.json'),JSON.stringify({version:'1.0.0',source:process.env.GITHUB_SHA||'local',php:'8.4.26',mariadb:'10.11.19',origin:'http://127.0.0.1:17892'},null,2));
+fs.writeFileSync(path.join(bundle,'build.json'),JSON.stringify({version:'1.1.0',source:process.env.GITHUB_SHA||'local',php:'8.4.26',mariadb:'10.11.19',origin:'http://127.0.0.1:17892'},null,2));
+fs.copyFileSync(path.join(root,'desktop/LICENSING_AR.md'),path.join(bundle,'LICENSING_AR.txt'));
 console.log('Staged complete application, independent backend, frontend and native printing.');

@@ -1,6 +1,6 @@
 {
   "name": "digital-lab-desktop",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Independent offline Digital Lab for Windows",
   "author": "Digital Lab",
@@ -34,6 +34,10 @@
       {
         "from": "bundle",
         "to": "bundle"
+      },
+      {
+        "from": "licensing",
+        "to": "licensing"
       }
     ],
     "directories": {
@@ -42,7 +46,7 @@
     "win": {
       "target": "nsis",
       "icon": "assets/icon.ico",
-      "signAndEditExecutable": false
+      "signAndEditExecutable": true
     },
     "nsis": {
       "oneClick": false,
@@ -50,7 +54,15 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "deleteAppDataOnUninstall": false,
-      "artifactName": "Digital-Lab-Desktop-Setup-${version}.${ext}"
+      "artifactName": "Digital-Lab-Desktop-Setup-${version}.${ext}",
+      "include": "build/installer.nsh"
+    },
+    "beforePack": "scripts/validate-release.cjs",
+    "electronFuses": {
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true
     }
   }
 }

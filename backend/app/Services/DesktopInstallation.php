@@ -47,9 +47,9 @@ class DesktopInstallation
                 'max_users' => null, 'max_invoices_per_month' => null, 'is_active' => true,
                 'features' => ['جميع وظائف المختبر', 'قاعدة بيانات محلية', 'الطباعة والنسخ الاحتياطي']]);
             Subscription::create(['lab_id_fk' => $lab->id, 'plan_id_fk' => $plan->id, 'plan_name' => $plan->name,
-                'status' => 'active', 'start_date' => today(), 'end_date' => today()->addYear(),
+                'status' => 'active', 'start_date' => today(), 'end_date' => getenv('DL_LICENSE_TYPE') === 'lifetime' ? '9999-12-31' : (getenv('DL_LICENSE_EXPIRY') ? \Carbon\Carbon::parse(getenv('DL_LICENSE_EXPIRY'))->timezone('Asia/Baghdad')->toDateString() : today()->addYear()),
                 'max_users' => null, 'max_invoices_per_month' => null, 'price' => 0, 'currency' => 'IQD',
-                'notes' => 'اشتراك محلي مستقل؛ يجدد من حساب المدير المحلي.']);
+                'notes' => 'اشتراك محلي؛ ترخيص تشغيل النسخة يجدد بملف تفعيل موقّع.']);
             return ['installed' => true, 'lab_email' => $lab->email];
         });
     }

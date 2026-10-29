@@ -2,9 +2,9 @@ const assert=require('node:assert/strict');const fs=require('node:fs');const fsp
 const {BrowserWindow,session,ipcMain}=require('electron');
 const {Runtime}=require('./runtime.cjs');const {createGateway}=require('./gateway.cjs');const {ORIGIN,PORT}=require('./constants.cjs');const {writeBackup,prepareRestore}=require('./backup.cjs');
 const pause=ms=>new Promise(r=>setTimeout(r,ms));
-async function run({app,bundle,p,vault}){
+async function run({app,bundle,p,vault,license}){
   const qa=process.env.DLD_SMOKE_OUTPUT||path.join(app.getPath('userData'),'qa');await fsp.mkdir(qa,{recursive:true});
-  let runtime=new Runtime(p,vault),gateway,win;
+  let runtime=new Runtime(p,vault,license),gateway,win;
   const secret=crypto.randomBytes(32).toString('hex'),password=crypto.randomBytes(16).toString('hex');let token='';
   const headers=()=>({'X-Digital-Lab-Desktop':secret,Accept:'application/json',...(token?{Authorization:'Bearer '+token}:{})});
   const api=async(route,body)=>{const response=await fetch(ORIGIN+'/api'+route,{method:body?'POST':'GET',headers:{...headers(),...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})});const text=await response.text();assert.ok(response.ok,route+' HTTP '+response.status+' '+text.slice(0,500));return JSON.parse(text);};
@@ -12,6 +12,7 @@ async function run({app,bundle,p,vault}){
     const status=await runtime.init();assert.equal(status.installed,false);
     await runtime.install({owner_name:'QA Owner',owner_email:'owner@example.test',owner_password:password,lab_name:'مختبر فحص النسخة',lab_email:'lab@example.test',lab_password:password});
     await assert.rejects(runtime.install({}),/سابق/);
+    if(license?.type==='lifetime')assert.equal((await runtime.sql('SELECT end_date FROM digital_lab_desktop.subscriptions LIMIT 1')).trim(),'9999-12-31');
     gateway=createGateway(new Proxy({},{get:(_,key)=>typeof runtime[key]==='function'?runtime[key].bind(runtime):runtime[key]}),secret);await new Promise((r,j)=>{gateway.server.once('error',j);gateway.server.listen(PORT,'127.0.0.1',r);});
     assert.equal((await fetch(ORIGIN+'/api/patients')).status,403);
     assert.equal((await fetch(ORIGIN+'/api/patients',{headers:{...headers(),Origin:'https://original-site.example'}})).status,403);
@@ -59,13 +60,13 @@ async function run({app,bundle,p,vault}){
     const backup=path.join(qa,'roundtrip.dlbackup');await writeBackup({data:p.data,secrets:runtime.secrets,destination:backup,password});
     const stage=p.data+'.roundtrip';await prepareRestore({source:backup,password,stage,vault});
     const previous=p.data+'.old';await fsp.rename(p.data,previous);await fsp.rename(stage,p.data);
-    runtime=new Runtime(p,vault);const restored=await runtime.init();assert.equal(restored.installed,true);gateway.resume();
+    runtime=new Runtime(p,vault,license);const restored=await runtime.init();assert.equal(restored.installed,true);gateway.resume();
     const restoredLogin=await api('/user/login',{email:'lab@example.test',password});token=restoredLogin.token;
     assert.equal((await api('/patients')).length,1);assert.equal((await api('/work-register')).totals.work_register_amount,1234);
     const restoredPdf=await fetch(saved.attachments[0].file,{headers:headers()});assert.equal(restoredPdf.status,200);
     console.log('PASS: encrypted backup round trip preserves accounts, patient, invoice, register and PDF; existing data survives restart.');
     await require(path.join(bundle,'print/smoke.cjs')).run();
-    await fsp.writeFile(path.join(qa,'acceptance.json'),JSON.stringify({version:'1.0.0',packaged:app.isPackaged,passed:true,checks:['install','isolation','login','patient','invoice','result-entry','result-edit','register','barcode','attachments','frontend','backup','restore','restart','native-print']}));
+    await fsp.writeFile(path.join(qa,'acceptance.json'),JSON.stringify({version:'1.1.0',packaged:app.isPackaged,passed:true,checks:['install','isolation','login','patient','invoice','result-entry','result-edit','register','barcode','attachments','frontend','backup','restore','restart','native-print']}));
   }catch(e){
     // Synthetic test data only, useful when Windows CI cannot display a console.
     await fsp.writeFile(path.join(qa,'failure.txt'),e.stack+'\n'+(e.detail||''));

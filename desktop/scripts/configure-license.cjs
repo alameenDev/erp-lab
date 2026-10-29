@@ -1,0 +1,10 @@
+'use strict';
+const fs=require('node:fs');const path=require('node:path');const crypto=require('node:crypto');
+const root=path.resolve(__dirname,'..');
+const [publicFile,channel='production',software='false']=process.argv.slice(2);
+if(!publicFile||!['production','qa'].includes(channel)||!['true','false'].includes(software))throw new Error('Usage: node scripts/configure-license.cjs PUBLIC_PEM production|qa true|false');
+const key=crypto.createPublicKey(fs.readFileSync(publicFile));
+if(key.asymmetricKeyType!=='ed25519')throw new Error('Expected Ed25519 public key');
+const helper=fs.readFileSync(path.join(root,'licensing/DigitalLab.DeviceIdentity.exe'));
+fs.writeFileSync(path.join(root,'src/license-config.json'),JSON.stringify({channel,allowSoftwareBinding:software==='true',publicKey:key.export({format:'pem',type:'spki'}),deviceHelperSha256:crypto.createHash('sha256').update(helper).digest('hex')},null,2));
+console.log('Configured '+channel+' license verifier (public key only).');
