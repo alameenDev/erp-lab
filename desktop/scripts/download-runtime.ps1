@@ -9,7 +9,7 @@ function Get-VerifiedZip($url, $sha, $name) {
   if ((Get-FileHash $file -Algorithm SHA256).Hash.ToLower() -ne $sha) { throw "Checksum mismatch: $name" }
   return $file
 }
-$php = Get-VerifiedZip 'https://downloads.php.net/~windows/releases/php-8.4.26-nts-Win32-vs17-x64.zip' 'da68394f9193b7f6b89d0c76861a4034ae10efee7fd55a7255d8118c2acf70d7' 'php.zip'
+$php = Get-VerifiedZip 'https://downloads.php.net/~windows/releases/archives/php-8.4.26-nts-Win32-vs17-x64.zip' 'da68394f9193b7f6b89d0c76861a4034ae10efee7fd55a7255d8118c2acf70d7' 'php.zip'
 $maria = Get-VerifiedZip 'https://archive.mariadb.org/mariadb-10.11.19/winx64-packages/mariadb-10.11.19-winx64.zip' '398ea30e5036010bbebe01d2b1804280424dcc2626e36d8e95155c04d25a0490' 'mariadb.zip'
 Expand-Archive $php -DestinationPath "$bundle/php" -Force
 Expand-Archive $maria -DestinationPath "$cache/mariadb" -Force
