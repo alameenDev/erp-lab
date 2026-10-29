@@ -47,7 +47,7 @@ function showControl() {
   control = new BrowserWindow({width:860,height:900,minWidth:620,minHeight:650,title:'Digital Lab Desktop V1',backgroundColor:'#f8fafc',autoHideMenuBar:true,webPreferences:{preload:path.join(__dirname,'control-preload.cjs'),sandbox:true,nodeIntegration:false,contextIsolation:true,devTools:false}});
   control.webContents.setWindowOpenHandler(()=>({action:'deny'}));
   control.webContents.on('will-navigate',e=>e.preventDefault());
-  control.on('close',e=>{if(!quitting && busy){e.preventDefault();errorBox(new Error('انتظر اكتمال تشغيل الخدمات أو العملية الحالية قبل الإغلاق.'));}});
+  control.on('close',e=>{if(!quitting && (busy||!ready)){e.preventDefault();errorBox(new Error('انتظر اكتمال تشغيل الخدمات أو العملية الحالية قبل الإغلاق.'));}});
   control.on('closed',()=>{control=null;if(!main&&!busy)app.quit();});
   return control.loadURL(controlUrl);
 }
