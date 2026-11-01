@@ -70,6 +70,8 @@ export function mutationReasonPolicy({method='get',url='',data=null,skipMutation
   const entity=labels[parts[0]] || 'السجل';
   const deleteOperation=verb==='delete' || /(?:^|\/)(?:delete|destroy|remove)$/.test(uri) && ['post','put','patch'].includes(verb);
   if(deleteOperation)return {action:'delete',resource:entity};
+  if (verb==='post' && /^invoices\/\d+\/apply-promo-code$/.test(uri))
+    return {action:'discount',resource:'الفاتورة'};
   const explicitUpdate=/(?:^|\/)(?:update|edit|reset)$/.test(uri);
   const updateMethod=['put','patch'].includes(verb) ||
     (verb==='post' && (explicitUpdate ||
