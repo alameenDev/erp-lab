@@ -10,7 +10,9 @@
     import {$http} from '/src/plugins/axios.js';
     const requests=[], errors=[];
     $http.defaults.adapter=async config=>{
-      requests.push({url:config.url,method:config.method,data:config.data instanceof FormData?Object.fromEntries(config.data.entries()):config.data});
+      let payload=config.data instanceof FormData?Object.fromEntries(config.data.entries()):config.data;
+      if(typeof payload==='string'){try{payload=JSON.parse(payload);}catch{}}
+      requests.push({url:config.url,method:config.method,data:payload});
       return {config,status:200,statusText:'OK',data:{ok:true},headers:{}};
     };
     window.reasonFixture={requests,errors};
