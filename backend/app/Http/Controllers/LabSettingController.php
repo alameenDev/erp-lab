@@ -40,6 +40,7 @@ class LabSettingController extends Controller
                 'show_last_result' => false,
                 'previous_results_count' => 1,
                 'print_black_white' => false,
+                'show_patient_portal_invoice_amounts' => true,
             ]
         );
 
@@ -142,6 +143,7 @@ class LabSettingController extends Controller
             'show_last_result' => 'nullable|boolean',
             'previous_results_count' => 'sometimes|required|integer|min:1|max:10',
             'print_black_white' => 'nullable|boolean',
+            'show_patient_portal_invoice_amounts' => 'sometimes|required|boolean',
             'barcode_config' => 'nullable|array:label_width,label_height,name_size,info_size,number_size,barcode_height,sample_size,tests_size,version,width_mm,height_mm,dpi,format,quiet_modules,offset_x,offset_y,copies,show_category_dialog,custom_text,elements',
             'barcode_config.label_width' => 'nullable|numeric|min:1|max:10',
             'barcode_config.label_height' => 'nullable|numeric|min:0.5|max:10',
@@ -242,7 +244,7 @@ class LabSettingController extends Controller
         if (isset($validated['print_margins'])) {
             $setting->print_margins = $validated['print_margins'];
         }
-        foreach (['report_form_default', 'show_categories', 'show_tests_on_barcode', 'show_test_names', 'show_status', 'show_last_result', 'print_black_white'] as $field) {
+        foreach (['report_form_default', 'show_categories', 'show_tests_on_barcode', 'show_test_names', 'show_status', 'show_last_result', 'print_black_white', 'show_patient_portal_invoice_amounts'] as $field) {
             if (array_key_exists($field, $request->all())) {
                 $setting->$field = filter_var($request->$field, FILTER_VALIDATE_BOOLEAN);
             }
@@ -338,6 +340,7 @@ class LabSettingController extends Controller
                 'show_last_result' => false,
                 'previous_results_count' => 1,
                 'print_black_white' => false,
+                'show_patient_portal_invoice_amounts' => true,
                 'barcode_config' => ['label_width' => 3, 'label_height' => 1.5, 'name_size' => 9, 'info_size' => 7, 'number_size' => 6, 'barcode_height' => 40, 'sample_size' => 8, 'tests_size' => 7],
                 'report_background' => null,
             ]);
@@ -436,6 +439,7 @@ class LabSettingController extends Controller
                 'show_last_result' => false,
                 'previous_results_count' => 1,
                 'print_black_white' => false,
+                'show_patient_portal_invoice_amounts' => true,
                 'barcode_config' => null,
                 'patient_header_config' => null,
                 'print_table_config' => null,
