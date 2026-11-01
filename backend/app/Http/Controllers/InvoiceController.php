@@ -2685,6 +2685,10 @@ class InvoiceController extends Controller
 
             app(\App\Services\DefaultTestResults::class)->prepare($request, $user->role_id == 1 ? null : $this->getTenantUserIds(), $invoice);
 
+            $hasSubmittedAnalyses = collect(['tests','cultures','packages','test_groups'])
+                ->contains(fn ($field) => $request->exists($field));
+            // Partial invoice metadata edits must not delete all test relations.
+            if ($hasSubmittedAnalyses) {
             // Delete existing invoice test relations and recreate
             $invoice->invoiceTestRels()->delete();
 
@@ -2784,6 +2788,8 @@ class InvoiceController extends Controller
                     ];
                 }
                 $invoice->invoiceTestRels()->createMany($testGroupsToCreate);
+            }
+
             }
 
             // add invoice_paid_details
