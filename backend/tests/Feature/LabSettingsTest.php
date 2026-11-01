@@ -3,6 +3,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use App\Models\LabSetting;
+use App\Models\ReferralPrintSetting;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Tests\TestCase;
 
@@ -58,6 +59,43 @@ class LabSettingsTest extends TestCase
         $staff = User::create(['name'=>'History staff', 'email'=>'history-staff@example.test', 'password'=>'Test-password-123', 'role_id'=>7, 'creator_id'=>$owner->id]);
         $this->actingAs($staff)->postJson('/api/lab-settings', ['show_last_result'=>true, 'previous_results_count'=>3])->assertForbidden();
         $this->assertSame(10, LabSetting::where('lab_id_fk', $owner->id)->first()->previous_results_count);
+    }
+
+    public function test_patient_portal_invoice_amount_setting_persists_per_lab_and_resets_with_print_settings(): void
+    {
+        $lab = $this->owner();
+        $other = User::create(['name'=>'Other portal lab', 'email'=>'other-portal-amount@example.test',
+            'password'=>'Test-password-123', 'role_id'=>2]);
+        $this->getJson('/api/lab-settings/'.$lab->id)->assertOk()
+            ->assertJsonPath('show_patient_portal_invoice_amounts', true);
+        $this->actingAs($lab)->getJson('/api/lab-settings')->assertOk()
+            ->assertJsonPath('show_patient_portal_invoice_amounts', true);
+        $this->postJson('/api/lab-settings', ['show_patient_portal_invoice_amounts'=>false])->assertOk()
+            ->assertJsonPath('setting.show_patient_portal_invoice_amounts', false);
+        $this->getJson('/api/lab-settings/'.$lab->id)->assertOk()
+            ->assertJsonPath('show_patient_portal_invoice_amounts', false);
+        $this->postJson('/api/lab-settings', ['lab_display_name'=>'Keep visibility'])->assertOk()
+            ->assertJsonPath('setting.show_patient_portal_invoice_amounts', false);
+        $this->actingAs($other)->getJson('/api/lab-settings')->assertOk()
+            ->assertJsonPath('show_patient_portal_invoice_amounts', true);
+        $staff = User::create(['name'=>'Portal staff', 'email'=>'portal-amount-staff@example.test',
+            'password'=>'Test-password-123', 'role_id'=>7, 'creator_id'=>$lab->id]);
+        $this->actingAs($staff)->getJson('/api/lab-settings')->assertOk()
+            ->assertJsonPath('show_patient_portal_invoice_amounts', false);
+        $this->postJson('/api/lab-settings', ['show_patient_portal_invoice_amounts'=>true])->assertForbidden();
+        $this->actingAs($lab)->postJson('/api/lab-settings', ['show_patient_portal_invoice_amounts'=>'invalid'])
+            ->assertUnprocessable()->assertJsonValidationErrors('show_patient_portal_invoice_amounts');
+        $this->postJson('/api/lab-settings/reset', ['section'=>'print'])->assertOk()
+            ->assertJsonPath('setting.show_patient_portal_invoice_amounts', true);
+    }
+
+    public function test_patient_portal_amount_visibility_default_is_not_inserted_into_referral_print_settings(): void
+    {
+        $lab = $this->owner();
+        $referral = ReferralPrintSetting::create(['lab_id_fk' => $lab->id]);
+        $this->assertNotNull($referral->id);
+        $this->assertArrayNotHasKey('show_patient_portal_invoice_amounts', $referral->getAttributes());
+        $this->assertTrue((bool) LabSetting::firstOrCreate(['lab_id_fk'=>$lab->id])->show_patient_portal_invoice_amounts);
     }
 
     private function barcodeLayout(): array

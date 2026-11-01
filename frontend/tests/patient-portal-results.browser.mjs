@@ -24,6 +24,13 @@ try{
  await page.locator('.report-page-preview img').first().waitFor({timeout:60000});assert.ok((await page.locator('#Result').innerText()).includes('Pending culture'));
  await page.evaluate(()=>portalFixture.router.push('/result/14#portal=invalid'));
  await page.getByRole('heading',{name:'تعذر عرض النتائج'}).waitFor();assert.equal(await page.locator('#Result').count(),0);
+ await page.evaluate(()=>{portalFixture.state.showInvoiceAmounts=false;return portalFixture.router.push('/portal/'+portalFixture.token);});
+ await page.getByText('فاتورة #14').waitFor();assert.equal(await page.getByText('الإجمالي',{exact:true}).count(),0,'hidden amounts do not render');
+ assert.equal(await page.getByText('المتبقي',{exact:true}).count(),0,'hidden remaining balance');
+ await page.evaluate(()=>{portalFixture.state.showInvoiceAmounts=true;return portalFixture.router.push('/result/14#portal=invalid');});
+ await page.getByRole('heading',{name:'تعذر عرض النتائج'}).waitFor();
+ await page.evaluate(()=>portalFixture.router.push('/portal/'+portalFixture.token));
+ await page.getByText('فاتورة #14').waitFor();assert.ok(await page.getByText('الإجمالي',{exact:true}).count()>0,'amounts visible when enabled');
  assert.equal(await page.evaluate(()=>portalFixture.requests.some(u=>u.startsWith('/invoices/'))),false,'patient credential wins over unrelated staff session, with no public fallback');
  assert.deepEqual(errors,[]);console.log('PASS per-analysis counters and filters, mixed containers, links in all states, partial PDF, pending-to-ready refresh, mobile and invalid access');
 }finally{await browser.close();}

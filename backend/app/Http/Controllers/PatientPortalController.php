@@ -101,6 +101,7 @@ class PatientPortalController extends Controller
             ->orderByDesc('created_at')
             ->get();
         $renderer = app(InvoiceController::class);
+        $showInvoiceAmounts = $lab?->labSetting?->show_patient_portal_invoice_amounts !== false;
 
         return response()->json([
             'requires_otp' => false,
@@ -108,18 +109,21 @@ class PatientPortalController extends Controller
                 'name' => $patient->user?->name,
                 'code' => $patient->code,
             ],
-            'reports' => $invoices->map(function ($inv) use ($renderer) {
+            'show_invoice_amounts' => $showInvoiceAmounts,
+            'reports' => $invoices->map(function ($inv) use ($renderer, $showInvoiceAmounts) {
                 $publication = $renderer->patientResultData($inv, false)['portal_report'];
                 return [
                 'id' => $inv->id,
                 'barcode' => $inv->barcode,
                 'date' => $inv->created_at,
                 'result_date' => $inv->result_date,
-                'total' => (float) $inv->total,
-                'paid' => (float) $inv->paid,
-                'due' => max(0, (float) $inv->total - (float) $inv->paid),
-                'loyalty_discount' => (float) $inv->loyalty_discount,
-                'loyalty_points_spent' => (int) $inv->loyalty_points_spent,
+                ...($showInvoiceAmounts ? [
+                    'total' => (float) $inv->total,
+                    'paid' => (float) $inv->paid,
+                    'due' => max(0, (float) $inv->total - (float) $inv->paid),
+                    'loyalty_discount' => (float) $inv->loyalty_discount,
+                    'loyalty_points_spent' => (int) $inv->loyalty_points_spent,
+                ] : []),
                 'tests' => $publication['items'],
                 'ready_count' => $publication['ready'],
                 'pending_count' => $publication['pending'],
@@ -139,7 +143,7 @@ class PatientPortalController extends Controller
                 ->get(['id', 'name', 'specialty', 'description', 'photo', 'phone', 'whatsapp', 'links', 'bookable'])
                 : [],
             'ai_enabled' => $lab ? (bool) ($lab->labSetting?->ai_config['enabled'] ?? false) : false,
-        ]);
+        ])->header('Cache-Control', 'private, no-store');
     }
 
     /** Approved result history for this patient. */

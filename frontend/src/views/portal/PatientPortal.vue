@@ -25,6 +25,7 @@ const otpSent = ref(false);
 
 const patient = ref(null);
 const reports = ref([]);
+const showInvoiceAmounts = ref(true);
 const loyalty = ref(null);
 const doctors = ref([]);
 const aiEnabled = ref(false);
@@ -140,6 +141,7 @@ const load = async () => {
       requiresOtp.value = false;
       patient.value = data.patient;
       reports.value = data.reports || [];
+      showInvoiceAmounts.value = data.show_invoice_amounts !== false;
       loyalty.value = data.loyalty;
       doctors.value = data.doctors || [];
       aiEnabled.value = !!data.ai_enabled;
@@ -375,8 +377,8 @@ onUnmounted(() => portalHead.restore());
           <p v-if="reports.length && !filteredReports.length" class="text-sm text-slate-500 p-4">لا توجد فحوصات ضمن هذه الحالة.</p>
           <article v-for="r in filteredReports" :key="r.id" class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             <header class="flex items-center justify-between gap-3 p-4 border-b border-slate-100"><div><h2 class="font-bold text-gray-800">فاتورة #{{ r.id }}</h2><p class="text-xs text-gray-500 mt-1">{{ formatDate(r.date) }} · {{ r.barcode }}</p></div><span :class="['text-xs font-bold px-3 py-1 rounded-full', statusClass(r.status)]">{{ statusLabel(r.status) }}</span></header>
-            <div class="grid grid-cols-3 gap-2 p-4 text-sm bg-slate-50"><div><p class="text-xs text-slate-500">الإجمالي</p><p class="font-bold mt-1">{{ money(r.total) }} د.ع</p></div><div><p class="text-xs text-slate-500">المدفوع</p><p class="font-bold text-teal-700 mt-1">{{ money(r.paid) }} د.ع</p></div><div><p class="text-xs text-slate-500">المتبقي</p><p class="font-bold text-amber-800 mt-1">{{ money(r.due) }} د.ع</p></div></div>
-            <p v-if="r.loyalty_discount" class="px-4 py-2 text-xs text-teal-700">خصم نقاط: {{ money(r.loyalty_discount) }} د.ع مقابل {{ r.loyalty_points_spent }} نقطة</p>
+            <div v-if="showInvoiceAmounts" class="grid grid-cols-3 gap-2 p-4 text-sm bg-slate-50"><div><p class="text-xs text-slate-500">الإجمالي</p><p class="font-bold mt-1">{{ money(r.total) }} د.ع</p></div><div><p class="text-xs text-slate-500">المدفوع</p><p class="font-bold text-teal-700 mt-1">{{ money(r.paid) }} د.ع</p></div><div><p class="text-xs text-slate-500">المتبقي</p><p class="font-bold text-amber-800 mt-1">{{ money(r.due) }} د.ع</p></div></div>
+            <p v-if="showInvoiceAmounts && r.loyalty_discount" class="px-4 py-2 text-xs text-teal-700">خصم نقاط: {{ money(r.loyalty_discount) }} د.ع مقابل {{ r.loyalty_points_spent }} نقطة</p>
             <details open class="p-4"><summary class="cursor-pointer font-semibold text-sm text-slate-700">تفاصيل الفحوصات ({{ r.visibleTests.length }})</summary><div v-for="test in r.visibleTests" :key="test.id" class="flex justify-between gap-3 border-b border-slate-100 py-3 text-sm"><div><p class="font-semibold">{{ test.name }}</p><p v-if="test.context" class="text-xs text-teal-700 mt-1">{{ test.context }}</p><p class="text-xs text-slate-500 mt-1">{{ test.kind }} · {{ test.sample_received ? 'تم استلام العينة' : 'بانتظار استلام العينة' }}</p></div><span :class="['text-xs self-start px-2 py-1 rounded-full whitespace-nowrap', statusClass(test.status)]">{{ test.status === 'ready' ? 'جاهز' : 'قيد الإجراء' }}</span></div></details>
             <footer class="px-4 pb-4"><p v-if="r.result_date" class="text-xs text-slate-500 mb-3">موعد النتائج: {{ formatDate(r.result_date) }}</p><a v-if="r.view_url" :href="portalReportUrl(r.view_url, r.id, route.query, token)" target="_blank" rel="noopener" class="block text-center rounded-xl bg-teal-700 text-white py-3 text-sm font-bold">{{ r.counts.ready ? (r.counts.pending ? 'عرض النتائج الجاهزة' : 'عرض التقرير والنتائج') : 'متابعة النتائج' }}</a><p v-if="r.counts.pending" class="rounded-xl bg-amber-50 text-amber-900 p-3 text-xs">جاهز {{ r.counts.ready }} من {{ r.counts.all }} فحص. تظهر النتائج المعتمدة الآن وتُضاف النتائج المتبقية بعد اكتمالها.</p></footer>
           </article>

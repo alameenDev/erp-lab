@@ -170,6 +170,31 @@ class PatientMobileTest extends TestCase
         $this->assertDatabaseCount('loyalty_transactions',1);
     }
 
+    public function test_patient_mobile_obeys_the_same_invoice_visibility_switch(): void
+    {
+        [$lab, $patient, $access] = $this->fixture();
+        $invoice = $this->invoice($lab, $patient);
+        LabSetting::create(['lab_id_fk'=>$lab->id, 'show_patient_portal_invoice_amounts'=>false]);
+        $headers = ['Authorization'=>'Bearer '.$this->pair($access)];
+
+        $this->getJson('/api/patient-mobile/v1/me', $headers)->assertOk()
+            ->assertJsonMissingPath('reports.items.0.total')
+            ->assertJsonMissingPath('reports.items.0.paid')
+            ->assertJsonMissingPath('reports.items.0.due')
+            ->assertJsonPath('reports.items.0.id', $invoice->id);
+        $this->getJson('/api/patient-mobile/v1/reports?page=1', $headers)->assertOk()
+            ->assertJsonMissingPath('items.0.total');
+        $this->getJson('/api/patient-mobile/v1/reports/'.$invoice->id, $headers)->assertOk()
+            ->assertJsonMissingPath('report.total')
+            ->assertJsonMissingPath('report.paid')
+            ->assertJsonMissingPath('report.due')
+            ->assertJsonPath('sections.0.items.0.value', '91');
+        LabSetting::where('lab_id_fk', $lab->id)->update(['show_patient_portal_invoice_amounts'=>true]);
+        $this->getJson('/api/patient-mobile/v1/me', $headers)->assertOk()
+            ->assertJsonPath('reports.items.0.total', 10000)
+            ->assertJsonPath('reports.items.0.due', 6000);
+    }
+
     public function test_same_phone_never_automatically_links_another_patient_or_lab(): void
     {
         [$lab,$patient,$access] = $this->fixture();

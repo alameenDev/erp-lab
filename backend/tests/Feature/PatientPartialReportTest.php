@@ -44,6 +44,34 @@ class PatientPartialReportTest extends TestCase
         $this->assertStringNotContainsString('INTERNAL-NOTE',$response->getContent());
         $this->getJson('/api/invoices/public/'.$this->invoice->id)->assertForbidden();
     }
+    public function test_invoice_amounts_are_hidden_in_portal_api_without_affecting_results_or_staff_invoice(): void
+    {
+        $this->testRow('Glucose', true, '91');
+        $this->invoice->forceFill(['total'=>24500, 'paid'=>10000, 'loyalty_discount'=>1500,
+            'loyalty_points_spent'=>15])->save();
+
+        $url = '/api/portal/'.$this->access->token;
+        $this->getJson($url)->assertOk()->assertJsonPath('show_invoice_amounts', true)
+            ->assertJsonPath('reports.0.total', 24500)->assertJsonPath('reports.0.paid', 10000)
+            ->assertJsonPath('reports.0.due', 14500)->assertJsonPath('reports.0.loyalty_discount', 1500);
+        $settings = LabSetting::where('lab_id_fk', $this->lab->id)->firstOrFail();
+        $settings->update(['show_patient_portal_invoice_amounts'=>false]);
+        $hidden = $this->getJson($url)->assertOk()->assertJsonPath('show_invoice_amounts', false)
+            ->assertJsonMissingPath('reports.0.total')->assertJsonMissingPath('reports.0.paid')
+            ->assertJsonMissingPath('reports.0.due')->assertJsonMissingPath('reports.0.loyalty_discount')
+            ->assertJsonMissingPath('reports.0.loyalty_points_spent')
+            ->assertJsonPath('reports.0.tests.0.name', 'Glucose');
+        $this->assertStringNotContainsString('24500', $hidden->getContent());
+        $this->getJson($this->endpoint())->assertOk()->assertJsonPath('tests.0.result', '91')
+            ->assertJsonMissingPath('total');
+        // The visibility setting does not alter the actual accounting values.
+        $this->assertSame(24500, (int) $this->invoice->fresh()->total);
+        $this->assertSame(10000, (int) $this->invoice->fresh()->paid);
+
+        $settings->update(['show_patient_portal_invoice_amounts'=>true]);
+        $this->getJson($url)->assertOk()->assertJsonPath('reports.0.total', 24500);
+    }
+
     public function test_pending_link_keeps_working_when_results_are_approved_or_retracted(): void
     {
         $row=$this->testRow('Pending',false,'PRIVATE-DRAFT');

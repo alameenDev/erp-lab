@@ -147,6 +147,7 @@ const save = async () => {
           formData.append("show_test_names", settings.value.show_test_names ? "1" : "0");
           formData.append("show_status", settings.value.show_status ? "1" : "0");
           formData.append("show_last_result", settings.value.show_last_result ? "1" : "0");
+          formData.append("show_patient_portal_invoice_amounts", settings.value.show_patient_portal_invoice_amounts ? "1" : "0");
           formData.append("previous_results_count", settings.value.previous_results_count ?? 1);
           formData.append("print_black_white", settings.value.print_black_white ? "1" : "0");
           const bc = labelConfig(settings.value.barcode_config, settings.value.show_tests_on_barcode !== false);
@@ -388,6 +389,13 @@ const resetBranding = async () => {
                                              </select>
                                         </div>
                                         <p class="text-xs text-slate-500 leading-relaxed">{{ lang === 'en' ? 'Newest examinations first. Compound tests keep all their previous fields together. This does not change the patient’s history in the system.' : 'الأحدث أولاً. التحاليل ذات النتائج الفرعية تحتفظ بجميع تفاصيل الفحص السابق معاً. هذا الخيار لا يغيّر سجل المريض داخل النظام.' }}</p>
+                                   </div>
+                                   <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2" data-patient-portal-invoice-amounts-setting>
+                                        <div class="flex items-center gap-3">
+                                             <input type="checkbox" id="showPatientPortalInvoiceAmounts" v-model="settings.show_patient_portal_invoice_amounts" class="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-primary-500" />
+                                             <label for="showPatientPortalInvoiceAmounts" class="text-sm font-semibold text-slate-700 cursor-pointer select-none">{{ lang === 'en' ? 'Show invoice amounts in Patient Portal' : 'إظهار مبالغ الفاتورة داخل بوابة المريض' }}</label>
+                                        </div>
+                                        <p class="text-xs text-slate-500 leading-relaxed">{{ lang === 'en' ? 'Turn off to hide total, paid, remaining and invoice loyalty discount amounts from the patient portal. Invoice amounts stay visible to authorized lab staff; medical results and loyalty points remain available.' : 'عند الإيقاف، تُخفى مبالغ الإجمالي والمدفوع والمتبقي وخصم النقاط من بوابة المريض. تبقى بيانات الفواتير المالية متاحة لكادر المختبر المخوّل، ولا تتأثر النتائج الطبية أو رصيد نقاط الولاء.' }}</p>
                                    </div>
                                    <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
                                         <input type="checkbox" id="printBlackWhite" v-model="settings.print_black_white" class="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-primary-500" />
