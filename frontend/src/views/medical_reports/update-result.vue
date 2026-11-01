@@ -1218,6 +1218,20 @@
                     <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" /></svg>
                     {{ t("saved") || "Saved" }}<span v-if="item.stored_size"> · {{ formatFileSize(item.stored_size) }}<span v-if="item.original_size > item.stored_size"> (توفير {{ Math.round((1 - item.stored_size / item.original_size) * 100) }}%)</span></span>
                   </p>
+                  <div class="mt-2 flex flex-wrap gap-3 items-center" data-attachment-print-size>
+                    <label class="flex items-center gap-2 text-xs text-slate-600">
+                      <span>{{ lang === 'ar' ? 'عرض المرفق' : 'Print width' }}</span>
+                      <select v-model.number="item.print_width_percent" class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-800" :aria-label="lang === 'ar' ? 'عرض المرفق بالنسبة للصفحة' : 'Attachment page width'">
+                        <option v-for="width in [40, 50, 60, 70, 80, 90, 100]" :key="width" :value="width">{{ width }}%</option>
+                      </select>
+                    </label>
+                    <label class="flex items-center gap-2 text-xs text-slate-600">
+                      <span>{{ lang === 'ar' ? 'أقصى ارتفاع' : 'Max height' }}</span>
+                      <select v-model.number="item.print_max_height_mm" class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-800" :aria-label="lang === 'ar' ? 'أقصى ارتفاع المرفق بالمليمتر' : 'Attachment maximum height in millimeters'">
+                        <option v-for="height in [120, 150, 180, 210, 240]" :key="height" :value="height">{{ height }} mm</option>
+                      </select>
+                    </label>
+                  </div>
                 </div>
 
                 <!-- Actions -->
@@ -1355,6 +1369,20 @@
                       <span class="text-xs text-slate-300">|</span>
                       <span class="text-xs text-slate-400">{{ formatFileSize(item.file.size) }}</span>
                     </div>
+                    <div class="mt-2 flex flex-wrap gap-3 items-center" data-attachment-print-size>
+                    <label class="flex items-center gap-2 text-xs text-slate-600">
+                      <span>{{ lang === 'ar' ? 'عرض المرفق' : 'Print width' }}</span>
+                      <select v-model.number="item.print_width_percent" class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-800" :aria-label="lang === 'ar' ? 'عرض المرفق بالنسبة للصفحة' : 'Attachment page width'">
+                        <option v-for="width in [40, 50, 60, 70, 80, 90, 100]" :key="width" :value="width">{{ width }}%</option>
+                      </select>
+                    </label>
+                    <label class="flex items-center gap-2 text-xs text-slate-600">
+                      <span>{{ lang === 'ar' ? 'أقصى ارتفاع' : 'Max height' }}</span>
+                      <select v-model.number="item.print_max_height_mm" class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-800" :aria-label="lang === 'ar' ? 'أقصى ارتفاع المرفق بالمليمتر' : 'Attachment maximum height in millimeters'">
+                        <option v-for="height in [120, 150, 180, 210, 240]" :key="height" :value="height">{{ height }} mm</option>
+                      </select>
+                    </label>
+                  </div>
                   </div>
 
                   <!-- Actions -->
@@ -1444,7 +1472,7 @@
 </template>
 
 <script setup>
-import { validateReportAttachment } from "@/utils/reportAttachments";
+import { validateReportAttachment, attachmentPrintLayout } from "@/utils/reportAttachments";
 import CbcResultEditor from "@/components/CbcResultEditor.vue";
 import { orderedInvoiceItems } from "@/utils/invoiceSelectionOrder";
 import { evaluateReportFormulas, reportFormulaValue, formulaResultHint, formulaDefinitions, formulaApproved, formulaKey, isFormulaTarget } from '@/utils/reportFormulas';
@@ -1608,7 +1636,8 @@ const syncAttachmentsToRecord = () => {
   }
   const newFiles = attachments.value
     .filter((item) => item.file instanceof File)
-    .map((item) => ({ name: item.name || '', file: item.file, upload_id: item.upload_id }));
+    .map((item) => ({ name: item.name || '', file: item.file, upload_id: item.upload_id,
+      ...attachmentPrintLayout(item) }));
   updateResultRecord.value.attachments = [...existingAttachments.value, ...newFiles];
   return newFiles.length > 0;
 };
@@ -1629,19 +1658,20 @@ const runAutoSave = async () => {
     const saved = data?.attachments || [];
     existingAttachments.value = existingAttachments.value.map(item => ({
       ...(saved.find(a => a.file === item.file) || item), name: item.name,
+      ...attachmentPrintLayout(item),
     }));
     for (const item of submitted) {
       const uploaded = saved.find(a => a.file === data?.attachment_uploads?.[item.upload_id]);
       if (!uploaded) throw new Error('Attachment upload was not acknowledged');
       if (attachments.value.includes(item.row) && item.row.file === item.file) {
         const existingIndex = existingAttachments.value.findIndex(a => a.file === uploaded.file);
-        const acknowledged = {...uploaded, name: item.row.name || ''};
+        const acknowledged = {...uploaded, name: item.row.name || '', ...attachmentPrintLayout(item.row)};
         if (existingIndex >= 0) existingAttachments.value[existingIndex] = acknowledged;
         else existingAttachments.value.push(acknowledged);
         attachments.value = attachments.value.filter(a => a !== item.row);
       } else autoSaveDirty = true; // removed/replaced while uploading: reconcile on next save
     }
-    if (!attachments.value.length) attachments.value = [{name: '', file: null}];
+    if (!attachments.value.length) attachments.value = [{name: '', file: null, ...attachmentPrintLayout()}];
     syncAttachmentsToRecord();
     await nextTick();
     reconcilingAttachments = false;
@@ -1813,7 +1843,7 @@ const addInvoiceForPatient = () => {
 
 // Local state
 const existingAttachments = ref([]);
-const attachments = ref([{ name: "", file: null }]);
+const attachments = ref([{ name: "", file: null, ...attachmentPrintLayout() }]);
 const showAttributes = ref([]);
 const selectedTemplate = ref(null);
 const activeTestTab = ref("all");
@@ -2016,7 +2046,7 @@ const autoDetectStatus = (item) => {
 };
 
 const addAttachment = () => {
-  attachments.value.push({ name: "", file: null });
+  attachments.value.push({ name: "", file: null, ...attachmentPrintLayout() });
 };
 
 const removeAttachment = (index) => {
@@ -2453,7 +2483,7 @@ onMounted(async () => {
 
   // Load existing attachments from invoice data
   if (updateResultRecord.value.attachments?.length > 0) {
-    existingAttachments.value = updateResultRecord.value.attachments.map((a) => ({ ...a }));
+    existingAttachments.value = updateResultRecord.value.attachments.map((a) => ({ ...a, ...attachmentPrintLayout(a) }));
   }
 
   // Auto-select first available section
