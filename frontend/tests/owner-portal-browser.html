@@ -29,6 +29,20 @@ const overview = {
   lab_referrals:[{ id:8, name:'مختبر محيل تجريبي', lab_id:1, lab_name:'مختبر النور', invoice_count:9, total:210000, paid:170000, balance:40000, commission_estimate:21000 }],
 };
 const change = { id:7, invoice_id:41, actor_name:'موظف تجريبي', patient_name:'مراجع تجريبي', event:'deleted', before_total:25000, after_total:0, total_delta:-25000, paid_delta:-15000, occurred_at:'2026-10-27T06:30:00Z', snapshot:{ changes:[{ field:'invoice.total', label:'إجمالي الفاتورة', before:25000, after:null },{ field:'analyses.cbc.result', label:'CBC / النتيجة', before:'12.5', after:null }] } };
+const updatedChange = {
+  id:8,invoice_id:42,actor_name:'فني المختبر',patient_name:'مريض تجريبي',
+  event:'updated',before_total:35000,after_total:40000,total_delta:5000,paid_delta:0,
+  financial_changed:true,results_changed:true,occurred_at:'2026-10-27T09:00:00Z',
+  snapshot:{
+    before:{invoice:{total:35000},analyses:{test_9_1:{name:'CBC',result:'10',is_done:false}}},
+    after:{invoice:{total:40000},analyses:{test_9_1:{name:'CBC',result:'13.2',is_done:true}}},
+    changes:[
+      {field:'analyses.test_9_1.result',before:'10',after:'13.2',kind:'changed'},
+      {field:'analyses.test_9_1.is_done',before:false,after:true,kind:'changed'},
+      {field:'invoice.total',before:35000,after:40000,kind:'changed'}
+    ]
+  }
+};
 const staff = [{ id:20, name:'موظف تجريبي', email:'staff@example.test', role_id:7, status:1, role:{ name:'استقبال' } }];
 const notices = [
   { id:'11111111-1111-4111-8111-111111111111', lab_id:1, kind:'invoice_deleted', title:'حذف فاتورة · مختبر النور', body:'فاتورة #41 · موظف تجريبي · القيمة: 25,000 د.ع', read_at:null, created_at:'2026-10-27T06:30:00Z', data:{lab_name:'مختبر النور',archive_id:7,invoice_id:41,actor_name:'موظف تجريبي',before_total:25000,after_total:0} },
@@ -54,8 +68,9 @@ $http.defaults.adapter = async config => {
   else if (url === '/owner-portal/overview') data = { ...overview, summary:{ ...overview.summary, total:Number(p.lab_id) === 2 ? 220000 : 780000 } };
   else if (url === '/owner-portal/invoices') { const list = ledger.filter(i => !p.status || i.payment_status === p.status).filter(i => !p.result_status || i.is_done === (p.result_status === 'done')); data = { data:list, pagination:{ page:1, last_page:1, total:list.length } }; }
   else if (/\/owner-portal\/invoices\/\d+$/.test(url)) data = { ...baseInvoice, items:[{ id:1, name:'CBC', kind:'test', net_allocated:25000, analyses:[{name:'CBC'}] }], payments:[{id:1, amount:15000, method:'نقد', date:'2026-10-27T06:00:00Z'}], results:{ test_1:{ name:'CBC', is_done:false, result:'12.5', unit:'g/dL', sub_tests:[{name:'WBC',result:6,unit:'10^9/L'}] } } };
-  else if (url === '/owner-portal/changes') data = { data:[change], summary:{ deleted_count:1, deleted_total:25000, increases:5000, decreases:2000, net_change:-22000, payments_change:-15000, unknown_amounts:0 }, pagination:{ page:1, last_page:1, total:1 }, note:'الإجماليات تمثل حركة التعديلات المسجلة، وليست إيراداً إضافياً.' };
+  else if (url === '/owner-portal/changes') data = { data:[change,updatedChange], summary:{ deleted_count:1, deleted_total:25000, increases:5000, decreases:2000, net_change:-22000, payments_change:-15000, unknown_amounts:0 }, pagination:{ page:1, last_page:1, total:1 }, note:'الإجماليات تمثل حركة التعديلات المسجلة، وليست إيراداً إضافياً.' };
   else if (url === '/owner-portal/changes/7') data = change;
+  else if (url === '/owner-portal/changes/8') data = updatedChange;
   else if (url === '/owner-portal/activity') data = { data:[{id:10,actor:'موظف تجريبي',description:'تعديل نتيجة CBC',event:'updated',date:'2026-10-27T06:00:00Z'}], summary:{total:1,employees:1,failed:0},pagination:{page:1,last_page:1,total:1} };
   else if (url === '/owner-portal/activity/10') data = { actor:'موظف تجريبي', event:'updated', date:'2026-10-27T06:00:00Z', details:{ changes:[{field:'result',label:'CBC',before:'12',after:'13'}] } };
   else if (url.startsWith('/owner-portal/team') && config.method !== 'get') { if (config.method === 'post') staff.push({id:21,...payload,role:{name:'استقبال'}}); data={id:21}; }
