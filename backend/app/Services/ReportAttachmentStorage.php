@@ -36,7 +36,7 @@ class ReportAttachmentStorage
                 if (array_key_exists('name', $item)) {
                     $known['name'] = mb_substr(trim((string) $item['name']), 0, 255);
                 }
-                $kept[$known['file']] = $known;
+                $kept[$known['file']] = $this->withPrintDimensions($known, $item);
             }
             $kept = array_values($kept);
         }
@@ -49,6 +49,7 @@ class ReportAttachmentStorage
             $saved = collect(array_merge($current, $kept))->firstWhere('sha256', $hash);
             if (! $saved) $saved = $this->store($invoice, $file, $hash);
             $saved['name'] = mb_substr($name, 0, 255);
+            $saved = $this->withPrintDimensions($saved, $request->input("attachments.$index", []));
             $kept = array_values(array_filter($kept, fn ($a) => $a['file'] !== $saved['file']));
             $kept[] = $saved;
             if ($uploadId = $request->input("attachments.$index.upload_id")) $this->uploaded[$uploadId] = $saved['file'];
@@ -60,6 +61,21 @@ class ReportAttachmentStorage
             }
         }
         $invoice->attachments = $kept ?: null;
+    }
+
+    /** Only user-editable dimensions are accepted; storage paths remain server-owned. */
+    private function withPrintDimensions(array $saved, array $input): array
+    {
+        foreach (['print_width_percent' => [40, 100], 'print_max_height_mm' => [100, 240]] as $key => [$min, $max]) {
+            if (! array_key_exists($key, $input)) continue;
+            $value = $input[$key];
+            if (! (is_int($value) || (is_string($value) && preg_match('/^\\d+$/D', $value))) ||
+                (int) $value < $min || (int) $value > $max) {
+                throw ValidationException::withMessages([$key => "Invalid attachment print dimension ($min-$max)."]);
+            }
+            $saved[$key] = (int) $value;
+        }
+        return $saved;
     }
 
     private function store(Invoice $invoice, UploadedFile $file, string $hash): array
