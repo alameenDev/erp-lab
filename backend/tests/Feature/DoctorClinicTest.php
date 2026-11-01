@@ -22,9 +22,13 @@ class DoctorClinicTest extends TestCase
         $this->seed(ReferenceDataSeeder::class);
         $lab = User::create(['name' => 'Test lab', 'email' => 'cliniclab@example.test', 'password' => 'test-only', 'role_id' => 2]);
         $this->doctor = User::create(['name' => 'Clinic doctor', 'email' => 'clinicdoctor@example.test',
-            'password' => 'test-only', 'role_id' => 5, 'creator_id' => $lab->id, 'referral_portal_only' => true]);
+            'password' => 'test-only', 'role_id' => 5, 'creator_id' => $lab->id]);
         $this->other = User::create(['name' => 'Other clinic doctor', 'email' => 'otherclinicdoctor@example.test',
-            'password' => 'test-only', 'role_id' => 5, 'creator_id' => $lab->id, 'referral_portal_only' => true]);
+            'password' => 'test-only', 'role_id' => 5, 'creator_id' => $lab->id]);
+        $this->doctor->referral_portal_only = true;
+        $this->doctor->save();
+        $this->other->referral_portal_only = true;
+        $this->other->save();
         Referal::create(['referral_id_fk' => $this->doctor->id, 'lab_id_fk' => $lab->id]);
         Referal::create(['referral_id_fk' => $this->other->id, 'lab_id_fk' => $lab->id]);
         $this->actingAs($this->doctor);
