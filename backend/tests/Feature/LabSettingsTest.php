@@ -95,7 +95,54 @@ class LabSettingsTest extends TestCase
         $referral = ReferralPrintSetting::create(['lab_id_fk' => $lab->id]);
         $this->assertNotNull($referral->id);
         $this->assertArrayNotHasKey('show_patient_portal_invoice_amounts', $referral->getAttributes());
-        $this->assertTrue((bool) LabSetting::firstOrCreate(['lab_id_fk'=>$lab->id])->show_patient_portal_invoice_amounts);
+        $this->assertTrue(LabSetting::firstOrCreate(['lab_id_fk'=>$lab->id])->fresh()->show_patient_portal_invoice_amounts);
+    }
+
+    public function test_referral_settings_create_save_and_reset_never_write_patient_portal_policy(): void
+    {
+        $this->seed(\Database\Seeders\ReferenceDataSeeder::class);
+        $lab = $this->owner();
+        $destination = LabSetting::create(['lab_id_fk'=>$lab->id, 'show_patient_portal_invoice_amounts'=>false,
+            'lab_display_name'=>'Destination stays private', 'report_template'=>'modern']);
+        $partner = User::create(['name'=>'Referral partner', 'email'=>'portal-policy-partner@example.test',
+            'password'=>'Test-password-123', 'role_id'=>5, 'creator_id'=>$lab->id]);
+        \App\Models\Referal::create(['referral_id_fk'=>$partner->id, 'lab_id_fk'=>$lab->id]);
+        $this->actingAs($partner);
+        $url = '/api/referral-portal/workspace/lab-settings';
+
+        // The first GET creates referral defaults; later updates and both resets
+        // must use only columns supported by the referral table.
+        $this->getJson($url)->assertOk()->assertJsonPath('report_template', 'classic')
+            ->assertJsonMissingPath('show_patient_portal_invoice_amounts');
+        $this->postJson($url, ['report_template'=>'modern', 'lab_display_name'=>'Referral branding'])->assertOk()
+            ->assertJsonPath('setting.report_template', 'modern')
+            ->assertJsonMissingPath('setting.show_patient_portal_invoice_amounts');
+        foreach ([true, false, '1', '0'] as $value) {
+            $this->postJson($url, ['show_patient_portal_invoice_amounts'=>$value])->assertUnprocessable()
+                ->assertJsonValidationErrors('show_patient_portal_invoice_amounts');
+        }
+        $this->postJson($url.'/reset', ['section'=>'print'])->assertOk()
+            ->assertJsonPath('setting.report_template', 'classic')
+            ->assertJsonPath('setting.lab_display_name', 'Referral branding')
+            ->assertJsonMissingPath('setting.show_patient_portal_invoice_amounts');
+        $this->postJson($url.'/reset', ['section'=>'branding'])->assertOk()
+            ->assertJsonMissingPath('setting.show_patient_portal_invoice_amounts');
+        $this->postJson($url.'/reset', ['section'=>'all'])->assertOk()->assertJsonPath('setting', null);
+        $this->getJson($url)->assertOk()->assertJsonMissingPath('show_patient_portal_invoice_amounts');
+        $this->assertFalse($destination->fresh()->show_patient_portal_invoice_amounts);
+        $this->assertSame('Destination stays private', $destination->fresh()->lab_display_name);
+        $this->assertSame('modern', $destination->fresh()->report_template);
+        $this->assertFalse(\Illuminate\Support\Facades\Schema::hasColumn('referral_print_settings', 'show_patient_portal_invoice_amounts'));
+        $this->assertArrayNotHasKey('show_patient_portal_invoice_amounts',
+            ReferralPrintSetting::where('lab_id_fk', $partner->id)->firstOrFail()->getAttributes());
+    }
+
+    public function test_first_lab_settings_save_without_patient_portal_field_returns_default(): void
+    {
+        $lab = $this->owner();
+        $this->actingAs($lab)->postJson('/api/lab-settings', ['lab_display_name'=>'First save'])->assertOk()
+            ->assertJsonPath('setting.show_patient_portal_invoice_amounts', true);
+        $this->assertTrue(LabSetting::where('lab_id_fk', $lab->id)->firstOrFail()->show_patient_portal_invoice_amounts);
     }
 
     private function barcodeLayout(): array
