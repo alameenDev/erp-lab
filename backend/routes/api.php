@@ -241,6 +241,18 @@ Route::group(['middleware' => ['auth:sanctum', \App\Http\Middleware\EnsureActive
     Route::post('referrals/{referral}/doctor-portal', [ReferalController::class, 'enableDoctorPortal'])->whereNumber('referral');
     Route::get('doctor-portal/patients', [\App\Http\Controllers\DoctorPortalController::class, 'patients']);
     Route::get('doctor-portal/patients/{id}', [\App\Http\Controllers\DoctorPortalController::class, 'patientResults'])->whereNumber('id');
+    // Doctor's own clinic data is separate from referral laboratory patient records.
+    Route::prefix('doctor-portal/clinic')->group(function () {
+        Route::get('patients', [\App\Http\Controllers\DoctorClinicController::class, 'patients']);
+        Route::post('patients', [\App\Http\Controllers\DoctorClinicController::class, 'storePatient']);
+        Route::get('patients/{id}', [\App\Http\Controllers\DoctorClinicController::class, 'showPatient'])->whereNumber('id');
+        Route::put('patients/{id}', [\App\Http\Controllers\DoctorClinicController::class, 'updatePatient'])->whereNumber('id');
+        Route::get('visits', [\App\Http\Controllers\DoctorClinicController::class, 'visits']);
+        Route::post('visits', [\App\Http\Controllers\DoctorClinicController::class, 'storeVisit']);
+        Route::get('visits/{id}', [\App\Http\Controllers\DoctorClinicController::class, 'showVisit'])->whereNumber('id');
+        Route::put('visits/{id}', [\App\Http\Controllers\DoctorClinicController::class, 'updateVisit'])->whereNumber('id');
+        Route::get('visits/{id}/revisions', [\App\Http\Controllers\DoctorClinicController::class, 'visitRevisions'])->whereNumber('id');
+    });
     Route::get('referral-portal/connections', [ReferralPortalController::class, 'connections']);
     Route::get('referral-portal/profile', [ReferralPortalController::class, 'profile']);
     Route::post('referral-portal/profile', [ReferralPortalController::class, 'updateProfile']);
