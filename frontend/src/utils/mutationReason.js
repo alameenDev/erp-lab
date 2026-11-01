@@ -1,3 +1,5 @@
+export const isMutationCancelled = error => error?.code === 'ERR_CANCELED';
+
 /**
  * Mandatory explanation for deliberate interactive edits and deletes.
  * The prompt is shown at the actual API action, rather than on a form that
