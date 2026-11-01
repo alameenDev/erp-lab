@@ -308,6 +308,18 @@ const router = createRouter({
                          component: () => import("@/views/doctor-portal/patient-results.vue"),
                          meta: { title: "نتائج المريض | بوابة الطبيب" },
                     },
+                    {
+                         path: "clinic",
+                         name: "doctor-portal-clinic",
+                         component: () => import("@/views/doctor-portal/clinic.vue"),
+                         meta: { title: "إدارة العيادة والدور | بوابة الطبيب" },
+                    },
+                    {
+                         path: "clinic/visits/:id",
+                         name: "doctor-portal-clinic-visit",
+                         component: () => import("@/views/doctor-portal/clinic-visit.vue"),
+                         meta: { title: "الكشفية الطبية | بوابة الطبيب" },
+                    },
                ],
           },
           {
