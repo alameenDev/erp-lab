@@ -267,8 +267,8 @@ class AuditTrail
                 'action_id' => Str::isUuid($this->request->header('X-Audit-Action-Id', '')) ? $this->request->header('X-Audit-Action-Id') : null,
                 'button' => mb_substr(strip_tags(rawurldecode($this->request->header('X-Audit-Label', ''))), 0, 160),
                 'page' => self::safePage($this->request->header('X-Audit-Page', '')),
-                'change_reason' => $status < 400 ? $this->request->attributes->get('audited_change_reason') : null,
-                'reason_operations' => $status < 400 ? $this->request->attributes->get('audited_reason_operations', []) : [],
+                'change_reason' => $status < 400 ? $this->auditReason() : null,
+                'reason_operations' => $status < 400 ? ($this->request->attributes->get('audited_reason_operations') ?? ($this->auditReason() ? [$description] : [])) : [],
             ]),
         ]);
         app(InvoiceChangeArchive::class)->capture($activity, true);
@@ -278,6 +278,18 @@ class AuditTrail
             $this->request->attributes->get('audited_change_reason')) {
             app(OwnerNotifications::class)->catalogTestChanged($activity, $tenant);
         }
+    }
+
+    /** Prefer server-verified context, otherwise record a user-provided UI reason. */
+    private function auditReason(): ?string
+    {
+        $trusted = $this->request->attributes->get('audited_change_reason');
+        if (is_string($trusted) && trim($trusted) !== '') return $trusted;
+        $input = $this->request->input('change_reason');
+        if (! is_string($input)) return null;
+        $reason = trim($input);
+        return mb_strlen($reason) >= 10 && mb_strlen($reason) <= 1000
+            ? mb_substr(strip_tags($reason), 0, 1000) : null;
     }
 
     public static function safePage(string $page): string
