@@ -227,8 +227,8 @@ class DoctorClinicController extends Controller
             if ($visit->status === 'completed' && ($data['status'] ?? 'completed') !== 'completed') {
                 throw ValidationException::withMessages(['status' => 'A completed medical note cannot be reopened by changing its status.']);
             }
-            if ($visit->status === 'cancelled' && $desiredStatus !== 'cancelled') {
-                throw ValidationException::withMessages(['status' => 'Cancelled visits cannot be reopened. Create a new visit.']);
+            if ($visit->status === 'cancelled' && ! empty($data)) {
+                throw ValidationException::withMessages(['status' => 'Cancelled visits cannot be edited or reopened. Create a new visit.']);
             }
 
             $before = $visit->toArray();
