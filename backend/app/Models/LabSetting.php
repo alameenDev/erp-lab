@@ -8,7 +8,7 @@ class LabSetting extends Model
 {
     protected $table = 'lab_settings';
 
-    protected $attributes = ['report_form_default' => true, 'report_template' => 'classic', 'previous_results_count' => 1, 'show_patient_portal_invoice_amounts' => true];
+    protected $attributes = ['report_form_default' => true, 'report_template' => 'classic', 'previous_results_count' => 1];
 
     protected $fillable = [
         'lab_id_fk',
