@@ -288,8 +288,8 @@ class AuditTrail
         $input = $this->request->input('change_reason');
         if (! is_string($input)) return null;
         $reason = trim($input);
-        return mb_strlen($reason) >= 10 && mb_strlen($reason) <= 1000
-            ? mb_substr(strip_tags($reason), 0, 1000) : null;
+        return $reason !== '' && mb_strlen($reason) <= 4000
+            ? mb_substr(strip_tags($reason), 0, 4000) : null;
     }
 
     public static function safePage(string $page): string
