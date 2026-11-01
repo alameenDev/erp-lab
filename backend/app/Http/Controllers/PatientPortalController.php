@@ -143,7 +143,7 @@ class PatientPortalController extends Controller
                 ->get(['id', 'name', 'specialty', 'description', 'photo', 'phone', 'whatsapp', 'links', 'bookable'])
                 : [],
             'ai_enabled' => $lab ? (bool) ($lab->labSetting?->ai_config['enabled'] ?? false) : false,
-        ]);
+        ])->header('Cache-Control', 'private, no-store');
     }
 
     /** Approved result history for this patient. */
