@@ -7,7 +7,8 @@ import { $http } from "@/plugins/axios";
 import { useContractsStore } from "@/store/modules/contract";
 import { usePatientsStore } from "@/store/modules/patients";
 import { useAuthStore } from "@/store/modules/auth";
-import { t, showAlertWithConfirm } from "@/utils/helper";
+import { t } from "@/utils/helper";
+import Swal from "sweetalert2";
 import { useToast } from "@/composables/useToast";
 import { usePrint } from "@/composables/usePrint";
 import { documentCss, messageTemplate } from "@/utils/labDocuments";
@@ -214,15 +215,28 @@ const showTestsList = async (invoice) => {
 };
 
 const deleteRecord = async (data) => {
-  const result = await showAlertWithConfirm(t("AlertWithConfirm"));
-  if (result.value) {
-    record.value.id = data.id;
-    try {
-      await invoicesStore.Removeinvoices();
-      toast.success(t("invoice_deleted_successfully") || "Invoice deleted successfully", { duration: 3000 });
-    } catch (error) {
-      toast.error(error?.response?.data?.message || t("error_deleting_invoice") || "Failed to delete invoice", { duration: 4000 });
-    }
+  const result = await Swal.fire({
+    title: "حذف فاتورة",
+    text: "لن تُنفّذ العملية بدون سبب واضح. سيصل السبب وتفاصيل العملية إلى صاحب المختبر.",
+    input: "textarea",
+    inputLabel: "سبب الحذف (إلزامي)",
+    inputPlaceholder: "اكتب سبب الحذف بالتفصيل، مثل تكرار التسجيل أو طلب المريض...",
+    inputAttributes: {maxlength:"1000", "aria-label":"سبب حذف فاتورة"},
+    showCancelButton: true,
+    confirmButtonText: "تأكيد الحذف وإبلاغ المالك",
+    cancelButtonText: "إلغاء",
+    confirmButtonColor: "#b91c1c",
+    inputValidator: value => (!value || value.trim().length < 10)
+      ? "يرجى كتابة سبب واضح لا يقل عن 10 أحرف." : null,
+  });
+  if (!result.isConfirmed) return;
+  const reason = result.value.trim();
+  record.value.id = data.id;
+  try {
+    await invoicesStore.Removeinvoices(reason);
+    toast.success(t('invoice_deleted_successfully') || 'تم حذف الفاتورة وإشعار المالك');
+  } catch (error) {
+    toast.error(error?.response?.data?.message || 'تعذر حذف الفاتورة', {duration:4000});
   }
 };
 
