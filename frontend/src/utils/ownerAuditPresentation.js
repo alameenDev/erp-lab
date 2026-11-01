@@ -95,7 +95,7 @@ export function ownerChangeCategory(field='') {
   const tail=parts.at(-1);
   if(parts[0]==='payments' || (parts[0]==='invoice' && ['total','sub_total','paid','discount','discount_type_id_fk','loyalty_discount','payment_method_id_fk'].includes(tail)) ||
       (parts[0]==='analyses' && ['price','amount'].includes(tail))) return 'financial';
-  if(parts[0]==='analyses' || ['is_done','result_status_text'].includes(tail))return 'results';
+  if(parts[0]==='analyses' || ['result','is_done','result_status_text'].includes(tail))return 'results';
   if(parts.includes('attachments') || /^(result_doc|pdf_qr_code|report_.*_at|is_printed)$/.test(tail)) return 'attachments';
   if(['invoice','patient'].includes(parts[0]))return 'invoice';
   return 'other';
@@ -104,6 +104,13 @@ export function ownerChangeLabel(change,snapshot={}) {
   const parts=String(change?.field||'').split('.').filter(Boolean);
   const tail=parts.at(-1)||'';
   const friendly=fieldNames[tail]||tail.replace(/_fk$/,'').replace(/_/g,' ');
+  // Imported/older single-field logs have no structured analysis path, but may
+  // contain the actual test name in their saved human label.
+  if(parts.length===1 && change?.label && String(change.label)!==tail) {
+    const label=String(change.label).trim();
+    if(label && !/^[a-z_]+$/i.test(label)) return tail==='result'?'نتيجة '+label:label;
+    if(tail==='result' && label) return 'نتيجة '+label;
+  }
   if(parts[0]==='analyses') {
     const ctx=analysisContext(parts,snapshot);
     if(!ctx)return friendly;
