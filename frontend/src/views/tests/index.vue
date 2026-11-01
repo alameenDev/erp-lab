@@ -241,8 +241,9 @@ const submitImport = async () => {
   try {
     const data = await testsStore.ImportTests(importFile.value);
     importResult.value = data;
-    if (data.created > 0) {
-      toast.success(`${data.created} ${t("tests")} ${t("alertSuccess")}`);
+    if (data.created > 0 || data.ranges_added > 0) {
+      toast.success(data.message || `${data.created} ${t("tests")} ${t("alertSuccess")}`);
+      await testsStore.GetTests();
     }
   } catch (error) {
     const errData = error?.response?.data;
@@ -821,10 +822,14 @@ onMounted(async () => {
         <!-- Import Result -->
         <div v-if="importResult" class="space-y-3">
           <!-- Summary -->
-          <div class="grid grid-cols-3 gap-3">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div class="p-3 rounded-lg text-center" :class="importResult.created > 0 ? 'bg-green-50 border border-green-200' : 'bg-slate-50 border border-slate-200'">
               <p class="text-2xl font-bold" :class="importResult.created > 0 ? 'text-green-700' : 'text-slate-400'">{{ importResult.created || 0 }}</p>
               <p class="text-xs font-medium" :class="importResult.created > 0 ? 'text-green-600' : 'text-slate-400'">{{ t("created") || "Created" }}</p>
+            </div>
+            <div class="p-3 rounded-lg text-center" :class="(importResult.ranges_added || 0) > 0 ? 'bg-teal-50 border border-teal-200' : 'bg-slate-50 border border-slate-200'">
+              <p class="text-2xl font-bold" :class="(importResult.ranges_added || 0) > 0 ? 'text-teal-700' : 'text-slate-400'">{{ importResult.ranges_added || 0 }}</p>
+              <p class="text-xs font-medium" :class="(importResult.ranges_added || 0) > 0 ? 'text-teal-600' : 'text-slate-400'">Normal Ranges</p>
             </div>
             <div class="p-3 rounded-lg text-center" :class="(importResult.skipped || 0) > 0 ? 'bg-amber-50 border border-amber-200' : 'bg-slate-50 border border-slate-200'">
               <p class="text-2xl font-bold" :class="(importResult.skipped || 0) > 0 ? 'text-amber-700' : 'text-slate-400'">{{ importResult.skipped || 0 }}</p>
@@ -837,7 +842,7 @@ onMounted(async () => {
           </div>
 
           <!-- Success message -->
-          <div v-if="importResult.created > 0 && importResult.errors?.length === 0" class="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-xl">
+          <div v-if="(importResult.created > 0 || importResult.ranges_added > 0) && !importResult.errors?.length" class="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-xl">
             <svg class="w-5 h-5 text-green-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
@@ -845,6 +850,11 @@ onMounted(async () => {
               {{ importResult.message }}
             </p>
           </div>
+
+          <p v-if="importResult.merged || importResult.duplicate_ranges" class="text-xs text-slate-600">
+            {{ importResult.merged || 0 }} rows merged as age/gender reference ranges;
+            {{ importResult.duplicate_ranges || 0 }} identical reference ranges ignored.
+          </p>
 
           <!-- Error details -->
           <div v-if="importResult.errors?.length > 0" class="p-4 bg-red-50 border border-red-200 rounded-xl">
