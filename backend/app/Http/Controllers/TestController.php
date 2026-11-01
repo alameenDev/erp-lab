@@ -568,6 +568,9 @@ class TestController extends Controller
             DB::commit();
 
             return response()->json(['message' => 'Test updated successfully', 'test' => $test], 200);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
+            throw $e;
         } catch (\Exception $e) {
             DB::rollBack();
 
