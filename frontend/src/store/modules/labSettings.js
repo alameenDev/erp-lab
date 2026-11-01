@@ -7,6 +7,7 @@ import { applyBranding } from "@/utils/branding";
 const normalizeSettings = (data = {}) => ({
  ...data,
  report_form_default: reportFormChoice(data?.report_form_default),
+ show_patient_portal_invoice_amounts: data?.show_patient_portal_invoice_amounts !== false && data?.show_patient_portal_invoice_amounts !== 0 && data?.show_patient_portal_invoice_amounts !== '0',
  show_last_result: data?.show_last_result === true,
  previous_results_count: previousResultsCount(data),
  report_template: data?.report_template === "modern" ? "modern" : "classic",
@@ -20,6 +21,7 @@ export const useLabSettingsStore = defineStore("labSettings", {
           settings: {
                report_template: "classic",
                report_form_default: true,
+               show_patient_portal_invoice_amounts: true,
                show_last_result: false,
                previous_results_count: 1,
                logo: null,
