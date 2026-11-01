@@ -85,21 +85,31 @@ class OwnerNotifications
         ]);
     }
 
-    public function catalogTestDeleted(\Spatie\Activitylog\Models\Activity $activity, int $tenant): void
+    public function catalogTestChanged(\Spatie\Activitylog\Models\Activity $activity, int $tenant): void
     {
         $p = $activity->properties?->toArray() ?? [];
-        if (empty($p['change_reason'])) return;
+        if (empty($p['change_reason']) || ! in_array($activity->event, ['deleted','updated'], true)) return;
         $lab = User::find($tenant);
         if (! $lab) return;
-        $name = $p['old_value']['name'] ?? $p['subject_label'] ?? 'تحليل';
+        $old = $p['old_value'] ?? [];
+        $new = $p['new_value'] ?? [];
+        $name = $old['name'] ?? $new['name'] ?? $p['subject_label'] ?? 'تحليل';
+        $deleted = $activity->event === 'deleted';
         $owners = User::where('owner_portal_only', true)->where('status', 1)
             ->whereIn('id', DB::table('owner_labs')->where('lab_id', $lab->id)->select('owner_id'))->get();
-        foreach ($owners as $owner) $this->create($owner, $lab->id, 'catalog-deleted:'.$activity->id,
-            'test', 'حذف تحليل من قائمة المختبر · '.$lab->name,
-            'تم حذف تحليل من القائمة بواسطة '.($p['actor_name'] ?? 'مستخدم').'. افتح الإشعار لمعرفة الاسم والسبب.',
+        foreach ($owners as $owner) $this->create($owner, $lab->id,
+            'catalog-change:'.$activity->id, 'test',
+            ($deleted ? 'حذف تحليل' : 'تغيير سعر تحليل').' · '.$lab->name,
+            ($deleted ? 'تم حذف تحليل' : 'تم تغيير سعر تحليل').' بواسطة '.
+                ($p['actor_name'] ?? 'مستخدم').'. افتح الإشعار للاطلاع على السبب.',
             [
                 'activity_id' => $activity->id, 'lab_name' => $lab->name,
                 'actor_name' => $p['actor_name'] ?? null, 'analysis_name' => $name,
+                'analysis_deleted' => $deleted,
+                'original_price_before' => $old['price'] ?? null,
+                'original_price_after' => $new['price'] ?? null,
+                'customer_price_before' => $old['for_customer_price'] ?? null,
+                'customer_price_after' => $new['for_customer_price'] ?? null,
                 'change_reason' => $p['change_reason'], 'reason_operations' => $p['reason_operations'] ?? [],
                 'occurred_at' => $activity->created_at?->toIso8601String(),
             ]);
