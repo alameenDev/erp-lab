@@ -42,7 +42,8 @@ test('nested package/group tests use saved clinical names rather than indices',(
   assert.doesNotMatch(c.label,/test_group_tests|\.0\./);
 });
 test('money, bool, null and attachments are understandable and never display credential URLs',()=>{
-  assert.match(ownerReadableValue(65000,'invoice.total'),/65/);
+  assert.ok(ownerReadableValue(65000,'invoice.total').includes(new Intl.NumberFormat('ar-IQ',{maximumFractionDigits:2}).format(65000)));
+
   assert.match(ownerReadableValue(65000,'invoice.total'),/د.ع/);
   assert.equal(ownerReadableValue(false,'analyses.test_9_1.is_done'),'لا');
   assert.equal(ownerReadableValue(null,'invoice.total'),'غير مسجل');
