@@ -3,6 +3,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use App\Models\LabSetting;
+use App\Models\ReferralPrintSetting;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Tests\TestCase;
 
@@ -86,6 +87,15 @@ class LabSettingsTest extends TestCase
             ->assertUnprocessable()->assertJsonValidationErrors('show_patient_portal_invoice_amounts');
         $this->postJson('/api/lab-settings/reset', ['section'=>'print'])->assertOk()
             ->assertJsonPath('setting.show_patient_portal_invoice_amounts', true);
+    }
+
+    public function test_patient_portal_amount_visibility_default_is_not_inserted_into_referral_print_settings(): void
+    {
+        $lab = $this->owner();
+        $referral = ReferralPrintSetting::create(['lab_id_fk' => $lab->id]);
+        $this->assertNotNull($referral->id);
+        $this->assertArrayNotHasKey('show_patient_portal_invoice_amounts', $referral->getAttributes());
+        $this->assertTrue((bool) LabSetting::firstOrCreate(['lab_id_fk'=>$lab->id])->show_patient_portal_invoice_amounts);
     }
 
     private function barcodeLayout(): array
