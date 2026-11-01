@@ -53,6 +53,19 @@ try{
  await page.locator('[data-report-saved-attachment]').nth(1).locator('select').nth(1).selectOption('240');
  await page.waitForFunction(()=>{const a=attachmentFixture.saved().attachments;return a[0].print_width_percent===80&&a[0].print_max_height_mm===180&&a[1].print_max_height_mm===240;});
  assert.deepEqual((await fixture()).saved.slice(0,2).map(a=>[a.print_width_percent,a.print_max_height_mm]),[[80,180],[100,240]]);
+ // Auto-fit a PDF with large internal margins; allow opting out per attachment.
+ const savedPdf=await page.evaluate(async()=>attachmentFixture.prepareReportAttachments(
+   [attachmentFixture.saved().attachments[1]]));
+ assert.equal(savedPdf.length,2);
+ assert.ok(savedPdf.every(p=>p.kind==='pdf'&&p.cropped),'PDF content should be cropped from large internal white margins');
+ await page.locator('[data-report-saved-attachment]').nth(1).locator('[data-attachment-autofit]').uncheck();
+ await page.waitForFunction(()=>attachmentFixture.saved().attachments[1].print_auto_crop===false);
+ const originalPdf=await page.evaluate(async()=>attachmentFixture.prepareReportAttachments(
+   [attachmentFixture.saved().attachments[1]]));
+ assert.ok(originalPdf.every(p=>!p.cropped),'operators can disable cropping to keep original layout');
+ await page.locator('[data-report-saved-attachment]').nth(1).locator('[data-attachment-autofit]').check();
+ await page.waitForFunction(()=>attachmentFixture.saved().attachments[1].print_auto_crop===true);
+
  await page.locator('[data-report-saved-attachment]').first().scrollIntoViewIfNeeded();
  await page.screenshot({path:'test-results/report-pages/attachments-editor-desktop.png'});
  let output=await page.evaluate(()=>attachmentFixture.prepare(false));
@@ -61,6 +74,31 @@ try{
  assert.doesNotMatch(await page.locator('#attachment-output').innerText(),/external-report\.pdf|additional-report\.pdf|scan\.png/,'original filenames never appear in the report');
  assert.equal(await page.locator('#attachment-output [data-attachment-name]').evaluateAll(nodes=>nodes.every(n=>getComputedStyle(n).textAlign==='center')),true);
  assert.equal(await page.locator('#attachment-output .report-attachment img').count(),4,'every attachment page contains the actual rendered content');
+ const optimized=await page.evaluate(async()=>{
+   const {optimizeMedicalReportPdfPage}=await import('/src/utils/medicalReportPages.js');
+   const make=(noise)=>{
+     const c=document.createElement('canvas');c.width=400;c.height=600;
+     const ctx=c.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,400,600);
+     if(noise){
+       const pix=ctx.createImageData(400,600);
+       let seed=101;
+       for(let i=0;i<pix.data.length;i+=4){
+         seed=(Math.imul(seed,1664525)+1013904223)>>>0;
+         pix.data[i]=seed&255;pix.data[i+1]=(seed>>>8)&255;pix.data[i+2]=(seed>>>16)&255;pix.data[i+3]=255;
+       }
+       ctx.putImageData(pix,0,0);
+     }else{ctx.fillStyle='black';ctx.font='20px Arial';ctx.fillText('Medical results are clear',22,90);}
+     return c.toDataURL('image/png');
+   };
+   const text=make(false),photo=make(true);
+   const tx=await optimizeMedicalReportPdfPage(text);
+   const ph=await optimizeMedicalReportPdfPage(photo);
+   return {textFormat:tx.format,photoFormat:ph.format,photoBytes:ph.source.length,originalPhotoBytes:photo.length};
+ });
+ assert.equal(optimized.textFormat,'PNG','fine clinical text stays lossless');
+ assert.equal(optimized.photoFormat,'JPEG','photographic scans use a smaller export encoding');
+ assert.ok(optimized.photoBytes<optimized.originalPhotoBytes*.75);
+
  assert.deepEqual(await page.locator('#attachment-output .report-attachment img').evaluateAll(imgs=>imgs.map(i=>[i.style.width,i.style.maxHeight])),[['80%','180mm'],['100%','240mm'],['100%','240mm'],['100%','210mm']],'each PDF page inherits its attachment layout; defaults stay readable');
  assert.equal(await page.locator('#attachment-output .report-attachment a').count(),0,'no attachment download link is printed');
  assert.equal(await page.locator('#attachment-output .report-attachment img[alt="رابط المرفق"]').count(),0,'no attachment QR code is printed');
