@@ -1452,6 +1452,11 @@ class InvoiceController extends Controller
             'packages' => 'nullable|array',
             'test_groups' => 'nullable|array',
         ]);
+        // An initial discretionary discount also needs a documented reason.
+        // Loyalty reward redemption is a separate point-redemption workflow.
+        if ((float) $request->input('discount', 0) > 0) {
+            \App\Services\InvoiceChangeReason::enforce($request, ['تطبيق خصم عند إنشاء الفاتورة']);
+        }
         try {
             DB::beginTransaction();
             app(\App\Services\DefaultTestResults::class)->prepare($request, $user->role_id == 1 ? null : $this->getTenantUserIds());
