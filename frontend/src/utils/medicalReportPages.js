@@ -203,6 +203,19 @@ export async function renderMedicalReportPages({ element, css, margins, backgrou
     const wrappers = Array.from(clone.querySelectorAll('table.print-wrapper'));
     const targets = wrappers.length ? wrappers : [clone];
     for (const target of targets) {
+      // An attachment may request a tall image, but the lab's letterhead and
+      // margins are different on each report. Fit it into the REAL remaining
+      // sheet height before rasterizing; never split/crop a scanned PDF page.
+      const pageWidthScale = 96 / 25.4;
+      const sheetHeight = reportGeometry(m, pageWidthScale).content.height;
+      const top = target.getBoundingClientRect().top;
+      for (const img of target.querySelectorAll('.report-attachment img')) {
+        const usedHeight = img.getBoundingClientRect().top - top;
+        const remainingMm = (sheetHeight - usedHeight) / pageWidthScale - 3;
+        if (remainingMm < 30) throw new Error('رأس التقرير والهوامش لا تترك مساحة كافية للمرفق. قلّل الهوامش.');
+        const requestedMm = Number.parseFloat(img.style.maxHeight) || 210;
+        img.style.maxHeight = Math.min(requestedMm, remainingMm) + 'mm';
+      }
       const rect = target.getBoundingClientRect();
       const canvas = await html2canvas(target, { scale: 2, useCORS: true, allowTaint: false, logging: false, backgroundColor: null });
       if (!rect.width || !canvas.width || !canvas.height) throw new Error('التقرير فارغ أو غير جاهز للطباعة.');

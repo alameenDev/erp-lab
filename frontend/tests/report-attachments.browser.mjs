@@ -46,6 +46,13 @@ try{
  assert.equal((await fixture()).saved[2].name,'','blank display name never defaults to the uploaded filename');
  await page.locator('[data-report-saved-attachment] input[type=text]').nth(1).fill('نتائج الفحص الخارجي');
  await page.waitForFunction(()=>attachmentFixture.saved().attachments[1].name==='نتائج الفحص الخارجي');
+ // A scan and a multi-page PDF can have independent saved print dimensions.
+ await page.locator('[data-report-saved-attachment]').first().locator('select').nth(0).selectOption('80');
+ await page.locator('[data-report-saved-attachment]').first().locator('select').nth(1).selectOption('180');
+ await page.locator('[data-report-saved-attachment]').nth(1).locator('select').nth(0).selectOption('100');
+ await page.locator('[data-report-saved-attachment]').nth(1).locator('select').nth(1).selectOption('240');
+ await page.waitForFunction(()=>{const a=attachmentFixture.saved().attachments;return a[0].print_width_percent===80&&a[0].print_max_height_mm===180&&a[1].print_max_height_mm===240;});
+ assert.deepEqual((await fixture()).saved.slice(0,2).map(a=>[a.print_width_percent,a.print_max_height_mm]),[[80,180],[100,240]]);
  await page.locator('[data-report-saved-attachment]').first().scrollIntoViewIfNeeded();
  await page.screenshot({path:'test-results/report-pages/attachments-editor-desktop.png'});
  let output=await page.evaluate(()=>attachmentFixture.prepare(false));
@@ -54,6 +61,7 @@ try{
  assert.doesNotMatch(await page.locator('#attachment-output').innerText(),/external-report\.pdf|additional-report\.pdf|scan\.png/,'original filenames never appear in the report');
  assert.equal(await page.locator('#attachment-output [data-attachment-name]').evaluateAll(nodes=>nodes.every(n=>getComputedStyle(n).textAlign==='center')),true);
  assert.equal(await page.locator('#attachment-output .report-attachment img').count(),4,'every attachment page contains the actual rendered content');
+ assert.deepEqual(await page.locator('#attachment-output .report-attachment img').evaluateAll(imgs=>imgs.map(i=>[i.style.width,i.style.maxHeight])),[['80%','180mm'],['100%','240mm'],['100%','240mm'],['100%','210mm']],'each PDF page inherits its attachment layout; defaults stay readable');
  assert.equal(await page.locator('#attachment-output .report-attachment a').count(),0,'no attachment download link is printed');
  assert.equal(await page.locator('#attachment-output .report-attachment img[alt="رابط المرفق"]').count(),0,'no attachment QR code is printed');
  const detected=await page.evaluate(async()=>{const pages=await attachmentFixture.prepareReportAttachments(attachmentFixture.saved().attachments.map(a=>({name:'فحص مرفق',file:a.file})));return pages.map(p=>({kind:p.kind,hasContent:!!p.src,hasQr:!!p.qr}));});

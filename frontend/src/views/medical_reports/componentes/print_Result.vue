@@ -44,7 +44,6 @@ const today = ref("");
 const reportPages = ref([]);
 const attachmentPages = ref([]);
 let attachmentPagesKey = null;
-const attachmentHeight = computed(() => Math.max(30, 297 - serverMargins.value.top - serverMargins.value.bottom - 90));
 const reportLoaded = ref(false);
 const patientId = ref(null);
 const template = ref({});
@@ -1212,7 +1211,9 @@ const generateBarcodeImage = (value) => {
         <section data-report-section data-report-keep-together class="report-attachment" style="padding-top:12px; text-align:center;">
           <h2 v-if="attachment.name" dir="auto" data-attachment-name style="text-transform:none; font-size:16px; font-weight:700; text-align:center; overflow-wrap:anywhere; margin:0 0 8px;">{{ attachment.name }}</h2>
           <p v-if="attachment.total > 1" style="font-size:11px; margin:0 0 6px; text-align:center;">{{ attachment.page }} / {{ attachment.total }}</p>
-          <img :src="attachment.src" :alt="attachment.name" :style="{display:'block', width:'auto', height:'auto', maxWidth:'100%', maxHeight:attachmentHeight + 'mm', objectFit:'contain', margin:'0 auto'}" />
+          <img :src="attachment.src" :alt="attachment.name"
+            :style="{display:'block', width:attachment.print_width_percent + '%', height:'auto', maxWidth:'100%',
+              maxHeight:attachment.print_max_height_mm + 'mm', objectFit:'contain', margin:'0 auto'}" />
         </section>
       </td></tr></tbody>
     </table>

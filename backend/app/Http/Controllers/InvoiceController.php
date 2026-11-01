@@ -2333,6 +2333,8 @@ class InvoiceController extends Controller
             'attachments' => 'nullable|array|max:20',
             'attachments.*.name' => 'nullable|string|max:255',
             'attachments.*.upload_id' => 'nullable|uuid',
+            'attachments.*.print_width_percent' => 'nullable|integer|between:40,100',
+            'attachments.*.print_max_height_mm' => 'nullable|integer|between:100,240',
             'attachments.*.file' => 'required|file|max:10240', // 10MB max
         ]);
 
