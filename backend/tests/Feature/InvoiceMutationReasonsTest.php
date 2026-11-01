@@ -132,6 +132,24 @@ class InvoiceMutationReasonsTest extends TestCase
         $this->assertSame(35000, (int) $this->invoice->fresh()->total);
     }
 
+    public function test_partial_invoice_edit_does_not_delete_any_analyses_or_reset_prices(): void
+    {
+        $this->putJson('/api/invoices/update', [
+            'id' => $this->invoice->id,
+            'patient_id_fk' => $this->patient->id,
+            'notes' => 'تصحيح ملاحظة الاستقبال فقط',
+        ])->assertOk();
+        $this->assertSame(35000, (int) $this->invoice->fresh()->total);
+        $this->assertSame(35000, (int) $this->invoice->fresh()->sub_total);
+        $this->assertSame(1, $this->invoice->fresh()->invoiceTestRels()->count());
+    }
+
+    public function test_missing_an_analysis_list_when_other_lists_submitted_is_not_a_loophole(): void
+    {
+        $this->edit(['tests' => null])->assertUnprocessable()->assertJsonValidationErrors('change_reason');
+        $this->assertSame(1, $this->invoice->fresh()->invoiceTestRels()->count());
+    }
+
     public function test_ordinary_result_updates_do_not_require_manual_financial_reason(): void
     {
         $this->postJson('/api/invoices/update-result', [
