@@ -36,7 +36,7 @@ try {
   await screenshot('changes-desktop'); await page.locator('.owner-timeline-item').first().click(); await page.locator('.owner-diff').first().waitFor(); await screenshot('change-detail');
   assert.match(await page.locator('.owner-audit-headline').innerText(),/حذف الفاتورة/);
   assert.ok((await page.locator('.owner-readable-audit').innerText()).includes('القيمة السابقة'),'before/after is explained in Arabic');
-  await go('changes');
+  await go('activity'); await go('changes'); // route change closes the first detail modal
   assert.match(await page.locator('.owner-timeline-item').nth(1).innerText(),/تعديل نتائج التحاليل والمبالغ/);
   await page.locator('.owner-timeline-item').nth(1).click();
   await page.locator('.owner-audit-field').first().waitFor();
