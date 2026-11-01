@@ -1,3 +1,4 @@
+import { getReportMonochromeCss } from './reportMonochrome.js';
 // PrimeIcons 7 glyphs and font from the app's existing icon library.
 const reportIconFont = new URL('../../node_modules/primeicons/fonts/primeicons.woff2', import.meta.url).href;
 const primeIconsCss = `@font-face { font-family: primeicons; src: url("${reportIconFont}") format("woff2"); font-weight: normal; font-style: normal; }`;
@@ -5,7 +6,8 @@ const primeIconsCss = `@font-face { font-family: primeicons; src: url("${reportI
 // This CSS travels with the source DOM into the shared page renderer. Keeping
 // it here makes previews, PDF downloads, native print and WhatsApp identical.
 export function getReportTemplateCss(settings = {}) {
-  if (settings.report_template !== 'modern') return '';
+  const monochromeCss = getReportMonochromeCss(settings);
+  if (settings.report_template !== 'modern') return monochromeCss;
   const header = settings.patient_header_config || {};
   const table = settings.print_table_config || {};
   const s = ':is(#Result, .report-template-preview).report-modern';
@@ -64,8 +66,6 @@ export function getReportTemplateCss(settings = {}) {
     ${s} .mr-flag-normal { background: #e4f3eb; color: #277247; border-color: #bfdfce; }
     ${s} .mr-flag-low { background: #fff4d9; color: #846000; border-color: #ecd69a; }
     ${s} .mr-empty-flag { color: #738591; }
-    ${s}.report-monochrome, ${s}.report-monochrome * { color: #000 !important; background-color: transparent !important; background-image: none !important; border-color: #000 !important; }
-    ${s}.report-monochrome .report-results-table > tbody > tr:nth-child(even) > td { background-image: none !important; }
-    ${s}.report-monochrome img { filter: grayscale(1) !important; }
+    ${monochromeCss}
   `;
 }
