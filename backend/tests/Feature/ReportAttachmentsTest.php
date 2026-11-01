@@ -129,30 +129,34 @@ class ReportAttachmentsTest extends TestCase
         $saved = $this->upload('scan.pdf', $pdf, [
             'attachments' => [[
                 'name' => 'Scan', 'file' => UploadedFile::fake()->createWithContent('scan.pdf', $pdf),
-                'print_width_percent' => 80, 'print_max_height_mm' => 180,
+                'print_width_percent' => 80, 'print_max_height_mm' => 180, 'print_auto_crop' => 1,
             ]],
         ])->assertOk()->assertJsonPath('attachments.0.print_width_percent', 80)
-            ->assertJsonPath('attachments.0.print_max_height_mm', 180)->json('attachments.0');
+            ->assertJsonPath('attachments.0.print_max_height_mm', 180)
+            ->assertJsonPath('attachments.0.print_auto_crop', true)->json('attachments.0');
 
         $this->postJson('/api/invoices/update-result', [
             'id' => $this->invoice->id,
             'existing_attachments' => [[
                 'file' => $saved['file'], 'name' => 'Scan',
                 'print_width_percent' => 100, 'print_max_height_mm' => 240,
+                'print_auto_crop' => false,
                 'storage_path' => 'forged/path.bin',
             ]],
         ])->assertOk()->assertJsonPath('attachments.0.print_width_percent', 100)
             ->assertJsonPath('attachments.0.print_max_height_mm', 240)
+            ->assertJsonPath('attachments.0.print_auto_crop', false)
             ->assertJsonPath('attachments.0.storage_path', $saved['storage_path']);
         $this->assertCount(1, Storage::disk('local')->allFiles());
 
-        foreach ([['print_width_percent' => 101], ['print_max_height_mm' => 260], ['print_width_percent' => 'abc']] as $invalid) {
+        foreach ([['print_width_percent' => 101], ['print_max_height_mm' => 260], ['print_width_percent' => 'abc'], ['print_auto_crop' => 'maybe']] as $invalid) {
             $this->postJson('/api/invoices/update-result', [
                 'id' => $this->invoice->id,
                 'existing_attachments' => [[...$invalid, 'file' => $saved['file']]],
             ])->assertUnprocessable();
         }
         $this->assertSame(100, $this->invoice->fresh()->attachments[0]['print_width_percent']);
+        $this->assertFalse($this->invoice->fresh()->attachments[0]['print_auto_crop']);
         $this->assertCount(1, Storage::disk('local')->allFiles());
     }
 
