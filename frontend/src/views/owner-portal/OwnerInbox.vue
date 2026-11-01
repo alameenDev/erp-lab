@@ -62,7 +62,12 @@ onBeforeUnmount(() => { revision++; detailRevision++; });
         <div v-if="detail.data.registration_date"><dt>تاريخ الفاتورة</dt><dd>{{ detail.data.registration_date }}</dd></div>
         <div v-if="detail.data.discount"><dt>قيمة الخصم</dt><dd>{{ amount(detail.data.discount) }} د.ع</dd></div>
         </dl>
-        <div v-if="detail.data.analysis_name" class="owner-notice-details"><strong>التحليل المحذوف:</strong> {{ detail.data.analysis_name }}</div>
+        <div v-if="detail.data.analysis_name" class="owner-notice-details"><strong>{{ detail.data.analysis_deleted === false ? 'التحليل الذي تغيّر سعره' : 'التحليل المحذوف' }}:</strong> {{ detail.data.analysis_name }}
+        <div v-if="detail.data.analysis_deleted === false" class="mt-2">
+          <p>السعر الأصلي: {{ amount(detail.data.original_price_before) }} ← {{ amount(detail.data.original_price_after) }} د.ع</p>
+          <p>سعر المريض: {{ amount(detail.data.customer_price_before) }} ← {{ amount(detail.data.customer_price_after) }} د.ع</p>
+        </div>
+        </div>
         <div v-if="detail.data.change_reason" class="owner-notice-reason" data-owner-notice-reason><strong>سبب الحذف أو تعديل السعر المكتوب من الموظف</strong><p>{{ detail.data.change_reason }}</p></div>
         <div v-else class="owner-notice-reason"><strong>سبب العملية</strong><p>غير مسجل في هذه العملية القديمة.</p></div>
         <div v-if="detail.data.reason_operations?.length" class="owner-notice-details"><strong>العمليات:</strong><p v-for="(op,i) in detail.data.reason_operations" :key="i">{{ op }}</p></div>
