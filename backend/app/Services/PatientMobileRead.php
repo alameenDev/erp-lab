@@ -29,17 +29,19 @@ class PatientMobileRead
         $rows = $this->invoices($patient, $lab)->with(['invoiceTestRels.test', 'invoiceTestRels.culture',
             'invoiceTestRels.package', 'invoiceTestRels.testGroup'])
             ->orderByDesc('id')->simplePaginate(20, ['*'], 'page', $page);
-        return ['items'=>$rows->map(fn ($invoice) => $this->summary($invoice))->values()->all(),
+        $showAmounts = $lab->labSetting?->show_patient_portal_invoice_amounts !== false;
+        return ['items'=>$rows->map(fn ($invoice) => $this->summary($invoice, $showAmounts))->values()->all(),
             'next_page'=>$rows->hasMorePages() ? $page + 1 : null];
     }
 
-    public function summary(Invoice $invoice): array
+    public function summary(Invoice $invoice, bool $showAmounts = true): array
     {
         $ready = app(ReportReadiness::class)->isReady($invoice);
         return ['id'=>$invoice->id, 'barcode'=>$invoice->barcode,
             'date'=>$invoice->created_at?->toISOString(), 'result_date'=>$invoice->result_date?->toDateString(),
-            'status'=>$ready ? 'ready' : 'pending', 'total'=>(float)$invoice->total,
-            'paid'=>(float)$invoice->paid, 'due'=>max(0, (float)$invoice->total - (float)$invoice->paid),
+            'status'=>$ready ? 'ready' : 'pending',
+            ...($showAmounts ? ['total'=>(float)$invoice->total,
+                'paid'=>(float)$invoice->paid, 'due'=>max(0, (float)$invoice->total - (float)$invoice->paid)] : []),
             'tests'=>$invoice->invoiceTestRels->map(fn ($row) => [
                 'name'=>$row->test?->name ?? $row->culture?->name ?? $row->package?->name ?? $row->testGroup?->group_name ?? 'فحص',
             ])->values()->all()];
@@ -134,6 +136,6 @@ class PatientMobileRead
             }
             $sections[] = ['name'=>$this->text($name), 'items'=>$items];
         }
-        return ['report'=>$this->summary($invoice), 'sections'=>$sections];
+        return ['report'=>$this->summary($invoice, $lab->labSetting?->show_patient_portal_invoice_amounts !== false), 'sections'=>$sections];
     }
 }
