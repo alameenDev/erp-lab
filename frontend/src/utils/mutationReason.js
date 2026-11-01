@@ -89,7 +89,7 @@ export function mutationReasonPolicy({method='get',url='',data=null,skipMutation
 }
 export function validReason(value) {
   const s=typeof value==='string'?value.trim():'';
-  return s.length>=10 && s.length<=1000;
+  return s.length>0 && s.length<=4000;
 }
 export async function requestMutationReason(policy,existing=null) {
   if (!policy) return null;
@@ -119,7 +119,7 @@ export async function requestMutationReason(policy,existing=null) {
     subtitle.textContent='السبب إلزامي قبل تنفيذ العملية، وسوف يُحفظ ضمن سجل التدقيق. يمكنك إلغاء العملية دون تغيير البيانات.';
     subtitle.style.cssText='font-size:13px;line-height:1.9;color:#52665d;margin:0';
     const label=document.createElement('label');
-    label.textContent=`اكتب سبب ${action} بالتفصيل (10 أحرف على الأقل)`;
+    label.textContent=`اكتب سبب ${action} (إلزامي)`;
     label.htmlFor='mandatory-mutation-reason-input';
     label.style.cssText='display:grid;gap:8px;font-weight:700;font-size:13px';
     const input=document.createElement('textarea');
@@ -127,7 +127,7 @@ export async function requestMutationReason(policy,existing=null) {
     input.dataset.mutationReasonInput='true';
     input.required=true;
     input.rows=4;
-    input.maxLength=1000;
+    input.maxLength=4000;
     input.value=validReason(existing)?existing.trim():'';
     input.placeholder='مثال: تصحيح خطأ في تسجيل السعر بعد مراجعة المشرف.';
     input.style.cssText='width:100%;box-sizing:border-box;border:1px solid #aec8bc;border-radius:10px;padding:12px;font:inherit;font-weight:400;resize:vertical;color:#142e25;background:white;outline-offset:3px;';
@@ -162,7 +162,7 @@ export async function requestMutationReason(policy,existing=null) {
     form.addEventListener('submit',e=>{
       e.preventDefault();
       if(!validReason(input.value)) {
-        validation.textContent='يرجى كتابة سبب واضح من 10 إلى 1000 حرف.';
+        validation.textContent='يرجى كتابة السبب قبل تنفيذ العملية.';
         validation.hidden=false;
         input.setAttribute('aria-invalid','true');
         input.focus();return;
