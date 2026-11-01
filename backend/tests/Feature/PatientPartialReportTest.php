@@ -47,8 +47,8 @@ class PatientPartialReportTest extends TestCase
     public function test_invoice_amounts_are_hidden_in_portal_api_without_affecting_results_or_staff_invoice(): void
     {
         $this->testRow('Glucose', true, '91');
-        $this->invoice->update(['total'=>24500, 'paid'=>10000, 'loyalty_discount'=>1500,
-            'loyalty_points_spent'=>15]);
+        $this->invoice->forceFill(['total'=>24500, 'paid'=>10000, 'loyalty_discount'=>1500,
+            'loyalty_points_spent'=>15])->save();
 
         $url = '/api/portal/'.$this->access->token;
         $this->getJson($url)->assertOk()->assertJsonPath('show_invoice_amounts', true)
