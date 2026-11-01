@@ -1,3 +1,4 @@
+import { grayscaleReportCanvas } from './reportMonochrome.js';
 import { routePrintDocument } from './localPrint.js';
 export function reportMargins(raw = {}) {
   const defaults = { top: 20, right: 15, bottom: 20, left: 15 };
@@ -260,6 +261,8 @@ export async function renderMedicalReportPages({ element, css, margins, backgrou
         if (headerPixels) ctx.drawImage(canvas, 0, 0, canvas.width, headerPixels, x, y, canvas.width, headerPixels);
         if (end > start) ctx.drawImage(canvas, 0, headerPixels + start, canvas.width, end - start, x, y + headerPixels, canvas.width, end - start);
         ctx.restore();
+        // Apply grayscale after the letterhead and attachments are composed.
+        if (clone.classList.contains('report-monochrome')) grayscaleReportCanvas(page);
         pages.push(page.toDataURL('image/png'));
       }
     }

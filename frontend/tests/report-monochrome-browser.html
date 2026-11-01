@@ -1,0 +1,48 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Monochrome medical reports</title></head><body><div id="app"></div><script type="module">
+import {createApp,h,ref,nextTick} from 'vue';
+import {createPinia} from 'pinia';
+import {createRouter,createMemoryHistory} from 'vue-router';
+import Report from '/src/views/medical_reports/componentes/print_Result.vue';
+import Preview from '/src/views/lab-settings/ReportTemplatePreview.vue';
+import {useLabSettingsStore} from '/src/store/modules/labSettings';
+import {useinvoicesStore} from '/src/store/modules/invoices';
+import {useresultStatusStore} from '/src/store/modules/result-status';
+import {useTemplatesStore} from '/src/store/modules/template';
+import {$http} from '/src/plugins/axios';
+import '/src/assets/main.css';
+localStorage.setItem('locale','en');localStorage.setItem('token','synthetic-monochrome');
+const router=createRouter({history:createMemoryHistory(),routes:[{path:'/',component:{render:()=>null}}]});
+const bg=document.createElement('canvas');bg.width=794;bg.height=1123;
+const ctx=bg.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,794,1123);ctx.fillStyle='#007c83';ctx.fillRect(0,0,794,60);
+const base={report_form_default:true,show_test_names:true,show_categories:false,show_status:true,show_last_result:true,
+ report_background:bg.toDataURL(),print_margins:{top:30,bottom:20,left:15,right:15},
+ patient_header_config:{name_size:18,info_size:12,qr_size:70}};
+const ranges=[{from:0,to:.5,gender:'Both',age_from:0,age_to:120,age_unit:'Years'}];
+createApp({setup(){
+ const report=ref(null),pages=ref([]),store=useLabSettingsStore(),invoices=useinvoicesStore();
+ store.settings={...base,report_template:'classic',print_black_white:true};
+ invoices.printRecord={id:14,lab_id_fk:1,patient:{id:1,name:'Synthetic patient',age:35,age_unit:'Years',gender:'Male',code:'DEMO'},registration_date:'2026-11-01',
+ tests:[{id:1,name:'D-dimer',result:'0.20',unit:'mg/L',is_done:true,result_status_id_fk:2,test_reference_ranges:ranges},
+ {id:2,name:'D-dimer',result:'0.30',unit:'mg/L',is_done:true,result_status_id_fk:1,test_reference_ranges:ranges}],test_groups:[],packages:[],cultures:[]};
+ useresultStatusStore().resultStatus=[{value:1,label:'High'},{value:2,label:'Normal'}];
+ useTemplatesStore().GetTemplates=async()=>{};
+ $http.defaults.adapter=async config=>{
+  if(config.url!=='/portal/generate')throw new Error('Unexpected request: '+config.url);
+  return {data:{url:location.origin+'/portal/'+'a'.repeat(48)},status:200,headers:{},config};
+ };
+ const style=selector=>{const s=getComputedStyle(document.querySelector(selector));return {color:s.color,bg:s.backgroundColor,border:s.borderTopColor,font:s.fontSize};};
+ window.monochromeFixture={render:async(template,bw,config={})=>{
+  store.settings={...base,report_template:template,print_black_white:bw,
+   print_table_config:{header_font_size:16,body_font_size:15,cell_padding:6,...config}};
+  await nextTick();const output=await report.value.prepareReport({withBackground:true});
+  const cached=await report.value.prepareReport({withBackground:true});pages.value=output.pages;await nextTick();
+  window.monochromeFixture.output=output;
+  return {cached:cached===output,pdf:await output.blob.slice(0,5).text(),count:output.pages.length,
+   header:style('#Result .report-results-table th'),cell:style('#Result .report-results-table td'),
+   section:style('#Result .section-header'),preview:style('.report-template-preview .section-header'),
+   text:document.querySelector('#Result').textContent};
+ }};
+ return ()=>h('main',[h(Preview,{settings:store.settings}),h(Report,{ref:report}),h('div',{id:'mono-sheets'},pages.value.map(src=>h('img',{src,style:'width:650px'})))]);
+}}).use(createPinia()).use(router).mount('#app');
+await router.push('/');await router.isReady();
+</script></body></html>
