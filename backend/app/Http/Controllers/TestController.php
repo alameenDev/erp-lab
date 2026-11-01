@@ -13,6 +13,7 @@ use App\Models\Test;
 use App\Models\TestGroup;
 use App\Models\TestQuestionRel;
 use App\Models\TestReferenceRange;
+use App\Services\TestImportDuplicateGuard;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -706,6 +707,10 @@ class TestController extends Controller
                 'age_from_required_with_gender' => 'مطلوب عند تحديد "الجنس"',
                 'age_to_required_with_gender' => 'مطلوب عند تحديد "الجنس"',
                 'reference_ranges_word' => 'نطاق مرجعي',
+                'catalog_mismatch' => 'الاسم مكرر لكن بيانات التحليل مختلفة في الحقول',
+                'range_conflict' => 'النطاق المرجعي يتعارض مع نطاق آخر لنفس الجنس والفئة العمرية',
+                'repeat_without_range' => 'التحليل مكرر لكن الصف لا يحتوي على Normal Range جديد',
+                'repeat_range' => 'نطاق مرجعي مكرر تماماً',
             ];
         }
 
@@ -768,6 +773,10 @@ class TestController extends Controller
             'age_from_required_with_gender' => 'is required when "gender" is provided',
             'age_to_required_with_gender' => 'is required when "gender" is provided',
             'reference_ranges_word' => 'reference range(s)',
+            'catalog_mismatch' => 'Duplicate name but different test information in fields',
+            'range_conflict' => 'Reference range overlaps another rule for the same patient age and gender',
+            'repeat_without_range' => 'Duplicate test row without a new reference range',
+            'repeat_range' => 'Identical reference range already exists',
         ];
     }
 
@@ -881,23 +890,30 @@ class TestController extends Controller
             $genders = Gender::pluck('id', 'gender_type')->toArray();
             $ageUnits = AgeUnit::pluck('id', 'unit_name')->toArray();
 
-            // Track duplicates within the file — now stores test ID for reference range rows
-            $seenNames = [];       // name => ['row' => rowNum, 'test_id' => id]
-            $seenShortcuts = [];   // shortcut => rowNum
-
-            // Preload existing test names/shortcuts for this lab
-            $existingNames = Test::where('lab_id_fk', $labId)
-                ->pluck('name')
-                ->map(fn ($n) => strtolower(trim($n)))
-                ->toArray();
-            $existingShortcuts = Test::where('lab_id_fk', $labId)
-                ->whereNotNull('shortcut')
-                ->pluck('shortcut')
-                ->map(fn ($s) => strtolower(trim($s)))
-                ->toArray();
+            // A repeated name may be another normal range, not another billable test.
+            // Existing tests can receive *only* non-conflicting ranges, never metadata edits.
+            $seenNames = [];
+            $seenShortcuts = [];
+            $existingTests = Test::with(['category', 'sample', 'resultType', 'durationUnit'])
+                ->where('lab_id_fk', $labId)->get();
+            $existingByName = [];
+            $existingShortcuts = [];
+            foreach ($existingTests as $existingTest) {
+                $key = TestImportDuplicateGuard::normalize($existingTest->name);
+                $existingByName[$key][] = $existingTest;
+                if (trim((string) $existingTest->shortcut) !== '') {
+                    $existingShortcuts[] = TestImportDuplicateGuard::normalize($existingTest->shortcut);
+                }
+            }
+            $existingNames = array_keys($existingByName);
+            $genderNames = array_flip($genders);
+            $ageUnitNames = array_flip($ageUnits);
+            $knownRanges = [];
 
             $created = 0;
             $createdRanges = 0;
+            $merged = 0;
+            $duplicateRanges = 0;
             $skipped = 0;
             $errors = [];
             $maxRows = 500;
@@ -936,12 +952,44 @@ class TestController extends Controller
                     continue;
                 }
 
-                // Check if this is a duplicate row for adding reference ranges
-                $nameLower = strtolower($data['name']);
-                $shortcutLower = strtolower($data['shortcut']);
-                $isDuplicateRow = isset($seenNames[$nameLower]) && isset($seenShortcuts[$shortcutLower]);
+                // The name determines the candidate; the original test's shortcut
+                // and other metadata must still match before ranges can be merged.
+                $nameLower = TestImportDuplicateGuard::normalize($data['name']);
+                $shortcutLower = TestImportDuplicateGuard::normalize($data['shortcut']);
+                $seen = $seenNames[$nameLower] ?? null;
+                $existingCandidate = null;
+                if (! $seen && $shortcutLower !== '' && count($existingByName[$nameLower] ?? []) === 1) {
+                    $candidate = $existingByName[$nameLower][0];
+                    if ($shortcutLower === TestImportDuplicateGuard::normalize($candidate->shortcut)) {
+                        $existingCandidate = $candidate;
+                        $seen = [
+                            'row' => 'database',
+                            'test_id' => $candidate->id,
+                            'data' => [
+                                'shortcut' => $candidate->shortcut,
+                                'report_name' => $candidate->report_name,
+                                'category' => $candidate->category?->name,
+                                'sample' => $candidate->sample?->sample_name,
+                                'result_type' => $candidate->resultType?->result_type_name,
+                                'unit' => $candidate->unit,
+                                'price' => $candidate->price,
+                                'for_customer_price' => $candidate->for_customer_price,
+                                'order' => $candidate->order,
+                                'test_duration' => $candidate->test_duration,
+                                'duration_unit' => $candidate->durationUnit?->unit,
+                                'interface_code' => $candidate->interface_code,
+                            ],
+                        ];
+                    }
+                }
+                $isDuplicateRow = $seen !== null;
 
-                if (! $isDuplicateRow) {
+                if ($isDuplicateRow) {
+                    $differentFields = TestImportDuplicateGuard::catalogDifferences($seen['data'], $data);
+                    if ($differentFields) {
+                        $rowErrors[] = $t['catalog_mismatch'].': '.implode(', ', $differentFields);
+                    }
+                } else {
                     // ===== REQUIRED FIELDS =====
                     foreach (['name', 'shortcut', 'report_name', 'category', 'sample', 'result_type', 'price'] as $req) {
                         if (empty($data[$req])) {
@@ -1032,44 +1080,69 @@ class TestController extends Controller
                     }
                 }
 
-                // ===== REFERENCE RANGE VALIDATION (for all rows with gender) =====
-                $hasRefRange = ! empty($data['gender']);
+                // ===== REFERENCE RANGE VALIDATION =====
+                $rangeFields = ['gender', 'age_unit', 'age_from', 'age_to', 'range_from', 'range_to', 'range_notes'];
+                $hasRefRange = collect($rangeFields)->contains(fn ($field) => $data[$field] !== '');
                 $genderId = null;
                 $ageUnitId = null;
+                $range = null;
 
                 if ($hasRefRange) {
-                    $genderId = $genders[$data['gender']] ?? null;
-                    if (! $genderId) {
-                        $rowErrors[] = "\"{$fieldNames['gender']}\" \"{$data['gender']}\" {$t['invalid']}. {$t['must_be_one_of']}: ".implode(', ', array_keys($genders));
+                    if ($data['gender'] !== '') {
+                        $genderId = $genders[$data['gender']] ?? null;
+                        if ($genderId === null) {
+                            $rowErrors[] = "\"{$fieldNames['gender']}\" \"{$data['gender']}\" {$t['invalid']}. {$t['must_be_one_of']}: ".implode(', ', array_keys($genders));
+                        }
                     }
-
-                    if (empty($data['age_unit'])) {
-                        $rowErrors[] = "\"{$fieldNames['age_unit']}\" {$t['age_unit_required_with_gender']}";
-                    } else {
+                    if ($data['age_unit'] !== '') {
                         $ageUnitId = $ageUnits[$data['age_unit']] ?? null;
-                        if (! $ageUnitId) {
+                        if ($ageUnitId === null) {
                             $rowErrors[] = "\"{$fieldNames['age_unit']}\" \"{$data['age_unit']}\" {$t['invalid']}. {$t['must_be_one_of']}: ".implode(', ', array_keys($ageUnits));
                         }
                     }
-
-                    if ($data['age_from'] === '') {
-                        $rowErrors[] = "\"{$fieldNames['age_from']}\" {$t['age_from_required_with_gender']}";
-                    } elseif (! is_numeric($data['age_from']) || (int) $data['age_from'] < 0) {
-                        $rowErrors[] = "\"{$fieldNames['age_from']}\" {$t['must_be_positive_number']} ({$t['got']} \"{$data['age_from']}\")";
+                    if ($data['age_from'] !== '' || $data['age_to'] !== '') {
+                        if ($ageUnitId === null) {
+                            $rowErrors[] = "\"{$fieldNames['age_unit']}\" {$t['required']}";
+                        }
+                        foreach (['age_from', 'age_to'] as $ageField) {
+                            if ($data[$ageField] === '' || ! ctype_digit($data[$ageField])) {
+                                $rowErrors[] = "\"{$fieldNames[$ageField]}\" {$t['must_be_positive_integer']}";
+                            }
+                        }
+                        if (ctype_digit($data['age_from']) && ctype_digit($data['age_to'])
+                            && (int) $data['age_from'] > (int) $data['age_to']) {
+                            $rowErrors[] = 'age_from must not exceed age_to';
+                        }
+                    } elseif ($data['age_unit'] !== '') {
+                        $rowErrors[] = 'age_unit requires age_from and age_to';
                     }
-
-                    if ($data['age_to'] === '') {
-                        $rowErrors[] = "\"{$fieldNames['age_to']}\" {$t['age_to_required_with_gender']}";
-                    } elseif (! is_numeric($data['age_to']) || (int) $data['age_to'] < 0) {
-                        $rowErrors[] = "\"{$fieldNames['age_to']}\" {$t['must_be_positive_number']} ({$t['got']} \"{$data['age_to']}\")";
+                    foreach (['range_from', 'range_to'] as $rangeField) {
+                        if ($data[$rangeField] !== '' && ! is_numeric($data[$rangeField])) {
+                            $rowErrors[] = "\"{$fieldNames[$rangeField]}\" {$t['must_be_positive_number']}";
+                        }
                     }
-
-                    if (! empty($data['range_from']) && ! is_numeric($data['range_from'])) {
-                        $rowErrors[] = "\"{$fieldNames['range_from']}\" {$t['must_be_positive_number']} ({$t['got']} \"{$data['range_from']}\")";
+                    if (is_numeric($data['range_from']) && is_numeric($data['range_to'])
+                        && (float) $data['range_from'] > (float) $data['range_to']) {
+                        $rowErrors[] = 'range_from must not exceed range_to';
                     }
-                    if (! empty($data['range_to']) && ! is_numeric($data['range_to'])) {
-                        $rowErrors[] = "\"{$fieldNames['range_to']}\" {$t['must_be_positive_number']} ({$t['got']} \"{$data['range_to']}\")";
+                    if ($data['range_from'] === '' && $data['range_to'] === '' && $data['range_notes'] === '') {
+                        $rowErrors[] = $t['repeat_without_range'];
                     }
+                    if (! $rowErrors) {
+                        $range = [
+                            'gender_id_fk' => $genderId,
+                            'age_unit_id_fk' => $ageUnitId,
+                            'age_from' => $data['age_from'] === '' ? null : (int) $data['age_from'],
+                            'age_to' => $data['age_to'] === '' ? null : (int) $data['age_to'],
+                            'from' => $data['range_from'] === '' ? null : $data['range_from'],
+                            'to' => $data['range_to'] === '' ? null : $data['range_to'],
+                            'notes' => $data['range_notes'] === '' ? null : $data['range_notes'],
+                            'lab_id_fk' => $labId,
+                        ];
+                    }
+                }
+                if ($isDuplicateRow && ! $hasRefRange) {
+                    $rowErrors[] = $t['repeat_without_range'];
                 }
 
                 // ===== COLLECT ERRORS OR CREATE =====
@@ -1081,23 +1154,30 @@ class TestController extends Controller
                 }
 
                 if ($isDuplicateRow) {
-                    // This is a duplicate row — only add reference range to existing test
-                    $testId = $seenNames[$nameLower]['test_id'];
-                    if ($hasRefRange && $testId) {
-                        TestReferenceRange::create([
-                            'test_id' => $testId,
-                            'gender_id_fk' => $genderId,
-                            'age_unit_id_fk' => $ageUnitId,
-                            'age_from' => (int) $data['age_from'],
-                            'age_to' => (int) $data['age_to'],
-                            'from' => $data['range_from'] ?: null,
-                            'to' => $data['range_to'] ?: null,
-                            'notes' => $data['range_notes'] ?: null,
-                            'lab_id_fk' => $labId,
-                        ]);
-                        $createdRanges++;
+                    // Only reference ranges may be appended to an existing test.
+                    $testId = $seen['test_id'];
+                    if (! isset($knownRanges[$testId])) {
+                        $knownRanges[$testId] = TestReferenceRange::where('test_id', $testId)->get()->toArray();
                     }
-
+                    $decision = TestImportDuplicateGuard::rangeDecision($range, $knownRanges[$testId], $genderNames, $ageUnitNames);
+                    if ($decision === 'conflict') {
+                        $errors[] = "{$t['row']} {$rowNum}: {$t['range_conflict']}";
+                        $skipped++;
+                        continue;
+                    }
+                    if ($decision === 'duplicate') {
+                        $duplicateRanges++;
+                        $skipped++;
+                        continue;
+                    }
+                    TestReferenceRange::create(['test_id' => $testId] + $range);
+                    $knownRanges[$testId][] = $range;
+                    $seenNames[$nameLower] = $seen;
+                    if ($shortcutLower !== '') {
+                        $seenShortcuts[$shortcutLower] = $rowNum;
+                    }
+                    $createdRanges++;
+                    $merged++;
                     continue;
                 }
 
@@ -1118,23 +1198,13 @@ class TestController extends Controller
                     'lab_id_fk' => $labId,
                 ]);
 
-                // Create reference range if provided
                 if ($hasRefRange) {
-                    TestReferenceRange::create([
-                        'test_id' => $test->id,
-                        'gender_id_fk' => $genderId,
-                        'age_unit_id_fk' => $ageUnitId,
-                        'age_from' => (int) $data['age_from'],
-                        'age_to' => (int) $data['age_to'],
-                        'from' => $data['range_from'] ?: null,
-                        'to' => $data['range_to'] ?: null,
-                        'notes' => $data['range_notes'] ?: null,
-                        'lab_id_fk' => $labId,
-                    ]);
+                    TestReferenceRange::create(['test_id' => $test->id] + $range);
+                    $knownRanges[$test->id] = [$range];
                     $createdRanges++;
                 }
 
-                $seenNames[$nameLower] = ['row' => $rowNum, 'test_id' => $test->id];
+                $seenNames[$nameLower] = ['row' => $rowNum, 'test_id' => $test->id, 'data' => $data];
                 $seenShortcuts[$shortcutLower] = $rowNum;
                 $existingNames[] = $nameLower;
                 $existingShortcuts[] = $shortcutLower;
@@ -1142,7 +1212,7 @@ class TestController extends Controller
                 $created++;
             }
 
-            if ($created === 0 && ! empty($errors)) {
+            if ($created === 0 && $createdRanges === 0 && ! empty($errors)) {
                 DB::rollBack();
 
                 return response()->json([
@@ -1168,6 +1238,9 @@ class TestController extends Controller
             return response()->json([
                 'message' => $msg,
                 'created' => $created,
+                'ranges_added' => $createdRanges,
+                'merged' => $merged,
+                'duplicate_ranges' => $duplicateRanges,
                 'skipped' => $skipped,
                 'errors' => $errors,
             ], 200);
