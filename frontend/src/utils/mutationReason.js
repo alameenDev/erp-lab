@@ -128,7 +128,7 @@ export async function requestMutationReason(policy,existing=null) {
     input.required=true;
     input.rows=4;
     input.maxLength=4000;
-    input.value=validReason(existing)?existing.trim():'';
+    input.value=policy.action==='delete' && validReason(existing)?existing.trim():'';
     input.placeholder='مثال: تصحيح خطأ في تسجيل السعر بعد مراجعة المشرف.';
     input.style.cssText='width:100%;box-sizing:border-box;border:1px solid #aec8bc;border-radius:10px;padding:12px;font:inherit;font-weight:400;resize:vertical;color:#142e25;background:white;outline-offset:3px;';
     const validation=document.createElement('p');
