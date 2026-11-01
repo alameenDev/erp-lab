@@ -27,11 +27,11 @@ class InvoiceMutationReasonsTest extends TestCase
             'name' => 'Reason Lab', 'email' => 'reasons-lab@example.test',
             'password' => 'test-only-password', 'role_id' => 2,
         ]);
-        foreach (['invoices create','invoices edit','invoices delete','tests delete'] as $name) {
+        foreach (['invoices create','invoices edit','invoices delete','tests delete','tests edit','medical reports update'] as $name) {
             $this->lab->givePermissionTo(Permission::findOrCreate($name, 'api'));
         }
         $this->owner = User::create([
-            'name' => 'Clinic Owner', 'email' => 'reasons-owner@example.test',
+            'name' => 'Clinic Owner', 'email' => 'reasons-owner@example.test', 'role_id' => null,
             'password' => 'test-only-password',
         ]);
         $this->owner->forceFill(['owner_portal_only' => true, 'status' => 1])->save();
