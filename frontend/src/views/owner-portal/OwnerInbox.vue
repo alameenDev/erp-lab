@@ -57,6 +57,10 @@ onBeforeUnmount(() => { revision++; detailRevision++; });
         <div v-if="detail.data.patient_phone"><dt>رقم الهاتف</dt><dd dir="ltr">{{ detail.data.patient_phone }}</dd></div>
         <div v-if="detail.data.patient_age !== undefined && detail.data.patient_age !== null"><dt>عمر المريض</dt><dd>{{ detail.data.patient_age }} {{ detail.data.patient_age_unit }}</dd></div>
         <div v-if="detail.data.barcode"><dt>الباركود</dt><dd dir="ltr">{{ detail.data.barcode }}</dd></div>
+        <div v-if="detail.data.patient_gender"><dt>الجنس</dt><dd>{{ detail.data.patient_gender }}</dd></div>
+        <div v-if="detail.data.patient_address"><dt>العنوان</dt><dd>{{ detail.data.patient_address }}</dd></div>
+        <div v-if="detail.data.registration_date"><dt>تاريخ الفاتورة</dt><dd>{{ detail.data.registration_date }}</dd></div>
+        <div v-if="detail.data.discount"><dt>قيمة الخصم</dt><dd>{{ amount(detail.data.discount) }} د.ع</dd></div>
         </dl>
         <div v-if="detail.data.analysis_name" class="owner-notice-details"><strong>التحليل المحذوف:</strong> {{ detail.data.analysis_name }}</div>
         <div v-if="detail.data.change_reason" class="owner-notice-reason" data-owner-notice-reason><strong>سبب الحذف أو تعديل السعر المكتوب من الموظف</strong><p>{{ detail.data.change_reason }}</p></div>
