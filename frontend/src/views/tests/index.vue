@@ -6,8 +6,7 @@ import { usetestsStore } from "@/store/modules/tests";
 import { useDurationUnitsStore } from "@/store/modules/durationUnits";
 import { usesamplesStore } from "@/store/modules/samples";
 import { useAuthStore } from "@/store/modules/auth";
-import { t } from "@/utils/helper";
-import Swal from "sweetalert2";
+import { t, showAlertWithConfirm } from "@/utils/helper";
 import { useToast } from "@/composables/useToast";
 import * as XLSX from "xlsx";
 import TestsModal from "./components/test_modal.vue";
@@ -185,7 +184,6 @@ const addRecord = () => {
 
 const editRecord = (data) => {
   Object.assign(record.value, { ...data });
-  record.value.change_reason = '';
   record.value.default_result = data.default_result ?? null;
   record.value.question_ids_fk = data.questions?.map((q) => q.id) || [];
   record.value.is_contain_status = data.is_contain_status == 1;
@@ -197,28 +195,10 @@ const editRecord = (data) => {
 };
 
 const deleteRecord = async (data) => {
-  const result = await Swal.fire({
-    title: "حذف تحليل",
-    text: "لن تُنفّذ العملية بدون سبب واضح. سيصل السبب وتفاصيل العملية إلى صاحب المختبر.",
-    input: "textarea",
-    inputLabel: "سبب الحذف (إلزامي)",
-    inputPlaceholder: "اكتب سبب الحذف بالتفصيل، مثل تكرار التسجيل أو طلب المريض...",
-    inputAttributes: {maxlength:"1000", "aria-label":"سبب حذف تحليل"},
-    showCancelButton: true,
-    confirmButtonText: "تأكيد الحذف وإبلاغ المالك",
-    cancelButtonText: "إلغاء",
-    confirmButtonColor: "#b91c1c",
-    inputValidator: value => (!value || value.trim().length < 10)
-      ? "يرجى كتابة سبب واضح لا يقل عن 10 أحرف." : null,
-  });
-  if (!result.isConfirmed) return;
-  const reason = result.value.trim();
-  record.value.id = data.id;
-  try {
-    await testsStore.Removetests(reason);
-    await testsStore.GetTests();
-  } catch (error) {
-    await Swal.fire({icon:'error',text:error?.response?.data?.message || 'تعذر حذف التحليل'});
+  const result = await showAlertWithConfirm(t("AlertWithConfirm"));
+  if (result.value) {
+    record.value.id = data.id;
+    await testsStore.Removetests();
   }
 };
 

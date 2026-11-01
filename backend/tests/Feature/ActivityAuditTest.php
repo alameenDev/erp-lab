@@ -65,7 +65,7 @@ class ActivityAuditTest extends TestCase
         foreach ([['test_group_id_fk', $group->id, 'test_group_tests'], ['package_id_fk', $package->id, 'package_tests']] as [$key, $id, $field]) {
             InvoiceTestRel::create(['invoice_id_fk' => $this->invoice->id, $key => $id, $field => [['id' => $this->test->id, 'name' => 'Nested CBC', 'result' => '7.2', 'unit' => 'g/dL']]]);
         }
-        $this->deleteJson('/api/invoices/delete', ['id' => $this->invoice->id, 'change_reason' => 'حذف فاتورة تجريبية بعد التحقق من تفاصيلها'])->assertOk();
+        $this->deleteJson('/api/invoices/delete', ['id' => $this->invoice->id])->assertOk();
         $log = $this->invoiceLog('deleted');
         $this->assertCount(3, $log->properties['old_value']['analyses']);
         $this->assertNull($log->properties['new_value']);
@@ -185,7 +185,7 @@ class ActivityAuditTest extends TestCase
     public function test_filtered_export_includes_values_and_protects_spreadsheet_formulas(): void
     {
         $this->invoice->update(['notes' => '=HYPERLINK("evil")']);
-        $this->deleteJson('/api/invoices/delete', ['id' => $this->invoice->id, 'change_reason' => 'حذف فاتورة تجريبية بعد التحقق من تفاصيلها'])->assertOk();
+        $this->deleteJson('/api/invoices/delete', ['id' => $this->invoice->id])->assertOk();
         $response = $this->getJson('/api/activity/show?event=deleted&invoice_id='.$this->invoice->id.'&per_page=10')->assertOk();
         $this->assertSame(1, $response->json('pagination.total'));
         $csv = $this->get('/api/activity/export?event=deleted&invoice_id='.$this->invoice->id)->assertOk()->streamedContent();

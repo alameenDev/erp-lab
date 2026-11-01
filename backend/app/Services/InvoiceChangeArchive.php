@@ -52,9 +52,7 @@ class InvoiceChangeArchive
             'before_total' => $oldTotal, 'after_total' => $newTotal,
             'total_delta' => $oldTotal !== null && $newTotal !== null ? $newTotal - $oldTotal : null,
             'paid_delta' => $oldPaid !== null && $newPaid !== null ? $newPaid - $oldPaid : null,
-            'snapshot' => json_encode(['before' => $before, 'after' => $after, 'changes' => $changes,
-                'change_reason' => $props['change_reason'] ?? null,
-                'reason_operations' => $props['reason_operations'] ?? []], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE),
+            'snapshot' => json_encode(['before' => $before, 'after' => $after, 'changes' => $changes], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE),
             'occurred_at' => $activity->created_at,
         ]);
         if ($inserted && $notify) app(OwnerNotifications::class)->invoiceChanged(DB::table('invoice_change_archive')->where('activity_id', $activity->id)->first());

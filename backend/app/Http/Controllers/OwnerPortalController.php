@@ -203,15 +203,8 @@ class OwnerPortalController extends Controller
             COALESCE(SUM(total_delta), 0) AS net_change, COALESCE(SUM(paid_delta), 0) AS payments_change,
             SUM(CASE WHEN total_delta IS NULL THEN 1 ELSE 0 END) AS unknown_amounts")->first();
         $page = $q->orderByDesc('id')->paginate(20, ['id', 'tenant_id', 'invoice_id', 'actor_id', 'actor_name', 'patient_name', 'barcode', 'event', 'source',
-            'financial_changed', 'results_changed', 'before_total', 'after_total', 'total_delta', 'paid_delta', 'occurred_at', 'snapshot']);
-        $page->getCollection()->transform(function ($row) {
-            $row->occurred_at = $this->timestamp($row->occurred_at);
-            $data = json_decode($row->snapshot ?? '{}', true) ?: [];
-            $row->change_reason = $data['change_reason'] ?? null;
-            $row->reason_operations = $data['reason_operations'] ?? [];
-            unset($row->snapshot); // Full patient/result snapshots are available only in the authenticated detail view.
-            return $row;
-        });
+            'financial_changed', 'results_changed', 'before_total', 'after_total', 'total_delta', 'paid_delta', 'occurred_at']);
+        $page->getCollection()->transform(function ($row) { $row->occurred_at = $this->timestamp($row->occurred_at); return $row; });
         return response()->json(['data' => $page->items(), 'summary' => $summary, 'pagination' => $this->pagination($page),
             'note' => 'الإجماليات تمثل حركة التعديلات المسجلة، وليست إيراداً إضافياً. قيمة المحذوفات منفصلة عن تخفيضات التعديل. السجلات القديمة التي لم تُحفظ سابقاً لا يمكن استعادتها.']);
     }

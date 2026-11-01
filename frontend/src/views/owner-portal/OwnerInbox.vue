@@ -41,7 +41,7 @@ onBeforeUnmount(() => { revision++; detailRevision++; });
 <template>
   <section>
     <div class="owner-list-heading"><div><h2>كل ما يحتاج متابعتك</h2><p class="owner-muted">إشعارات العمليات وملخصات الأيام محفوظة هنا.</p></div><button class="owner-icon-button" @click="load" aria-label="تحديث الإشعارات"><i class="pi pi-refresh" aria-hidden="true"></i></button></div>
-    <select v-model="kind" class="owner-notice-filter" aria-label="نوع الإشعار"><option value="">كل الإشعارات</option><option value="invoice_deleted">حذف الفواتير</option><option value="invoice_amount">تعديلات الفواتير والأسعار</option><option value="test">حذف التحاليل</option><option value="daily_summary">ملخصات الأيام</option></select>
+    <select v-model="kind" class="owner-notice-filter" aria-label="نوع الإشعار"><option value="">كل الإشعارات</option><option value="invoice_deleted">حذف الفواتير</option><option value="invoice_amount">تعديل المبالغ</option><option value="daily_summary">ملخصات الأيام</option></select>
     <div v-if="error" class="owner-error" role="alert">{{ error }}<button @click="load">إعادة المحاولة</button></div>
     <p v-else-if="loading" class="owner-empty" role="status">جاري تحميل الإشعارات...</p>
     <div v-else-if="!rows.length" class="owner-empty"><i class="pi pi-bell" aria-hidden="true"></i><h3>لا توجد إشعارات بعد</h3><p>ستظهر هنا عمليات حذف الفواتير وتعديل مبالغها وملخصات أيام العمل.</p></div>
@@ -51,36 +51,8 @@ onBeforeUnmount(() => { revision++; detailRevision++; });
       <p v-if="detailLoading" role="status">جاري التحميل...</p><p v-if="detailError" class="owner-error" role="alert">{{ detailError }}</p>
       <template v-if="detail"><p>{{ detail.data.lab_name }} · {{ detail.data.day || date(detail.created_at) }}</p>
         <template v-if="detail.kind === 'daily_summary'"><div class="owner-digest-grid"><div v-for="[key,label] in metrics" :key="key"><span>{{ label }}</span><strong>{{ amount(detail.data.summary[key]) }} <small v-if="monetary.includes(key)">د.ع</small></strong></div></div><p class="owner-muted">{{ detail.data.note }}</p><small class="owner-muted">أُعدّ في {{ date(detail.data.generated_at) }} · توقيت بغداد</small></template>
-        <template v-else><p>{{ detail.body }}</p><dl v-if="detail.data.invoice_id" class="owner-finance-lines"><div><dt>رقم الفاتورة</dt><dd>#{{ detail.data.invoice_id }}</dd></div><div><dt>نفّذ العملية</dt><dd>{{ detail.data.actor_name || 'غير مسجل' }}</dd></div><div><dt>المبلغ قبل العملية</dt><dd>{{ amount(detail.data.before_total) }} د.ع</dd></div><div><dt>المبلغ بعد العملية</dt><dd>{{ amount(detail.data.after_total) }} د.ع</dd></div>
-        <div v-if="detail.data.patient_name"><dt>اسم المريض</dt><dd>{{ detail.data.patient_name }}</dd></div>
-        <div v-if="detail.data.patient_code"><dt>رمز المريض</dt><dd>{{ detail.data.patient_code }}</dd></div>
-        <div v-if="detail.data.patient_phone"><dt>رقم الهاتف</dt><dd dir="ltr">{{ detail.data.patient_phone }}</dd></div>
-        <div v-if="detail.data.patient_age !== undefined && detail.data.patient_age !== null"><dt>عمر المريض</dt><dd>{{ detail.data.patient_age }} {{ detail.data.patient_age_unit }}</dd></div>
-        <div v-if="detail.data.barcode"><dt>الباركود</dt><dd dir="ltr">{{ detail.data.barcode }}</dd></div>
-        <div v-if="detail.data.patient_gender"><dt>الجنس</dt><dd>{{ detail.data.patient_gender }}</dd></div>
-        <div v-if="detail.data.patient_address"><dt>العنوان</dt><dd>{{ detail.data.patient_address }}</dd></div>
-        <div v-if="detail.data.registration_date"><dt>تاريخ الفاتورة</dt><dd>{{ detail.data.registration_date }}</dd></div>
-        <div v-if="detail.data.discount"><dt>قيمة الخصم</dt><dd>{{ amount(detail.data.discount) }} د.ع</dd></div>
-        </dl>
-        <div v-if="detail.data.analysis_name" class="owner-notice-details"><strong>{{ detail.data.analysis_deleted === false ? 'التحليل الذي تغيّر سعره' : 'التحليل المحذوف' }}:</strong> {{ detail.data.analysis_name }}
-        <div v-if="detail.data.analysis_deleted === false" class="mt-2">
-          <p>السعر الأصلي: {{ amount(detail.data.original_price_before) }} ← {{ amount(detail.data.original_price_after) }} د.ع</p>
-          <p>سعر المريض: {{ amount(detail.data.customer_price_before) }} ← {{ amount(detail.data.customer_price_after) }} د.ع</p>
-        </div>
-        </div>
-        <div v-if="detail.data.change_reason" class="owner-notice-reason" data-owner-notice-reason><strong>سبب الحذف أو تعديل السعر المكتوب من الموظف</strong><p>{{ detail.data.change_reason }}</p></div>
-        <div v-else class="owner-notice-reason"><strong>سبب العملية</strong><p>غير مسجل في هذه العملية القديمة.</p></div>
-        <div v-if="detail.data.reason_operations?.length" class="owner-notice-details"><strong>العمليات:</strong><p v-for="(op,i) in detail.data.reason_operations" :key="i">{{ op }}</p></div>
-        <div v-if="detail.data.analyses?.length" class="owner-notice-details"><strong>التحاليل المرتبطة بالفاتورة:</strong><p v-for="(test,i) in detail.data.analyses" :key="i">{{ test.name }} · {{ amount(test.price) }} د.ع</p></div><button v-if="detail.data.archive_id" class="owner-primary" @click="emit('archive', detail.data.archive_id); modal = false">عرض سجل العملية الكامل</button></template>
+        <template v-else><p>{{ detail.body }}</p><dl v-if="detail.data.invoice_id" class="owner-finance-lines"><div><dt>رقم الفاتورة</dt><dd>#{{ detail.data.invoice_id }}</dd></div><div><dt>نفّذ العملية</dt><dd>{{ detail.data.actor_name || 'غير مسجل' }}</dd></div><div><dt>المبلغ قبل العملية</dt><dd>{{ amount(detail.data.before_total) }} د.ع</dd></div><div><dt>المبلغ بعد العملية</dt><dd>{{ amount(detail.data.after_total) }} د.ع</dd></div></dl><button v-if="detail.data.archive_id" class="owner-primary" @click="emit('archive', detail.data.archive_id); modal = false">عرض سجل العملية الكامل</button></template>
       </template>
     </div></UiModal>
   </section>
 </template>
-
-<style scoped>
-.owner-notice-reason{margin:14px 0;padding:14px;border-radius:12px;background:#fffbeb;border:1px solid #f4deaf;color:#654814}
-.owner-notice-reason strong{font-size:13px}
-.owner-notice-reason p{margin:8px 0 0!important;color:#44371c!important;line-height:1.8!important;white-space:pre-wrap;overflow-wrap:anywhere}
-.owner-notice-details{margin:10px 0;padding:12px;border:1px solid #e5ebe6;border-radius:10px;font-size:12px;color:#3c5645}
-.owner-notice-details p{margin:7px 0!important;line-height:1.7!important}
-</style>

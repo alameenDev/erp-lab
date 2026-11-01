@@ -101,8 +101,8 @@ export const usetestsStore = defineStore("tests", {
                await $http.put(`/tests/update`, params);
                this.GetTests();
           },
-          async Removetests(reason) {
-               await $http.delete(`/tests/delete`, { data: { id: this.record.id, change_reason: reason } });
+          async Removetests() {
+               await $http.delete(`/tests/delete`, { data: { id: this.record.id } });
                this.GetTests();
           },
           async ImportTests(file) {

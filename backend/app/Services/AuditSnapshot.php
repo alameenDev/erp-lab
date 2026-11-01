@@ -49,7 +49,7 @@ class AuditSnapshot
 
     public static function invoice(Invoice $invoice): array
     {
-        $invoice->load(['patient.user', 'patient.gender', 'patient.ageUnit', 'invoiceTestRels.test', 'invoiceTestRels.culture', 'invoiceTestRels.package', 'invoiceTestRels.testGroup', 'paidDetails']);
+        $invoice->load(['patient.user', 'invoiceTestRels.test', 'invoiceTestRels.culture', 'invoiceTestRels.package', 'invoiceTestRels.testGroup', 'paidDetails']);
         $analyses = [];
         $occurrences = [];
         foreach ($invoice->invoiceTestRels->sortBy('id') as $rel) {
@@ -64,16 +64,7 @@ class AuditSnapshot
         }
         return [
             'invoice' => self::clean($invoice),
-            'patient' => [
-                'id' => $invoice->patient_id_fk,
-                'name' => $invoice->patient?->user?->name,
-                'code' => $invoice->patient?->code,
-                'phone' => $invoice->patient?->user?->phone_number,
-                'age' => $invoice->patient?->age,
-                'age_unit' => $invoice->patient?->ageUnit?->unit_name,
-                'gender' => $invoice->patient?->gender?->gender_type,
-                'address' => $invoice->patient?->address,
-            ],
+            'patient' => ['id' => $invoice->patient_id_fk, 'name' => $invoice->patient?->user?->name],
             'analyses' => $analyses,
             'payments' => $invoice->paidDetails->mapWithKeys(fn ($payment) => [(string) $payment->id => self::clean($payment)])->all(),
         ];
