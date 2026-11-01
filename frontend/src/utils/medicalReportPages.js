@@ -269,15 +269,61 @@ export async function renderMedicalReportPages({ element, css, margins, backgrou
   }
 }
 
+// Use high-quality JPEG only for photographic sheets where it saves enough
+// bytes. Keep clean text/QR pages lossless as PNG. Preview/native print still
+// use the same prepared A4 sheets, including every attachment crop and margin.
+export async function optimizeMedicalReportPdfPage(source) {
+  if (typeof Image === 'undefined' || !source?.startsWith('data:image/png;base64,')) {
+    return { source, format: 'PNG' };
+  }
+  const img = new Image();
+  try {
+    img.src = source;
+    await img.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0);
+    // Tiny glyphs and QR codes must remain lossless even if a JPEG would be
+    // smaller. Only dense photographic sheets qualify for lossy compression.
+    const step = Math.max(4, Math.ceil(Math.max(canvas.width, canvas.height) / 160));
+    const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    let printed = 0, examined = 0;
+    for (let y = 0; y < canvas.height; y += step) {
+      for (let x = 0; x < canvas.width; x += step) {
+        const i = (y * canvas.width + x) * 4;
+        if (Math.min(pixels.data[i], pixels.data[i + 1], pixels.data[i + 2]) < 230) printed++;
+        examined++;
+      }
+    }
+    if (printed / examined < .16) {
+      canvas.width = canvas.height = 0;
+      return { source, format: 'PNG' };
+    }
+    const jpeg = canvas.toDataURL('image/jpeg', 0.96);
+    canvas.width = canvas.height = 0;
+    // Preserve lossless fine text unless a much smaller photographic format
+    // is actually beneficial for this particular sheet.
+    if (jpeg.length < source.length * 0.75) return { source: jpeg, format: 'JPEG' };
+  } catch {
+    // Failure to optimize must never suppress a medical report.
+  }
+  return { source, format: 'PNG' };
+}
+
 // Preview, download, print and WhatsApp consume the same complete sheets.
 export async function createMedicalReportPdf(options) {
   const pages = options.pages || await renderMedicalReportPages(options);
   if (!pages.length) throw new Error('التقرير غير جاهز.');
   const { jsPDF } = await import('jspdf');
   const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-  pages.forEach((page, index) => {
+  for (let index = 0; index < pages.length; index++) {
+    const { source, format } = await optimizeMedicalReportPdfPage(pages[index]);
     if (index) pdf.addPage();
-    pdf.addImage(page, 'PNG', 0, 0, 210, 297, undefined, 'FAST');
-  });
+    pdf.addImage(source, format, 0, 0, 210, 297, undefined, 'FAST');
+  }
   return pdf;
 }

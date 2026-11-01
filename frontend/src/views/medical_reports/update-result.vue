@@ -1231,6 +1231,11 @@
                         <option v-for="height in [120, 150, 180, 210, 240]" :key="height" :value="height">{{ height }} mm</option>
                       </select>
                     </label>
+                    <label class="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer">
+                      <input v-model="item.print_auto_crop" type="checkbox" class="accent-teal-600 w-4 h-4" data-attachment-autofit
+                        :aria-label="lang === 'ar' ? 'تكبير محتوى PDF تلقائياً وإزالة الهوامش البيضاء' : 'Auto-fit PDF content and remove blank margins'" />
+                      <span>{{ lang === 'ar' ? 'تكبير محتوى PDF تلقائياً (إزالة الفراغات)' : 'Auto-fit PDF content (trim blank margins)' }}</span>
+                    </label>
                   </div>
                 </div>
 
@@ -1381,6 +1386,11 @@
                       <select v-model.number="item.print_max_height_mm" class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-800" :aria-label="lang === 'ar' ? 'أقصى ارتفاع المرفق بالمليمتر' : 'Attachment maximum height in millimeters'">
                         <option v-for="height in [120, 150, 180, 210, 240]" :key="height" :value="height">{{ height }} mm</option>
                       </select>
+                    </label>
+                    <label class="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer">
+                      <input v-model="item.print_auto_crop" type="checkbox" class="accent-teal-600 w-4 h-4" data-attachment-autofit
+                        :aria-label="lang === 'ar' ? 'تكبير محتوى PDF تلقائياً وإزالة الهوامش البيضاء' : 'Auto-fit PDF content and remove blank margins'" />
+                      <span>{{ lang === 'ar' ? 'تكبير محتوى PDF تلقائياً (إزالة الفراغات)' : 'Auto-fit PDF content (trim blank margins)' }}</span>
                     </label>
                   </div>
                   </div>

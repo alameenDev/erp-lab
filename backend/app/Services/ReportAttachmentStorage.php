@@ -75,6 +75,14 @@ class ReportAttachmentStorage
             }
             $saved[$key] = (int) $value;
         }
+        if (array_key_exists('print_auto_crop', $input)) {
+            // Multipart uploads send 1/0; JSON updates may send real booleans.
+            $value = $input['print_auto_crop'];
+            if (! in_array($value, [true, false, 1, 0, '1', '0'], true)) {
+                throw ValidationException::withMessages(['print_auto_crop' => 'Invalid PDF auto-fit setting.']);
+            }
+            $saved['print_auto_crop'] = in_array($value, [true, 1, '1'], true);
+        }
         return $saved;
     }
 
