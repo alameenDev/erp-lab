@@ -31,7 +31,7 @@ onMounted(load);
 
 <template>
   <main class="mx-auto max-w-7xl space-y-6 px-4 py-7" dir="rtl">
-    <div><p class="text-sm font-semibold text-teal-700">بوابة الطبيب</p><h1 class="mt-1 text-2xl font-bold text-slate-900">المرضى المحالون من قبلك</h1><p class="mt-2 text-sm text-slate-500">اختر اسم المريض لمراجعة جميع فواتيره ونتائجه المسجلة بإحالتك.</p></div>
+    <div><router-link to="/doctor-portal/clinic" class="mb-3 inline-flex rounded-xl bg-teal-700 px-5 py-3 text-sm font-bold text-white hover:bg-teal-800">إدارة مرضى العيادة والحجوزات والكشفيات ←</router-link><p class="text-sm font-semibold text-teal-700">بوابة الطبيب</p><h1 class="mt-1 text-2xl font-bold text-slate-900">المرضى المحالون من قبلك</h1><p class="mt-2 text-sm text-slate-500">اختر اسم المريض لمراجعة جميع فواتيره ونتائجه المسجلة بإحالتك.</p></div>
     <form class="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" @submit.prevent="find">
       <input v-model="search" type="search" placeholder="ابحث باسم المريض أو رقمه..." class="min-w-[200px] flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-teal-600" />
       <button type="submit" :disabled="loading" class="rounded-xl bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50">بحث</button>
