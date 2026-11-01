@@ -621,6 +621,7 @@ class TestController extends Controller
         if (! $test) {
             return response()->json(['message' => 'Test not found'], 404);
         }
+        \App\Services\InvoiceChangeReason::enforce($request, ['حذف التحليل من قائمة تحاليل المختبر: '.$test->name]);
         $test->delete();
         ActivityLogController::deleteActivity('حذف اختبار', $test);
 
