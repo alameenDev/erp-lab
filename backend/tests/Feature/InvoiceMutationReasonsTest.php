@@ -98,22 +98,6 @@ class InvoiceMutationReasonsTest extends TestCase
             ->assertJsonPath('data.0.change_reason', $reason);
     }
 
-    public function test_reason_must_exist_but_has_no_minimum_character_count(): void
-    {
-        foreach (['', '   ', "\n\t"] as $blank) {
-            $this->deleteJson('/api/invoices/delete', [
-                'id' => $this->invoice->id, 'change_reason' => $blank,
-            ])->assertUnprocessable()->assertJsonValidationErrors('change_reason');
-            $this->assertDatabaseHas('invoices', ['id' => $this->invoice->id, 'deleted_at' => null]);
-        }
-        $this->deleteJson('/api/invoices/delete', [
-            'id' => $this->invoice->id, 'change_reason' => 'س',
-        ])->assertOk();
-        $archive = DB::table('invoice_change_archive')->where('invoice_id', $this->invoice->id)->firstOrFail();
-        $this->assertSame('س', json_decode($archive->snapshot, true)['change_reason']);
-        $this->assertSame('س', OwnerNotification::where('kind', 'invoice_deleted')->firstOrFail()->data['change_reason']);
-    }
-
     public function test_analyses_cannot_be_removed_or_repriced_and_discount_cannot_change_without_explanation(): void
     {
         $this->edit(['tests' => []])->assertUnprocessable()->assertJsonValidationErrors('change_reason');

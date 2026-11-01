@@ -1,9 +1,7 @@
 import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
-import { autoConfirmMutationReasons } from './helpers/autoMutationReason.mjs';
 import { mkdir } from 'node:fs/promises';
 const browser=await chromium.launch();const page=await browser.newPage({viewport:{width:1360,height:1000}});
-await autoConfirmMutationReasons(page);
 const errors=[];page.on('pageerror',e=>errors.push(e.message));
 await mkdir('test-results/invoice-referrals',{recursive:true});
 const ready=()=>page.waitForFunction(()=>Boolean(window.invoiceFixture?.form()));

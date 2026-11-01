@@ -13,9 +13,9 @@ class InvoiceChangeReason
     {
         if (! $operations) return;
         $reason = trim((string) $request->input('change_reason', ''));
-        if ($reason === '' || mb_strlen($reason) > 4000) {
+        if (mb_strlen($reason) < 10 || mb_strlen($reason) > 1000) {
             throw ValidationException::withMessages([
-                'change_reason' => 'يجب كتابة سبب التعديل أو الحذف قبل تنفيذ العملية. لا يُقبل ترك الحقل فارغاً.',
+                'change_reason' => 'يجب كتابة سبب واضح للتعديل أو الحذف (10 أحرف على الأقل) قبل تنفيذ العملية.',
             ]);
         }
         // Metadata to the audit writer is derived by the server, never from a client-supplied summary.

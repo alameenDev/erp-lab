@@ -1,6 +1,5 @@
 import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
-import { autoConfirmMutationReasons } from './helpers/autoMutationReason.mjs';
 import { mkdir } from 'node:fs/promises';
 
 await mkdir('test-results/catalog-selection-order', { recursive: true });
@@ -8,7 +7,6 @@ const browser = await chromium.launch();
 const errors = [];
 try {
   const page = await browser.newPage({ viewport: { width: 1360, height: 1000 } });
-  await autoConfirmMutationReasons(page);
   page.on('pageerror', error => { errors.push(error.message); console.error(error.stack); });
   await page.goto('http://127.0.0.1:5173/tests/catalog-selection-order-browser.html');
   await page.waitForFunction(() => window.orderFixture);

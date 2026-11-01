@@ -699,10 +699,16 @@
                   </div>
                 </div>
 
-                <!-- The mandatory reason is collected in a visible modal on submit, not in an easy-to-miss inline field. -->
-                <p class="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-6 text-amber-800" data-invoice-reason-hint>
-                  عند تغيير السعر أو الخصم أو حذف فحص، تظهر نافذة إلزامية لكتابة السبب عند الضغط على حفظ.
-                </p>
+                <!-- Mandatory audit explanation for deletion/price/discount edits. -->
+                <div class="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4" data-invoice-change-reason>
+                  <label for="invoice-change-reason" class="mb-2 block text-sm font-bold text-amber-900">
+                    سبب حذف تحليل أو تعديل السعر أو الخصم <span v-if="isEditMode" class="font-normal">(قبل حفظ التعديل)</span>
+                  </label>
+                  <textarea id="invoice-change-reason" v-model.trim="record.change_reason" rows="3" maxlength="1000"
+                    class="w-full rounded-lg border border-amber-300 bg-white p-3 text-sm text-slate-800 focus:border-amber-600 focus:outline-none"
+                    placeholder="مثال: تعديل السعر بموافقة مدير المختبر بسبب خطأ في التسعير، أو حذف تحليل مكرر بناءً على طلب المريض."></textarea>
+                  <p class="mt-2 text-xs leading-6 text-amber-800">إلزامي عند حذف تحليل من الفاتورة أو تغيير سعره أو الخصم أو إجمالي الفاتورة. سوف يُحفظ السبب مع سجل التعديلات ويظهر للمالك في إشعاره.</p>
+                </div>
 
                 <!-- Action Buttons -->
                 <div class="mt-5 flex flex-col sm:flex-row gap-3">
@@ -777,7 +783,6 @@ import InvoicePackageContents from './InvoicePackageContents.vue';
 import InvoiceReferralSelect from './InvoiceReferralSelect.vue';
 import { invoicePackageContents } from '@/utils/invoicePackageContents';
 import { showAlertWithConfirm } from "@/utils/helper";
-import { isMutationCancelled } from '@/utils/mutationReason';
 import printInvoiceModal from "./printInvoice_modal.vue";
 import { $http } from "@/plugins/axios";
 import Mixins from "@/utils/mixins";
@@ -1710,7 +1715,6 @@ export default {
           }
         })
         .catch((error) => {
-          if (isMutationCancelled(error)) return;
           console.error("Update invoice error:", error);
           this.alertError(error?.response?.data?.message || this.t("error_updating_invoice") || "Failed to update invoice");
         });

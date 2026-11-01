@@ -2,7 +2,6 @@ import { createServer } from 'vite';
 import { createRequire } from 'node:module';
 const { chromium } = createRequire(import.meta.url)('playwright');
 import assert from 'node:assert/strict';
-import { autoConfirmMutationReasons } from './helpers/autoMutationReason.mjs';
 import { mkdir, writeFile } from 'node:fs/promises';
 const out = 'test-results/patient-age';
 await mkdir(out, { recursive: true });
@@ -10,7 +9,6 @@ const server = process.env.AGE_START_VITE ? await createServer({ server: { host:
 if (server) await server.listen();
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-await autoConfirmMutationReasons(page);
 await page.clock.install({ time: new Date('2026-10-26T09:00:00Z') });
 const errors = [], saved = [];
 page.on('pageerror', e => errors.push(e.message));

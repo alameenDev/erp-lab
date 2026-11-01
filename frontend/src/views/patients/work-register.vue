@@ -1,5 +1,4 @@
 <script setup>
-import { isMutationCancelled } from '@/utils/mutationReason';
 import {ref, computed, onMounted, onBeforeUnmount, nextTick} from 'vue';
 import {$http} from '@/plugins/axios';
 import {usePrint} from '@/composables/usePrint';
@@ -49,7 +48,6 @@ async function mutate(row, fields, remove = false) {
     apply(response.data);
     return true;
   } catch (err) {
-    if (isMutationCancelled(err)) return false;
     const text = err.response?.status === 409 ? 'تغيّر السجل من جهاز آخر أو أُضيفت فاتورة. أغلق التعديل وحدّث السجل ثم حاول مجدداً.' : message(err);
     if (draft.value) formError.value = text; else error.value = text;
     return false;
