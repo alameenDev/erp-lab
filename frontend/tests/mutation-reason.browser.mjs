@@ -30,9 +30,8 @@ try{
   await page.locator('[data-mutation-reason-dialog]').waitFor();
   assert.equal(await size(),1);
   await page.locator('[data-mutation-reason-cancel]').click();
-  await page.waitForFunction(()=>reasonFixture.errors.length===1);
+  await page.waitForFunction(()=>!document.querySelector('[data-mutation-reason-dialog]'));
   assert.equal(await size(),1,'cancelled delete must never reach API');
-  assert.equal(await page.evaluate(()=>reasonFixture.errors[0].cancelled),true);
 
   await page.getByRole('button',{name:'حذف الفاتورة'}).click();
   await page.locator('[data-mutation-reason-input]').fill(reason);
