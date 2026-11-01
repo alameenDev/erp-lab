@@ -1,6 +1,7 @@
 import { createServer } from 'vite';
 import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
+import { autoConfirmMutationReasons } from './helpers/autoMutationReason.mjs';
 import { mkdir } from 'node:fs/promises';
 
 await mkdir('test-results/account-permissions', { recursive: true });
@@ -8,6 +9,7 @@ const server = process.env.PERMISSIONS_START_VITE ? await createServer({ server:
 if (server) await server.listen();
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+await autoConfirmMutationReasons(page);
 const failures = [];
 page.on('pageerror', error => failures.push(error.message));
 let permissions = ['patients view'];

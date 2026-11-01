@@ -186,7 +186,8 @@ class DailyWorkRegisterTest extends TestCase
         $this->lab->givePermissionTo(Permission::findOrCreate('invoices edit', 'api'));
         $invoice = $this->createInvoice(['work_register_amount' => 1500]);
         $input = ['id' => $invoice->id, 'patient_id_fk' => $this->patient->id, 'total' => 25000, 'sub_total' => 25000,
-            'payment_details' => [['amount' => 10000, 'payment_method_id_fk' => null]]];
+            'payment_details' => [['amount' => 10000, 'payment_method_id_fk' => null]],
+            'change_reason' => 'تصحيح بيانات العمل المالي بعد مراجعة الفاتورة'];
         $day = $this->day(); $entry = $day['entries'][0];
         $this->putJson('/api/invoices/update', $input + ['work_register_amount' => 2222, 'work_register_amount_original' => 1500])->assertOk();
         $this->assertSame(2222, $this->day()['totals']['work_register_amount']);

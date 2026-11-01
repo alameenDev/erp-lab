@@ -744,13 +744,9 @@
                 </div>
               </div>
 
-              <div v-if="record.id" class="rounded-xl border border-amber-200 bg-amber-50 p-4" data-test-price-reason>
-                <label for="test-price-reason" class="mb-2 block text-sm font-bold text-amber-900">سبب تغيير السعر الأصلي أو سعر المريض</label>
-                <textarea id="test-price-reason" v-model.trim="record.change_reason" rows="3" maxlength="1000"
-                  class="w-full rounded-lg border border-amber-300 bg-white p-3 text-sm text-slate-800"
-                  placeholder="إلزامي إذا تم تعديل سعر التحليل. مثال: تحديث قائمة الأسعار بعد موافقة الإدارة."></textarea>
-                <p class="mt-2 text-xs text-amber-800">تغيير السعر لا يُقبل بدون شرح السبب، وسيُعرض لصاحب المختبر مع السعر القديم والجديد.</p>
-              </div>
+              <p v-if="record.id" class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-6 text-amber-800">
+                عند حفظ تعديل سعر التحليل، تظهر نافذة إلزامية لكتابة السبب قبل التنفيذ.
+              </p>
 
               <!-- ==================== ACTION BUTTONS ==================== -->
               <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5">
@@ -783,6 +779,7 @@
 </template>
 
 <script>
+import { isMutationCancelled } from '@/utils/mutationReason';
 import { renameResultOption, removeResultOption } from "@/utils/defaultTestResults";
 import { mapActions, mapGetters, mapWritableState } from "pinia";
 import { usetestGroupsStore } from "@/store/modules/testGroups";
@@ -1284,6 +1281,9 @@ export default {
           },
         ];
         this.dialog = false;
+      }).catch(error => {
+        if (isMutationCancelled(error)) return;
+        this.alertError(error?.response?.data?.message || 'تعذر حفظ التعديل');
       });
     },
 

@@ -221,13 +221,13 @@ const deleteRecord = async (data) => {
     input: "textarea",
     inputLabel: "سبب الحذف (إلزامي)",
     inputPlaceholder: "اكتب سبب الحذف بالتفصيل، مثل تكرار التسجيل أو طلب المريض...",
-    inputAttributes: {maxlength:"1000", "aria-label":"سبب حذف فاتورة"},
+    inputAttributes: {maxlength:"4000", "aria-label":"سبب حذف فاتورة"},
     showCancelButton: true,
     confirmButtonText: "تأكيد الحذف وإبلاغ المالك",
     cancelButtonText: "إلغاء",
     confirmButtonColor: "#b91c1c",
-    inputValidator: value => (!value || value.trim().length < 10)
-      ? "يرجى كتابة سبب واضح لا يقل عن 10 أحرف." : null,
+    inputValidator: value => (!value || !value.trim())
+      ? "يرجى كتابة السبب قبل الحذف." : null,
   });
   if (!result.isConfirmed) return;
   const reason = result.value.trim();

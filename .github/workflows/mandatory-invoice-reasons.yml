@@ -17,6 +17,9 @@ on:
       - 'frontend/src/views/owner-portal/**'
       - 'frontend/src/store/modules/invoices.js'
       - 'frontend/src/store/modules/tests.js'
+      - 'frontend/src/plugins/axios.js'
+      - 'frontend/src/utils/mutationReason.js'
+      - 'frontend/tests/mutation-reason*'
       - '.github/workflows/mandatory-invoice-reasons.yml'
 permissions:
   contents: read
@@ -77,3 +80,18 @@ jobs:
         working-directory: frontend
       - run: npm run build
         working-directory: frontend
+      - name: Verify reason policy
+        working-directory: frontend
+        run: node --test tests/mutation-reason.test.mjs
+      - name: Install browser
+        working-directory: frontend
+        run: npm install --no-save --package-lock=false playwright@1.55.1 && npx playwright install --with-deps chromium
+      - name: Verify action-time reason dialog
+        working-directory: frontend
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 5173 > /tmp/reason-vite.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:5173/tests/mutation-reason-browser.html > /dev/null && break
+            sleep 1
+          done
+          node tests/mutation-reason.browser.mjs

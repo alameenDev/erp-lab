@@ -4,6 +4,7 @@ import router from "@/router";
 import { useAuthStore } from "@/store/modules/auth";
 import { scopeReferralRequest } from "@/utils/referralWorkspace";
 import { activityRequestHeaders } from '@/utils/activityAudit';
+import { mutationReasonPolicy, reasonValue, attachReason, requestMutationReason } from '@/utils/mutationReason';
 
 // Axios configuration with CORS support
 let config = {
@@ -54,7 +55,15 @@ const shouldHideLoader = (url) => {
 
 // Request interceptor
 _axios.interceptors.request.use(
-  (request) => {
+  async (request) => {
+    // Ask BEFORE the network call. A cancelled dialog must not mutate data,
+    // record a misleading successful action, or leave the loader spinning.
+    const policy = mutationReasonPolicy(request);
+    if (policy) {
+      const reason = await requestMutationReason(policy, reasonValue(request.data));
+      if (!reason) throw new axios.CanceledError('تم إلغاء التعديل أو الحذف');
+      request.data = attachReason(request.data, reason);
+    }
     Object.assign(request.headers, activityRequestHeaders(request.method, request.url));
     scopeReferralRequest(request, router.currentRoute.value.path);
     const token = localStorage.getItem("token");
@@ -93,6 +102,7 @@ _axios.interceptors.response.use(
     return response;
   },
   (error) => {
+    if (axios.isCancel(error)) return Promise.reject(error);
     try {
       const loaderStore = LoaderStore();
       if (error.config?.url) {
