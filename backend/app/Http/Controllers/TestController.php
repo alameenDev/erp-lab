@@ -486,6 +486,14 @@ class TestController extends Controller
             if (! $test) {
                 return response()->json(['message' => 'Test not found'], 404);
             }
+            $priceChanges = [];
+            foreach (['price' => 'السعر الأصلي للتحليل', 'for_customer_price' => 'سعر بيع التحليل للمريض'] as $field => $label) {
+                if ($request->exists($field) && $request->input($field) !== null &&
+                    (float) $test->$field !== (float) $request->input($field)) {
+                    $priceChanges[] = 'تغيير '.$label.' للتحاليل: '.$test->name;
+                }
+            }
+            \App\Services\InvoiceChangeReason::enforce($request, $priceChanges);
             $test_old = $test->replicate();
             $test->name = $request->name ?? $test->name;
             $test->test_duration = $request->test_duration ?? $test->test_duration;
