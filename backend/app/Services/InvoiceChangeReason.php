@@ -9,7 +9,7 @@ use Illuminate\Validation\ValidationException;
 /** Compare trusted persisted invoice values with the requested edit BEFORE any write. */
 class InvoiceChangeReason
 {
-    public static function require(Request $request, array $operations): void
+    public static function enforce(Request $request, array $operations): void
     {
         if (! $operations) return;
         $reason = trim((string) $request->input('change_reason', ''));
