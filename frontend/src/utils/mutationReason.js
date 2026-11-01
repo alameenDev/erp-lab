@@ -88,30 +88,84 @@ export function validReason(value) {
   return s.length>=10 && s.length<=1000;
 }
 export async function requestMutationReason(policy,existing=null) {
-  if(!policy)return null;
-  // Delete screens already collect the reason in their own confirmation.
-  // A fresh edit/discount must prompt on EACH save, even if an old reason
-  // accidentally remains on a reusable Pinia form.
-  if(policy.action==='delete' && validReason(existing))return existing.trim();
-  const {default:Swal}=await import('sweetalert2');
+  if (!policy) return null;
+  // Existing invoice/test delete confirmations already collected the reason.
+  if (policy.action === 'delete' && validReason(existing)) return existing.trim();
   const action=policy.action==='delete'?'الحذف':policy.action==='discount'?'الخصم':'التعديل';
-  const {isConfirmed,value}=await Swal.fire({
-    title:`سبب ${action} — ${policy.resource}`,
-    text:'لا يمكن تنفيذ العملية بدون كتابة السبب. سيتم حفظه مع سجل التعديلات.',
-    icon:policy.action==='delete'?'warning':'question',
-    input:'textarea',
-    inputValue:validReason(existing)?existing.trim():'',
-    didOpen:()=>{const overlay=Swal.getContainer();if(overlay)overlay.style.zIndex='2147483000';},
-    inputLabel:`اكتب سبب ${action} (إلزامي)`,
-    inputPlaceholder:'اشرح سبب التغيير بشكل واضح، مثال: تصحيح خطأ في التسجيل بموافقة المشرف.',
-    inputAttributes:{maxlength:'1000','aria-label':'سبب التعديل أو الحذف'},
-    showCancelButton:true,
-    confirmButtonText:`حفظ السبب وتنفيذ ${action}`,
-    cancelButtonText:'إلغاء العملية',
-    reverseButtons:true,
-    confirmButtonColor:policy.action==='delete'?'#b91c1c':'#0f766e',
-    allowOutsideClick:false,
-    inputValidator:v=>validReason(v)?undefined:'يرجى كتابة سبب واضح من 10 إلى 1000 حرف.',
+  // showModal() uses the browser's native top layer. It remains visible above
+  // native <dialog> editors (work-register etc), unlike normal z-index popups.
+  return new Promise(resolve=>{
+    const dialog=document.createElement('dialog');
+    dialog.dataset.mutationReasonDialog='true';
+    dialog.dir='rtl';
+    dialog.setAttribute('aria-modal','true');
+    dialog.style.cssText='width:min(94vw,540px);max-height:90vh;overflow:auto;padding:0;border:1px solid #d9e6e0;border-radius:16px;background:white;box-shadow:0 24px 75px rgba(15,23,42,.3);color:#163a30;';
+    const style=document.createElement('style');
+    style.textContent='dialog[data-mutation-reason-dialog]::backdrop{background:rgba(15,23,42,.58)}';
+    dialog.append(style);
+    const form=document.createElement('form');
+    form.noValidate=true;
+    form.style.cssText='display:grid;gap:15px;padding:24px;';
+    const title=document.createElement('h2');
+    title.textContent=`سبب ${action} — ${policy.resource}`;
+    title.id='mutation-reason-title';
+    title.style.cssText='font-size:20px;font-weight:800;margin:0;';
+    dialog.setAttribute('aria-labelledby',title.id);
+    const subtitle=document.createElement('p');
+    subtitle.textContent='السبب إلزامي قبل تنفيذ العملية، وسوف يُحفظ ضمن سجل التدقيق. يمكنك إلغاء العملية دون تغيير البيانات.';
+    subtitle.style.cssText='font-size:13px;line-height:1.9;color:#52665d;margin:0';
+    const label=document.createElement('label');
+    label.textContent=`اكتب سبب ${action} بالتفصيل (10 أحرف على الأقل)`;
+    label.htmlFor='mandatory-mutation-reason-input';
+    label.style.cssText='display:grid;gap:8px;font-weight:700;font-size:13px';
+    const input=document.createElement('textarea');
+    input.id='mandatory-mutation-reason-input';
+    input.dataset.mutationReasonInput='true';
+    input.required=true;
+    input.rows=4;
+    input.maxLength=1000;
+    input.value=validReason(existing)?existing.trim():'';
+    input.placeholder='مثال: تصحيح خطأ في تسجيل السعر بعد مراجعة المشرف.';
+    input.style.cssText='width:100%;box-sizing:border-box;border:1px solid #aec8bc;border-radius:10px;padding:12px;font:inherit;font-weight:400;resize:vertical;color:#142e25;background:white;outline-offset:3px;';
+    const validation=document.createElement('p');
+    validation.dataset.mutationReasonError='true';
+    validation.setAttribute('role','alert');
+    validation.hidden=true;
+    validation.style.cssText='color:#b91c1c;font-size:12px;margin:0';
+    label.append(input);
+    const footer=document.createElement('div');
+    footer.style.cssText='display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;';
+    const cancel=document.createElement('button');
+    cancel.type='button';cancel.dataset.mutationReasonCancel='true';
+    cancel.textContent='إلغاء العملية';
+    cancel.style.cssText='padding:11px 17px;background:#f1f5f3;color:#344f41;border:1px solid #d8e2db;border-radius:10px;font:inherit;font-weight:700;cursor:pointer;';
+    const confirm=document.createElement('button');
+    confirm.type='submit';confirm.dataset.mutationReasonConfirm='true';
+    confirm.textContent=`تأكيد ${action} وحفظ السبب`;
+    confirm.style.cssText=`padding:11px 17px;background:${policy.action==='delete'?'#b91c1c':'#0f766e'};color:white;border:0;border-radius:10px;font:inherit;font-weight:700;cursor:pointer;`;
+    footer.append(cancel,confirm);form.append(title,subtitle,label,validation,footer);
+    dialog.append(form);
+    let finished=false;
+    const finish=(value)=>{
+      if(finished)return;
+      finished=true;
+      dialog.close();
+      dialog.remove();
+      resolve(value);
+    };
+    cancel.addEventListener('click',()=>finish(null));
+    dialog.addEventListener('cancel',e=>{e.preventDefault();finish(null)});
+    form.addEventListener('submit',e=>{
+      e.preventDefault();
+      if(!validReason(input.value)) {
+        validation.textContent='يرجى كتابة سبب واضح من 10 إلى 1000 حرف.';
+        validation.hidden=false;
+        input.setAttribute('aria-invalid','true');
+        input.focus();return;
+      }
+      finish(input.value.trim());
+    });
+    document.body.append(dialog);
+    try{dialog.showModal();input.focus();}catch{dialog.remove();resolve(null);}
   });
-  return isConfirmed && validReason(value) ? value.trim() : null;
 }
