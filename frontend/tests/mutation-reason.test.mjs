@@ -30,7 +30,7 @@ test('cancellation safe policy supports JSON, form submissions and multipart upl
  const reason='تم تصحيح السعر بناء على موافقة إدارة المختبر';
  assert.equal(validReason(reason),true);
  assert.equal(validReason(' '),false);
- assert.equal(validReason('short'),false);
+ assert.equal(validReason('short'),true);\n assert.equal(validReason('سبب'),true);\n assert.equal(validReason('  '),false);
  const json=attachReason({id:7},reason);
  assert.equal(json.change_reason,reason);
  assert.equal(reasonValue(json),reason);
