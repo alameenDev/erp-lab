@@ -141,6 +141,29 @@ class InvoiceMutationReasonsTest extends TestCase
         $this->assertSame('14', (string) $this->invoice->fresh()->invoiceTestRels()->first()->result);
     }
 
+    public function test_original_and_customer_price_changes_in_test_catalog_require_comment(): void
+    {
+        $category = \App\Models\Category::create(['name' => 'General Tests', 'lab_id_fk' => $this->lab->id]);
+        $this->test->update([
+            'category_id_fk' => $category->id, 'price' => 18000, 'for_customer_price' => 35000,
+        ]);
+        $payload = [
+            'id' => $this->test->id, 'name' => $this->test->name,
+            'category_id_fk' => $category->id, 'result_type_id_fk' => 1,
+            'price' => 20000, 'for_customer_price' => 40000,
+        ];
+        $this->putJson('/api/tests/update', $payload)
+            ->assertUnprocessable()->assertJsonValidationErrors('change_reason');
+        $this->assertSame(18000, (int) $this->test->fresh()->price);
+        $reason = 'تم اعتماد قائمة أسعار جديدة بعد مراجعة الإدارة والتكاليف';
+        $this->putJson('/api/tests/update', [...$payload, 'change_reason' => $reason])->assertOk();
+        $notice = OwnerNotification::where('kind', 'test')->firstOrFail();
+        $this->assertSame('CBC', $notice->data['analysis_name']);
+        $this->assertSame(18000, (int) $notice->data['original_price_before']);
+        $this->assertSame(20000, (int) $notice->data['original_price_after']);
+        $this->assertSame($reason, $notice->data['change_reason']);
+    }
+
     public function test_catalog_test_deletion_requires_reason_and_creates_an_owner_notice(): void
     {
         $this->deleteJson('/api/tests/delete', ['id' => $this->test->id])
