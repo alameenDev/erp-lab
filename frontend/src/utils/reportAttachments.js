@@ -50,7 +50,7 @@ export function attachmentContentBounds(data, width, height) {
       const i = (y * width + x) * 4;
       const r = data[i], g = data[i + 1], b = data[i + 2];
       // Do not include near-white scanned paper in the content box.
-      if (Math.min(r, g, b) >= 220 && (r + g + b) >= 690) continue;
+      if (Math.min(r, g, b) >= 215 && (r + g + b) >= 675) continue;
       left = Math.min(left, x);
       right = Math.max(right, x);
       top = Math.min(top, y);
