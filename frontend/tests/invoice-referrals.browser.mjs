@@ -1,11 +1,13 @@
 import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
+import { autoConfirmMutationReasons } from './helpers/autoMutationReason.mjs';
 import { mkdir } from 'node:fs/promises';
 await mkdir('test-results/invoice-referrals', { recursive: true });
 const browser = await chromium.launch();
 let page;
 try {
   page = await browser.newPage({ viewport: { width: 1360, height: 1000 } });
+  await autoConfirmMutationReasons(page);
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('http://127.0.0.1:5173/tests/invoice-referrals-browser.html');
