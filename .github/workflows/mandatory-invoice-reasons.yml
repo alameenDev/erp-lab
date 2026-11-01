@@ -1,0 +1,79 @@
+name: Mandatory invoice and analysis change reasons
+on:
+  pull_request:
+    paths:
+      - 'backend/app/Services/InvoiceChangeReason.php'
+      - 'backend/app/Services/AuditTrail.php'
+      - 'backend/app/Services/AuditSnapshot.php'
+      - 'backend/app/Services/InvoiceChangeArchive.php'
+      - 'backend/app/Services/OwnerNotifications.php'
+      - 'backend/app/Http/Controllers/InvoiceController.php'
+      - 'backend/app/Http/Controllers/TestController.php'
+      - 'backend/app/Http/Controllers/OwnerPortalController.php'
+      - 'backend/tests/Feature/InvoiceMutationReasonsTest.php'
+      - 'backend/tests/Feature/ActivityAuditTest.php'
+      - 'frontend/src/views/invoices/**'
+      - 'frontend/src/views/tests/**'
+      - 'frontend/src/views/owner-portal/**'
+      - 'frontend/src/store/modules/invoices.js'
+      - 'frontend/src/store/modules/tests.js'
+      - '.github/workflows/mandatory-invoice-reasons.yml'
+permissions:
+  contents: read
+jobs:
+  reasons:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: test-only-password
+          MARIADB_DATABASE: erp_lab_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    env:
+      APP_ENV: testing
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: erp_lab_test
+      DB_USERNAME: root
+      DB_PASSWORD: test-only-password
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_mysql, mbstring, xml, gd, zip, bcmath, intl
+          tools: composer:v2
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist
+        working-directory: backend
+      - run: cp .env.example .env && php artisan key:generate
+        working-directory: backend
+      - name: Validate PHP files
+        working-directory: backend
+        run: |
+          php -l app/Services/InvoiceChangeReason.php
+          php -l app/Services/OwnerNotifications.php
+          php -l app/Services/AuditTrail.php
+          php -l app/Http/Controllers/InvoiceController.php
+          php -l app/Http/Controllers/TestController.php
+      - name: Verify protected mutations and owner notifications
+        working-directory: backend
+        run: php artisan test --filter='InvoiceMutationReasonsTest|OwnerNotificationTest|ActivityAuditTest|OwnerPortalTest|InvoiceSelectionOrderTest'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend

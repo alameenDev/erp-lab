@@ -1452,6 +1452,11 @@ class InvoiceController extends Controller
             'packages' => 'nullable|array',
             'test_groups' => 'nullable|array',
         ]);
+        // An initial discretionary discount also needs a documented reason.
+        // Loyalty reward redemption is a separate point-redemption workflow.
+        if ((float) $request->input('discount', 0) > 0) {
+            \App\Services\InvoiceChangeReason::enforce($request, ['تطبيق خصم عند إنشاء الفاتورة']);
+        }
         try {
             DB::beginTransaction();
             app(\App\Services\DefaultTestResults::class)->prepare($request, $user->role_id == 1 ? null : $this->getTenantUserIds());
@@ -2621,6 +2626,7 @@ class InvoiceController extends Controller
             'sample_collector_id_fk' => 'nullable|integer',
             'discount_type_id_fk' => 'nullable|integer',
             'discount' => 'nullable|integer',
+            'change_reason' => 'nullable|string|max:1000',
             'show_result_date' => 'nullable|boolean',
             'show_patient_card_id' => 'nullable|boolean',
             'show_patient_pic' => 'nullable|boolean',
@@ -2654,22 +2660,24 @@ class InvoiceController extends Controller
                 DB::rollBack();
                 return response()->json(['message'=>'لا يمكن تغيير مريض فاتورة مرتبطة باستبدال نقاط.'],422);
             }
+            \App\Services\InvoiceChangeReason::enforce($request,
+                \App\Services\InvoiceChangeReason::editOperations($invoice, $request));
             $oldInvoice = $invoice->replicate();
             // Frontend dropdown now sends users.id directly (optionValue="user_id").
             // referral_id_fk column is FK → users.id, so no remap needed.
             if ($request->has('selection_order')) $invoice->selection_order = $request->input('selection_order');
             $invoice->patient_id_fk = $request->patient_id_fk;
             $invoice->referral_id_fk = $request->referral_id_fk ?: null;
-            $invoice->sub_total = $request->sub_total;
-            $invoice->total = $request->total;
-            $invoice->paid = ($request->payment_details ? collect($request->payment_details)->sum('amount') : 0);
+            if ($request->exists('sub_total')) $invoice->sub_total = $request->sub_total;
+            if ($request->exists('total')) $invoice->total = $request->total;
+            if ($request->exists('payment_details')) $invoice->paid = collect($request->payment_details ?? [])->sum('amount');
             $invoice->notes = $request->notes;
             $invoice->is_printed = $request->is_printed;
             $invoice->from_lab_id_fk = $request->from_lab_id_fk;
             $invoice->contract_id_fk = $request->contract_id_fk;
             $invoice->sample_collector_id_fk = $request->sample_collector_id_fk;
-            $invoice->discount_type_id_fk = $request->discount_type_id_fk ?: null;
-            $invoice->discount = $request->discount;
+            if ($request->exists('discount_type_id_fk')) $invoice->discount_type_id_fk = $request->discount_type_id_fk ?: null;
+            if ($request->exists('discount')) $invoice->discount = $request->discount;
             $invoice->show_result_date = $request->show_result_date ?? false;
             $invoice->show_patient_card_id = $request->show_patient_card_id ?? false;
             $invoice->show_patient_pic = $request->show_patient_pic ?? false;
@@ -2677,6 +2685,10 @@ class InvoiceController extends Controller
 
             app(\App\Services\DefaultTestResults::class)->prepare($request, $user->role_id == 1 ? null : $this->getTenantUserIds(), $invoice);
 
+            $hasSubmittedAnalyses = collect(['tests','cultures','packages','test_groups'])
+                ->contains(fn ($field) => $request->exists($field));
+            // Partial invoice metadata edits must not delete all test relations.
+            if ($hasSubmittedAnalyses) {
             // Delete existing invoice test relations and recreate
             $invoice->invoiceTestRels()->delete();
 
@@ -2776,6 +2788,8 @@ class InvoiceController extends Controller
                     ];
                 }
                 $invoice->invoiceTestRels()->createMany($testGroupsToCreate);
+            }
+
             }
 
             // add invoice_paid_details
@@ -2920,6 +2934,7 @@ class InvoiceController extends Controller
             }
         }
 
+        \App\Services\InvoiceChangeReason::enforce($request, ['حذف الفاتورة بكامل التحاليل والتسديدات']);
         $invoice->invoiceTestRels()->delete();
         $invoice->delete();
         ActivityLogController::deleteActivity('حذف فاتورة', $invoice);

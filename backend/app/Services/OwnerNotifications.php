@@ -44,21 +44,75 @@ class OwnerNotifications
 
     public function invoiceChanged(object $row): void
     {
-        if ($row->event !== 'deleted' && ($row->total_delta === null || abs((float) $row->total_delta) < 0.005)) return;
+        $snapshot = json_decode($row->snapshot ?? '{}', true) ?: [];
+        $reason = $snapshot['change_reason'] ?? null;
+        $operations = $snapshot['reason_operations'] ?? [];
+        $deleted = $row->event === 'deleted';
+        $moneyChanged = $row->total_delta !== null && abs((float) $row->total_delta) >= 0.005;
+        if (! $deleted && ! $moneyChanged && ! $reason) return;
+
         $lab = User::find($row->tenant_id);
         if (! $lab) return;
         $owners = User::where('owner_portal_only', true)->where('status', 1)
             ->whereIn('id', DB::table('owner_labs')->where('lab_id', $lab->id)->select('owner_id'))->get();
-        $deleted = $row->event === 'deleted';
+        $before = $snapshot['before'] ?? [];
+        $after = $snapshot['after'] ?? [];
+        $patient = $before['patient'] ?? $after['patient'] ?? [];
+        $invoice = $before['invoice'] ?? $after['invoice'] ?? [];
+        $analyses = collect($before['analyses'] ?? $after['analyses'] ?? [])
+            ->map(fn ($a) => ['name' => $a['name'] ?? 'تحليل', 'price' => $a['price'] ?? null,
+                'result' => $a['result'] ?? null])->values()->all();
         $amount = fn ($v) => $v === null ? 'غير مسجل' : number_format((float) $v, 0).' د.ع';
-        $title = ($deleted ? 'حذف فاتورة' : 'تعديل مبلغ فاتورة').' · '.$lab->name;
-        $body = 'فاتورة #'.$row->invoice_id.' · '.($row->actor_name ?: 'مستخدم غير مسجل').' · '.
-            ($deleted ? 'القيمة: '.$amount($row->before_total) : 'من '.$amount($row->before_total).' إلى '.$amount($row->after_total));
-        foreach ($owners as $owner) $this->create($owner, $lab->id, 'archive:'.$row->id, $deleted ? 'invoice_deleted' : 'invoice_amount', $title, $body, [
+        $removedAnalysis = collect($operations)->contains(fn ($op) => str_contains($op, 'حذف'));
+        $title = ($deleted ? 'حذف فاتورة' : ($removedAnalysis ? 'حذف فحص من فاتورة' : ($moneyChanged ? 'تعديل مبلغ فاتورة' : 'تغيير على فاتورة'))).' · '.$lab->name;
+        // Push notifications can appear on locked screens. Keep patient details
+        // and clinical reason inside the authenticated owner inbox only.
+        $body = 'فاتورة #'.$row->invoice_id.' · '.($deleted ? 'تم حذفها' : 'تم تعديلها').
+            ' بواسطة '.($row->actor_name ?: 'مستخدم غير مسجل').'. افتح الإشعار لمعرفة السبب والتفاصيل.';
+        foreach ($owners as $owner) $this->create($owner, $lab->id, 'archive:'.$row->id,
+            $deleted ? 'invoice_deleted' : 'invoice_amount', $title, $body, [
             'archive_id' => $row->id, 'invoice_id' => $row->invoice_id, 'lab_name' => $lab->name,
-            'actor_name' => $row->actor_name, 'before_total' => $row->before_total, 'after_total' => $row->after_total,
-            'total_delta' => $row->total_delta, 'occurred_at' => Carbon::parse($row->occurred_at, config('app.timezone'))->toIso8601String(),
+            'actor_name' => $row->actor_name, 'patient_name' => $patient['name'] ?? $row->patient_name,
+            'patient_phone' => $patient['phone'] ?? null, 'patient_age' => $patient['age'] ?? null,
+            'patient_age_unit' => $patient['age_unit'] ?? null, 'patient_gender' => $patient['gender'] ?? null,
+            'patient_code' => $patient['code'] ?? null, 'patient_address' => $patient['address'] ?? null,
+            'barcode' => $row->barcode, 'registration_date' => $invoice['registration_date'] ?? null,
+            'discount' => $invoice['discount'] ?? null, 'analyses' => $analyses,
+            'change_reason' => $reason, 'reason_operations' => $operations,
+            'before_total' => $row->before_total, 'after_total' => $row->after_total,
+            'total_delta' => $row->total_delta, 'paid_delta' => $row->paid_delta,
+            'occurred_at' => Carbon::parse($row->occurred_at, config('app.timezone'))->toIso8601String(),
         ]);
+    }
+
+    public function catalogTestChanged(\Spatie\Activitylog\Models\Activity $activity, int $tenant): void
+    {
+        $p = $activity->properties?->toArray() ?? [];
+        if (empty($p['change_reason']) || ! in_array($activity->event, ['deleted','updated'], true)) return;
+        $lab = User::find($tenant);
+        if (! $lab) return;
+        $old = $p['old_value'] ?? [];
+        $new = $p['new_value'] ?? [];
+        $name = $old['name'] ?? $new['name'] ?? $p['subject_label'] ?? 'تحليل';
+        $deleted = $activity->event === 'deleted';
+        $owners = User::where('owner_portal_only', true)->where('status', 1)
+            ->whereIn('id', DB::table('owner_labs')->where('lab_id', $lab->id)->select('owner_id'))->get();
+        foreach ($owners as $owner) $this->create($owner, $lab->id,
+            'catalog-change:'.$activity->id, 'test',
+            ($deleted ? 'حذف تحليل' : 'تغيير سعر تحليل').' · '.$lab->name,
+            ($deleted ? 'تم حذف تحليل' : 'تم تغيير سعر تحليل').' بواسطة '.
+                ($p['actor_name'] ?? 'مستخدم').'. افتح الإشعار للاطلاع على السبب.',
+            [
+                'activity_id' => $activity->id, 'lab_name' => $lab->name,
+                'actor_name' => $p['actor_name'] ?? null, 'analysis_name' => $name,
+                'analysis_deleted' => $deleted,
+                'original_price_before' => $old['price'] ?? null,
+                'original_price_after' => $new['price'] ?? null,
+                'customer_price_before' => $old['for_customer_price'] ?? null,
+                'customer_price_after' => $new['for_customer_price'] ?? null,
+                'change_reason' => $p['change_reason'], 'reason_operations' => $p['reason_operations'] ?? [],
+                'occurred_at' => $activity->created_at?->toIso8601String(),
+            ]);
     }
 
     public function daily(?string $date = null): int

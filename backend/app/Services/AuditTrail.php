@@ -267,9 +267,17 @@ class AuditTrail
                 'action_id' => Str::isUuid($this->request->header('X-Audit-Action-Id', '')) ? $this->request->header('X-Audit-Action-Id') : null,
                 'button' => mb_substr(strip_tags(rawurldecode($this->request->header('X-Audit-Label', ''))), 0, 160),
                 'page' => self::safePage($this->request->header('X-Audit-Page', '')),
+                'change_reason' => $status < 400 ? $this->request->attributes->get('audited_change_reason') : null,
+                'reason_operations' => $status < 400 ? $this->request->attributes->get('audited_reason_operations', []) : [],
             ]),
         ]);
         app(InvoiceChangeArchive::class)->capture($activity, true);
+        // Catalog deletions are separate from invoice archives, but still
+        // notify the authenticated owner with the explicit deletion reason.
+        if (in_array($event, ['deleted','updated'], true) && $class === \App\Models\Test::class && $status < 400 &&
+            $this->request->attributes->get('audited_change_reason')) {
+            app(OwnerNotifications::class)->catalogTestChanged($activity, $tenant);
+        }
     }
 
     public static function safePage(string $page): string

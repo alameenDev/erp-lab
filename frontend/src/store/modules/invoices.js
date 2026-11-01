@@ -246,9 +246,9 @@ export const useinvoicesStore = defineStore("invoices", {
       }
     },
 
-    async Removeinvoices() {
+    async Removeinvoices(reason) {
       try {
-        await $http.delete(`/invoices/delete`, { data: { id: this.record.id } });
+        await $http.delete(`/invoices/delete`, { data: { id: this.record.id, change_reason: reason } });
         await this.Getinvoices();
       } catch (error) {
         console.error("Error deleting invoice:", error);
