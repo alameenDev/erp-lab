@@ -2621,6 +2621,7 @@ class InvoiceController extends Controller
             'sample_collector_id_fk' => 'nullable|integer',
             'discount_type_id_fk' => 'nullable|integer',
             'discount' => 'nullable|integer',
+            'change_reason' => 'nullable|string|max:1000',
             'show_result_date' => 'nullable|boolean',
             'show_patient_card_id' => 'nullable|boolean',
             'show_patient_pic' => 'nullable|boolean',
@@ -2654,6 +2655,8 @@ class InvoiceController extends Controller
                 DB::rollBack();
                 return response()->json(['message'=>'لا يمكن تغيير مريض فاتورة مرتبطة باستبدال نقاط.'],422);
             }
+            \App\Services\InvoiceChangeReason::enforce($request,
+                \App\Services\InvoiceChangeReason::editOperations($invoice, $request));
             $oldInvoice = $invoice->replicate();
             // Frontend dropdown now sends users.id directly (optionValue="user_id").
             // referral_id_fk column is FK → users.id, so no remap needed.
@@ -2920,6 +2923,7 @@ class InvoiceController extends Controller
             }
         }
 
+        \App\Services\InvoiceChangeReason::enforce($request, ['حذف الفاتورة بكامل التحاليل والتسديدات']);
         $invoice->invoiceTestRels()->delete();
         $invoice->delete();
         ActivityLogController::deleteActivity('حذف فاتورة', $invoice);
