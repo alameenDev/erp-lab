@@ -779,6 +779,7 @@
 </template>
 
 <script>
+import { isMutationCancelled } from '@/utils/mutationReason';
 import { renameResultOption, removeResultOption } from "@/utils/defaultTestResults";
 import { mapActions, mapGetters, mapWritableState } from "pinia";
 import { usetestGroupsStore } from "@/store/modules/testGroups";
@@ -1280,6 +1281,9 @@ export default {
           },
         ];
         this.dialog = false;
+      }).catch(error => {
+        if (isMutationCancelled(error)) return;
+        this.alertError(error?.response?.data?.message || 'تعذر حفظ التعديل');
       });
     },
 
