@@ -101,7 +101,7 @@ class InvoiceChangeReason
 
     private static function numeric(mixed $value): string
     {
-        if ($value === null || $value === '') return '0';
+        if ($value === null || $value === '') return '0.0000';
         return is_numeric($value) ? number_format((float) $value, 4, '.', '') : (string) $value;
     }
 }
