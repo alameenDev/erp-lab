@@ -7,7 +7,7 @@ const problems=[];
 page.on('pageerror', e=>problems.push(e.message));
 const size=()=>page.evaluate(()=>reasonFixture.requests.length);
 const waitSize=(count)=>page.waitForFunction(count=>reasonFixture.requests.length===count,count);
-const reason='تصحيح خطأ في تسجيل الفاتورة بناء على مراجعة مدير المختبر';
+const reason='س'; // Even one non-whitespace character is permitted; no minimum length.
 try{
   await page.goto('http://127.0.0.1:5173/tests/mutation-reason-browser.html',{waitUntil:'networkidle'});
   await page.getByRole('button',{name:'تعديل الفاتورة'}).click();
@@ -16,8 +16,11 @@ try{
   assert.match(await page.locator('#mutation-reason-title').innerText(),/سبب التعديل/);
   assert.equal(await page.locator('[data-mutation-reason-dialog]').evaluate(node=>node.open),true,'native top-layer dialog is visible');
   await page.locator('[data-mutation-reason-confirm]').click();
-  assert.match(await page.locator('[data-mutation-reason-error]').innerText(),/10/);
+  assert.match(await page.locator('[data-mutation-reason-error]').innerText(),/السبب/);
   assert.equal(await size(),0,'empty reason never saves data');
+  await page.locator('[data-mutation-reason-input]').fill('   ');
+  await page.locator('[data-mutation-reason-confirm]').click();
+  assert.equal(await size(),0,'whitespace-only reason is rejected too');
   await page.locator('[data-mutation-reason-input]').fill(reason);
   await page.locator('[data-mutation-reason-confirm]').click();
   await waitSize(1);
