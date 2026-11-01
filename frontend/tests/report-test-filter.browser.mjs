@@ -62,7 +62,12 @@ try {
   await field().locator('.p-multiselect-clear-icon').click();
   await waitRows(Array.from({length: 25}, (_, i) => i + 1));
   assert.equal((await lastRequest()).params.test_ids, undefined, 'individual clear safely normalizes null');
-  await toggle().click(); await toggle().click();
+  // Wait for each transition. Rapid hide/show used to leave the PrimeVue
+  // overlay attached to a stale combobox during the subsequent mobile test.
+  await toggle().click();
+  await field().waitFor({state: 'hidden'});
+  await toggle().click();
+  await field().waitFor({state: 'visible'});
   assert.equal(await page.evaluate(() => filterFixture.requests.filter(r => r.url.includes('test-filter-options')).length), 1, 'loaded options are reused');
 
   await page.setViewportSize({width: 390, height: 844});
@@ -72,6 +77,12 @@ try {
   await page.getByRole('searchbox').waitFor();
   await page.getByRole('searchbox').fill('Glucose');
   await page.getByRole('option', {name: 'Glucose (GLU)', exact: true}).click();
+  // Distinguish a filter-state regression from a rendering delay: the
+  // committed request must contain GLU only before evaluating table rows.
+  await page.waitForFunction(() => {
+    const last = filterFixture.requests.filter(r => r.url === '/invoices').at(-1);
+    return JSON.stringify(last?.params?.test_ids) === JSON.stringify([12]);
+  });
   await waitRows([1, 3]);
   const overlay = await page.locator('.p-multiselect-overlay').boundingBox();
   assert.ok(overlay.x >= -1 && overlay.x + overlay.width <= 391, 'dropdown fits mobile width');
