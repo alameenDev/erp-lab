@@ -38,13 +38,18 @@ class InvoiceChangeReason
             $operations[] = 'تغيير المبلغ المسجل في سجل العمل اليومي';
         }
         $relations = $invoice->invoiceTestRels()->with(['test:id,name','culture:id,name','package:id,name','testGroup:id,group_name'])->get();
+        // The editor replaces the selected test lists as a set. If one list
+        // is omitted while another is submitted, its old rows are also removed.
+        // A payload without ANY list is an ordinary partial invoice update.
+        $submittedSelection = collect(['tests','cultures','packages','test_groups'])
+            ->contains(fn ($field) => $request->exists($field));
         foreach ([
             'tests' => ['test_id_fk', 'test', 'تحليل'],
             'cultures' => ['culture_id_fk', 'culture', 'زرع'],
             'packages' => ['package_id_fk', 'package', 'باقة'],
             'test_groups' => ['test_group_id_fk', 'testGroup', 'كروب'],
         ] as $key => [$idKey,$relation,$label]) {
-            if (! $request->exists($key)) continue;
+            if (! $submittedSelection) continue;
             $requested = $request->input($key) ?? [];
             if (! is_array($requested)) continue; // The controller separately validates arrays.
             $old = $relations->filter(fn ($r) => $r->$idKey !== null)->values();
