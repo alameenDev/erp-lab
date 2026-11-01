@@ -60,6 +60,34 @@ class LabSettingsTest extends TestCase
         $this->assertSame(10, LabSetting::where('lab_id_fk', $owner->id)->first()->previous_results_count);
     }
 
+    public function test_patient_portal_invoice_amount_setting_persists_per_lab_and_resets_with_print_settings(): void
+    {
+        $lab = $this->owner();
+        $other = User::create(['name'=>'Other portal lab', 'email'=>'other-portal-amount@example.test',
+            'password'=>'Test-password-123', 'role_id'=>2]);
+        $this->getJson('/api/lab-settings/'.$lab->id)->assertOk()
+            ->assertJsonPath('show_patient_portal_invoice_amounts', true);
+        $this->actingAs($lab)->getJson('/api/lab-settings')->assertOk()
+            ->assertJsonPath('show_patient_portal_invoice_amounts', true);
+        $this->postJson('/api/lab-settings', ['show_patient_portal_invoice_amounts'=>false])->assertOk()
+            ->assertJsonPath('setting.show_patient_portal_invoice_amounts', false);
+        $this->getJson('/api/lab-settings/'.$lab->id)->assertOk()
+            ->assertJsonPath('show_patient_portal_invoice_amounts', false);
+        $this->postJson('/api/lab-settings', ['lab_display_name'=>'Keep visibility'])->assertOk()
+            ->assertJsonPath('setting.show_patient_portal_invoice_amounts', false);
+        $this->actingAs($other)->getJson('/api/lab-settings')->assertOk()
+            ->assertJsonPath('show_patient_portal_invoice_amounts', true);
+        $staff = User::create(['name'=>'Portal staff', 'email'=>'portal-amount-staff@example.test',
+            'password'=>'Test-password-123', 'role_id'=>7, 'creator_id'=>$lab->id]);
+        $this->actingAs($staff)->getJson('/api/lab-settings')->assertOk()
+            ->assertJsonPath('show_patient_portal_invoice_amounts', false);
+        $this->postJson('/api/lab-settings', ['show_patient_portal_invoice_amounts'=>true])->assertForbidden();
+        $this->actingAs($lab)->postJson('/api/lab-settings', ['show_patient_portal_invoice_amounts'=>'invalid'])
+            ->assertUnprocessable()->assertJsonValidationErrors('show_patient_portal_invoice_amounts');
+        $this->postJson('/api/lab-settings/reset', ['section'=>'print'])->assertOk()
+            ->assertJsonPath('setting.show_patient_portal_invoice_amounts', true);
+    }
+
     private function barcodeLayout(): array
     {
         $item = ['x'=>2, 'y'=>6, 'width'=>46, 'height'=>8, 'font'=>8, 'visible'=>true, 'align'=>'center', 'bold'=>false, 'rotation'=>0];
