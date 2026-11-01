@@ -1,8 +1,10 @@
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
+import { autoConfirmMutationReasons } from './helpers/autoMutationReason.mjs';
 import {mkdir} from 'node:fs/promises';
 
 const browser = await chromium.launch(), page = await browser.newPage({viewport:{width:1440,height:1050}}), errors=[];
+await autoConfirmMutationReasons(page);
 page.on('pageerror', e=>errors.push(e.message));
 const ready = () => page.waitForFunction(()=>Boolean(window.invoiceFixture?.form()));
 const field = () => page.getByLabel('المبلغ المدفوع في السجل · د.ع',{exact:true});
