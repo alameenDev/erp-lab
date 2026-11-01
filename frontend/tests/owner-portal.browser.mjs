@@ -43,9 +43,9 @@ try {
   const narrative=await page.locator('.owner-readable-audit').innerText();
   assert.match(narrative,/نتيجة تحليل CBC/,'test name is visible');
   assert.match(narrative,/10/);
-  assert.match(narrative,/13\\.2/);
+  assert.match(narrative,/13\.2/);
   assert.match(narrative,/المبالغ والتسديدات/);
-  assert.doesNotMatch(await page.locator('.owner-audit-headline').innerText(),/analyses\\.|test_9_1/);
+  assert.doesNotMatch(await page.locator('.owner-audit-headline').innerText(),/analyses\.|test_9_1/);
   await screenshot('change-result-readable');
   await go('subscriptions'); assert.equal(await page.locator('.owner-subscription').count(),2);
   await go('team'); assert.ok((await page.locator('.owner-empty').innerText()).includes('اختر المختبر'));
