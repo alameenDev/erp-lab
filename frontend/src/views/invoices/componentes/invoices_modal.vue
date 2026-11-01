@@ -777,6 +777,7 @@ import InvoicePackageContents from './InvoicePackageContents.vue';
 import InvoiceReferralSelect from './InvoiceReferralSelect.vue';
 import { invoicePackageContents } from '@/utils/invoicePackageContents';
 import { showAlertWithConfirm } from "@/utils/helper";
+import { isMutationCancelled } from '@/utils/mutationReason';
 import printInvoiceModal from "./printInvoice_modal.vue";
 import { $http } from "@/plugins/axios";
 import Mixins from "@/utils/mixins";
@@ -1709,6 +1710,7 @@ export default {
           }
         })
         .catch((error) => {
+          if (isMutationCancelled(error)) return;
           console.error("Update invoice error:", error);
           this.alertError(error?.response?.data?.message || this.t("error_updating_invoice") || "Failed to update invoice");
         });
