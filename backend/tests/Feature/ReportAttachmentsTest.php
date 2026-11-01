@@ -122,4 +122,39 @@ class ReportAttachmentsTest extends TestCase
         $this->assertCount(20, $this->invoice->fresh()->attachments);
         $this->get('/api/report-attachments/'.$this->invoice->id.'/'.Str::uuid())->assertNotFound();
     }
+
+    public function test_attachment_print_dimensions_can_be_changed_without_reuploading_and_are_validated(): void
+    {
+        $pdf = "%PDF-1.4\nSynthetic\n%%EOF";
+        $saved = $this->upload('scan.pdf', $pdf, [
+            'attachments' => [[
+                'name' => 'Scan', 'file' => UploadedFile::fake()->createWithContent('scan.pdf', $pdf),
+                'print_width_percent' => 80, 'print_max_height_mm' => 180,
+            ]],
+        ])->assertOk()->assertJsonPath('attachments.0.print_width_percent', 80)
+            ->assertJsonPath('attachments.0.print_max_height_mm', 180)->json('attachments.0');
+
+        $this->postJson('/api/invoices/update-result', [
+            'id' => $this->invoice->id,
+            'existing_attachments' => [[
+                'file' => $saved['file'], 'name' => 'Scan',
+                'print_width_percent' => 100, 'print_max_height_mm' => 240,
+                'storage_path' => 'forged/path.bin',
+            ]],
+        ])->assertOk()->assertJsonPath('attachments.0.print_width_percent', 100)
+            ->assertJsonPath('attachments.0.print_max_height_mm', 240)
+            ->assertJsonPath('attachments.0.storage_path', $saved['storage_path']);
+        $this->assertCount(1, Storage::disk('local')->allFiles());
+
+        foreach ([['print_width_percent' => 101], ['print_max_height_mm' => 260], ['print_width_percent' => 'abc']] as $invalid) {
+            $this->postJson('/api/invoices/update-result', [
+                'id' => $this->invoice->id,
+                'existing_attachments' => [[...$invalid, 'file' => $saved['file']]],
+            ])->assertUnprocessable();
+        }
+        $this->assertSame(100, $this->invoice->fresh()->attachments[0]['print_width_percent']);
+        $this->assertCount(1, Storage::disk('local')->allFiles());
+    }
+
+
 }
