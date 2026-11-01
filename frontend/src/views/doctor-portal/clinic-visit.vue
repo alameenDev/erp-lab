@@ -269,7 +269,7 @@ onMounted(load);
           </section>
           <div v-if="canEdit" class="sticky bottom-3 z-10 flex flex-wrap items-center justify-end gap-3 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur">
             <button type="submit" :disabled="busy" class="rounded-xl border border-teal-700 px-5 py-3 font-bold text-teal-800 disabled:opacity-50">{{ busy?'جاري الحفظ':'حفظ الكشفية' }}</button>
-            <button type="button" :disabled="busy||isCompleted.value" @click="save(true)" class="rounded-xl bg-teal-700 px-5 py-3 font-bold text-white disabled:opacity-50">إكمال الكشفية</button>
+            <button type="button" :disabled="busy||isCompleted" @click="save(true)" class="rounded-xl bg-teal-700 px-5 py-3 font-bold text-white disabled:opacity-50">إكمال الكشفية</button>
           </div>
         </form>
         <aside class="space-y-4">
