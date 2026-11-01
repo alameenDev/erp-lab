@@ -1,6 +1,19 @@
 const MAX_PAGES = 60;
 const MAX_BYTES = 10 * 1024 * 1024;
 
+// Dimensions are attached to the result, not the browser or export action.
+// Missing metadata on older reports uses a larger, legible default.
+export const attachmentPrintLayout = (item = {}) => {
+  const dimension = (value, min, max, fallback) => {
+    const n = Number(value);
+    return Number.isInteger(n) && n >= min && n <= max ? n : fallback;
+  };
+  return {
+    print_width_percent: dimension(item.print_width_percent, 40, 100, 100),
+    print_max_height_mm: dimension(item.print_max_height_mm, 100, 240, 210),
+  };
+};
+
 export function reportAttachmentUrl(value) {
   try {
     const url = new URL(value, window.location.origin);
@@ -49,6 +62,7 @@ export async function prepareReportAttachments(attachments = []) {
     // Only the user-entered display name belongs in the printed report.
     const name = typeof item.name === 'string' ? item.name.trim() : '';
     const label = name ? `المرفق «${name}»` : 'المرفق';
+    const layout = attachmentPrintLayout(item);
     if (!url) throw new Error(`رابط المرفق غير صالح: ${name}`);
     try {
       const response = await fetch(url, {credentials: 'omit', signal: AbortSignal.timeout(30000)});
@@ -57,7 +71,7 @@ export async function prepareReportAttachments(attachments = []) {
       const blob = await response.blob();
       if (blob.size > MAX_BYTES) throw new ReportAttachmentError('حجم المرفق يتجاوز 10 ميغابايت.');
       const mime = await validateReportAttachment(blob, name);
-      if (mime !== 'application/pdf') pages.push({name, url, src: await imageData(new Blob([blob], {type: mime})), kind: 'image'});
+      if (mime !== 'application/pdf') pages.push({name, url, src: await imageData(new Blob([blob], {type: mime})), kind: 'image', ...layout});
       else {
         const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
         // Bundle the worker into a normal JS chunk. Shared hosting can reject
@@ -77,7 +91,7 @@ export async function prepareReportAttachments(attachments = []) {
             const canvas = window.document.createElement('canvas');
             canvas.width = Math.ceil(viewport.width); canvas.height = Math.ceil(viewport.height);
             await page.render({canvasContext: canvas.getContext('2d'), viewport, background: '#fff'}).promise;
-            pages.push({name, url, src: canvas.toDataURL('image/jpeg', 0.94), kind: 'pdf', page: i, total: document.numPages});
+            pages.push({name, url, src: canvas.toDataURL('image/jpeg', 0.94), kind: 'pdf', page: i, total: document.numPages, ...layout});
             canvas.width = canvas.height = 0;
             page.cleanup();
           }
