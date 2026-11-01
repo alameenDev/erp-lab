@@ -89,7 +89,10 @@ export function validReason(value) {
 }
 export async function requestMutationReason(policy,existing=null) {
   if(!policy)return null;
-  if(validReason(existing))return existing.trim();
+  // Delete screens already collect the reason in their own confirmation.
+  // A fresh edit/discount must prompt on EACH save, even if an old reason
+  // accidentally remains on a reusable Pinia form.
+  if(policy.action==='delete' && validReason(existing))return existing.trim();
   const {default:Swal}=await import('sweetalert2');
   const action=policy.action==='delete'?'الحذف':policy.action==='discount'?'الخصم':'التعديل';
   const {isConfirmed,value}=await Swal.fire({
@@ -97,6 +100,8 @@ export async function requestMutationReason(policy,existing=null) {
     text:'لا يمكن تنفيذ العملية بدون كتابة السبب. سيتم حفظه مع سجل التعديلات.',
     icon:policy.action==='delete'?'warning':'question',
     input:'textarea',
+    inputValue:validReason(existing)?existing.trim():'',
+    didOpen:()=>{const overlay=Swal.getContainer();if(overlay)overlay.style.zIndex='2147483000';},
     inputLabel:`اكتب سبب ${action} (إلزامي)`,
     inputPlaceholder:'اشرح سبب التغيير بشكل واضح، مثال: تصحيح خطأ في التسجيل بموافقة المشرف.',
     inputAttributes:{maxlength:'1000','aria-label':'سبب التعديل أو الحذف'},
