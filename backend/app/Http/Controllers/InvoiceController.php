@@ -2626,7 +2626,7 @@ class InvoiceController extends Controller
             'sample_collector_id_fk' => 'nullable|integer',
             'discount_type_id_fk' => 'nullable|integer',
             'discount' => 'nullable|integer',
-            'change_reason' => 'nullable|string|max:1000',
+            'change_reason' => 'nullable|string|max:4000',
             'show_result_date' => 'nullable|boolean',
             'show_patient_card_id' => 'nullable|boolean',
             'show_patient_pic' => 'nullable|boolean',
