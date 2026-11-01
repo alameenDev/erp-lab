@@ -33,7 +33,7 @@ try {
   await go('referrals'); await page.getByRole('button',{name:'إحالات المختبرات',exact:true}).click(); assert.ok((await page.locator('.owner-referral').innerText()).includes('مختبر محيل تجريبي'));
   await go('activity'); await page.locator('.owner-timeline-item').click(); await page.locator('.owner-diff').waitFor();
   await go('changes'); assert.ok((await page.locator('.owner-audit-kpis').innerText()).includes('فواتير محذوفة'));
-  await screenshot('changes-desktop'); await page.locator('.owner-timeline-item').click(); await page.locator('.owner-diff').first().waitFor(); await screenshot('change-detail');
+  await screenshot('changes-desktop'); await page.locator('.owner-timeline-item').first().click(); await page.locator('.owner-diff').first().waitFor(); await screenshot('change-detail');
   assert.match(await page.locator('.owner-audit-headline').innerText(),/حذف الفاتورة/);
   assert.ok((await page.locator('.owner-readable-audit').innerText()).includes('القيمة السابقة'),'before/after is explained in Arabic');
   await go('changes');
