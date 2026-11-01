@@ -274,9 +274,9 @@ class AuditTrail
         app(InvoiceChangeArchive::class)->capture($activity, true);
         // Catalog deletions are separate from invoice archives, but still
         // notify the authenticated owner with the explicit deletion reason.
-        if ($event === 'deleted' && $class === \App\Models\Test::class && $status < 400 &&
+        if (in_array($event, ['deleted','updated'], true) && $class === \App\Models\Test::class && $status < 400 &&
             $this->request->attributes->get('audited_change_reason')) {
-            app(OwnerNotifications::class)->catalogTestDeleted($activity, $tenant);
+            app(OwnerNotifications::class)->catalogTestChanged($activity, $tenant);
         }
     }
 
