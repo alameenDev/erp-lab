@@ -287,6 +287,22 @@ export async function optimizeMedicalReportPdfPage(source) {
     ctx.fillStyle = '#fff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0);
+    // Tiny glyphs and QR codes must remain lossless even if a JPEG would be
+    // smaller. Only dense photographic sheets qualify for lossy compression.
+    const step = Math.max(4, Math.ceil(Math.max(canvas.width, canvas.height) / 160));
+    const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    let printed = 0, examined = 0;
+    for (let y = 0; y < canvas.height; y += step) {
+      for (let x = 0; x < canvas.width; x += step) {
+        const i = (y * canvas.width + x) * 4;
+        if (Math.min(pixels.data[i], pixels.data[i + 1], pixels.data[i + 2]) < 230) printed++;
+        examined++;
+      }
+    }
+    if (printed / examined < .16) {
+      canvas.width = canvas.height = 0;
+      return { source, format: 'PNG' };
+    }
     const jpeg = canvas.toDataURL('image/jpeg', 0.96);
     canvas.width = canvas.height = 0;
     // Preserve lossless fine text unless a much smaller photographic format
