@@ -699,6 +699,17 @@
                   </div>
                 </div>
 
+                <!-- Mandatory audit explanation for deletion/price/discount edits. -->
+                <div class="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4" data-invoice-change-reason>
+                  <label for="invoice-change-reason" class="mb-2 block text-sm font-bold text-amber-900">
+                    سبب حذف تحليل أو تعديل السعر أو الخصم <span v-if="isEditMode" class="font-normal">(قبل حفظ التعديل)</span>
+                  </label>
+                  <textarea id="invoice-change-reason" v-model.trim="record.change_reason" rows="3" maxlength="1000"
+                    class="w-full rounded-lg border border-amber-300 bg-white p-3 text-sm text-slate-800 focus:border-amber-600 focus:outline-none"
+                    placeholder="مثال: تعديل السعر بموافقة مدير المختبر بسبب خطأ في التسعير، أو حذف تحليل مكرر بناءً على طلب المريض."></textarea>
+                  <p class="mt-2 text-xs leading-6 text-amber-800">إلزامي عند حذف تحليل من الفاتورة أو تغيير سعره أو الخصم أو إجمالي الفاتورة. سوف يُحفظ السبب مع سجل التعديلات ويظهر للمالك في إشعاره.</p>
+                </div>
+
                 <!-- Action Buttons -->
                 <div class="mt-5 flex flex-col sm:flex-row gap-3">
                   <button
