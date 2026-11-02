@@ -52,9 +52,13 @@ try {
   // Input scanning comparison preserves exact values, including zeros.
   await page.getByLabel('اضغط هنا وامسح الملصق بالقارئ').fill('1234567890');
   assert.ok((await page.locator('[role=status]').last().textContent()).includes('مطابق تماماً'));
-  // Extremely long names are reported and block printing instead of silently truncating.
+  // Long-name layout notes stay in the designer but cannot disable printing.
   await page.getByLabel('اسم للتجربة فقط').fill('اسم طويل جداً '.repeat(8));await page.waitForTimeout(150);
-  assert.equal(await page.getByRole('button',{name:'طباعة ملصق تجريبي',exact:true}).isDisabled(),true);
+  assert.equal(await page.getByRole('button',{name:'طباعة ملصق تجريبي',exact:true}).isDisabled(),false);
+  await page.evaluate(()=>{window.__printedHtml=null;});
+  await page.getByRole('button',{name:'طباعة ملصق تجريبي',exact:true}).click();
+  await page.waitForFunction(()=>!!window.__printedHtml);
+  assert.match(await page.evaluate(()=>window.__printedHtml),/1234567890/);
   await page.getByLabel('اسم للتجربة فقط').fill('أحمد محمد علي');
   await page.setViewportSize({width:390,height:844});await page.screenshot({path:`${out}/designer-mobile.png`,fullPage:true});
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth));
@@ -69,5 +73,5 @@ try {
   await page.waitForFunction(()=>document.querySelector('#generic-barcode svg text')?.textContent==='ABC123');
   assert.notEqual(await generic.locator('svg').getAttribute('width'),width);
   assert.deepEqual(errors,[]);
-  console.log('PASS: preset fit, keyboard/pointer positioning, real print iframe, two physical pages, scan comparison, overflow blocking and mobile width.');
+  console.log('PASS: preset fit, keyboard/pointer positioning, real print iframe, two physical pages, scan comparison, nonblocking layout notes and mobile width.');
 } finally { await browser?.close();await server.close(); }

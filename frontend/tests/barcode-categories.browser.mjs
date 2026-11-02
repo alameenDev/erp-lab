@@ -105,13 +105,29 @@ try {
  await page.getByRole('checkbox',{name:/اختيار نسخ الباركود حسب نوع العينة قبل الطباعة/}).uncheck();
  await page.locator('#open-b').click();await page.waitForFunction(()=>window.__prints.length===8);
  assert.deepEqual(await printedRegister(),{number:'#2',barcode:'0005678'});
- // Actual clipping failures surface in the dialog and do not request native print.
+ // Clipped text and overlapping/outside fields no longer suppress printing.
  await page.getByRole('checkbox',{name:/اختيار نسخ الباركود حسب نوع العينة قبل الطباعة/}).check();
- await page.evaluate(()=>{qa.config.value.elements.register_number.width=1;qa.registerNumbers[1]=99999;});
+ await page.evaluate(()=>{qa.config.value.elements.register_number.width=1;qa.config.value.elements.patient.y=qa.config.value.elements.barcode.y;qa.registerNumbers[1]=99999;});
  await page.locator('#open-a').click();await copies('EDTA').waitFor();
- await print().click();await dialog.getByRole('alert').waitFor();
- assert.match(await dialog.getByRole('alert').innerText(),/نص مقصوص/);
- assert.equal(await page.evaluate(()=>window.__prints.length),8);
+ await print().click();await page.waitForFunction(()=>window.__prints.length===9);
+ assert.equal(await dialog.getByRole('alert').count(),0);
+ assert.deepEqual(await printedRegister(),{number:'#99999',barcode:'0001234'});
+ await dialog.getByRole('button',{name:'إلغاء',exact:true}).click();
+ // A narrow barcode keeps every encoded bar instead of printing a width error.
+ await page.evaluate(()=>{qa.config.value.elements.barcode.width=10;});
+ await page.locator('#open-a').click();await copies('EDTA').waitFor();
+ await print().click();await page.waitForFunction(()=>window.__prints.length===10);
+ const narrow=await page.evaluate(()=>{
+  const doc=new DOMParser().parseFromString(window.__prints.at(-1),'text/html');
+  return {symbols:[...doc.querySelectorAll('.barcode-label svg')].map(svg=>({value:svg.getAttribute('aria-label'),bars:svg.querySelectorAll('rect').length,width:parseFloat(svg.getAttribute('width'))})),text:doc.body.textContent};
+ });
+ assert.equal(narrow.symbols.length,3);assert.ok(narrow.symbols.every(s=>s.value==='0001234'&&s.bars>10&&s.width<=10));
+ assert.doesNotMatch(narrow.text,/Increase barcode width|نص مقصوص/);
+ assert.equal(await dialog.getByRole('alert').count(),0);
+ await dialog.getByRole('button',{name:'إلغاء',exact:true}).click();
+ await page.getByRole('checkbox',{name:/اختيار نسخ الباركود حسب نوع العينة قبل الطباعة/}).uncheck();
+ await page.locator('#open-b').click();await page.waitForFunction(()=>window.__prints.length===11);
+ assert.equal((await printedRegister()).barcode,'0005678');
  assert.deepEqual(await page.evaluate(()=>window.__alerts||[]),[]);assert.deepEqual(errors,[]);
  console.log('PASS: sample-type copies, nested groups, sample separation, zero exclusion, exact printed count/barcode, setting toggle, saved invoice, reset, cancellation races, load errors, mobile width and keyboard close.');
 } catch(error) {if(page){console.log(await page.locator('body').innerText());await page.screenshot({path:`${out}/categories-failure.png`,fullPage:true});}throw error;}
