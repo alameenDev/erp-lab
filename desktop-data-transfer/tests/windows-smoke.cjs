@@ -148,6 +148,68 @@ async function runFixture(runtime, fixturePath, action, values = {}) {
   return result;
 }
 
+async function phpPreflightDiagnostic(bundle, dataPath, vault, label, extensionDirOverride) {
+  // Deliberately inspect only PHP/extension metadata. Never call phpinfo(),
+  // print environment variables, boot Laravel, or open a database here.
+  await fsp.mkdir(path.join(dataPath, 'tmp'), { recursive: true });
+  const diagnosticRuntime = new Runtime(paths(bundle, dataPath), vault);
+  const environment = Object.fromEntries(Object.entries(process.env).filter(([name]) =>
+    /^(SYSTEMROOT|WINDIR|COMSPEC|TEMP|TMP|PATH|PATHEXT|USERPROFILE|LOCALAPPDATA|APPDATA|PROCESSOR_ARCHITECTURE)$/i.test(name)));
+  const commonArgs = [...diagnosticRuntime.phpArgs(),
+    '-d', 'display_startup_errors=1', '-d', 'display_errors=stderr',
+    '-d', 'error_reporting=-1', '-d', 'log_errors=0'];
+  // Diagnostic only: cwd is bundle/backend, so this ASCII relative value
+  // isolates extension loading from an absolute Windows Unicode path.
+  if (extensionDirOverride) commonArgs.push('-d', 'extension_dir=' + extensionDirOverride);
+  async function capture(args) {
+    const child = spawn(diagnosticRuntime.p.php, args, {
+      cwd: diagnosticRuntime.p.backend, env: environment,
+      shell: false, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let stdout = '', stderr = '', timer;
+    child.stdout.on('data', chunk => { if (stdout.length < 32768) stdout += chunk.toString('utf8'); });
+    child.stderr.on('data', chunk => { if (stderr.length < 32768) stderr += chunk.toString('utf8'); });
+    const result = await new Promise(resolve => {
+      child.once('error', error => {
+        clearTimeout(timer);
+        resolve({ exitCode: null, stdout, stderr, spawnError: error.code || 'SPAWN_FAILED' });
+      });
+      child.once('close', exitCode => { clearTimeout(timer); resolve({ exitCode, stdout, stderr }); });
+      timer = setTimeout(() => { child.kill(); resolve({ exitCode: null, stdout, stderr, timedOut: true }); }, 30000);
+    });
+    clearTimeout(timer);
+    return result;
+  }
+  const phpCode = [
+    '$ext = ini_get("extension_dir");',
+    '$meta = [',
+    '"phpVersion" => PHP_VERSION,',
+    '"phpBinary" => PHP_BINARY,',
+    '"loadedIni" => php_ini_loaded_file(),',
+    '"scannedIniFiles" => php_ini_scanned_files(),',
+    '"extensionDir" => $ext,',
+    '"extensionDirExists" => is_dir($ext),',
+    '"pdoMysqlDllExists" => is_file($ext . "/php_pdo_mysql.dll"),',
+    '"pdoMysqlAlternativeDllExists" => is_file($ext . "/pdo_mysql.dll"),',
+    '"pdoLoaded" => extension_loaded("PDO"),',
+    '"pdoMysqlLoaded" => extension_loaded("pdo_mysql"),',
+    '"availableDrivers" => class_exists("PDO") ? PDO::getAvailableDrivers() : [],',
+    '];',
+    'echo json_encode($meta, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);',
+  ].join(' ');
+  const modules = await capture([...commonArgs, '-m']);
+  const metadata = await capture([...commonArgs, '-r', phpCode]);
+  let parsedMetadata;
+  try { parsedMetadata = JSON.parse(metadata.stdout); } catch { parsedMetadata = null; }
+  const result = {
+    label, bundle, phpArgs: commonArgs,
+    nodeMysqlDllExists: fs.existsSync(path.join(bundle, 'php', 'ext', 'php_pdo_mysql.dll')),
+    modules, metadata, parsedMetadata,
+  };
+  console.log('PHP preflight ' + label + ': ' + JSON.stringify(parsedMetadata || { metadataExitCode: metadata.exitCode }));
+  return result;
+}
+
 async function dumpDatabase(runtime, destination) {
   const filename = path.join(runtime.p.maria, 'mariadb-dump.exe');
   assert.ok(fs.existsSync(filename), 'Bundled mariadb-dump.exe is required for this test');
@@ -291,6 +353,11 @@ async function main() {
 
     const sourceVault = createEphemeralVault();
     vaults.push(sourceVault);
+    const phpDiagnostics = [];
+    phpDiagnostics.push(await phpPreflightDiagnostic(bundleInput, path.join(root, 'diagnostic-ascii'), sourceVault, 'original-ascii-bundle'));
+    phpDiagnostics.push(await phpPreflightDiagnostic(bundle, path.join(root, 'diagnostic-unicode'), sourceVault, 'copied-unicode-installation'));
+    phpDiagnostics.push(await phpPreflightDiagnostic(bundle, path.join(root, 'diagnostic-relative'), sourceVault, 'copied-unicode-relative-extensions', '../php/ext'));
+    await fsp.writeFile(path.join(outputDirectory, 'php-diagnostics.json'), JSON.stringify(phpDiagnostics, null, 2), 'utf8');
     const sourceRuntime = new Runtime(paths(bundle, path.join(root, 'synthetic-source')), sourceVault);
     runtimes.push(sourceRuntime);
     assert.equal((await sourceRuntime.init()).installed, false);
