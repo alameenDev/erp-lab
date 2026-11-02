@@ -116,9 +116,18 @@ Section "التثبيت ونقل البيانات" MainSection
   File /oname=DesktopSetup.exe "${DESKTOP_SETUP}"
   Delete "$PLUGINSDIR\result.ini"
   DetailPrint "فحص النسخة الموجودة وتجهيز برنامج المختبر الرقمي..."
+  ; Native NSIS System.dll in PLUGINSDIR must not shadow .NET compiler references.
+  SetOutPath "$SYSDIR"
   ClearErrors
   ExecWait '"$PowerShell" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\Bootstrap.ps1" -Mode Install -InstallRoot "$INSTDIR" -DesktopSetup "$PLUGINSDIR\DesktopSetup.exe" -ExpectedSetupHash "${DESKTOP_SETUP_SHA256}" -ResultFile "$PLUGINSDIR\result.ini"' $ExitCode
   IfErrors bootstrap_launch_failed
+  !ifdef SYNTHETIC_DIAGNOSTICS
+    ReadEnvStr $0 "DLM_TEST_STATUS_FILE"
+    StrCmp $0 "" bootstrap_diagnostic_done
+    IfFileExists "$PLUGINSDIR\result.ini" 0 bootstrap_diagnostic_done
+    CopyFiles /SILENT "$PLUGINSDIR\result.ini" "$0"
+    bootstrap_diagnostic_done:
+  !endif
   ReadINIStr $ResultCode "$PLUGINSDIR\result.ini" "Result" "Code"
   StrCmp $ExitCode "0" 0 bootstrap_failed
   StrCmp $ResultCode "OK" 0 bootstrap_failed
@@ -201,6 +210,7 @@ Function un.onInit
   un_guard:
     InitPluginsDir
     Delete "$PLUGINSDIR\result.ini"
+    SetOutPath "$SYSDIR"
     ClearErrors
     ExecWait '"$PowerShell" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\InstallerSupport\Bootstrap.ps1" -Mode CheckUninstall -InstallRoot "$INSTDIR" -ResultFile "$PLUGINSDIR\result.ini"' $ExitCode
     IfErrors un_guard_failed

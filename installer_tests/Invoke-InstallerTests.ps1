@@ -191,13 +191,25 @@ $liveSentinel = Join-Path $liveData 'synthetic-preserve-me.txt'
 [IO.File]::WriteAllText($liveSentinel, 'Synthetic existing user data must remain unchanged.')
 $liveHash = File-Hash $liveSentinel
 $previousChildLog = $env:DLM_TEST_CHILD_LOG
+$previousStatusFile = $env:DLM_TEST_STATUS_FILE
 $runningProbe = $null
 $checks = New-Object System.Collections.Generic.List[string]
 try {
+    $env:DLM_TEST_STATUS_FILE = Join-Path $root 'wrapper-status.ini'
     $env:DLM_TEST_CHILD_LOG = Join-Path $root 'failed-child.log'
     $failedTarget = Join-Path $root 'Failed Child Target'
     $exitCode = Run-Executable $FailInstaller ('/S /D=' + $failedTarget)
     if (-not [IO.File]::Exists($env:DLM_TEST_CHILD_LOG)) {
+        if ([IO.File]::Exists($env:DLM_TEST_STATUS_FILE)) {
+            Write-Host 'Actual wrapper Bootstrap result:'
+            foreach ($line in [IO.File]::ReadAllLines($env:DLM_TEST_STATUS_FILE)) {
+                if ($line -match '^\[Result\]$|^(Code|Reused|FailureLine|ErrorType)=[A-Za-z0-9_.-]*$') {
+                    Write-Host $line
+                }
+            }
+        } else {
+            Write-Host 'Actual wrapper Bootstrap result file absent.'
+        }
         Show-SyntheticBootstrapDiagnostic $FailInstaller $root
         throw ('Failure fixture was not invoked (wrapper exit ' + $exitCode + ')')
     }
@@ -373,6 +385,7 @@ try {
     throw
 } finally {
     $env:DLM_TEST_CHILD_LOG = $previousChildLog
+    $env:DLM_TEST_STATUS_FILE = $previousStatusFile
     if ($null -ne $runningProbe) {
         try { if (-not $runningProbe.HasExited) { $runningProbe.Kill(); [void]$runningProbe.WaitForExit(10000) } } catch {}
         $runningProbe.Dispose()

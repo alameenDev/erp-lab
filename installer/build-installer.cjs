@@ -103,6 +103,9 @@ async function main() {
       TOOL_PAYLOAD: payload, PAYLOAD_INCLUDE: include, OUTPUT_FILE: output,
       ICON_FILE: icon, BOOTSTRAP_SCRIPT: path.join(__dirname, 'Bootstrap.ps1'),
     };
+    // Diagnostics are compiled only for a generated synthetic payload.
+    const manifest = JSON.parse(await fsp.readFile(path.join(payload, 'data', 'manifest.json'), 'utf8'));
+    if (manifest.source?.synthetic === true) definitions.SYNTHETIC_DIAGNOSTICS = '1';
     const args = [prefix + 'V2', ...Object.entries(definitions).map(([key, value]) => prefix + 'D' + key + '=' + value), path.join(__dirname, 'Setup.nsi')];
     const child = spawnSync(compiler, args, { stdio: 'inherit', env: process.env, windowsHide: true });
     if (child.error) throw child.error;
