@@ -33,7 +33,11 @@ jobs:
         working-directory: desktop-data-transfer
         run: npm install --ignore-scripts --no-audit --no-fund
       - name: Download pinned Windows database and PHP runtimes
-        run: ./desktop/scripts/download-runtime.ps1
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory desktop/.downloads -Force | Out-Null
+          Invoke-WebRequest 'https://downloads.php.net/~windows/releases/archives/php-8.4.26-nts-Win32-vs17-x64.zip' -OutFile desktop/.downloads/php.zip
+          ./desktop/scripts/download-runtime.ps1
       - name: Stage backend for the transfer test
         shell: pwsh
         run: |
