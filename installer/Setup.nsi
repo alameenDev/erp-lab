@@ -121,6 +121,7 @@ Section "التثبيت ونقل البيانات" MainSection
   IfErrors bootstrap_launch_failed
   ReadINIStr $ResultCode "$PLUGINSDIR\result.ini" "Result" "Code"
   StrCmp $ExitCode "0" 0 bootstrap_failed
+  StrCmp $ResultCode "OK" 0 bootstrap_failed
   ReadINIStr $DesktopDir "$PLUGINSDIR\result.ini" "Result" "DesktopDir"
   StrCmp $DesktopDir "" bootstrap_failed
   IfFileExists "$DesktopDir\Digital Lab Desktop.exe" desktop_ready bootstrap_failed
@@ -199,7 +200,9 @@ Function un.onInit
     ClearErrors
     ExecWait '"$PowerShell" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\InstallerSupport\Bootstrap.ps1" -Mode CheckUninstall -InstallRoot "$INSTDIR" -ResultFile "$PLUGINSDIR\result.ini"' $ExitCode
     IfErrors un_guard_failed
-    StrCmp $ExitCode "0" un_ready
+    StrCmp $ExitCode "0" 0 un_guard_failed
+    ReadINIStr $ResultCode "$PLUGINSDIR\result.ini" "Result" "Code"
+    StrCmp $ResultCode "READY_TO_REMOVE" un_ready
   un_guard_failed:
     MessageBox MB_OK|MB_ICONSTOP "تعذر إزالة أداة النقل الآن. أغلق نافذتها وانتظر انتهاء أي عملية نقل ثم أعد المحاولة." /SD IDOK
     SetErrorLevel 30
