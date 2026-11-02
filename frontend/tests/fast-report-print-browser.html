@@ -1,0 +1,75 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Experimental report printing</title></head><body><div id="app"></div><script type="module">
+import {createApp,h,ref,nextTick} from 'vue';
+import {createPinia} from 'pinia';
+import {createRouter,createMemoryHistory} from 'vue-router';
+import PrimeVue from 'primevue/config';
+import Mixins from '/src/utils/mixins';
+import Editor from '/src/views/medical_reports/update-result.vue';
+import List from '/src/views/medical_reports/index.vue';
+import {useinvoicesStore} from '/src/store/modules/invoices';
+import {useTemplatesStore} from '/src/store/modules/template';
+import {useresultStatusStore} from '/src/store/modules/result-status';
+import {useLabSettingsStore} from '/src/store/modules/labSettings';
+import {useContractsStore} from '/src/store/modules/contract';
+import {useAuthStore} from '/src/store/modules/auth';
+import {$http} from '/src/plugins/axios';
+import {toasts} from '/src/composables/useToast';
+import '/src/assets/main.css';
+const params=new URLSearchParams(location.search), editor=params.get('entry')==='editor';
+localStorage.setItem('token','synthetic-fast-print');localStorage.setItem('locale','ar');localStorage.setItem('user',JSON.stringify({role_id:1}));
+localStorage.removeItem('digital-lab-print-v1');
+const clone=x=>JSON.parse(JSON.stringify(x));
+const sample={id:14,lab_id_fk:1,barcode:'FAST-14',is_done:true,patient:{id:1,name:'مريض اختبار الطباعة',age:35,age_unit:'Years',gender:'Male',phone:'07700000000',code:'FAST-14'},registration_date:'2026-10-01T09:00:00',tests:[],cultures:[],packages:[],attachments:[],test_groups:[{group_name:'Complete group',tests:Array.from({length:params.has('long')?60:3},(_,i)=>({test_id_fk:i+1,name:'Analysis '+(i+1),result:String(i+1),unit:'mg/dL',result_status_id_fk:2,is_done:true,test_reference_ranges:[]}))}]};
+const bg=document.createElement('canvas');bg.width=794;bg.height=1123;const ctx=bg.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,794,1123);ctx.fillStyle='#007c83';ctx.fillRect(0,0,794,80);ctx.fillRect(0,1080,794,43);
+const settings={report_template:params.get('template')||'modern',print_black_white:params.has('mono'),report_form_default:params.has('form'),show_test_names:true,show_categories:true,show_status:true,show_last_result:false,print_margins:{top:35,bottom:25,left:12,right:18},report_background:bg.toDataURL(),patient_header_config:{name_size:18,info_size:12,qr_size:70},print_table_config:{header_font_size:12,body_font_size:12,cell_padding:6}};
+const fixture=window.fixture={sample,outputs:[],actions:[],toasts,files:new Map(),holdBalance:false};
+const nativeFetch=window.fetch.bind(window);
+window.fetch=async(input,options)=>{
+ const url=String(input);
+ if(url.includes('/patient-balance')){
+  if(fixture.holdBalance)await new Promise(r=>fixture.releaseBalance=r);
+  return Response.json({invoice_id:14,outstanding_amount:25000,current_invoice_amount:10000,other_invoices_amount:15000,unpaid_invoice_count:2});
+ }
+ const file=fixture.files.get(new URL(url,location.href).pathname);
+ if(file)return new Response(file);
+ return nativeFetch(input,options);
+};
+$http.defaults.adapter=async config=>{
+ let data;
+ if(config.url.includes('previous-results'))data={};
+ else if(config.url==='/portal/generate')data={url:location.origin+'/portal/'+'a'.repeat(48)};
+ else if(config.url.includes('update-result'))data=clone(sample);
+ else throw new Error('Unexpected API '+config.url);
+ return {data,status:200,statusText:'OK',headers:{},config};
+};
+const app=createApp({setup(){
+ const parent=ref(null),store=useinvoicesStore();fixture.store=store;
+ store.Getinvoices=async()=>{store.invoices=[clone(sample)];return store.invoices;};
+ store.GetinvoicesById=async()=>{store.printRecord=clone(sample);return store.printRecord;};
+ store.recordReportAction=async(id,action,form)=>{if(fixture.failStatus)throw new Error('Status failure');fixture.actions.push({id,action,form});};
+ useAuthStore().havePermission=()=>true;
+ useContractsStore().GetRecords=async()=>{};
+ useTemplatesStore().GetTemplates=async()=>{};
+ const status=useresultStatusStore();status.resultStatus=[{value:2,label:'Normal'}];status.GetresultStatus=async()=>{};
+ const lab=useLabSettingsStore();lab.settings=settings;lab.GetSettings=async()=>{};
+ fixture.open=async()=>{
+  const state=parent.value.$.setupState;
+  if(editor)await state.openReportActions();else await state.openprintResultTemplate(sample);
+  await nextTick();
+  const report=state.printResultRef;
+  if(!fixture.instrumented){
+   const prepare=report.prepareReport;
+   report.prepareReport=async options=>{
+    const start=performance.now(),output=await prepare(options);
+    fixture.outputs.push({output,options,ms:performance.now()-start});return output;
+   };fixture.instrumented=true;
+  }
+ };
+ fixture.state=()=>parent.value.$.setupState;
+ fixture.prepare=options=>parent.value.$.setupState.printResultRef.prepareReport(options);
+ return()=>h('main',[h('button',{id:'open-report',onClick:fixture.open},'فتح خيارات الاختبار'),h(editor?Editor:List,{ref:parent})]);
+}});
+fixture.unmount=()=>app.unmount();
+const router=createRouter({history:createMemoryHistory(),routes:[{path:'/fixture/:id?',component:{render:()=>null}}]});
+app.use(createPinia()).use(PrimeVue).use(router).mixin(Mixins);await router.push(editor?'/fixture/14':'/fixture');await router.isReady();app.mount('#app');
+</script></body></html>

@@ -126,7 +126,8 @@ function execute(nextAction = action.value) {
         </div>
         <div class="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-white px-5 py-4 sm:px-7">
           <button type="button" class="rounded-lg border border-slate-200 px-5 py-2.5 text-sm" @click="close">إلغاء</button>
-          <div class="flex gap-2">
+          <div class="flex flex-wrap gap-2">
+            <button type="button" :disabled="!selectedCount || busy || debtChecking" class="rounded-lg border border-teal-600 px-5 py-2.5 text-sm font-semibold text-teal-700 disabled:opacity-50" @click="execute('print-fast')">طباعة سريعة — تجريبية</button>
             <button type="button" :disabled="!selectedCount || busy || debtChecking" class="rounded-lg border border-blue-600 px-5 py-2.5 text-sm font-semibold text-blue-700 disabled:opacity-50" @click="execute('preview')">معاينة التقرير</button>
             <button type="button" :disabled="!selectedCount || busy || debtChecking || (sharing(action) && (!phoneValid || !canShare))" class="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-50" @click="execute()">{{ busy ? 'جاري تجهيز التقرير...' : 'تنفيذ' }}</button>
           </div>

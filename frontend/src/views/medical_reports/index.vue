@@ -1,5 +1,6 @@
 <script setup>
 import { selectReportItems } from "@/utils/reportItemSelection";
+import { useFastReportPrint } from '@/composables/useFastReportPrint';
 import { executeReportAction, reportActionStatusError } from "@/utils/executeReportAction";
 import ReportActionStatus from "@/components/ReportActionStatus.vue";
 import { reportActionStatus } from "@/utils/reportActionStatus";
@@ -279,6 +280,8 @@ const downloadAsPdf = async (withBg, output = "download") => {
   }
 };
 
+const executeFastPrint = useFastReportPrint();
+
 const handlePrintSelection = async (selection) => {
   if (reportActionBusy.value || !printRecord.value) return;
   reportActionBusy.value = true;
@@ -297,13 +300,18 @@ const handlePrintSelection = async (selection) => {
   try {
     Object.assign(printRecord.value, selectReportItems(printRecord.value, selection));
     await nextTick();
-    await new Promise((r) => setTimeout(r, 200));
+    if (selection.action !== 'print-fast') await new Promise((r) => setTimeout(r, 200));
     const withBg = selection.withBackground && Boolean(reportBackground.value);
     if (["print", "print-download"].includes(selection.action) && !printTab) throw new Error('اسمح بالنوافذ المنبثقة للطباعة.');
-    const result = await downloadAsPdf(withBg, "blob");
+    const result = selection.action === 'print-fast'
+      ? await printResultRef.value.prepareReport({ withBackground: withBg, pagesOnly: true })
+      : await downloadAsPdf(withBg, "blob");
     if (!result) { printTab?.close(); previewTab?.close(); whatsappTab?.close(); return; }
 
-    if (selection.action === 'preview') {
+    if (selection.action === 'print-fast') {
+      const { statusError } = await executeFastPrint({ output: result, record: printRecord.value, store: invoicesStore });
+      if (statusError) toast.error(reportActionStatusError);
+    } else if (selection.action === 'preview') {
       const url = URL.createObjectURL(result.blob);
       if (previewTab) previewTab.location.href = url; else window.open(url, '_blank');
       setTimeout(() => URL.revokeObjectURL(url), 120000);
