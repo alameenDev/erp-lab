@@ -1,0 +1,107 @@
+name: Offline installer - Windows validation
+on:
+  push:
+    branches: ['codex/offline-installer-*']
+concurrency:
+  group: offline-installer-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+  actions: read
+jobs:
+  windows-installer:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install NSIS compiler
+        shell: pwsh
+        run: |
+          $compiler = Join-Path ${env:ProgramFiles(x86)} 'NSIS\makensis.exe'
+          if (-not (Test-Path -LiteralPath $compiler)) {
+            choco install nsis --version=3.09 -y --no-progress
+            if ($LASTEXITCODE -ne 0) { throw 'NSIS installation failed' }
+          }
+          if (-not (Test-Path -LiteralPath $compiler)) { throw 'NSIS compiler missing' }
+          & $compiler /VERSION
+          if ($LASTEXITCODE -ne 0) { throw 'NSIS compiler did not start' }
+          "DLM_NSIS=$compiler" >> $env:GITHUB_ENV
+      - name: Download the unchanged original Desktop V1 installer
+        uses: actions/download-artifact@v4
+        with:
+          name: Digital-Lab-Desktop-V1-Windows-Setup
+          run-id: 39249031999
+          github-token: ${{ github.token }}
+          path: installer_tests/original-setup
+      - name: Verify original installer identity
+        shell: pwsh
+        run: |
+          $files = @(Get-ChildItem installer_tests/original-setup -Recurse -File -Filter '*.exe')
+          if ($files.Count -ne 1) { throw 'Expected exactly one original installer executable' }
+          $expected = '04aaf10283941b45a6ee2c6e624905ff67981c90fcf7736424e57d06d81e89d7'
+          if ((Get-FileHash -LiteralPath $files[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) {
+            throw 'Original Desktop installer SHA256 mismatch'
+          }
+          "DLM_ORIGINAL_SETUP=$($files[0].FullName)" >> $env:GITHUB_ENV
+      - name: Install only the declared transfer dependencies
+        working-directory: desktop-data-transfer
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Check Windows PowerShell 5.1 syntax
+        shell: powershell
+        run: |
+          foreach ($file in @('installer/Bootstrap.ps1', 'installer_tests/Invoke-InstallerTests.ps1', 'desktop-data-transfer/Transfer-Wizard.ps1')) {
+            $tokens = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile((Join-Path $pwd $file), [ref]$tokens, [ref]$errors)
+            if ($errors.Count -gt 0) { $errors | Format-List; throw ('PowerShell syntax failed: ' + $file) }
+          }
+      - name: Build generated synthetic payload and three installer variants
+        shell: pwsh
+        run: |
+          $fixtures = Join-Path $env:RUNNER_TEMP 'DLM-Synthetic-Installer-Build'
+          New-Item -ItemType Directory -Path $fixtures | Out-Null
+          $payload = Join-Path $fixtures 'payload'
+          node installer_tests/build-synthetic-payload.cjs desktop-data-transfer $payload
+          if ($LASTEXITCODE -ne 0) { throw 'Synthetic payload assembly failed' }
+          $failChild = Join-Path $fixtures 'child-failure-42.exe'
+          $falseChild = Join-Path $fixtures 'child-false-success-0.exe'
+          & $env:DLM_NSIS /V2 "/DOUTPUT_FILE=$failChild" /DEXIT_CODE=42 installer_tests/child-failure.nsi
+          if ($LASTEXITCODE -ne 0) { throw 'Failure fixture compilation failed' }
+          & $env:DLM_NSIS /V2 "/DOUTPUT_FILE=$falseChild" /DEXIT_CODE=0 installer_tests/child-failure.nsi
+          if ($LASTEXITCODE -ne 0) { throw 'False-success fixture compilation failed' }
+          $variants = @(
+            @{ name = 'success'; child = $env:DLM_ORIGINAL_SETUP },
+            @{ name = 'fail42'; child = $failChild },
+            @{ name = 'false0'; child = $falseChild }
+          )
+          foreach ($variant in $variants) {
+            $output = Join-Path $fixtures ($variant.name + '.exe')
+            node installer/build-installer.cjs --desktop-setup $variant.child --payload $payload --output $output --makensis $env:DLM_NSIS --icon desktop/assets/icon.ico
+            if ($LASTEXITCODE -ne 0) { throw ('Wrapper compilation failed: ' + $variant.name) }
+          }
+          "DLM_INSTALLER_FIXTURES=$fixtures" >> $env:GITHUB_ENV
+      - name: Test actual Windows installation, reuse, process protection and uninstall
+        shell: pwsh
+        run: |
+          $fixtures = $env:DLM_INSTALLER_FIXTURES
+          ./installer_tests/Invoke-InstallerTests.ps1 `
+            -SuccessInstaller (Join-Path $fixtures 'success.exe') `
+            -FailInstaller (Join-Path $fixtures 'fail42.exe') `
+            -FalseSuccessInstaller (Join-Path $fixtures 'false0.exe') `
+            -PayloadDirectory (Join-Path $fixtures 'payload') `
+            -PayloadHashes (Join-Path $fixtures 'payload.hashes.json') `
+            -OutputDirectory (Join-Path $pwd 'installer_tests/qa')
+      - name: Upload synthetic validation evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: offline-installer-windows-validation
+          path: |
+            installer_tests/qa/*.png
+            installer_tests/qa/installer-acceptance.json
+            installer_tests/qa/installer-failure.txt
+          if-no-files-found: warn
+          retention-days: 7

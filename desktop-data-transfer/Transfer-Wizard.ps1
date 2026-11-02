@@ -3,6 +3,7 @@
 # The converter receives one JSON document through standard input.
 
 param(
+    [string]$InstallationPath,
     [switch]$UiSmokeTest,
     [string]$SmokeFixtureRoot,
     [string]$SmokeOutputPath
@@ -103,6 +104,17 @@ try {
 }
 
 function Find-DesktopInstallation {
+    # The installer supplies the exact validated installation, including a reused copy.
+    # Fall back to discovery when this optional hint is absent or no longer valid.
+    if ($InstallationPath -and [IO.Path]::IsPathRooted($InstallationPath)) {
+        try {
+            $preferred = [IO.Path]::GetFullPath($InstallationPath)
+            if ([IO.File]::Exists((Join-Path $preferred 'Digital Lab Desktop.exe')) -and
+                [IO.File]::Exists((Join-Path $preferred 'resources\bundle\build.json'))) {
+                return $preferred
+            }
+        } catch {}
+    }
     $candidates = New-Object System.Collections.Generic.List[string]
     foreach ($key in @(
         'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
