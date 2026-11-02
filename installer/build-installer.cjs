@@ -101,7 +101,7 @@ async function main() {
     const definitions = {
       DESKTOP_SETUP: setup, DESKTOP_SETUP_SHA256: setupHash,
       TOOL_PAYLOAD: payload, PAYLOAD_INCLUDE: include, OUTPUT_FILE: output,
-      ICON_FILE: icon,
+      ICON_FILE: icon, BOOTSTRAP_SCRIPT: path.join(__dirname, 'Bootstrap.ps1'),
     };
     const args = [prefix + 'V2', ...Object.entries(definitions).map(([key, value]) => prefix + 'D' + key + '=' + value), path.join(__dirname, 'Setup.nsi')];
     const child = spawnSync(compiler, args, { stdio: 'inherit', env: process.env, windowsHide: true });

@@ -112,7 +112,7 @@ Section "التثبيت ونقل البيانات" MainSection
   SetRegView 64
   InitPluginsDir
   SetOutPath "$PLUGINSDIR"
-  File /oname=Bootstrap.ps1 "${__FILEDIR__}/Bootstrap.ps1"
+  File /oname=Bootstrap.ps1 "${BOOTSTRAP_SCRIPT}"
   File /oname=DesktopSetup.exe "${DESKTOP_SETUP}"
   Delete "$PLUGINSDIR\result.ini"
   DetailPrint "فحص النسخة الموجودة وتجهيز برنامج المختبر الرقمي..."
@@ -138,7 +138,7 @@ Section "التثبيت ونقل البيانات" MainSection
   !insertmacro InstallPayload
   IfErrors payload_failed
   SetOutPath "$INSTDIR\InstallerSupport"
-  File /oname=Bootstrap.ps1 "${__FILEDIR__}/Bootstrap.ps1"
+  File /oname=Bootstrap.ps1 "${BOOTSTRAP_SCRIPT}"
   IfErrors payload_failed
   SetOutPath "$INSTDIR"
   File /oname=DigitalLab.ico "${ICON_FILE}"
