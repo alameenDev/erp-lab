@@ -148,7 +148,7 @@ async function runFixture(runtime, fixturePath, action, values = {}) {
   return result;
 }
 
-async function phpPreflightDiagnostic(bundle, dataPath, vault, label, extensionDirOverride) {
+async function phpPreflightDiagnostic(bundle, dataPath, vault, label, extensionDirOverride, relativeIni = false) {
   // Deliberately inspect only PHP/extension metadata. Never call phpinfo(),
   // print environment variables, boot Laravel, or open a database here.
   await fsp.mkdir(path.join(dataPath, 'tmp'), { recursive: true });
@@ -158,6 +158,7 @@ async function phpPreflightDiagnostic(bundle, dataPath, vault, label, extensionD
   const commonArgs = [...diagnosticRuntime.phpArgs(),
     '-d', 'display_startup_errors=1', '-d', 'display_errors=stderr',
     '-d', 'error_reporting=-1', '-d', 'log_errors=0'];
+  if (relativeIni) commonArgs[1] = '../php/php.ini';
   // Diagnostic only: cwd is bundle/backend, so this ASCII relative value
   // isolates extension loading from an absolute Windows Unicode path.
   if (extensionDirOverride) commonArgs.push('-d', 'extension_dir=' + extensionDirOverride);
@@ -357,6 +358,7 @@ async function main() {
     phpDiagnostics.push(await phpPreflightDiagnostic(bundleInput, path.join(root, 'diagnostic-ascii'), sourceVault, 'original-ascii-bundle'));
     phpDiagnostics.push(await phpPreflightDiagnostic(bundle, path.join(root, 'diagnostic-unicode'), sourceVault, 'copied-unicode-installation'));
     phpDiagnostics.push(await phpPreflightDiagnostic(bundle, path.join(root, 'diagnostic-relative'), sourceVault, 'copied-unicode-relative-extensions', '../php/ext'));
+    phpDiagnostics.push(await phpPreflightDiagnostic(bundle, path.join(root, 'diagnostic-relative-all'), sourceVault, 'copied-unicode-relative-ini-and-extensions', '../php/ext', true));
     await fsp.writeFile(path.join(outputDirectory, 'php-diagnostics.json'), JSON.stringify(phpDiagnostics, null, 2), 'utf8');
     const sourceRuntime = new Runtime(paths(bundle, path.join(root, 'synthetic-source')), sourceVault);
     runtimes.push(sourceRuntime);

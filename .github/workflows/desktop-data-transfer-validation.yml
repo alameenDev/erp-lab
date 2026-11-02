@@ -2,6 +2,9 @@ name: Desktop data transfer - Windows validation
 on:
   push:
     branches: ['codex/offline-data-transfer-*']
+concurrency:
+  group: desktop-transfer-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
