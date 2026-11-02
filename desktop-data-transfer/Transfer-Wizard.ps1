@@ -206,7 +206,7 @@ $script:StatusLabel.Text = 'جاهز. اختر مسار البرنامج ومك�
 $script:StatusLabel.TextAlign = 'MiddleRight'
 $script:DetailsLabel = New-Object System.Windows.Forms.Label
 $script:DetailsLabel.Location = [Drawing.Point]::new(24, 119)
-$script:DetailsLabel.Size = [Drawing.Size]::new(800, 78)
+$script:DetailsLabel.Size = [Drawing.Size]::new(800, 90)
 $script:DetailsLabel.Anchor = 'Top,Left,Right'
 $script:DetailsLabel.Text = 'تنشئ الأداة ملفاً مستقلاً بصيغة .dlbackup. بعد اكتماله، تستعيده من برنامج الدسكتوب.' + $script:NewLine + 'قد تستغرق العملية عدة دقائق بسبب حجم البيانات.'
 $script:DetailsLabel.ForeColor = $script:Colors.Muted
@@ -573,9 +573,10 @@ function Finish-Transfer {
         $script:ProgressBar.Value = 100
         $script:StatusLabel.ForeColor = $script:Colors.Accent
         $script:StatusLabel.Text = 'اكتمل إنشاء ملف الاستعادة وفحصه.'
-        $script:DetailsLabel.Text = 'افتح الدسكتوب واختر:' + $script:NewLine +
-            'البرنامج ← إعداد النسخة والنسخ الاحتياطي ← استعادة من ملف' + $script:NewLine +
-            'ثم اختر الملف الجديد وأدخل كلمة سر ملف الاستعادة.'
+        $script:DetailsLabel.Text = 'افتح الدسكتوب: البرنامج ← إعداد النسخة والنسخ الاحتياطي.' + $script:NewLine +
+            'اكتب كلمة سر الملف في خانة «كلمة سر النسخة الاحتياطية» أولاً.' + $script:NewLine +
+            'اضغط «استعادة من ملف»، واختر الملف الجديد ثم أكّد الاستعادة.' + $script:NewLine +
+            'بعد اكتمال الاستعادة اضغط «فتح البرنامج».'
         $warnings = New-Object System.Collections.Generic.List[string]
         foreach ($warning in @(Get-PropertyValue $result 'warnings' @())) {
             $code = Get-SafeCode $warning

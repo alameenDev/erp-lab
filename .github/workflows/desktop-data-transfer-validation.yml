@@ -29,8 +29,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Electron dependencies failed' }
           node desktop/node_modules/electron/install.js
           if ($LASTEXITCODE -ne 0) { throw 'Electron runtime failed' }
-          npm install --prefix desktop-data-transfer --ignore-scripts --no-audit --no-fund
-          if ($LASTEXITCODE -ne 0) { throw 'Transfer dependencies failed' }
+      - name: Install transfer libraries
+        working-directory: desktop-data-transfer
+        run: npm install --ignore-scripts --no-audit --no-fund
       - name: Download pinned Windows database and PHP runtimes
         run: ./desktop/scripts/download-runtime.ps1
       - name: Stage backend for the transfer test
@@ -52,10 +53,11 @@ jobs:
           php -l desktop-data-transfer/src/postprocess.php
           if ($LASTEXITCODE -ne 0) { throw 'PHP media syntax failed' }
       - name: Test corruption handling and subprocess failures
+        working-directory: desktop-data-transfer
         shell: pwsh
         run: |
           $env:DL_PHP_BIN = (Get-Command php.exe).Source
-          npm test --prefix desktop-data-transfer
+          npm test
           if ($LASTEXITCODE -ne 0) { throw 'Transfer unit tests failed' }
       - name: Convert and restore synthetic data using actual Windows runtimes
         shell: pwsh
