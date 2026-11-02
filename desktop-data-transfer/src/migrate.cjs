@@ -18,7 +18,11 @@ const {
 
 const VALIDATOR = path.join(__dirname, 'validate_import.php');
 const MAX_MANIFEST_BYTES = 8 * 1024 * 1024;
+// Extensions enabled by V1's original download-runtime.ps1 / bundled php.ini.
+const REQUIRED_PHP_EXTENSIONS = ['curl', 'fileinfo', 'gd', 'intl', 'mbstring', 'exif',
+  'mysqli', 'openssl', 'pdo_mysql', 'sodium', 'zip'];
 const MESSAGES = {
+  PHP_RUNTIME_NOT_READY: 'تعذر تحميل إعدادات PHP أو إضافاته من نسخة البرنامج المثبتة. أعد تثبيت Digital Lab Desktop في مسار بأحرف إنجليزية مثل C:\\DigitalLabDesktop ثم أعد المحاولة. إذا كان مسار حساب Windows أو المجلد المؤقت بالعربية، استخدم حساب Windows باسم إنجليزي. تحقق أيضاً من اكتمال ملفات التثبيت.',
   SOURCE_KEY_REQUIRED: 'تحتوي النسخة على إعدادات مشفرة؛ أدخل APP_KEY الأصلي محلياً لإكمال النقل.',
   ENCRYPTED_DATA_INVALID: 'لم ينجح التحقق من الإعدادات المشفرة؛ تأكد من APP_KEY الأصلي. لم تعتمد البيانات.',
   ENCRYPTED_COLUMN_UNDECLARED: 'يوجد حقل مشفر غير موصوف في حزمة النقل؛ يجب مراجعة ملف الوصف.',
@@ -88,6 +92,55 @@ async function validateInstallation(installationDir, signal) {
     fail('DATABASE_VERSION_MISMATCH', 'إصدار محرك قاعدة البيانات لا يطابق صيغة النسخة الاحتياطية.');
   }
   return { bundle, build };
+}
+
+async function validatePhpRuntime(runtime, signal) {
+  // Use the unmodified Desktop startup arguments: a converter-only workaround
+  // could produce a backup which the installed application cannot open.
+  const metadataCode = 'echo json_encode(['
+    + '"loadedIni" => php_ini_loaded_file(),'
+    + '"extensionDir" => ini_get("extension_dir"),'
+    + '"sysTempDir" => ini_get("sys_temp_dir"),'
+    + '"effectiveTempDir" => sys_get_temp_dir(),'
+    + '"uploadTmpDir" => ini_get("upload_tmp_dir"),'
+    + '"extensions" => get_loaded_extensions()'
+    + '], JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);';
+  // Runtime.environment() requires secrets created by init(); this check runs
+  // before those secrets or a database exist and inherits only Windows basics.
+  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) =>
+    /^(SYSTEMROOT|WINDIR|COMSPEC|TEMP|TMP|PATH|PATHEXT|USERPROFILE|LOCALAPPDATA|APPDATA|PROCESSOR_ARCHITECTURE)$/i.test(key)));
+  try {
+    const output = await runProcess(runtime.p.php, [...runtime.phpArgs(), '-r', metadataCode], {
+      env, cwd: runtime.p.backend, signal, timeout: 30000, outputLimit: 65536,
+      errorCode: 'PHP_RUNTIME_NOT_READY',
+    });
+    const metadata = JSON.parse(output);
+    if (!isRecord(metadata) || !Array.isArray(metadata.extensions)
+        || !metadata.extensions.every(value => typeof value === 'string')) throw new Error();
+    const loaded = new Set(metadata.extensions.map(value => value.toLowerCase()));
+    if (!REQUIRED_PHP_EXTENSIONS.every(value => loaded.has(value))) throw new Error();
+    const temp = path.join(runtime.p.data, 'tmp');
+    const expected = {
+      loadedIni: path.join(runtime.p.bundle, 'php', 'php.ini'),
+      extensionDir: path.join(runtime.p.bundle, 'php', 'ext'),
+      sysTempDir: temp, effectiveTempDir: temp, uploadTmpDir: temp,
+    };
+    const normalize = value => process.platform === 'win32'
+      ? path.normalize(value).toLowerCase() : path.normalize(value);
+    for (const [key, expectedPath] of Object.entries(expected)) {
+      const actualPath = metadata[key];
+      if (typeof actualPath !== 'string' || !path.isAbsolute(actualPath) || actualPath.includes('\0')) throw new Error();
+      // Windows may expand RUNNER~1 / PROGRA~1 in PHP's reported paths.
+      const [actualReal, expectedReal] = await Promise.all([
+        fsp.realpath(actualPath), fsp.realpath(expectedPath),
+      ]);
+      if (normalize(actualReal) !== normalize(expectedReal)) throw new Error();
+    }
+    return metadata;
+  } catch (error) {
+    if (error instanceof MigrationError && ['CANCELLED', 'PROCESS_TIMEOUT'].includes(error.code)) throw error;
+    fail('PHP_RUNTIME_NOT_READY', MESSAGES.PHP_RUNTIME_NOT_READY);
+  }
 }
 
 function assertCompatibleSchema(required, actual) {
@@ -245,6 +298,8 @@ async function migrate(input, { onEvent = () => {}, signal } = {}) {
     }
     const runtime = new Runtime(paths(bundle, path.join(stage.path, 'data')), vault);
     runtimes.push(runtime);
+    await fsp.mkdir(path.join(runtime.p.data, 'tmp'), { recursive: true });
+    await validatePhpRuntime(runtime, signal);
     await runtime.init();
     abortCheck();
     const baseline = await runPhp(runtime, VALIDATOR, { action: 'schema' }, signal);
@@ -298,6 +353,8 @@ async function migrate(input, { onEvent = () => {}, signal } = {}) {
     await prepareRestore({ source: candidate, password: config.password, stage: restoredPath, vault });
     const restored = new Runtime(paths(bundle, restoredPath), vault);
     runtimes.push(restored);
+    await fsp.mkdir(path.join(restored.p.data, 'tmp'), { recursive: true });
+    await validatePhpRuntime(restored, signal);
     const restoredStatus = await restored.init();
     if (!restoredStatus.installed) fail('RESTORE_VERIFICATION_FAILED', 'لم تنجح تجربة استعادة الحسابات من النسخة الناتجة.');
     await runPhp(restored, VALIDATOR, { action: 'verify_crypto', ...finalPayload }, signal);
@@ -368,7 +425,7 @@ async function main() {
 }
 
 module.exports = {
-  migrate, readManifest, validatePaths, validateInstallation, assertCompatibleSchema,
+  migrate, readManifest, validatePaths, validateInstallation, validatePhpRuntime, assertCompatibleSchema,
   runPhp, importSql, stopOwnedRuntime, createStage, removeOwnedStage, publicError, checkedHookResult,
 };
 if (require.main === module) main();

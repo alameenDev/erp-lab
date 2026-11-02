@@ -28,7 +28,7 @@ const { paths } = require('../src/vendor/constants.cjs');
 const { prepareRestore } = require('../src/vendor/backup.cjs');
 const { run } = require('../src/vendor/process.cjs');
 const { createEphemeralVault } = require('../src/lib.cjs');
-const { runPhp, stopOwnedRuntime } = require('../src/migrate.cjs');
+const { runPhp, stopOwnedRuntime, validatePhpRuntime } = require('../src/migrate.cjs');
 
 const accountPassword = 'اختبار-حسابات-صناعية-2026!';
 const backupPassword = 'اختبار-نسخة-محلية-آمنة-2026!';
@@ -343,7 +343,10 @@ async function main() {
     await fsp.writeFile(path.join(liveData, 'must-not-change.txt'), 'Synthetic live-data sentinel\n');
     const liveBefore = await snapshotTree(liveData);
 
-    const installationDir = path.join(root, 'Desktop Installation اختبار');
+    // V1's bundled PHP cannot load its absolute INI/extension paths when the
+    // installation path contains Arabic. Test the supported installation
+    // separately from Arabic input paths, output paths and passwords below.
+    const installationDir = path.join(root, 'Desktop Installation Test');
     console.log('Preparing synthetic Electron installation...');
     await fsp.cp(path.dirname(electronInput), installationDir, { recursive: true, dereference: false });
     const executable = path.join(installationDir, 'Digital Lab Desktop.exe');
@@ -352,16 +355,33 @@ async function main() {
     await fsp.cp(bundleInput, bundle, { recursive: true, dereference: false });
     const installationBefore = await snapshotTree(installationDir);
 
+    // PHP-only copy: exercise the original Unicode-path failure without
+    // starting a database or constructing a second Electron installation.
+    const unicodeBundle = path.join(root, 'PHP Diagnostic اختبار', 'bundle');
+    await fsp.mkdir(path.join(unicodeBundle, 'backend'), { recursive: true });
+    await fsp.cp(path.join(bundleInput, 'php'), path.join(unicodeBundle, 'php'), { recursive: true, dereference: false });
+
     const sourceVault = createEphemeralVault();
     vaults.push(sourceVault);
     const phpDiagnostics = [];
     phpDiagnostics.push(await phpPreflightDiagnostic(bundleInput, path.join(root, 'diagnostic-ascii'), sourceVault, 'original-ascii-bundle'));
-    phpDiagnostics.push(await phpPreflightDiagnostic(bundle, path.join(root, 'diagnostic-unicode'), sourceVault, 'copied-unicode-installation'));
-    phpDiagnostics.push(await phpPreflightDiagnostic(bundle, path.join(root, 'diagnostic-relative'), sourceVault, 'copied-unicode-relative-extensions', '../php/ext'));
-    phpDiagnostics.push(await phpPreflightDiagnostic(bundle, path.join(root, 'diagnostic-relative-all'), sourceVault, 'copied-unicode-relative-ini-and-extensions', '../php/ext', true));
+    phpDiagnostics.push(await phpPreflightDiagnostic(unicodeBundle, path.join(root, 'diagnostic-unicode'), sourceVault, 'copied-unicode-installation'));
+    phpDiagnostics.push(await phpPreflightDiagnostic(unicodeBundle, path.join(root, 'diagnostic-relative'), sourceVault, 'copied-unicode-relative-extensions', '../php/ext'));
+    phpDiagnostics.push(await phpPreflightDiagnostic(unicodeBundle, path.join(root, 'diagnostic-relative-all'), sourceVault, 'copied-unicode-relative-ini-and-extensions', '../php/ext', true));
     await fsp.writeFile(path.join(outputDirectory, 'php-diagnostics.json'), JSON.stringify(phpDiagnostics, null, 2), 'utf8');
+
+    const unicodeRuntime = new Runtime(paths(unicodeBundle, path.join(root, 'unicode-preflight-data')), sourceVault);
+    await fsp.mkdir(path.join(unicodeRuntime.p.data, 'tmp'), { recursive: true });
+    await assert.rejects(validatePhpRuntime(unicodeRuntime), { code: 'PHP_RUNTIME_NOT_READY' });
+    assert.equal(unicodeRuntime.db, null, 'Unicode preflight must not start a database');
+    assert.equal(fs.existsSync(unicodeRuntime.p.database), false, 'Unicode preflight must not create a database');
+    assert.equal(fs.existsSync(path.join(unicodeRuntime.p.data, 'secrets.dat')), false, 'Unicode preflight must not create secrets');
+    console.log('PASS: original Unicode PHP failure is rejected before database initialization.');
+
     const sourceRuntime = new Runtime(paths(bundle, path.join(root, 'synthetic-source')), sourceVault);
     runtimes.push(sourceRuntime);
+    await fsp.mkdir(path.join(sourceRuntime.p.data, 'tmp'), { recursive: true });
+    await validatePhpRuntime(sourceRuntime);
     assert.equal((await sourceRuntime.init()).installed, false);
     await sourceRuntime.install({
       owner_name: 'Synthetic QA owner', owner_email: 'owner@example.invalid', owner_password: accountPassword,
@@ -490,7 +510,8 @@ async function main() {
       passed: true, tableCount: good.result.tableCount, rowCount: good.result.rowCount,
       foreignKeyCount: good.result.foreignKeyCount, encryptedValuesRekeyed: 4,
       attachmentsCopied: 2, checks: [
-        'winforms-initialization', 'arabic-paths-and-password',
+        'winforms-initialization', 'ascii-installation-php-preflight',
+        'unicode-installation-preflight-rejected', 'arabic-input-output-paths-and-password',
         'missing-source-key', 'wrong-source-key', 'all-table-counts', 'foreign-keys',
         'encrypted-field-rekey', 'media-relink', 'clinical-text-preserved',
         'backup-wrong-password', 'independent-restore', 'account-passwords',
