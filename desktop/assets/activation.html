@@ -1,0 +1,11 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'"><title>تفعيل Digital Lab</title><link rel="stylesheet" href="control.css"></head><body><main>
+<header><span class="brand">DIGITAL LAB <b>DESKTOP</b></span><span>إعداد الترخيص</span></header>
+<h1>تفعيل النسخة على هذه الحاسبة</h1><p class="lead">خطوة إلزامية ضمن التنصيب. نوع الترخيص السنوي أو مدى الحياة يحدده مُصدر الترخيص.</p>
+<p id="status" role="status">جارٍ فحص التفعيل الحالي…</p><p id="error" role="alert" hidden></p>
+<section><h2>١. حفظ طلب التفعيل</h2><p>احفظ الطلب وأرسله إلى Digital Lab للحصول على ملف تفعيل مخصص لهذه الحاسبة. الطلب لا يحتوي بيانات المرضى أو مفاتيح خاصة.</p>
+<label id="software-option" hidden><input type="checkbox" id="software"> الجهاز لا يدعم TPM — طلب ربط برمجي بحماية أقل، يحتاج موافقة مُصدر الترخيص</label>
+<button id="request">حفظ طلب التفعيل</button></section>
+<section><h2>٢. استيراد ملف الترخيص</h2><p>اختر ملف التفعيل الذي استلمته. يمكن استخدام هذه الخطوة للتجديد أيضاً.</p><button id="import">اختيار ملف التفعيل</button></section>
+<section id="activated" hidden><h2>تم التحقق من الترخيص</h2><p id="details"></p><button id="continue">متابعة إعداد النسخة</button></section>
+<p class="note">الترخيص مرتبط بالحاسبة وحساب Windows الحالي. تغيير الجهاز أو مسح TPM يحتاج إعادة تفعيل من المالك. بيانات المختبر لا تُحذف عند انتهاء الترخيص.</p>
+</main><script src="activation.js"></script></body></html>

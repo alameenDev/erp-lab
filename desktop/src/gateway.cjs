@@ -8,7 +8,7 @@ const MIME = {'.html':'text/html; charset=utf-8','.js':'text/javascript','.mjs':
 function validPath(raw) {
   try {const value = decodeURIComponent(raw.split('?')[0]);return !value.includes('\\') && !/[\x00-\x1f]/.test(value) && !value.split('/').some(p => p === '..' || p.startsWith('.')) && !/%(?:2e|2f|5c|00)/i.test(value);} catch {return false;}
 }
-function createGateway(runtime, secret, port = PORT) {
+function createGateway(runtime, secret, port = PORT, licenseCheck = () => {}) {
   const origin = `http://127.0.0.1:${port}`;
   const children = new Set();let paused = false, slots = 0;const waiting = [];
   const admit = async () => {if (slots < 6) {slots++;return;}if(waiting.length>=64)throw new Error('BUSY');await new Promise(resolve=>waiting.push(resolve));};
@@ -22,6 +22,7 @@ function createGateway(runtime, secret, port = PORT) {
     const authorized = typeof value === 'string' && Buffer.byteLength(value) === Buffer.byteLength(secret) && crypto.timingSafeEqual(Buffer.from(value), Buffer.from(secret));
     if (req.headers.origin && req.headers.origin !== origin) return fail(res, 403, 'Origin denied');
     if (!authorized && !bridge) return fail(res, 403, 'Open Digital Lab Desktop');
+    try {licenseCheck();} catch(e) {return fail(res, 402, e.message);}
     if (paused) return fail(res, 503, 'جارٍ حفظ نسخة احتياطية. حاول بعد قليل.', true);
     if (url.pathname.startsWith('/api/') || url.pathname === '/up') {
       try {await admit();} catch {return fail(res,503,'الخدمة مشغولة. حاول بعد قليل.');}

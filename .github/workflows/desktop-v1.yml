@@ -24,6 +24,12 @@ jobs:
         working-directory: frontend
       - run: npx playwright install --with-deps chromium
         working-directory: frontend
+      - name: Verify activation wizard
+        run: node desktop/tests/activation.browser.cjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-activation-preview
+          path: desktop/qa/activation
       - run: node --test tests/local-print.test.mjs tests/print-lifecycle.test.mjs tests/medical-report-pages.test.mjs tests/barcode-labels.test.mjs tests/medical-report-output.test.mjs
         working-directory: frontend
       - run: node tests/local-print.browser.mjs
@@ -62,6 +68,18 @@ jobs:
         working-directory: desktop
       - run: node node_modules/electron/install.js
         working-directory: desktop
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Build non-exportable Windows device key provider
+        run: dotnet publish desktop/device/DeviceIdentity.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o desktop/licensing
+      - name: Configure ephemeral QA issuer and device-bound license
+        run: node desktop/tests/prepare-license-qa.cjs
+      - name: Activate source test runner with signed QA license
+        shell: pwsh
+        run: |
+          $p = Start-Process desktop/node_modules/electron/dist/electron.exe -ArgumentList 'desktop','--installer-check','--license-file', ('"' + $env:DLD_QA_LICENSE + '"') -PassThru -Wait
+          if ($p.ExitCode -ne 0) { throw 'Signed device activation failed' }
       - name: Download and verify bundled runtimes
         run: ./desktop/scripts/download-runtime.ps1
       - uses: actions/setup-python@v5
@@ -95,7 +113,7 @@ jobs:
           $env:DLP_SMOKE_OUTPUT = "$pwd/desktop/qa/source/prints"
           $env:DLP_SMOKE_FIXTURES = "$pwd/desktop/qa/fixtures/documents.json"
           $p = Start-Process desktop/node_modules/electron/dist/electron.exe -ArgumentList 'desktop','--smoke-test' -PassThru -Wait
-          if ($p.ExitCode -ne 0) { Get-Content desktop/qa/source/failure.txt -ErrorAction SilentlyContinue; throw 'Desktop integration failed' }
+          if ($p.ExitCode -ne 0) { Get-Content desktop/qa/source/*failure.txt -ErrorAction SilentlyContinue; throw 'Desktop integration failed' }
           python print-helper/tests/check_pdfs.py desktop/qa/source/prints
           if ($LASTEXITCODE -ne 0) { throw 'Print PDF validation failed' }
       - run: npm run build:win
@@ -115,7 +133,7 @@ jobs:
           $env:DLP_SMOKE_OUTPUT = "$pwd/desktop/qa/installed/prints"
           $env:DLP_SMOKE_FIXTURES = "$pwd/desktop/qa/fixtures/documents.json"
           $p = Start-Process "$install/Digital Lab Desktop.exe" -ArgumentList '--smoke-test' -PassThru -Wait
-          if ($p.ExitCode -ne 0) { Get-Content desktop/qa/installed/failure.txt -ErrorAction SilentlyContinue; throw 'Installed app failed' }
+          if ($p.ExitCode -ne 0) { Get-Content desktop/qa/installed/*failure.txt -ErrorAction SilentlyContinue; throw 'Installed app failed' }
           python print-helper/tests/check_pdfs.py desktop/qa/installed/prints
           if ($LASTEXITCODE -ne 0) { throw 'Installed print PDF validation failed' }
           Get-FileHash desktop/dist/*Setup*.exe -Algorithm SHA256 | Format-List | Out-File desktop/dist/SHA256.txt
@@ -123,7 +141,7 @@ jobs:
           Copy-Item desktop/bundle/build.json desktop/dist/build.json
       - uses: actions/upload-artifact@v4
         with:
-          name: Digital-Lab-Desktop-V1-Windows-Setup
+          name: Digital-Lab-Desktop-V1-Licensing-QA-NOT-FOR-SALE
           path: |
             desktop/dist/*Setup*.exe
             desktop/dist/SHA256.txt

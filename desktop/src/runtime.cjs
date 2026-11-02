@@ -14,7 +14,7 @@ async function freePort() {
   await new Promise(resolve => server.close(resolve));return port;
 }
 class Runtime {
-  constructor(paths, vault) {this.p = paths;this.vault = vault;this.db = null;this.stopping = false;}
+  constructor(paths, vault, license = null) {this.license=license;this.p = paths;this.vault = vault;this.db = null;this.stopping = false;}
   async init() {
     for (const dir of ['environment', 'cache', 'tmp', 'storage/app/public', 'storage/framework/cache/data', 'storage/framework/sessions', 'storage/framework/views', 'storage/logs']) await fsp.mkdir(path.join(this.p.data, dir), {recursive: true});
     const file = path.join(this.p.data, 'secrets.dat');
@@ -38,12 +38,14 @@ class Runtime {
     this.env = this.environment();
     await this.console(['migrate', '--force', '--no-interaction'], {timeout: 180000});
     this.status = JSON.parse(await this.php('status.php'));
+    if(this.license && this.status.installed)await this.php('license-subscription.php');
     return this.status;
   }
   environment() {
     // Explicit allowlist prevents an inherited hosted DB_URL/mail/cloud config.
     const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => /^(SYSTEMROOT|WINDIR|COMSPEC|TEMP|TMP|PATH|PATHEXT|USERPROFILE|LOCALAPPDATA|APPDATA|PROCESSOR_ARCHITECTURE)$/i.test(k)));
     return {...env, DESKTOP_MODE: 'true', DL_BACKEND: this.p.backend, DL_DATA: this.p.data,
+      DL_LICENSE_TYPE: this.license?.type || '', DL_LICENSE_EXPIRY: this.license?.expiresAt ? new Date(this.license.expiresAt).toISOString() : '',
       APP_NAME: 'Digital Lab Desktop', APP_ENV: 'production', APP_DEBUG: 'false', APP_KEY: this.secrets.appKey,
       APP_TIMEZONE: 'Asia/Baghdad', APP_URL: ORIGIN, FRONTEND_URL: ORIGIN, CORS_ALLOWED_ORIGINS: ORIGIN,
       APP_LOCALE: 'ar', APP_FALLBACK_LOCALE: 'en', DB_CONNECTION: 'mysql', DB_HOST: '127.0.0.1',
