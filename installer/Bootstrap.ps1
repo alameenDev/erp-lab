@@ -11,6 +11,8 @@ $ErrorActionPreference = 'Stop'
 $script:ResultPath = $null
 $script:DesktopDir = ''
 $script:Reused = 0
+$script:FailureLine = 0
+$script:ErrorType = ''
 $script:Codes = @{
     UNSUPPORTED_WINDOWS = 40; INVALID_PATH = 41; ROOT_NOT_OWNED = 42
     INCOMPATIBLE_DESKTOP = 43; MULTIPLE_DESKTOP_INSTALLATIONS = 44
@@ -78,6 +80,9 @@ function Assert-ManagedTree([string]$Path) {
 function Write-Result([string]$Code) {
     if ($script:ResultPath) {
         $body = "[Result]`r`nCode=$Code`r`nDesktopDir=$script:DesktopDir`r`nReused=$script:Reused`r`n"
+        if ($Code -notin @('OK', 'READY_TO_REMOVE')) {
+            $body += "FailureLine=$script:FailureLine`r`nErrorType=$script:ErrorType`r`n"
+        }
         [IO.File]::WriteAllText($script:ResultPath, $body, [Text.Encoding]::Unicode)
     }
 }
@@ -258,6 +263,8 @@ public static class DigitalLabBootstrapNative {
     Write-Result 'OK'
     exit 0
 } catch {
+    $script:FailureLine = [int]$_.InvocationInfo.ScriptLineNumber
+    $script:ErrorType = $_.Exception.GetType().FullName
     $code = [string]$_.Exception.Message
     if (-not $script:Codes.ContainsKey($code)) { $code = 'FILESYSTEM_FAILED' }
     try { Write-Result $code } catch { }

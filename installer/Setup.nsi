@@ -130,6 +130,10 @@ Section "التثبيت ونقل البيانات" MainSection
   bootstrap_failed:
     Call ShowInstallFailure
     SetErrorLevel 20
+    ${If} $ExitCode != ""
+    ${AndIf} $ExitCode != 0
+      SetErrorLevel $ExitCode
+    ${EndIf}
     Abort
 
   desktop_ready:

@@ -38,6 +38,35 @@ function Run-Executable([string]$File, [string]$Arguments, [int]$TimeoutSeconds 
     } finally { $process.Dispose() }
 }
 
+function Show-SyntheticBootstrapDiagnostic([string]$FailWrapper, [string]$TestRoot) {
+    # Used only when the first generated child fixture was never reached. Run
+    # the same guard directly in a separate fresh destination to expose its
+    # numeric status and deliberately limited result fields, never raw errors.
+    $previousLog = $env:DLM_TEST_CHILD_LOG
+    try {
+        $bootstrap = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\installer\Bootstrap.ps1'))
+        $child = Join-Path ([IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($FailWrapper))) 'child-failure-42.exe'
+        $diagnosticRoot = Join-Path $TestRoot ('Bootstrap Diagnostic ' + [Guid]::NewGuid().ToString('N'))
+        $resultFile = Join-Path ([IO.Path]::GetTempPath()) ('DLM-Installer-Diagnostic-' + [Guid]::NewGuid().ToString('N') + '.ini')
+        $env:DLM_TEST_CHILD_LOG = Join-Path $TestRoot 'bootstrap-diagnostic-child.log'
+        $powershell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+        $arguments = '-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + $bootstrap + '" -Mode Install -InstallRoot "' + $diagnosticRoot + '" -DesktopSetup "' + $child + '" -ExpectedSetupHash "' + (File-Hash $child) + '" -ResultFile "' + $resultFile + '"'
+        $diagnosticExit = Run-Executable $powershell $arguments 90
+        Write-Host ('Synthetic Bootstrap diagnostic exit: ' + $diagnosticExit)
+        if ([IO.File]::Exists($resultFile)) {
+            foreach ($line in [IO.File]::ReadAllLines($resultFile)) {
+                if ($line -match '^\[Result\]$|^(Code|Reused|FailureLine|ErrorType)=[A-Za-z0-9_.-]*$|^DesktopDir=$') {
+                    Write-Host $line
+                }
+            }
+        } else {
+            Write-Host 'Synthetic Bootstrap diagnostic result file absent.'
+        }
+    } catch {
+        Write-Host ('Synthetic Bootstrap diagnostic unavailable: ' + $_.Exception.GetType().Name)
+    } finally { $env:DLM_TEST_CHILD_LOG = $previousLog }
+}
+
 function Get-Registry64([string]$Subkey) {
     $base = [Microsoft.Win32.RegistryKey]::OpenBaseKey(
         [Microsoft.Win32.RegistryHive]::CurrentUser,
@@ -168,8 +197,11 @@ try {
     $env:DLM_TEST_CHILD_LOG = Join-Path $root 'failed-child.log'
     $failedTarget = Join-Path $root 'Failed Child Target'
     $exitCode = Run-Executable $FailInstaller ('/S /D=' + $failedTarget)
+    if (-not [IO.File]::Exists($env:DLM_TEST_CHILD_LOG)) {
+        Show-SyntheticBootstrapDiagnostic $FailInstaller $root
+        throw ('Failure fixture was not invoked (wrapper exit ' + $exitCode + ')')
+    }
     Assert-True ($exitCode -ne 0) 'A failing child installer was reported as success'
-    Assert-True ([IO.File]::Exists($env:DLM_TEST_CHILD_LOG)) 'Failure fixture was not invoked'
     Assert-True ($null -eq (Get-Registry64 $uninstallKey)) 'Failed setup must not register a completed installation'
     Assert-True ((File-Hash $liveSentinel) -eq $liveHash) 'Failed setup changed live data'
     $checks.Add('child-exit-failure-is-not-success')
