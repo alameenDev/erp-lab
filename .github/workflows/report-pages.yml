@@ -26,6 +26,8 @@ on:
       - 'frontend/src/views/medical_reports/**'
       - 'frontend/src/composables/usePrint.js'
       - 'frontend/src/utils/localPrint.js'
+      - 'frontend/src/utils/fastMedicalReportPrint.js'
+      - 'frontend/src/composables/useFastReportPrint.js'
       - 'frontend/tests/*report*'
       - 'frontend/tests/ReportTemplateFixture.vue'
       - 'frontend/tests/GroupReportPagesFixture.vue'
@@ -75,6 +77,7 @@ jobs:
           node tests/report-output.browser.mjs
           node tests/report-whatsapp.browser.mjs
           node tests/report-actions.browser.mjs
+          node tests/fast-report-print.browser.mjs
           node tests/report-keep-together.browser.mjs
           node tests/report-columns.browser.mjs
       - name: Verify PDF attachments on a production static host
@@ -84,5 +87,7 @@ jobs:
         if: always()
         with:
           name: report-page-rendering
-          path: frontend/test-results/report-pages
+          path: |
+            frontend/test-results/report-pages
+            frontend/test-results/fast-report-print
           retention-days: 7

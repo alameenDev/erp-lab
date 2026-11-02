@@ -683,6 +683,8 @@ const buildReportPages = async () => {
 
 let preparedReport = null;
 let preparingReport = null;
+let preparedFastReport = null;
+let preparingFastReport = null;
 async function prepareReport(options = {}) {
   if (options.withBackground !== undefined) showWithForm.value = options.withBackground;
   if (!referralReport.value && !sharedReferralReport.value && !patientPortalUrl.value) {
@@ -695,6 +697,22 @@ async function prepareReport(options = {}) {
   await nextTick();
   const key = JSON.stringify({ record: printRecord.value, settings: reportSettings.value,
     withBackground: showBackground.value, shareUrl: reportQrUrl.value });
+  // Keep the experiment's cache separate: trying it cannot evict or replace
+  // the PDF cached for the existing buttons. The full record/settings key
+  // invalidates changed results, selections, attachments, forms and colours.
+  if (options.pagesOnly === true) {
+    if (preparedFastReport?.key === key) return preparedFastReport.output;
+    if (preparingFastReport?.key === key) return preparingFastReport.promise;
+    const promise = (async () => {
+      const pages = preparedReport?.key === key ? preparedReport.output.pages : await buildReportPages();
+      const output = { pages, withBackground: showBackground.value };
+      preparedFastReport = { key, output };
+      return output;
+    })();
+    preparingFastReport = { key, promise };
+    try { return await promise; }
+    finally { if (preparingFastReport?.promise === promise) preparingFastReport = null; }
+  }
   if (preparedReport?.key === key) return preparedReport.output;
   if (preparingReport?.key === key) return preparingReport.promise;
   const promise = (async () => {
