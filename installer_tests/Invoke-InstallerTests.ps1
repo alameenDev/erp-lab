@@ -94,12 +94,27 @@ function Desktop-Registrations {
                     $child = $parent.OpenSubKey($childName)
                     if ($null -eq $child) { continue }
                     try {
-                        if ([string]$child.GetValue('DisplayName') -eq 'Digital Lab Desktop') {
+                        if ([string]$child.GetValue('DisplayName') -like 'Digital Lab Desktop*') {
+                            # electron-builder defaults to "${productName} ${version}".
+                            # Its uninstall key may expose the location through
+                            # DisplayIcon rather than an InstallLocation value.
+                            $location = [string]$child.GetValue('InstallLocation')
+                            $icon = [string]$child.GetValue('DisplayIcon')
+                            if (-not $location -and $icon -match '^\s*"?(.+?\.exe)"?(?:,\s*-?\d+)?\s*$') {
+                                $location = [IO.Path]::GetDirectoryName($Matches[1])
+                            }
+                            $uninstall = [string]$child.GetValue('UninstallString')
+                            $uninstaller = ''
+                            if ($uninstall -match '^\s*"([^"\r\n]+\.exe)"(?:\s|$)') {
+                                $uninstaller = $Matches[1]
+                            }
                             $items += [pscustomobject]@{
                                 Key = $childName
+                                Name = [string]$child.GetValue('DisplayName')
                                 Version = [string]$child.GetValue('DisplayVersion')
-                                Location = [string]$child.GetValue('InstallLocation')
-                                Uninstall = [string]$child.GetValue('UninstallString')
+                                Location = $location
+                                Uninstall = $uninstall
+                                Uninstaller = $uninstaller
                             }
                         }
                     } finally { $child.Dispose() }
@@ -108,6 +123,16 @@ function Desktop-Registrations {
         } finally { $base.Dispose() }
     }
     return @($items)
+}
+
+function Assert-DesktopRegistration([string]$ExpectedDesktop) {
+    $matching = @(Desktop-Registrations | Where-Object {
+        $_.Version -eq '1.0.0' -and $_.Location -and $_.Uninstaller -and
+        [IO.Path]::GetFullPath($_.Location).TrimEnd('\') -eq [IO.Path]::GetFullPath($ExpectedDesktop).TrimEnd('\') -and
+        [IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($_.Uninstaller)) -eq [IO.Path]::GetFullPath($ExpectedDesktop).TrimEnd('\') -and
+        [IO.File]::Exists($_.Uninstaller) -and $_.Uninstall -match '(?i)(?:^|\s)/currentuser(?:\s|$)'
+    })
+    Assert-True ($matching.Count -ge 1) 'Original Desktop registration with matching version, installed location and current-user uninstaller is missing'
 }
 
 function Assert-Payload([string]$InstalledTransfer, $Hashes) {
@@ -240,7 +265,7 @@ try {
     Assert-True ([IO.Path]::GetFullPath([string]$registration['DesktopLocation']) -eq $desktop) 'Wrong desktop location'
     $arp = Get-Registry64 $uninstallKey
     Assert-True ($null -ne $arp) 'Bundle uninstall registration missing'
-    Assert-True (@(Desktop-Registrations | Where-Object { $_.Version -eq '1.0.0' }).Count -ge 1) 'Original desktop uninstall entry missing'
+    Assert-DesktopRegistration $desktop
     $build = [IO.File]::ReadAllText((Join-Path $desktop 'resources\bundle\build.json')) | ConvertFrom-Json
     Assert-True ($build.version -eq '1.0.0' -and $build.mariadb -eq '10.11.19') 'Installed desktop build metadata differs'
     $checks.Add('original-desktop-installed-to-directory-with-spaces')
@@ -346,7 +371,7 @@ try {
     Assert-True ((File-Hash $unknownFile) -eq $unknownHash) 'Uninstall deleted an unknown user file'
     Assert-True ((File-Hash $export) -eq $exportHash) 'Uninstall deleted an exported backup'
     Assert-True (-not [IO.File]::Exists($desktopShortcut)) 'Transfer desktop shortcut remains'
-    Assert-True (@(Desktop-Registrations | Where-Object { $_.Version -eq '1.0.0' }).Count -ge 1) 'Transfer uninstall removed the Desktop uninstall entry'
+    Assert-DesktopRegistration $desktop
     $checks.Add('uninstall-removes-only-managed-transfer-files')
     $checks.Add('desktop-live-data-exports-and-user-files-preserved')
     Write-Host 'PASS: uninstall preserves Desktop, live data, exports and user files.'
