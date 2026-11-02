@@ -1,0 +1,74 @@
+name: Desktop data transfer - Windows validation
+on:
+  push:
+    branches: ['codex/offline-data-transfer-*']
+permissions:
+  contents: read
+jobs:
+  windows-transfer:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_mysql, mbstring, xml, gd, zip, bcmath, intl, sodium, fileinfo, curl, openssl, exif
+          tools: composer:v2
+          coverage: none
+      - name: Install existing backend runtime
+        working-directory: backend
+        run: composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+      - name: Install Electron and transfer libraries
+        shell: pwsh
+        run: |
+          npm ci --prefix desktop
+          if ($LASTEXITCODE -ne 0) { throw 'Electron dependencies failed' }
+          node desktop/node_modules/electron/install.js
+          if ($LASTEXITCODE -ne 0) { throw 'Electron runtime failed' }
+          npm install --prefix desktop-data-transfer --ignore-scripts --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw 'Transfer dependencies failed' }
+      - name: Download pinned Windows database and PHP runtimes
+        run: ./desktop/scripts/download-runtime.ps1
+      - name: Stage backend for the transfer test
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory frontend/dist -Force | Out-Null
+          Set-Content frontend/dist/index.html '<!doctype html><title>Synthetic transfer test</title>'
+          node desktop/scripts/stage.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Runtime staging failed' }
+      - name: Check PowerShell and PHP syntax
+        shell: powershell
+        run: |
+          $tokens = $null
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile("$pwd/desktop-data-transfer/Transfer-Wizard.ps1", [ref]$tokens, [ref]$errors)
+          if ($errors.Count -gt 0) { $errors | Format-List; throw 'Wizard parser failed' }
+          php -l desktop-data-transfer/src/validate_import.php
+          if ($LASTEXITCODE -ne 0) { throw 'PHP validator syntax failed' }
+          php -l desktop-data-transfer/src/postprocess.php
+          if ($LASTEXITCODE -ne 0) { throw 'PHP media syntax failed' }
+      - name: Test corruption handling and subprocess failures
+        shell: pwsh
+        run: |
+          $env:DL_PHP_BIN = (Get-Command php.exe).Source
+          npm test --prefix desktop-data-transfer
+          if ($LASTEXITCODE -ne 0) { throw 'Transfer unit tests failed' }
+      - name: Convert and restore synthetic data using actual Windows runtimes
+        shell: pwsh
+        run: |
+          $env:ELECTRON_RUN_AS_NODE = '1'
+          $env:DLM_TEST_BUNDLE = "$pwd/desktop/bundle"
+          $env:DLM_TEST_ELECTRON = "$pwd/desktop/node_modules/electron/dist/electron.exe"
+          $env:DLM_TEST_OUTPUT = "$pwd/desktop-data-transfer/qa"
+          $process = Start-Process -FilePath $env:DLM_TEST_ELECTRON -ArgumentList "$pwd/desktop-data-transfer/tests/windows-smoke.cjs" -Wait -PassThru -NoNewWindow
+          if ($process.ExitCode -ne 0) { throw 'Windows conversion or restore failed' }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: desktop-data-transfer-windows-validation
+          path: desktop-data-transfer/qa/
+          retention-days: 7
