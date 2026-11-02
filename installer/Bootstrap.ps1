@@ -86,6 +86,16 @@ function Write-Result([string]$Code) {
         [IO.File]::WriteAllText($script:ResultPath, $body, [Text.Encoding]::Unicode)
     }
 }
+function Get-SetupDigest([string]$Path) {
+    # Use .NET directly: a parent PowerShell 7 process can supply a module path
+    # that prevents Windows PowerShell 5.1 from finding Get-FileHash.
+    $stream = [IO.File]::OpenRead($Path)
+    try {
+        $sha256 = [Security.Cryptography.SHA256]::Create()
+        try { return [BitConverter]::ToString($sha256.ComputeHash($stream)).Replace('-', '').ToLowerInvariant() }
+        finally { $sha256.Dispose() }
+    } finally { $stream.Dispose() }
+}
 function Test-Desktop([string]$Path) {
     $required = @('Digital Lab Desktop.exe', 'resources\app.asar', 'resources\bundle\build.json',
         'resources\bundle\php\php.exe', 'resources\bundle\php\php-cgi.exe',
@@ -244,7 +254,7 @@ public static class DigitalLabBootstrapNative {
             }
         }
         $setup = Resolve-LocalPath $DesktopSetup
-        if (-not [IO.File]::Exists($setup) -or (Get-FileHash -LiteralPath $setup -Algorithm SHA256).Hash -ine $ExpectedSetupHash) {
+        if (-not [IO.File]::Exists($setup) -or (Get-SetupDigest $setup) -ine $ExpectedSetupHash) {
             Stop-Bootstrap 'INSTALLER_HASH_MISMATCH'
         }
         $null = [IO.Directory]::CreateDirectory($root)
