@@ -81,18 +81,8 @@ export function usePrint() {
             ? Promise.resolve()
             : new Promise(done => { image.onload = done; image.onerror = done; })));
           if (frameDoc.fonts?.ready) await frameDoc.fonts.ready;
-          const labels = [...frameDoc.querySelectorAll('.barcode-label')];
-          const bad = labels.find(label => label.dataset.labelErrors || [...label.querySelectorAll('[data-label-text]')].some(e => e.scrollHeight > e.clientHeight + 1 || e.scrollWidth > e.clientWidth + 1));
-          if (bad) {
-            if (throwOnError) {
-              reject(new Error('تعذرت طباعة الملصق: يوجد تداخل أو نص مقصوص أو باركود ضيق. عدّل إعدادات ملصقات الباركود ثم أعد المحاولة.'));
-              removeFrame(printFrame);
-              return;
-            }
-            window.alert('تعذرت طباعة الملصق: يوجد تداخل أو نص خارج المساحة أو باركود ضيق. عدّل إعدادات ملصقات الباركود أو كبّر المقاس ثم أعد المحاولة.\nLabel does not fit. Check barcode label settings before printing.');
-            removeFrame(printFrame);
-            return;
-          }
+          // Layout diagnostics are advisory. Long text, overlaps or narrow
+          // label boxes must not block an explicitly requested barcode print.
           if (!frames.has(printFrame)) return;
           const kind = printKind || ({parcode: "barcode", job: "job", thermalRecord: "thermal", printInvoice: "invoice"})[elementId];
           if (kind && await routePrintDocument(frameDoc, kind, {canSend: () => frames.has(printFrame)})) { removeFrame(printFrame); return; }
@@ -134,13 +124,8 @@ export function usePrint() {
             ? Promise.resolve()
             : new Promise(done => { image.onload = done; image.onerror = done; })));
           if (frameDoc.fonts?.ready) await frameDoc.fonts.ready;
-          const labels = [...frameDoc.querySelectorAll('.barcode-label')];
-          const bad = labels.find(label => label.dataset.labelErrors || [...label.querySelectorAll('[data-label-text]')].some(e => e.scrollHeight > e.clientHeight + 1 || e.scrollWidth > e.clientWidth + 1));
-          if (bad) {
-            window.alert('تعذرت طباعة الملصق: يوجد تداخل أو نص خارج المساحة أو باركود ضيق. عدّل إعدادات ملصقات الباركود أو كبّر المقاس ثم أعد المحاولة.\nLabel does not fit. Check barcode label settings before printing.');
-            removeFrame(printFrame);
-            return;
-          }
+          // Layout diagnostics are advisory. Long text, overlaps or narrow
+          // label boxes must not block an explicitly requested barcode print.
           if (!frames.has(printFrame)) return;
           if (printKind && await routePrintDocument(frameDoc, printKind, {canSend: () => frames.has(printFrame)})) { removeFrame(printFrame); return; }
           printFrame.contentWindow.onafterprint = () => {

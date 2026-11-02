@@ -65,23 +65,24 @@ test('failed print removes the hidden frame', async () => {
   f.scope.stop();
 });
 
-test('invalid label geometry and clipped text block both print paths and clean up', async () => {
+test('layout warnings and clipped text never block either print path', async () => {
   for (const label of [
     {dataset: {labelErrors: 'narrow:barcode'}},
+    {dataset: {labelErrors: 'overlap:register_number, outside:patient'}},
     {dataset: {}, querySelectorAll: () => [{scrollHeight: 40, clientHeight: 10, scrollWidth: 40, clientWidth: 40}]}
   ]) {
     const f = fixture('afterprint', [label]);
     await f.api.printWithCustomContent('<div/>', '', 'Barcode', 0);
     await f.api.printWithIframe('parcode', '', 'Barcode', 0);
-    assert.equal(f.prints(), 0);
-    assert.equal(f.alerts(), 2);
+    assert.equal(f.prints(), 2);
+    assert.equal(f.alerts(), 0);
     assert.equal(f.attached.size, 0);
     f.scope.stop();
   }
 });
 
 test('barcode callers receive actionable failures and may retry after cleanup', async () => {
-  for (const [mode,labels] of [['throw',[]],['afterprint',[{dataset:{labelErrors:'overlap:register_number'}}]]]) {
+  for (const [mode,labels] of [['throw',[]],['throw',[{dataset:{labelErrors:'overlap:register_number'}}]]]) {
     const f=fixture(mode,labels);
     await assert.rejects(f.api.printWithIframe('barcode','','Barcode',0,null,{throwOnError:true}));
     assert.equal(f.attached.size,0);assert.equal(f.alerts(),0);
@@ -89,4 +90,10 @@ test('barcode callers receive actionable failures and may retry after cleanup', 
   }
   const retry=fixture();await retry.api.printWithIframe('barcode','','Barcode',0,null,{throwOnError:true});
   assert.equal(retry.prints(),1);assert.equal(retry.attached.size,0);retry.scope.stop();
+});
+
+test('strict barcode caller still prints despite layout diagnostics', async () => {
+  const f=fixture('afterprint',[{dataset:{labelErrors:'overlap:register_number, narrow:barcode'}}]);
+  await f.api.printWithIframe('barcode','','Barcode',0,null,{throwOnError:true,printKind:'barcode'});
+  assert.equal(f.prints(),1);assert.equal(f.alerts(),0);assert.equal(f.attached.size,0);f.scope.stop();
 });

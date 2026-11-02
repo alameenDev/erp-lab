@@ -6,7 +6,7 @@ const emit = defineEmits(['select', 'drag', 'overflow']);
 const root = ref(null);
 const c = computed(() => labelConfig(props.config));
 const data = computed(() => ({ ...props.data, custom: c.value.custom_text }));
-const geometry = computed(() => barcodeGeometry(data.value.barcode, c.value));
+const geometry = computed(() => barcodeGeometry(data.value.barcode, c.value, { allowNarrow: true }));
 const issues = computed(() => labelIssues(c.value, data.value));
 const fields = computed(() => labelFields.filter(key => c.value.elements[key].visible && (props.editable || data.value[key])));
 let observer;

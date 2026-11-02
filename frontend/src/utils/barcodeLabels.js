@@ -81,7 +81,7 @@ export function toggleRegisterNumber(input, visible) {
   return {...c, elements};
 }
 
-export function barcodeGeometry(value, config) {
+export function barcodeGeometry(value, config, { allowNarrow = false } = {}) {
   const c = labelConfig(config);
   const text = String(value ?? '');
   if (!text || text.length > 255 || (c.format === 'CODE39' && !/^[0-9A-Z .\-$/+%]+$/.test(text))) return { error: 'invalid' };
@@ -93,11 +93,15 @@ export function barcodeGeometry(value, config) {
     const modules = bits.length + 2 * c.quiet_modules;
     const dots = Math.floor((c.elements.barcode.width * c.dpi / 25.4 + 1e-7) / modules);
     const minDots = Math.max(2, Math.ceil(0.19 * c.dpi / 25.4));
-    if (dots < minDots) return { error: 'narrow', minimum: Math.ceil(modules * minDots * 25.4 / c.dpi * 100) / 100 };
+    if (dots < minDots && !allowNarrow) return { error: 'narrow', minimum: Math.ceil(modules * minDots * 25.4 / c.dpi * 100) / 100 };
     const bars = [];
     for (const match of bits.matchAll(/1+/g)) bars.push({ x: c.quiet_modules + match.index, width: match[0].length });
-    return { bars, modules, dots, moduleMm: dots * 25.4 / c.dpi,
-      width: modules * dots * 25.4 / c.dpi, height: c.elements.barcode.height };
+    // Keep the whole encoded value and both quiet zones even in an undersized
+    // user-selected box. Prefer whole printer dots where possible; a box below
+    // one dot/module is best-effort and remains flagged in the designer.
+    const moduleMm = dots > 0 ? dots * 25.4 / c.dpi : c.elements.barcode.width / modules;
+    return { bars, modules, dots, moduleMm,
+      width: Math.min(c.elements.barcode.width, modules * moduleMm), height: c.elements.barcode.height };
   } catch { return { error: 'invalid' }; }
 }
 

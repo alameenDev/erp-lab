@@ -21,7 +21,7 @@ test('presets fit populated fields, preserve leading zeroes and quantize to prin
     assert.notDeepEqual(g.bars,barcodeGeometry('12345678',c).bars);
   }
 });
-test('narrow or invalid codes are blocked instead of truncated, rewritten or stretched', () => {
+test('designer diagnostics identify narrow boxes and invalid encodings', () => {
   const c=defaultLabel(); c.elements.barcode.width=10;
   assert.equal(barcodeGeometry(data.barcode,c).error,'narrow');
   c.format='CODE39'; c.elements.barcode.width=140;
@@ -71,4 +71,24 @@ test('optional register number fits preset headers and never changes encoded sam
   assert.equal(labelData(record,group).register_number,'#7');
   assert.equal(labelData(record,group).barcode,'00001234');
   for(const value of [undefined,null,0,-1,1.5,'bad']) assert.equal(labelData({...record,work_register_number:value},group).register_number,'');
+});
+
+test('best-effort narrow rendering retains every bar, quiet zone and exact value', () => {
+  for (const format of ['CODE128','CODE39']) {
+    const c={...defaultLabel(76.2,38.1),format};c.elements.barcode.width=200;
+    const normal=barcodeGeometry('0012345678',c);
+    assert.equal(normal.error,undefined);
+    assert.deepEqual(barcodeGeometry('0012345678',c,{allowNarrow:true}),normal);
+    for(const width of [1,10,20]) {
+      c.elements.barcode.width=width;
+      assert.equal(barcodeGeometry('0012345678',c).error,'narrow');
+      const narrow=barcodeGeometry('0012345678',c,{allowNarrow:true});
+      assert.equal(narrow.error,undefined);
+      assert.deepEqual(narrow.bars,normal.bars);assert.equal(narrow.modules,normal.modules);
+      assert.ok(narrow.width>0&&narrow.width<=width);
+      assert.ok(narrow.bars[0].x>=c.quiet_modules);
+      assert.ok(narrow.modules-narrow.bars.at(-1).x-narrow.bars.at(-1).width>=c.quiet_modules);
+    }
+  }
+  assert.equal(barcodeGeometry('',defaultLabel(),{allowNarrow:true}).error,'invalid');
 });
