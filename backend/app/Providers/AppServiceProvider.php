@@ -32,6 +32,8 @@ class AppServiceProvider extends ServiceProvider
         $this->configureUrl();
         $this->configureRateLimiting();
         \App\Models\User::observe(\App\Observers\OwnerPushAccessObserver::class);
+        \App\Models\User::observe(\App\Observers\CollectorAccessObserver::class);
+        \App\Models\Invoice::observe(\App\Observers\CollectorInvoiceObserver::class);
         InvoiceTestRel::observe(InvoiceTestRelObserver::class);
         \App\Models\Invoice::observe(\App\Observers\PortalInvoiceObserver::class);
         \App\Models\Invoice::observe(\App\Observers\WorkRegisterInvoiceObserver::class);

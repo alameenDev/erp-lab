@@ -1,3 +1,4 @@
+import { scopeCollectorRequest } from '@/utils/collectorWorkspace';
 import axios from "axios";
 import { LoaderStore } from "@/store/modules/loader";
 import router from "@/router";
@@ -24,6 +25,7 @@ const shouldHideLoader = (url) => {
   const silentPatterns = [
     "/user/access",
     "/owner-portal/",
+    "/collector-portal/",
     "/accounting-reports",
     "/search",
     "/invoices/search-name",
@@ -57,6 +59,7 @@ _axios.interceptors.request.use(
   (request) => {
     Object.assign(request.headers, activityRequestHeaders(request.method, request.url));
     scopeReferralRequest(request, router.currentRoute.value.path);
+    scopeCollectorRequest(request, router.currentRoute.value.path);
     const token = localStorage.getItem("token");
     if (token) {
       request.headers.Authorization = `Bearer ${token}`;
@@ -128,7 +131,7 @@ _axios.interceptors.response.use(
           const isPublic = publicPrefixes.some((p) => p === "/" ? path === "/" : path.startsWith(p));
           if (!isPublic) {
             // Send to /login (not /error/401) so user can re-auth and continue
-            router.push(path.startsWith("/owner-portal") ? { path:"/owner-portal/login", query:{ redirect:router.currentRoute.value.fullPath } } : "/login");
+            router.push(path.startsWith("/collector-portal") ? { path:"/collector-portal/login", query:{ redirect:router.currentRoute.value.fullPath } } : path.startsWith("/owner-portal") ? { path:"/owner-portal/login", query:{ redirect:router.currentRoute.value.fullPath } } : "/login");
           }
         }
         break;
@@ -163,7 +166,7 @@ _axios.interceptors.response.use(
         // Keep the notification draft and its idempotency key mounted so an
         // interrupted campaign request can be retried without sending twice.
         // Owner screens also provide an inline retry and must retain their lab/date selection.
-        if (!['/lab-notifications/', '/owner-portal/'].some(prefix => error.config?.url?.startsWith(prefix))) router.push("/error/503");
+        if (!['/lab-notifications/', '/owner-portal/', '/collector-portal/', '/sample-logistics/'].some(prefix => error.config?.url?.startsWith(prefix))) router.push("/error/503");
         break;
 
       default:

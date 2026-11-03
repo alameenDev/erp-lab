@@ -140,10 +140,42 @@ Route::post('device/results', [DeviceResultController::class, 'receiveResults'])
 Route::post('device/heartbeat', [DeviceResultController::class, 'heartbeat'])
     ->middleware('throttle:120,1');
 
-Route::group(['middleware' => ['auth:sanctum', \App\Http\Middleware\EnsureActiveAccount::class, \App\Http\Middleware\RestrictOwnerPortal::class, \App\Http\Middleware\RestrictReferralPortal::class, \App\Http\Middleware\AuditActivity::class]], function (): void {
+Route::group(['middleware' => ['auth:sanctum', \App\Http\Middleware\EnsureActiveAccount::class, \App\Http\Middleware\RestrictCollectorPortal::class, \App\Http\Middleware\RestrictOwnerPortal::class, \App\Http\Middleware\RestrictReferralPortal::class, \App\Http\Middleware\AuditActivity::class]], function (): void {
     Route::get('super-admin/owners', [\App\Http\Controllers\OwnerAccountController::class, 'index']);
     Route::post('super-admin/owners', [\App\Http\Controllers\OwnerAccountController::class, 'store']);
     Route::put('super-admin/owners/{id}', [\App\Http\Controllers\OwnerAccountController::class, 'update'])->whereNumber('id');
+    Route::prefix('collector-portal')->group(function () {
+        $c = \App\Http\Controllers\CollectorPortalController::class;
+        Route::get('context', [$c,'context']);
+        Route::get('tasks', [$c,'tasks']);
+        Route::post('tasks/{id}/status', [$c,'transition'])->whereNumber('id');
+        Route::get('statistics', [$c,'statistics']);
+        Route::get('submissions', [$c,'submissions']);
+        Route::get('submissions/{id}', [$c,'showSubmission'])->whereNumber('id');
+        Route::post('workspace/invoices/create', [$c,'submit'])->middleware('throttle:30,1');
+        Route::post('workspace/patients/search-name', [$c,'patients']);
+        Route::post('workspace/tests/questions', [$c,'questions']);
+        Route::get('workspace/{resource}', [$c,'lookup']);
+        $n = \App\Http\Controllers\CollectorNotificationController::class;
+        Route::get('notifications', [$n,'index']);
+        Route::get('notifications/config', [$n,'config']);
+        Route::post('notifications/{id}/read', [$n,'read']);
+        foreach (['status','subscribe','unsubscribe'] as $action) Route::post('notifications/push/'.$action, [$n,$action])->middleware('throttle:10,1');
+    });
+    Route::prefix('sample-logistics')->group(function () {
+        $c = \App\Http\Controllers\CollectorPortalController::class;
+        Route::get('accounts', [$c,'accounts']);
+        Route::post('accounts', [$c,'saveAccount']);
+        Route::put('accounts/{id}', [$c,'saveAccount'])->whereNumber('id');
+        Route::put('assignments', [$c,'assignSource']);
+        Route::get('tasks', [$c,'managementTasks']);
+        Route::post('tasks/{id}/assign', [$c,'assignTask'])->whereNumber('id');
+        Route::get('statistics', [$c,'managementStatistics']);
+        Route::get('waiting', [$c,'waiting']);
+        Route::get('waiting/{id}', [$c,'waitingShow'])->whereNumber('id');
+        Route::post('waiting/{id}/review', [$c,'review'])->whereNumber('id');
+    });
+
     Route::prefix('owner-portal')->group(function () {
         Route::prefix('notifications')->group(function () {
             $controller = \App\Http\Controllers\OwnerNotificationController::class;

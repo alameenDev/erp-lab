@@ -89,6 +89,7 @@ class AccountAccess
 
     public function manageUser(User $actor, User $target, bool $changeRole = false): void
     {
+        abort_if($changeRole && $target->collector_portal_only,403,'عدّل حساب المندوب من إدارة سحب العينات.');
         abort_if($changeRole && $actor->is($target), 403, 'لا يمكنك تغيير دور حسابك من هذه النافذة.');
         if ((int) $actor->role_id === 1) return;
         abort_unless(in_array((int) $target->id, $this->tenantUserIds($actor), true), 403);

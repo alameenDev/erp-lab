@@ -199,8 +199,8 @@ class AuthController extends Controller
     private function portalFlags(User $user): void
     {
         // Sample collectors are staff; their commission record is not a portal account.
-        $user->is_referral_partner = $user->referral_portal_only ||
-            ((int) $user->role_id !== 6 && Referal::where('referral_id_fk', $user->id)->exists());
+        $user->is_referral_partner = !$user->collector_portal_only && ($user->referral_portal_only ||
+            ((int) $user->role_id !== 6 && Referal::where('referral_id_fk', $user->id)->exists()));
         $user->is_doctor_portal = (int) $user->role_id === 5 && $user->referral_portal_only
             && ! \App\Models\ReferralLabProfile::where('user_id_fk', $user->id)->exists();
     }
@@ -417,6 +417,9 @@ class AuthController extends Controller
         if ($request->user()->owner_portal_only) {
             \App\Models\OwnerPushSubscription::where('owner_id', $request->user()->id)
                 ->where('auth_token_id', ($request->user()->currentAccessToken()->id ?? null))->delete();
+        }
+        if ($request->user()->collector_portal_only) {
+            \App\Models\CollectorPushSubscription::where('collector_id',$request->user()->id)->where('auth_token_id',($request->user()->currentAccessToken()->id ?? null))->delete();
         }
         $request->user()->currentAccessToken()->delete();
 
