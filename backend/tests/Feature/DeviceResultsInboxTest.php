@@ -91,6 +91,20 @@ class DeviceResultsInboxTest extends TestCase
         $this->postJson('/api/device-results/'.$delivery->id.'/apply')->assertForbidden();
     }
 
+    public function test_administrator_can_monitor_multiple_labs_with_view_permission(): void
+    {
+        $this->delivery();
+        $otherLab = User::create(['name' => 'Second lab', 'email' => 'admin-inbox-lab@example.test', 'password' => 'test-password', 'role_id' => 2]);
+        $otherDevice = LabDevice::create(['lab_id_fk' => $otherLab->id, 'name' => 'Second device', 'api_token' => str_repeat('c', 64)]);
+        $this->delivery(['device_id_fk' => $otherDevice->id, 'invoice_id_fk' => null]);
+        $this->getJson('/api/device-results')->assertOk()->assertJsonCount(1, 'data');
+        $admin = User::create(['name' => 'Admin', 'email' => 'inbox-admin@example.test', 'password' => 'test-password', 'role_id' => 1]);
+        $admin->givePermissionTo('devices view');
+        $this->actingAs($admin)->getJson('/api/device-results')->assertOk()->assertJsonCount(2, 'data');
+        $this->getJson('/api/device-results?device_id='.$otherDevice->id)->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.device.name', 'Second device');
+    }
+
     public function test_archive_history_is_readable_and_searchable(): void
     {
         $this->delivery();
