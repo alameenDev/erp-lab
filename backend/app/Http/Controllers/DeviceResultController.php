@@ -129,31 +129,60 @@ class DeviceResultController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        $query = DeviceResult::with(['device:id,name', 'invoice:id,barcode,patient_id_fk']);
-
-        // Scope to tenant's devices
-        if ($user->role_id != 1) {
-            $users_ids = $this->getTenantUserIds();
-            $deviceIds = LabDevice::whereIn('lab_id_fk', $users_ids)->pluck('id');
-            $query->whereIn('device_id_fk', $deviceIds);
+        $filters = $request->validate([
+            'status' => ['nullable', 'string', 'regex:/^(pending|matched|applied|failed)(,(pending|matched|applied|failed))*$/'],
+            'search' => ['nullable', 'string', 'max:150'],
+            'device_id' => ['nullable', 'integer', 'min:1'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+        $tenantIds = $user->role_id == 1 ? null : $this->getTenantUserIds();
+        // Only disclose the linked patient from this tenant; never guess a patient
+        // from an unlinked barcode or the analyzer's free-text patient fields.
+        $scopeInvoice = function ($query) use ($tenantIds) {
+            if ($tenantIds !== null) $query->whereIn('lab_id_fk', $tenantIds);
+        };
+        $scopePatient = function ($query) use ($tenantIds) {
+            if ($tenantIds !== null) $query->whereIn('creator_id', $tenantIds);
+        };
+        $query = DeviceResult::with([
+            'device' => fn ($q) => $q->withTrashed()->select('id', 'name', 'deleted_at'),
+            'invoice' => function ($q) use ($scopeInvoice) {
+                $scopeInvoice($q);
+                $q->select('id', 'barcode', 'patient_id_fk', 'deleted_at');
+            },
+            'invoice.patient' => function ($q) use ($scopePatient) {
+                $scopePatient($q);
+                $q->select('id', 'user_id', 'age', 'age_unit_id_fk', 'deleted_at');
+            },
+            'invoice.patient.user:id,name',
+            'invoice.patient.ageUnit:id,unit_name',
+        ]);
+        // Retain historical deliveries after a device is archived, within its tenant.
+        if ($tenantIds !== null) {
+            $query->whereIn('device_id_fk', LabDevice::withTrashed()->whereIn('lab_id_fk', $tenantIds)->select('id'));
         }
-
-        // Filter by status — validate allowed values
-        if ($request->filled('status')) {
-            $allowedStatuses = ['pending', 'matched', 'applied', 'failed'];
-            $statuses = array_intersect(explode(',', $request->status), $allowedStatuses);
-            if (! empty($statuses)) {
-                $query->whereIn('status', $statuses);
-            }
+        if (! empty($filters['status'])) $query->whereIn('status', explode(',', $filters['status']));
+        if (! empty($filters['device_id'])) $query->where('device_id_fk', $filters['device_id']);
+        $search = trim($filters['search'] ?? '');
+        if ($search !== '') {
+            // Escape LIKE metacharacters: barcodes and patient names are literal text.
+            $term = '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $search).'%';
+            $query->where(function ($q) use ($term, $scopeInvoice, $scopePatient) {
+                $q->whereRaw("specimen_barcode LIKE ? ESCAPE '!'", [$term])
+                    ->orWhereHas('invoice', function ($invoice) use ($term, $scopeInvoice, $scopePatient) {
+                        $scopeInvoice($invoice);
+                        $invoice->where(function ($q) use ($term, $scopePatient) {
+                            $q->whereRaw("barcode LIKE ? ESCAPE '!'", [$term])
+                                ->orWhereHas('patient', function ($patient) use ($term, $scopePatient) {
+                                    $scopePatient($patient);
+                                    $patient->whereHas('user', fn ($user) => $user->whereRaw("name LIKE ? ESCAPE '!'", [$term]));
+                                });
+                        });
+                    });
+            });
         }
-
-        // Filter by device — validate it's an integer
-        if ($request->filled('device_id')) {
-            $query->where('device_id_fk', (int) $request->device_id);
-        }
-
-        $perPage = min((int) ($request->input('per_page', 25)), 100);
-        $results = $query->orderBy('created_at', 'desc')->paginate($perPage);
+        $results = $query->orderByDesc('created_at')->orderByDesc('id')->paginate($filters['per_page'] ?? 25);
 
         return response()->json([
             'data' => $results->items(),

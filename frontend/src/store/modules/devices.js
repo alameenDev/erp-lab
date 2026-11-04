@@ -8,6 +8,10 @@ export const useDevicesStore = defineStore("devices", {
           options: { profiles: [], labs: [], can_select_lab: false },
           deviceResults: [],
           resultsPagination: { current_page: 1, total: 0, per_page: 25, last_page: 1 },
+          resultsParams: {},
+          resultsLoading: false,
+          resultsError: false,
+          resultsRequestId: 0,
           totalCount: 0,
           pendingCount: 0,
           dialog: false,
@@ -84,21 +88,28 @@ export const useDevicesStore = defineStore("devices", {
                     throw error;
                }
           },
-          async GetDeviceResults(params = {}) {
+          async GetDeviceResults(params = this.resultsParams) {
+               this.resultsParams = { ...params };
+               const requestId = ++this.resultsRequestId;
+               this.resultsLoading = true;
                try {
-                    const { data } = await $http.get("/device-results", { params });
+                    const { data } = await $http.get("/device-results", { params: { ...params } });
+                    if (requestId !== this.resultsRequestId) return;
                     this.deviceResults = data.data || [];
                     this.resultsPagination = data.pagination || {};
+                    this.resultsError = false;
                } catch (error) {
-                    console.error("Error fetching device results:", error);
-                    throw error;
+                    if (requestId !== this.resultsRequestId) return;
+                    // Keep the last successful snapshot and make the refresh failure visible.
+                    this.resultsError = true;
+               } finally {
+                    if (requestId === this.resultsRequestId) this.resultsLoading = false;
                }
           },
           async ApplyResult(resultId, replaceExisting = false) {
                try {
                     const { data } = await $http.post(`/device-results/${resultId}/apply`, { replace_existing: replaceExisting });
-                    await this.GetDeviceResults({ status: "pending,matched,applied" });
-                    await this.GetDevices();
+                    await Promise.allSettled([this.GetDeviceResults(), this.GetDevices()]);
                     return data;
                } catch (error) {
                     console.error("Error applying result:", error);
@@ -108,18 +119,18 @@ export const useDevicesStore = defineStore("devices", {
           async ManualMatch(resultId, invoiceId) {
                try {
                     const { data } = await $http.post(`/device-results/${resultId}/match`, { invoice_id: invoiceId });
-                    await this.GetDeviceResults({ status: "pending" });
+                    await this.GetDeviceResults();
                     return data;
                } catch (error) {
                     console.error("Error matching result:", error);
                     throw error;
                }
           },
-          startPolling(intervalMs = 30000) {
+          startPolling(intervalMs = 30000, includeResults = () => true) {
                this.stopPolling();
                this.pollingInterval = setInterval(() => {
-                    this.GetDevices();
-                    this.GetDeviceResults({ status: "pending,matched,applied" });
+                    if (document.hidden || this.resultsLoading) return;
+                    void Promise.allSettled([this.GetDevices(), ...(includeResults() ? [this.GetDeviceResults()] : [])]);
                }, intervalMs);
           },
           stopPolling() {
