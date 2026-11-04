@@ -8,7 +8,7 @@ try{
  if(!process.env.COMMENTS_UI_ONLY) for(const template of ['classic','modern'])for(const merged of [false,true]){
   await open(`template=${template}&long=1${merged?'&merged=1&noStatus=1':'&history=1'}`);
   const text=await page.locator('#Result').innerText();
-  for(const note of ['تعليق عربي','Second line <img src=x> $&','CBC overall','CBC slotted','CBC extra','Formula note','Package note','Nested note','Culture note','General tests note'])assert.equal(text.split(note).length-1,1,`${template}/${merged} ${note} exactly once`);
+  for(const note of ['تعليق عربي','Second line <img src=x> $&','CBC overall','CBC slotted','CBC extra','Grouped template note','Group slot','Group extra','Formula note','Package note','Nested note','Culture note','General tests note'])assert.equal(text.split(note).length-1,1,`${template}/${merged} ${note} exactly once`);
   assert.ok(!text.includes('Ready Glucose'),'unused presets never printed');
   assert.equal(await page.locator('#Result img[src="x"]').count(),0);
   const columns=merged?4:6;

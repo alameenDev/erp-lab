@@ -941,7 +941,7 @@ const generateBarcodeImage = (value) => {
                   <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center"><ReportPreviousResults :rows="previousRows(item, item.report_history_type || 'test', 'scalar')" /></td>
                   <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(item.result_status_id_fk) }}</td>
                 </tr>
-                <tr v-if="showComments && commentText(item.comment)" class="report-comment-row" :data-report-block="section.blocks[idx]" :data-report-bundle="section.bundles[idx]"><td :colspan="colCount"><ReportComment :value="item.comment" :label="item.report_name || item.name" /></td></tr>
+                <tr v-if="showComments && !hasRealTemplate(item) && commentText(item.comment)" class="report-comment-row" :data-report-block="section.blocks[idx]" :data-report-bundle="section.bundles[idx]"><td :colspan="colCount"><ReportComment :value="item.comment" :label="item.report_name || item.name" /></td></tr>
                 <tr v-if="previousRows(item, item.report_history_type || 'test', 'components').length" :data-report-block="section.blocks[idx]" :data-report-bundle="section.bundles[idx]"><td :colspan="colCount"><ResultHistoryTable :rows="previousRows(item, item.report_history_type || 'test', 'components')" /></td></tr></template>
               </tbody>
             </table>
@@ -983,7 +983,7 @@ const generateBarcodeImage = (value) => {
                   <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center"><ReportPreviousResults :rows="previousRows(item, 'test', 'scalar')" /></td>
                   <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(item.result_status_id_fk) }}</td>
                 </tr>
-                <tr v-if="showComments && commentText(item.comment)" class="report-comment-row"><td :colspan="colCount"><ReportComment :value="item.comment" :label="item.report_name || item.name" /></td></tr>
+                <tr v-if="showComments && !hasRealTemplate(item) && commentText(item.comment)" class="report-comment-row"><td :colspan="colCount"><ReportComment :value="item.comment" :label="item.report_name || item.name" /></td></tr>
                 <tr v-if="previousRows(item, 'test', 'components').length"><td :colspan="colCount"><ResultHistoryTable :rows="previousRows(item, 'test', 'components')" /></td></tr></template>
               </tbody>
             </table>
@@ -1010,7 +1010,7 @@ const generateBarcodeImage = (value) => {
                 </tr>
               </thead>
               <tbody>
-                <template v-for="(item, idx) in group.tests.filter(t => !hasRealTemplate(t) && !isFormulaTarget(group, t))" :key="'tgt-' + idx"><tr>
+                <template v-for="(item, idx) in group.tests.filter(t => !isFormulaTarget(group, t))" :key="'tgt-' + idx"><tr>
                   <td class="border border-black/15 p-0.5 text-center">{{ item.report_name || item.name }}</td>
                   <td class="border border-black/15 p-0.5 text-center" :style="getResultColorStyle(item.result_status_id_fk)">{{ item.result ?? "" }}</td>
                   <td v-if="showStatus && modernReport" class="report-flag-cell"><ReportResultFlag :status-id="item.result_status_id_fk" :label="getStatusLabel(item.result_status_id_fk)" /></td>
@@ -1025,7 +1025,7 @@ const generateBarcodeImage = (value) => {
                   <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center"><ReportPreviousResults :rows="previousRows(item, 'test', 'scalar')" /></td>
                   <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(item.result_status_id_fk) }}</td>
                 </tr>
-                <tr v-if="showComments && commentText(item.comment)" class="report-comment-row"><td :colspan="colCount"><ReportComment :value="item.comment" :label="item.report_name || item.name" /></td></tr>
+                <tr v-if="showComments && !hasRealTemplate(item) && commentText(item.comment)" class="report-comment-row"><td :colspan="colCount"><ReportComment :value="item.comment" :label="item.report_name || item.name" /></td></tr>
                 <tr v-if="previousRows(item, 'test', 'components').length"><td :colspan="colCount"><ResultHistoryTable :rows="previousRows(item, 'test', 'components')" /></td></tr></template>
                 <template v-for="(f, fi) in (Array.isArray(group.formula) ? group.formula : [])" :key="'gf-' + fi"><tr>
                   <td class="border border-black/15 p-0.5 text-center font-bold">{{ getTestLabel(group, f.name) }}</td>
@@ -1076,7 +1076,7 @@ const generateBarcodeImage = (value) => {
                     <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center"><ReportPreviousResults :rows="previousRows(item, 'culture', 'scalar')" /></td>
                     <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(item.result_status_id_fk) }}</td>
                   </tr>
-                <tr v-if="showComments && commentText(item.comment)" class="report-comment-row"><td :colspan="colCount"><ReportComment :value="item.comment" :label="item.report_name || item.name" /></td></tr>
+                <tr v-if="showComments && !hasRealTemplate(item) && commentText(item.comment)" class="report-comment-row"><td :colspan="colCount"><ReportComment :value="item.comment" :label="item.report_name || item.name" /></td></tr>
                 <tr v-if="previousRows(item, 'culture', 'components').length"><td :colspan="colCount"><ResultHistoryTable :rows="previousRows(item, 'culture', 'components')" /></td></tr></template>
                 </tbody>
               </table>
@@ -1121,7 +1121,7 @@ const generateBarcodeImage = (value) => {
                   <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center"><ReportPreviousResults :rows="previousRows(item, 'test', 'scalar')" /></td>
                   <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(item.result_status_id_fk) }}</td>
                 </tr>
-                <tr v-if="showComments && commentText(item.comment)" class="report-comment-row"><td :colspan="colCount"><ReportComment :value="item.comment" :label="item.report_name || item.name" /></td></tr>
+                <tr v-if="showComments && !hasRealTemplate(item) && commentText(item.comment)" class="report-comment-row"><td :colspan="colCount"><ReportComment :value="item.comment" :label="item.report_name || item.name" /></td></tr>
                 <tr v-if="previousRows(item, 'test', 'components').length"><td :colspan="colCount"><ResultHistoryTable :rows="previousRows(item, 'test', 'components')" /></td></tr></template>
                 <template v-for="(f, fi) in group.formula" :key="'ptgf-' + fi"><tr>
                   <td class="border border-black/15 p-0.5 text-center font-bold">{{ getTestLabel(group, f.name) }}</td>
@@ -1215,7 +1215,7 @@ const generateBarcodeImage = (value) => {
                   <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center"><ReportPreviousResults :rows="previousRows(item, 'culture', 'scalar')" /></td>
                   <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(item.result_status_id_fk) }}</td>
                 </tr>
-                <tr v-if="showComments && commentText(item.comment)" class="report-comment-row"><td :colspan="colCount"><ReportComment :value="item.comment" :label="item.report_name || item.name" /></td></tr>
+                <tr v-if="showComments && !hasRealTemplate(item) && commentText(item.comment)" class="report-comment-row"><td :colspan="colCount"><ReportComment :value="item.comment" :label="item.report_name || item.name" /></td></tr>
                 <tr v-if="previousRows(item, 'culture', 'components').length"><td :colspan="colCount"><ResultHistoryTable :rows="previousRows(item, 'culture', 'components')" /></td></tr></template>
                 <template v-for="(f, fi) in (Array.isArray(pkg.formula) ? pkg.formula : [])" :key="'pf-' + fi"><tr>
                   <td class="border border-black/15 p-0.5 text-center font-bold">{{ getTestLabel(pkg, f.name) }}</td>
