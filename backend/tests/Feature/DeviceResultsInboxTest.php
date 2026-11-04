@@ -84,7 +84,7 @@ class DeviceResultsInboxTest extends TestCase
     public function test_employee_reads_own_lab_but_cannot_apply_without_update_permission(): void
     {
         $delivery = $this->delivery();
-        $employee = User::create(['name' => 'Viewer', 'email' => 'inbox-viewer@example.test', 'password' => 'test-password', 'creator_id' => $this->lab->id]);
+        $employee = User::create(['name' => 'Viewer', 'email' => 'inbox-viewer@example.test', 'password' => 'test-password', 'role_id' => 4, 'creator_id' => $this->lab->id]);
         $this->actingAs($employee)->getJson('/api/device-results')->assertForbidden();
         $employee->givePermissionTo('devices view');
         $this->actingAs($employee->fresh())->getJson('/api/device-results')->assertOk()->assertJsonPath('data.0.invoice.patient.user.name', 'مريض تجريبي');
