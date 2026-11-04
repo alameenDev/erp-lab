@@ -14,13 +14,14 @@ const normalizeSettings = (data = {}) => ({
  print_margins: {top:20,bottom:20,left:15,right:15,...data?.print_margins},
  barcode_config: {label_width:3,label_height:1.5,name_size:9,info_size:7,number_size:6,barcode_height:40,sample_size:8,tests_size:7,...data?.barcode_config},
  patient_header_config: {name_size:20,info_size:13,barcode_height:35,qr_size:90,line_height:1.7,...data?.patient_header_config},
- print_table_config: {header_font_size:13,header_font_family:"inherit",header_color:"#0f172a",header_bg_color:"#f1f5f9",header_font_weight:"bold",body_font_size:13,body_font_family:"inherit",body_color:"#1e293b",body_bg_color:"#ffffff",border_color:"#e2e8f0",cell_padding:6,section_spacing:12,...data?.print_table_config},
+ print_table_config: {show_comments:true,header_font_size:13,header_font_family:"inherit",header_color:"#0f172a",header_bg_color:"#f1f5f9",header_font_weight:"bold",body_font_size:13,body_font_family:"inherit",body_color:"#1e293b",body_bg_color:"#ffffff",border_color:"#e2e8f0",cell_padding:6,section_spacing:12,...data?.print_table_config},
 });
 export const useLabSettingsStore = defineStore("labSettings", {
      state: () => ({
           settings: {
                report_template: "classic",
                report_form_default: true,
+               print_table_config: { show_comments: true },
                show_patient_portal_invoice_amounts: true,
                show_last_result: false,
                previous_results_count: 1,

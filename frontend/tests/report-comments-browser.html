@@ -1,0 +1,72 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Result comments verification</title></head><body><div id="app"></div><script type="module">
+import { createApp, h, ref, nextTick } from 'vue';
+import { createPinia } from 'pinia';
+import { createRouter, createMemoryHistory } from 'vue-router';
+import PrimeVue from 'primevue/config';
+import Dialog from 'primevue/dialog';
+import InputText from 'primevue/inputtext';
+import InputNumber from 'primevue/inputnumber';
+import Dropdown from 'primevue/dropdown';
+import MultiSelect from 'primevue/multiselect';
+import Checkbox from 'primevue/checkbox';
+import RadioButton from 'primevue/radiobutton';
+import Mixins from '/src/utils/mixins';
+import Editor from '/src/views/medical_reports/update-result.vue';
+import Report from '/src/views/medical_reports/componentes/print_Result.vue';
+import Settings from '/src/views/lab-settings/index.vue';
+import Catalog from '/src/views/tests/components/test_modal.vue';
+import { useinvoicesStore } from '/src/store/modules/invoices';
+import { useLabSettingsStore } from '/src/store/modules/labSettings';
+import { useTemplatesStore } from '/src/store/modules/template';
+import { useresultStatusStore } from '/src/store/modules/result-status';
+import { useAuthStore } from '/src/store/modules/auth';
+import { usetestsStore } from '/src/store/modules/tests';
+import { $http } from '/src/plugins/axios';
+import { reportKeepIntervals, reportSlices, reportGeometry } from '/src/utils/medicalReportPages';
+import '/src/assets/main.css';
+const params=new URLSearchParams(location.search),mode=params.get('mode')||'report',copy=x=>JSON.parse(JSON.stringify(x));
+localStorage.setItem('token','synthetic-comments');localStorage.setItem('locale','ar');localStorage.setItem('user',JSON.stringify({role_id:2}));
+const row=(id,name,comment='')=>({id,test_id_fk:id,name,shortcut:name,report_name:name,result:'5',is_done:true,unit:'mg/dL',result_type_id_fk:1,result_status_id_fk:2,test_reference_ranges:[],comment,result_comments:[`Ready ${name}`,`Second ${name}`]});
+const custom={...row(3,'CBC','CBC overall'),is_special_test:true,sub_tests:[{name:'WBC',value:'5',comment:'CBC slotted'},{name:'RBC',value:'4',comment:'CBC extra'}],content:{html:'<h2>CBC</h2><table><tbody><tr><td>WBC</td><td>{{sub_test.WBC.value}}</td></tr></tbody></table><p>{{sub_test.WBC.comment}}</p>'}};
+const sample={id:14,lab_id_fk:1,barcode:'COMMENTS-14',is_done:true,patient:{id:1,name:'مريض اختبار التعليقات',age:35,age_unit:'Years',gender:'Male',code:'COMMENTS-14'},registration_date:'2026-10-01T09:00:00',attachments:[],
+ tests:[row(1,'Glucose','تعليق عربي\nSecond line <img src=x> $&'),row(2,'LongText',params.has('long')?'W'.repeat(1800):'Long text note'),custom],
+ test_groups:[{test_group_id_fk:4,group_name:'Group',tests:[row(4,'Measured',params.has('long')?Array.from({length:70},(_,i)=>`Line ${i+1} — تعليق طويل واضح لا يُقصّ`).join('\n'):'Group note'),row(5,'Calculated','Formula note')],formula:[{name:'Calculated',tokens:['Measured','*','2']}],cultures:[]}],
+ packages:[{package_id_fk:6,name:'Package',tests:[row(6,'PackageTest','Package note'),{...row(7,'NestedTest','Nested note'),test_group_name:'NestedGroup',test_group_id_fk:8}],test_groups:[{test_group_id_fk:8,group_name:'NestedGroup',formula:[]}],cultures:[]}],cultures:[{...row(9,'Culture','Culture note'),culture_id_fk:9}],tests_comment:'General tests note'};
+const settings={report_template:params.get('template')||'modern',report_form_default:false,show_categories:true,show_test_names:!params.has('merged'),show_status:!params.has('noStatus'),show_last_result:params.has('history'),print_black_white:params.has('mono'),print_margins:{top:28,bottom:24,left:15,right:15},patient_header_config:{name_size:18,info_size:12,qr_size:60},print_table_config:{show_comments:!params.has('hidden'),header_font_size:12,body_font_size:12,cell_padding:6}};
+const fixture=window.fixture={sample,settings,requests:[],pages:[],ready:false};
+$http.defaults.adapter=async config=>{
+ fixture.requests.push({url:config.url,data:config.data instanceof FormData?Object.fromEntries(config.data):config.data});
+ let data=[];
+ if(config.url.includes('previous-results'))data={};
+ else if(config.url==='/portal/generate')data={url:location.origin+'/portal/'+'a'.repeat(48)};
+ else if(config.url.includes('/invoices/') && !config.url.includes('update-result'))data=copy(sample);
+ else if(config.url.includes('update-result'))data={attachments:[]};
+ else if(config.url==='/lab-settings' && config.method==='post'){settings.print_table_config.show_comments=config.data.get('print_table_config[show_comments]')==='1';data={setting:copy(settings)};}
+ else if(config.url.startsWith('/lab-settings'))data=copy(settings);
+ return {data,status:200,statusText:'OK',headers:{},config};
+};
+const app=createApp({setup(){
+ const child=ref(null),invoices=useinvoicesStore(),lab=useLabSettingsStore(),catalog=usetestsStore();
+ invoices.printRecord=copy(sample);lab.settings=copy(settings);
+ invoices.GetinvoicesById=async()=>{invoices.printRecord=copy(sample);return invoices.printRecord;};invoices.Getinvoices=async()=>{};
+ useAuthStore().havePermission=()=>true;
+ useTemplatesStore().GetTemplates=async()=>{};
+ const statuses=useresultStatusStore();statuses.resultStatus=[{value:2,label:'Normal'}];statuses.GetresultStatus=async()=>{};
+ fixture.invoices=invoices;fixture.lab=lab;fixture.catalog=catalog;fixture.state=()=>child.value.$.setupState;
+ if(mode==='catalog'){catalog.dialog=true;catalog.record={...catalog.record,name:'New analysis',result_comments:['']};}
+ fixture.prepare=async(options={pagesOnly:true})=>{child.value.beginCapture();await nextTick();const result=await child.value.prepareReport(options);fixture.pages=result.pages;await nextTick();return {pages:result.pages.length,hasBlob:!!result.blob};};
+ fixture.layout=()=>{
+  const target=document.querySelector('#Result .print-wrapper'),rect=target.getBoundingClientRect(),header=target.querySelector(':scope > thead').getBoundingClientRect().bottom-rect.top,scale=2;
+  const capacity=reportGeometry(settings.print_margins,96/25.4*scale).content.height-header*scale;
+  const intervals=reportKeepIntervals(target,rect,scale,header*scale),slices=reportSlices(rect.height*scale-header*scale,capacity,intervals);
+  const ranges=[];
+  for(const node of target.querySelectorAll('.report-comment-text')){const range=document.createRange();range.selectNodeContents(node);for(const r of range.getClientRects())ranges.push([(r.top-rect.top)*scale-header*scale,(r.bottom-rect.top)*scale-header*scale]);}
+  const cuts=slices.slice(0,-1).map(s=>s[1]);return {slices:slices.length,badCuts:cuts.filter(c=>ranges.some(([a,b])=>c>a+1&&c<b-1)),overflow:[...target.querySelectorAll('.report-comment')].filter(n=>n.scrollWidth>n.clientWidth+1).length};
+ };
+ nextTick(async()=>{if(mode==='report'){child.value.beginCapture();document.querySelector('#Result').style.width='180mm';}await nextTick();fixture.ready=true;});
+ return()=>h('main',[h(mode==='editor'?Editor:mode==='settings'?Settings:mode==='catalog'?Catalog:Report,{ref:child}),mode==='report'?h('div',{id:'pages'},fixture.pages.map(src=>h('img',{src,style:'width:600px;display:block;border:1px solid #ddd;margin:12px auto'}))):null]);
+}});
+const router=createRouter({history:createMemoryHistory(),routes:[{path:'/fixture/:id?',component:{render:()=>null}}]});
+for(const [name,component] of Object.entries({Dialog,InputText,InputNumber,Dropdown,MultiSelect,Checkbox,RadioButton}))app.component(name,component);
+app.use(createPinia()).use(PrimeVue).use(router).mixin(Mixins);await router.push(mode==='editor'?'/fixture/14':'/fixture');await router.isReady();app.mount('#app');
+</script></body></html>

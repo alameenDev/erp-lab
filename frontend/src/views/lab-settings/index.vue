@@ -1,5 +1,6 @@
 <script setup>
 const props = defineProps({ referralMode: { type: Boolean, default: false } });
+import { reportCommentsVisible } from "@/utils/resultComments";
 import { ref, computed, onMounted } from "vue";
 import { useLabSettingsStore } from "@/store/modules/labSettings";
 import { storeToRefs } from "pinia";
@@ -165,6 +166,7 @@ const save = async () => {
           formData.append("patient_header_config[line_height]", ph.line_height ?? 1.7);
 
           const pt = settings.value.print_table_config || {};
+          formData.append("print_table_config[show_comments]", reportCommentsVisible(settings.value) ? "1" : "0");
           formData.append("print_table_config[custom_column_widths]", customReportColumns(pt) ? "1" : "0");
           for (const [key, fallback] of Object.entries(reportColumnDefaults)) {
                formData.append(`print_table_config[column_widths][${key}]`, pt.column_widths?.[key] ?? fallback);
@@ -371,6 +373,12 @@ const resetBranding = async () => {
                                    <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
                                         <input type="checkbox" id="showTestName" v-model="settings.show_test_names" class="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-primary-500" />
                                         <label for="showTestName" class="text-sm font-medium text-slate-700 cursor-pointer select-none">{{ t("show_test_names_print") || "إظهار اسم التحليل في الطباعة" }}</label>
+                                   </div>
+                                   <div class="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
+                                        <input type="checkbox" id="showResultComments" :checked="reportCommentsVisible(settings)" @change="settings.print_table_config = { ...settings.print_table_config, show_comments: $event.target.checked }" class="mt-1 w-4 h-4 text-primary-600 border-slate-300 rounded" />
+                                        <label for="showResultComments" class="text-sm font-medium text-slate-700 cursor-pointer">إظهار تعليقات النتائج في التقرير الطبي
+                                             <small class="block text-slate-500 font-normal">يشمل الطباعة العادية والسريعة وملفات PDF والتقارير المشتركة. إخفاؤها لا يحذفها من نتيجة المريض.</small>
+                                        </label>
                                    </div>
                                    <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
                                         <input type="checkbox" id="showStatus" v-model="settings.show_status" class="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-primary-500" />

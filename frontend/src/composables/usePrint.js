@@ -314,6 +314,8 @@ export function usePrint() {
       //   - Body rows use <tbody> > <tr> > <td>
       //   - Also catches the raw test/culture/package/test_group tables in print_Result.vue
       return `${reportColumnCss}
+        #Result .report-comment { font-size: ${bfs}px; font-family: ${bff}; color: ${bc}; }
+        #Result .report-comment-text { text-align: start !important; text-transform: none !important; }
         #Result .test-group-section table thead th,
         #Result table thead.result-header th,
         .test-group-section table thead th,
