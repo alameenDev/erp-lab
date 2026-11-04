@@ -1,0 +1,45 @@
+name: Device results inbox
+on:
+  pull_request:
+    paths:
+      - 'frontend/src/views/devices/**'
+      - 'frontend/src/views/medical_reports/index.vue'
+      - 'frontend/src/store/modules/devices.js'
+      - 'frontend/src/utils/ar.json'
+      - 'frontend/src/utils/en.json'
+      - 'frontend/tests/device-results*'
+      - '.github/workflows/device-results-inbox.yml'
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm install --no-save --package-lock=false playwright@1.55.1
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: Exercise reports shortcut and device inbox
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 5173 > /tmp/device-inbox-vite.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:5173/tests/device-results-browser.html > /dev/null && break
+            sleep 1
+          done
+          node tests/device-results.browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: device-results-inbox
+          path: frontend/test-results/device-results
+          retention-days: 7

@@ -1,6 +1,8 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, reactive, watch, computed, onMounted, onUnmounted } from "vue";
 import { storeToRefs } from "pinia";
+import { useRoute, useRouter } from "vue-router";
+import Dialog from "primevue/dialog";
 import { useDevicesStore } from "@/store/modules/devices";
 import { useAuthStore } from "@/store/modules/auth";
 import { t, showAlertWithConfirm } from "@/utils/helper";
@@ -12,27 +14,63 @@ const devicesStore = useDevicesStore();
 const authStore = useAuthStore();
 const { havePermission } = authStore;
 
-const { devices, deviceResults, totalCount, pendingCount, record, dialog, newTokenDialog, newToken } = storeToRefs(devicesStore);
+const { devices, deviceResults, resultsPagination, resultsLoading, resultsError, totalCount, pendingCount, record, dialog, newTokenDialog, newToken } = storeToRefs(devicesStore);
 const { GetDeviceOptions, GetDevices, GetDeviceResults, RemoveDevice, ApplyResult, RegenerateToken, startPolling, stopPolling } = devicesStore;
 
 const isLoading = ref(true);
-const activeTab = ref("devices");
+const route = useRoute();
+const router = useRouter();
+const activeTab = computed(() => route.query.tab === 'results' ? 'results' : 'devices');
+const filters = reactive({ search: '', status: 'all', device_id: '' });
+const allowedStatuses = ['all', 'pending,matched', 'pending', 'matched', 'applied', 'failed'];
+const resultsParams = (page = 1) => ({
+     page, per_page: 25,
+     ...(filters.status !== 'all' ? { status: filters.status } : {}),
+     ...(filters.search.trim() ? { search: filters.search.trim() } : {}),
+     ...(filters.device_id ? { device_id: filters.device_id } : {}),
+});
+const refreshResults = () => GetDeviceResults();
+const changePage = (page) => router.replace({ query: { ...route.query, page: String(page) } });
+const searchResults = () => {
+     const query = { tab: 'results', status: filters.status };
+     if (filters.search.trim()) query.search = filters.search.trim();
+     if (filters.device_id) query.device_id = filters.device_id;
+     const target = router.resolve({ query });
+     if (target.fullPath === route.fullPath) return GetDeviceResults(resultsParams());
+     return router.replace({ query });
+};
+const selectTab = (tab, status = 'all') => router.replace({ query: tab === 'results' ? { tab, status } : {} });
+watch(() => route.fullPath, () => {
+     if (activeTab.value !== 'results') return;
+     filters.search = typeof route.query.search === 'string' ? route.query.search.slice(0, 150) : '';
+     filters.status = allowedStatuses.includes(route.query.status) ? route.query.status : 'all';
+     filters.device_id = /^\d+$/.test(route.query.device_id || '') ? route.query.device_id : '';
+     const page = Number(route.query.page);
+     void GetDeviceResults(resultsParams(Number.isSafeInteger(page) && page > 0 ? page : 1));
+}, { immediate: true });
+const patientName = (result) => result.invoice?.patient?.user?.name || t(result.invoice ? 'device_patient_unavailable' : 'device_patient_unlinked');
+const resultStatusLabel = (status) => t('device_result_' + status);
+const exactDate = (date) => date ? new Date(date).toLocaleString(lang.value === 'ar' ? 'ar-IQ' : 'en-GB') : '—';
 const detailResult = ref(null);
 const lang = computed(() => localStorage.getItem("locale") || "ar");
 const onlineCount = computed(() => devices.value.filter((d) => d.status === "online").length);
 
 onMounted(async () => {
+     startPolling(30000, () => activeTab.value === 'results');
      try {
           await GetDevices();
-          await GetDeviceResults({ status: "pending,matched,applied" });
-          startPolling(30000);
+     } catch (error) {
+          toast.error(t('error'));
      } finally {
           isLoading.value = false;
      }
 });
 
-onUnmounted(() => stopPolling());
-
+onUnmounted(() => {
+     stopPolling();
+     devicesStore.resultsRequestId++;
+     devicesStore.resultsLoading = false;
+});
 const openDevice = async (device = null) => {
      try {
           await GetDeviceOptions();
@@ -179,14 +217,15 @@ const timeAgo = (dateStr) => {
           </div>
 
           <!-- ==================== ACTION BAR ==================== -->
-          <div class="flex items-center justify-between">
-               <div class="flex gap-2">
-                    <button @click="activeTab = 'devices'" :class="['px-4 py-2 text-sm font-medium rounded-xl transition-colors', activeTab === 'devices' ? 'bg-primary-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50']">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+               <div class="flex flex-wrap gap-2">
+                    <button @click="selectTab('devices')" :class="['px-4 py-2 text-sm font-medium rounded-xl transition-colors', activeTab === 'devices' ? 'bg-primary-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50']">
                          {{ t("devices") }} ({{ totalCount }})
                     </button>
-                    <button @click="activeTab = 'results'; GetDeviceResults({ status: 'pending,matched,applied' })" :class="['px-4 py-2 text-sm font-medium rounded-xl transition-colors', activeTab === 'results' ? 'bg-amber-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50']">
+                    <button @click="selectTab('results', 'pending,matched')" :class="['px-4 py-2 text-sm font-medium rounded-xl transition-colors', activeTab === 'results' && filters.status === 'pending,matched' ? 'bg-amber-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50']">
                          {{ t("pending_results") }} ({{ pendingCount }})
                     </button>
+                    <button @click="selectTab('results')" :class="['px-4 py-2 text-sm font-medium rounded-xl transition-colors', activeTab === 'results' && filters.status !== 'pending,matched' ? 'bg-primary-600 text-white' : 'bg-white text-slate-600 border border-slate-200']">{{ t('all_device_results') }}</button>
                </div>
                <button v-if="havePermission('devices create')" @click="addDevice" class="flex items-center gap-2 px-4 py-2.5 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors shadow-sm">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -260,72 +299,89 @@ const timeAgo = (dateStr) => {
                </table>
           </div>
 
-          <!-- ==================== PENDING RESULTS TABLE ==================== -->
-          <div v-if="activeTab === 'results'" class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
-               <table class="w-full">
-                    <thead>
-                         <tr class="bg-slate-50/80 border-b border-slate-200/80">
-                              <th class="px-5 py-4 text-start text-xs font-semibold text-slate-500 uppercase tracking-wider">{{ t("barcode") }}</th>
-                              <th class="px-5 py-4 text-start text-xs font-semibold text-slate-500 uppercase tracking-wider">{{ t("devices") }}</th>
-                              <th class="px-5 py-4 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">{{ t("tests") }}</th>
-                              <th class="px-5 py-4 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">{{ t("status") }}</th>
-                              <th class="px-5 py-4 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">{{ t("date") }}</th>
-                              <th class="px-5 py-4 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">{{ t("actions") }}</th>
-                         </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100">
-                         <tr v-for="result in deviceResults" :key="result.id" class="hover:bg-slate-50/50 transition-colors">
-                              <td class="px-5 py-4">
-                                   <p class="text-sm font-mono font-semibold text-slate-800">{{ result.specimen_barcode }}</p>
-                              </td>
-                              <td class="px-5 py-4 text-sm text-slate-600">{{ result.device?.name || '-' }}</td>
-                              <td class="px-5 py-4 text-center text-sm text-slate-600">{{ result.parsed_results?.length || 0 }}</td>
-                              <td class="px-5 py-4 text-center">
-                                   <span :class="['px-2.5 py-1 text-xs font-medium rounded-full', resultStatusBadge(result.status)]">{{ result.status }}</span>
-                                   <p v-if="result.error_message" class="mt-2 max-w-sm text-xs text-amber-800" role="status">{{ result.error_message }}</p>
-                              </td>
-                              <td class="px-5 py-4 text-center text-xs text-slate-500">{{ timeAgo(result.created_at) }}</td>
-                              <td class="px-5 py-4 text-center">
-                                   <button v-if="result.status === 'matched' || (result.delivery_id && result.status === 'pending')" @click="applyResult(result)" class="px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors">
-                                        {{ t("apply_results") }}
-                                   </button>
-                                   <span v-else-if="result.delivery_id" class="text-xs text-amber-700">{{ result.status === 'applied' ? 'نُقلت إلى CBC بالفاتورة — تحتاج اعتماد' : 'محفوظة للمراجعة والمطابقة' }}</span>
-                                   <span v-else-if="result.status === 'pending'" class="text-xs text-amber-600">{{ t("no_match") }}</span>
-                                   <span v-else-if="result.status === 'applied'" class="text-xs text-green-600">{{ t("done") }}</span>
-                                   <button v-if="result.delivery_id && havePermission('medical reports update')" :disabled="applyingResult !== null" @click="applyResult(result, true)" class="mx-1 rounded-lg border border-amber-400 px-3 py-1.5 text-xs font-semibold text-amber-800 disabled:opacity-50">استبدال نتيجة CBC بهذا الإرسال</button>
-                                   <button @click="detailResult = result" class="px-3 py-1.5 text-xs text-blue-700 border rounded-lg mx-2">التفاصيل</button>
-                              </td>
-                         </tr>
-                         <tr v-if="!deviceResults.length">
-                              <td colspan="6" class="px-5 py-16 text-center">
-                                   <svg class="w-16 h-16 mx-auto text-slate-200 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                   </svg>
-                                   <p class="text-slate-400 text-sm">{{ t("no_data") }}</p>
-                              </td>
-                         </tr>
-                    </tbody>
-               </table>
-          </div>
+          <!-- Received deliveries, including failed and already applied results. -->
+          <section v-if="activeTab === 'results'" class="bg-white rounded-2xl shadow-sm border border-slate-200/80 min-w-0" data-testid="device-results-inbox" :aria-busy="resultsLoading">
+               <div class="p-4 border-b space-y-3">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                         <h2 class="font-semibold text-slate-800">{{ filters.status === 'pending,matched' ? t('pending_results') : t('all_device_results') }} <span class="text-slate-500">({{ resultsPagination.total }})</span></h2>
+                         <span class="text-xs text-slate-500">{{ t('device_results_auto_refresh') }}</span>
+                    </div>
+                    <form @submit.prevent="searchResults" class="flex flex-wrap items-end gap-3">
+                         <label class="flex-1 min-w-[180px] text-sm text-slate-600">{{ t('device_results_search') }}
+                              <input v-model="filters.search" maxlength="150" type="search" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" :placeholder="t('device_results_search')" />
+                         </label>
+                         <label class="text-sm text-slate-600">{{ t('status') }}
+                              <select v-model="filters.status" :aria-label="t('status')" class="mt-1 block rounded-lg border border-slate-300 px-3 py-2">
+                                   <option value="all">{{ t('all') }}</option><option value="pending,matched">{{ t('pending_results') }}</option>
+                                   <option v-for="status in ['pending', 'matched', 'applied', 'failed']" :key="status" :value="status">{{ resultStatusLabel(status) }}</option>
+                              </select>
+                         </label>
+                         <label class="text-sm text-slate-600">{{ t('devices') }}
+                              <select v-model="filters.device_id" :aria-label="t('devices')" class="mt-1 block max-w-full rounded-lg border border-slate-300 px-3 py-2">
+                                   <option value="">{{ t('all') }}</option><option v-for="device in devices" :key="device.id" :value="String(device.id)">{{ device.name }}</option>
+                              </select>
+                         </label>
+                         <button type="submit" class="rounded-lg bg-primary-600 px-4 py-2 text-white">{{ t('search') }}</button>
+                         <button type="button" @click="refreshResults" :disabled="resultsLoading" class="rounded-lg border px-4 py-2 disabled:opacity-50">{{ t('device_results_refresh') }}</button>
+                    </form>
+                    <p v-if="resultsError" role="alert" class="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{{ t('device_results_refresh_error') }}</p>
+                    <p v-if="resultsLoading" role="status" class="text-sm text-slate-500">{{ t('loading') }}</p>
+               </div>
+               <div class="overflow-x-auto">
+                    <table class="w-full min-w-[900px] text-sm">
+                         <thead><tr class="bg-slate-50 border-b text-slate-500">
+                              <th class="p-4 text-start">{{ t('Pationt_name') }}</th><th class="p-4 text-start">{{ t('barcode') }}</th>
+                              <th class="p-4 text-start">{{ t('devices') }}</th><th class="p-4">{{ t('tests') }}</th>
+                              <th class="p-4">{{ t('status') }}</th><th class="p-4">{{ t('device_received_at') }}</th><th class="p-4">{{ t('actions') }}</th>
+                         </tr></thead>
+                         <tbody class="divide-y divide-slate-100">
+                              <tr v-for="result in deviceResults" :key="result.id" :data-result-id="result.id" class="hover:bg-slate-50/50">
+                                   <td class="p-4 min-w-[170px]"><p class="font-semibold text-slate-800 break-words">{{ patientName(result) }}</p><p v-if="result.invoice" class="mt-1 text-xs text-slate-500">{{ t('device_invoice') }} #{{ result.invoice.id }} <span v-if="result.invoice.deleted_at">· {{ t('device_archived') }}</span></p></td>
+                                   <td class="p-4"><bdi class="font-mono font-semibold select-all text-slate-800">{{ result.specimen_barcode }}</bdi></td>
+                                   <td class="p-4 text-slate-600">{{ result.device?.name || '—' }} <span v-if="result.device?.deleted_at" class="text-xs">({{ t('device_archived') }})</span></td>
+                                   <td class="p-4 text-center">{{ result.parsed_results?.length || 0 }}</td>
+                                   <td class="p-4 text-center"><span :class="['inline-block px-2.5 py-1 text-xs font-medium rounded-full', resultStatusBadge(result.status)]">{{ resultStatusLabel(result.status) }}</span><p v-if="result.error_message" class="mt-2 max-w-sm text-xs text-amber-800 break-words">{{ result.error_message }}</p></td>
+                                   <td class="p-4 text-center text-xs text-slate-500"><time :datetime="result.created_at">{{ exactDate(result.created_at) }}</time><p>#{{ result.id }}</p></td>
+                                   <td class="p-4 text-center"><div class="flex flex-wrap justify-center gap-2 min-w-[170px]">
+                                        <button v-if="havePermission('medical reports update') && (result.status === 'matched' || (result.delivery_id && result.status === 'pending')) && !result.device?.deleted_at" :disabled="applyingResult !== null" @click="applyResult(result)" class="px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-lg disabled:opacity-50">{{ t('apply_results') }}</button>
+                                        <button v-if="result.delivery_id && havePermission('medical reports update') && !result.device?.deleted_at" :disabled="applyingResult !== null" @click="applyResult(result, true)" class="rounded-lg border border-amber-400 px-3 py-1.5 text-xs font-semibold text-amber-800 disabled:opacity-50">استبدال نتيجة CBC بهذا الإرسال</button>
+                                        <button @click="detailResult = result" class="px-3 py-1.5 text-xs text-blue-700 border rounded-lg">{{ t('device_result_details') }}</button>
+                                   </div></td>
+                              </tr>
+                              <tr v-if="!deviceResults.length && !resultsLoading && !resultsError"><td colspan="7" class="p-12 text-center text-slate-400">{{ t('no_data') }}</td></tr>
+                         </tbody>
+                    </table>
+               </div>
+               <div class="flex flex-wrap items-center justify-between gap-3 border-t p-4 text-sm">
+                    <span>{{ t('device_results_page') }} {{ resultsPagination.current_page }} / {{ resultsPagination.last_page }} · {{ t('device_results_total') }} {{ resultsPagination.total }}</span>
+                    <div class="flex gap-2"><button @click="changePage(resultsPagination.current_page - 1)" :disabled="resultsLoading || resultsPagination.current_page <= 1" class="rounded-lg border px-4 py-2 disabled:opacity-40">{{ t('previous') }}</button><button @click="changePage(resultsPagination.current_page + 1)" :disabled="resultsLoading || resultsPagination.current_page >= resultsPagination.last_page" class="rounded-lg border px-4 py-2 disabled:opacity-40">{{ t('next') }}</button></div>
+               </div>
+          </section>
 
-          <Teleport to="body">
-               <div v-if="detailResult" class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" @click.self="detailResult = null">
-                    <section class="bg-white rounded-xl p-6 w-full max-w-5xl max-h-[90vh] overflow-auto" dir="rtl" role="dialog" aria-modal="true" aria-label="تفاصيل نتائج الجهاز">
-                         <div class="flex justify-between items-center mb-4"><h2 class="text-lg font-bold">نتائج الجهاز — {{ detailResult.specimen_barcode }}</h2><button @click="detailResult = null" class="border rounded-lg px-3 py-2">إغلاق</button></div>
-                         <p class="mb-3 text-sm" dir="ltr">{{ detailResult.device?.name }} · {{ detailResult.created_at }} · #{{ detailResult.id }}</p>
+          <Dialog :visible="!!detailResult" @update:visible="visible => { if (!visible) detailResult = null; }" modal :header="t('device_result_details')" :style="{ width: '64rem', maxWidth: 'calc(100vw - 2rem)' }" :dir="lang === 'ar' ? 'rtl' : 'ltr'">
+               <div v-if="detailResult" class="space-y-3" data-testid="device-result-details">
+                    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-xl bg-slate-50 p-4 text-sm">
+                         <div><dt class="text-slate-500">{{ t('Pationt_name') }}</dt><dd class="font-semibold break-words">{{ patientName(detailResult) }}</dd></div>
+                         <div><dt class="text-slate-500">{{ t('barcode') }}</dt><dd><bdi class="font-mono select-all">{{ detailResult.specimen_barcode }}</bdi></dd></div>
+                         <div><dt class="text-slate-500">{{ t('devices') }}</dt><dd>{{ detailResult.device?.name || '—' }}</dd></div>
+                         <div><dt class="text-slate-500">{{ t('status') }}</dt><dd>{{ resultStatusLabel(detailResult.status) }} · #{{ detailResult.id }}</dd></div>
+                         <div><dt class="text-slate-500">{{ t('device_received_at') }}</dt><dd>{{ exactDate(detailResult.created_at) }}</dd></div>
+                         <div><dt class="text-slate-500">{{ t('device_applied_at') }}</dt><dd>{{ exactDate(detailResult.applied_at) }}</dd></div>
+                         <div v-if="detailResult.invoice"><dt class="text-slate-500">{{ t('device_invoice_barcode') }}</dt><dd><bdi class="font-mono">{{ detailResult.invoice.barcode }}</bdi> · #{{ detailResult.invoice.id }} <span v-if="detailResult.invoice.deleted_at">({{ t('device_archived') }})</span></dd></div>
+                         <div v-if="detailResult.invoice?.patient?.age != null"><dt class="text-slate-500">{{ t('age') }}</dt><dd>{{ detailResult.invoice.patient.age }} {{ detailResult.invoice.patient.age_unit?.unit_name }}</dd></div>
+                    </dl>
                          <p v-if="detailResult.error_message" class="bg-amber-50 p-3 rounded-lg mb-3">{{ detailResult.error_message }}</p>
                          <p v-if="detailResult.delivery_id" class="bg-blue-50 p-3 rounded-lg mb-3">تُنقل نتائج CBC إلى الفاتورة المطابقة للباركود عندما يكون كود ربط التحليل 12345678. النقل لا يعتمد التقرير. يمكنك اختيار استبدال نتيجة CBC بهذا الإرسال من القائمة؛ راجع القيم ووقت الاستلام قبل التأكيد. التقارير الموقعة أو المرسلة تحتاج إعادة فتحها وفق إجراءات المختبر أولاً. الفحوصات التي تبدأ بـ @ تبقى هنا لأنها بحثية فقط.</p>
-                         <p class="mb-3">حالة المطابقة: {{ detailResult.invoice_id_fk ? 'مرتبطة بالفاتورة #' + detailResult.invoice_id_fk : 'لا توجد فاتورة مطابقة؛ راجع باركود العينة' }}</p>
+                         <p class="mb-3">حالة المطابقة: {{ detailResult.invoice ? 'مرتبطة بالفاتورة #' + detailResult.invoice.id : 'لا توجد فاتورة مطابقة؛ راجع باركود العينة' }}</p>
                          <div v-for="(warning, index) in detailResult.instrument_metadata?.warnings || []" :key="'w'+index" class="bg-amber-50 text-amber-900 rounded-lg p-3 mb-2">{{ warning }}</div>
                          <div v-for="(comment, index) in detailResult.instrument_metadata?.comments || []" :key="'c'+index" class="border rounded-lg p-3 mb-2">{{ comment.code || 'العينة' }}: {{ comment.text }}</div>
-                         <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr><th class="p-2 text-start">الرمز</th><th>القيمة</th><th>الوحدة</th><th>المدى من الجهاز</th><th>العلامة</th><th>الحالة</th></tr></thead><tbody>
-                              <tr v-for="(item,index) in detailResult.parsed_results || []" :key="index" class="border-t"><td class="p-2">{{ item.test_code }} <span v-if="item.research_only || item.test_code?.startsWith('@')" class="text-amber-700">بحثي</span></td><td class="p-2 text-center" dir="ltr">{{ item.value }}</td><td class="p-2 text-center" dir="ltr">{{ item.unit }}</td><td class="p-2 text-center" dir="ltr">{{ item.reference_range }}</td><td class="p-2 text-center">{{ item.flags }}</td><td class="p-2 text-center">{{ item.result_status }}</td></tr>
+                         <div class="overflow-x-auto"><table class="w-full min-w-[640px] text-sm"><thead><tr><th class="p-2 text-start">الرمز</th><th>القيمة</th><th>الوحدة</th><th>المدى من الجهاز</th><th>العلامة</th><th>الحالة</th></tr></thead><tbody>
+                              <tr v-for="(item,index) in detailResult.parsed_results || []" :key="index" class="border-t"><td class="p-2">{{ item.test_code }} <span v-if="item.test_name" class="block text-xs text-slate-500">{{ item.test_name }}</span> <span v-if="item.research_only || item.test_code?.startsWith('@')" class="text-amber-700">بحثي</span></td><td class="p-2 text-center" dir="ltr">{{ item.value }}</td><td class="p-2 text-center" dir="ltr">{{ item.unit }}</td><td class="p-2 text-center" dir="ltr">{{ item.reference_range }}</td><td class="p-2 text-center">{{ item.flags }}</td><td class="p-2 text-center">{{ item.result_status }}</td></tr>
                          </tbody></table></div>
-                         <details class="mt-4"><summary class="cursor-pointer">معرّفات العينة كما وصلت</summary><pre class="text-xs whitespace-pre-wrap p-3" dir="ltr">{{ JSON.stringify(detailResult.instrument_metadata?.orders || [], null, 2) }}</pre></details>
-                         <details class="mt-4"><summary class="cursor-pointer">الرسالة الأصلية</summary><pre class="text-xs whitespace-pre-wrap p-3" dir="ltr">{{ detailResult.raw_message }}</pre></details>
-                    </section>
+                         <details class="mt-4"><summary class="cursor-pointer">معرّفات العينة كما وصلت</summary><pre class="text-xs whitespace-pre-wrap break-all p-3" dir="ltr">{{ JSON.stringify(detailResult.instrument_metadata?.orders || [], null, 2) }}</pre></details>
+                         <details class="mt-4"><summary class="cursor-pointer">الرسالة الأصلية</summary><pre class="text-xs whitespace-pre-wrap break-all p-3" dir="ltr">{{ detailResult.raw_message }}</pre></details>
                </div>
-          </Teleport>
+          </Dialog>
 
           <!-- Device Modal -->
           <DeviceModal />
