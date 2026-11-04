@@ -613,7 +613,7 @@ onMounted(async () => {
               </svg>
               <span class="hidden sm:inline">{{ t("Export to Excel") }}</span>
             </button>
-            <router-link v-if="authStore.havePermission('devices view')" :to="{ name: 'devices', query: { tab: 'results', status: 'all' } }" data-testid="device-results-shortcut" class="px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 font-medium rounded-xl transition-all flex items-center gap-2 no-underline">
+            <router-link v-if="authStore.havePermission('devices view')" :to="{ path: '/devices', query: { tab: 'results', status: 'all' } }" data-testid="device-results-shortcut" class="px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 font-medium rounded-xl transition-all flex items-center gap-2 no-underline">
               <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" /></svg>
               {{ t('all_device_results') }}
             </router-link>

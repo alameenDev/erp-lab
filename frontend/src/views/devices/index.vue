@@ -56,12 +56,12 @@ const lang = computed(() => localStorage.getItem("locale") || "ar");
 const onlineCount = computed(() => devices.value.filter((d) => d.status === "online").length);
 
 onMounted(async () => {
+     startPolling(30000, () => activeTab.value === 'results');
      try {
           await GetDevices();
      } catch (error) {
           toast.error(t('error'));
      } finally {
-          startPolling(30000, () => activeTab.value === 'results');
           isLoading.value = false;
      }
 });

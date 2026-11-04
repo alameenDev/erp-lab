@@ -27,7 +27,7 @@ const router = createRouter({history: createMemoryHistory(), routes: [
   {path: '/:pathMatch(.*)*', component: {render: () => null}},
 ]});
 app.use(pinia).use(router).use(PrimeVue, {theme: {preset: Aura, options: {darkModeSelector: '.dark-mode'}}}).mixin(Mixins).component('Dialog', Dialog);
-const flags = reactive({view: true, edit: false, fail: false});
+const flags = reactive({view: true, edit: false, fail: false, slowDevices: false});
 useAuthStore(pinia).havePermission = permission => permission === 'devices view' ? flags.view : permission === 'medical reports update' && flags.edit;
 useTemplatesStore(pinia).GetTemplates = async () => {};
 useresultStatusStore(pinia).resultStatus = [];
@@ -48,6 +48,7 @@ $http.defaults.adapter = async config => {
   const params = config.params || {};
   requests.push({url: config.url, method: config.method, data: config.data, params: JSON.parse(JSON.stringify(params))});
   let data;
+  if (config.url === '/devices' && flags.slowDevices) await new Promise(resolve => setTimeout(resolve, 180));
   if (config.url === '/devices') data = [{id: 1, name: 'DxH 500', status: 'online', pending_results_count: 8}, {id: 2, name: 'BM850', status: 'online', pending_results_count: 8}];
   else if (config.url === '/device-results') {
     if (flags.fail) throw new Error('Synthetic offline refresh');

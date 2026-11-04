@@ -97,6 +97,13 @@ try {
   await page.evaluate(() => inboxFixture.router.push('/medical_reports'));
   await shortcut.waitFor();
   assert.equal(await page.evaluate(() => inboxFixture.store.pollingInterval), null);
+  await page.evaluate(async () => {
+    inboxFixture.flags.slowDevices = true;
+    await inboxFixture.router.push('/devices?tab=results&status=all');
+    await inboxFixture.router.push('/medical_reports');
+    await new Promise(resolve => setTimeout(resolve, 300));
+  });
+  assert.equal(await page.evaluate(() => inboxFixture.store.pollingInterval), null, 'late catalog load cannot restart polling after leaving');
   await page.evaluate(() => { inboxFixture.flags.view = false; });
   await shortcut.waitFor({state: 'hidden'});
   assert.deepEqual(errors, []);
