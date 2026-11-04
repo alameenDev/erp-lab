@@ -38,6 +38,10 @@ try{
  await nested.locator('summary').click();await nested.locator('select').selectOption('Ready PackageTest');
  await page.waitForFunction(()=>fixture.requests.some(r=>r.url.includes('update-result')&&JSON.parse(r.data.packages||'[]')[0]?.tests[0]?.comment?.includes('Ready PackageTest')));
  assert.ok(!(await page.evaluate(()=>fixture.invoices.updateResultRecord.tests[0].comment)).includes('Ready PackageTest'));
+ await page.evaluate(()=>{fixture.state().activeSection='test_groups';});
+ const formula=page.locator('.result-comment-editor').filter({has:page.locator('select[aria-label="اختر تعليقاً جاهزاً Calculated"]')});
+ await formula.locator('summary').click();await formula.locator('select').selectOption('Ready Calculated');
+ await page.waitForFunction(()=>fixture.requests.some(r=>r.url.includes('update-result')&&JSON.parse(r.data.test_groups||'[]')[0]?.tests[1]?.comment?.includes('Ready Calculated')));
  await page.screenshot({path:`${out}/editor.png`,fullPage:true});
  console.log('PASS real editor: per-test preset/custom comments, no duplicates, autosave payload and package isolation');
  await open('mode=catalog');await page.getByLabel('التعليق الجاهز 1',{exact:true}).fill('First preset\nسطر ثاني');
@@ -48,7 +52,9 @@ try{
  await page.evaluate(()=>fixture.catalog.Updatetests());assert.deepEqual(await page.evaluate(()=>JSON.parse(fixture.requests.find(r=>r.url==='/tests/update').data).result_comments),[]);
  console.log('PASS real catalog: add multiline presets and explicitly clear all saved choices');
  await open('mode=settings');await page.evaluate(()=>{fixture.state().activeTab='print';});
+ assert.equal(await page.locator('.report-template-preview .report-comment').count(),1);
  await page.locator('#showResultComments').uncheck();
+ assert.equal(await page.locator('.report-template-preview .report-comment').count(),0);
  await page.evaluate(()=>fixture.state().save());
  assert.equal(await page.evaluate(()=>fixture.requests.find(r=>r.url==='/lab-settings'&&r.data?.['print_table_config[show_comments]'])?.data['print_table_config[show_comments]']),'0');
  assert.equal(await page.locator('#showResultComments').isChecked(),false);
