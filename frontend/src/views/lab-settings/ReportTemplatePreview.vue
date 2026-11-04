@@ -1,4 +1,6 @@
 <script setup>
+import ReportComment from '@/views/medical_reports/componentes/ReportComment.vue';
+import { reportCommentsVisible } from '@/utils/resultComments';
 import { computed, ref, onMounted, onBeforeUnmount } from 'vue';
 import { usePrint } from '@/composables/usePrint';
 import ModernPatientHeader from '@/views/medical_reports/componentes/ModernPatientHeader.vue';
@@ -50,7 +52,7 @@ const previewHistory = row => reportHistoryRows({ result_history: { test_1: Arra
     <table class="report-results-table w-full" style="table-layout:fixed; border-collapse:collapse" :class="{ 'report-column-widths': customReportColumns(settings.print_table_config) }">
       <ReportTableColumns :settings="settings" />
       <thead><tr><th>Test</th><th>Result</th><th v-if="modern && settings.show_status !== false">Flag</th><th>Unit</th><th>Reference Range</th><th v-if="settings.show_last_result">Previous Results</th><th v-if="!modern && settings.show_status !== false">Status</th></tr></thead>
-      <tbody><tr v-for="row in rows" :key="row.name"><td>{{ row.name }}</td><td :style="settings.print_black_white ? {} : { color: row.status === 1 ? '#dc2626 !important' : '#16a34a !important' }">{{ row.result }}</td><td v-if="modern && settings.show_status !== false"><ReportResultFlag :status-id="row.status" :label="row.label" /></td><td>mg/dL</td><td><span class="whitespace-pre-line">{{ row.range }}</span></td><td v-if="settings.show_last_result"><ReportPreviousResults :rows="previewHistory(row)" /></td><td v-if="!modern && settings.show_status !== false">{{ row.label }}</td></tr></tbody>
+      <tbody><tr v-for="row in rows" :key="row.name"><td>{{ row.name }}</td><td :style="settings.print_black_white ? {} : { color: row.status === 1 ? '#dc2626 !important' : '#16a34a !important' }">{{ row.result }}</td><td v-if="modern && settings.show_status !== false"><ReportResultFlag :status-id="row.status" :label="row.label" /></td><td>mg/dL</td><td><span class="whitespace-pre-line">{{ row.range }}</span></td><td v-if="settings.show_last_result"><ReportPreviousResults :rows="previewHistory(row)" /></td><td v-if="!modern && settings.show_status !== false">{{ row.label }}</td></tr><tr v-if="reportCommentsVisible(settings)" class="report-comment-row"><td :colspan="4 + (settings.show_status !== false ? 1 : 0) + (settings.show_last_result ? 1 : 0)"><ReportComment label="HDL" value="تعليق توضيحي للنتيجة — Sample result comment" /></td></tr></tbody>
     </table>
   </div>
   </div>

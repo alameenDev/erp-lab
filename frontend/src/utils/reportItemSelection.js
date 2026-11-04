@@ -86,7 +86,8 @@ export function selectReportItems(record, selection) {
     const tests = parent.tests.filter((_, i) => selected.has(`${key}/tests:${i}`));
     const cultures = parent.cultures.filter((_, i) => selected.has(`${key}/cultures:${i}`));
     const formulas = owner => (owner.formula || []).filter(f => tests.some(t => formulaTestMatches(t, f.name)));
-    return { ...parent, tests, cultures, formula: formulas(parent),
+    const complete = tests.length === parent.tests.length && cultures.length === parent.cultures.length;
+    return { ...parent, tests, cultures, comment: complete ? parent.comment : null, formula: formulas(parent),
       // Hidden operands stay available to calculate chosen results, never to render.
       report_calculation_tests: parent.tests, calculation_formulas: formulaDefinitions(parent),
       ...(packaged ? { test_groups: (parent.test_groups || []).flatMap(g => {
@@ -102,5 +103,12 @@ export function selectReportItems(record, selection) {
     return [['tests','cultures'].includes(section.key) ? parent : filterParent(parent, node.key, section.key === 'packages')];
   });
   result.suppress_report_qr = Boolean(record?.suppress_report_qr);
+  // General comments can describe an omitted analysis. Include them only when
+  // every analysis in that section is selected; per-test comments travel with rows.
+  for (const [field, comments] of [['tests', ['tests_comment']], ['cultures', ['cultures_comment']], ['packages', ['package_comment', 'package_comments']]]) {
+    const section = model.sections.find(s => s.key === field);
+    const complete = section.nodes.flatMap(reportNodeKeys).every(key => selected.has(key));
+    for (const comment of comments) result[comment] = complete ? record?.[comment] : null;
+  }
   return result;
 }

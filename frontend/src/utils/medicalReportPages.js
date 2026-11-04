@@ -110,6 +110,33 @@ export function reportKeepIntervals(target, rect, scale, headerPixels) {
   };
   target.querySelectorAll('tr,p,img,li,pre,blockquote,.sign,[data-report-section],.test-group-section,.template-section,[data-report-keep-together]').forEach(node => add(node));
 
+  // Short comments travel with their result. A comment longer than one sheet
+  // must continue at rendered text-line boundaries, never through a glyph.
+  // Range rectangles also cover wrapped Arabic/English and unbroken strings.
+  target.querySelectorAll('.report-comment-row').forEach(row => {
+    if (row.previousElementSibling) add(row.previousElementSibling, row);
+  });
+  target.querySelectorAll('.report-comment-text').forEach(node => {
+    const doc = node.ownerDocument;
+    const walker = doc.createTreeWalker(node, 4 /* SHOW_TEXT */);
+    const lines = [];
+    while (walker.nextNode()) {
+      const range = doc.createRange();
+      range.selectNodeContents(walker.currentNode);
+      for (const r of range.getClientRects()) {
+        const top = Math.floor((r.top - rect.top) * scale) - headerPixels;
+        const bottom = Math.ceil((r.bottom - rect.top) * scale) - headerPixels;
+        if (top >= 0 && bottom > top) lines.push([top, bottom]);
+      }
+    }
+    intervals.push(...lines);
+    const row = node.closest('.report-comment-row');
+    if (row?.previousElementSibling && lines.length) {
+      const [top] = bounds(row.previousElementSibling);
+      if (top >= 0) intervals.push([top, Math.max(...lines.filter(line => line[0] === lines[0][0]).map(line => line[1]))]);
+    }
+  });
+
   // A merged table still contains separate tests, groups and packages. Their
   // identity survives as metadata without changing the configured appearance.
   for (const attribute of ['data-report-block', 'data-report-bundle']) {
