@@ -38,6 +38,11 @@ async function execute(selection) {
     invoices.printRecord = { ...original, ...selectReportItems(original, selection) };
     await nextTick(); report.value.beginCapture(); await nextTick();
     const text = document.getElementById('Result').innerText;
+    const sections = [...document.querySelectorAll('#Result [data-report-section]')].map(section => ({
+      category: section.querySelector('[data-report-category] > span')?.textContent || '',
+      isolated: section.dataset.reportIsolated === 'true',
+      tests: [...section.querySelectorAll('.report-results-table > tbody > tr:not(.report-comment-row) > td:first-child')].map(cell => cell.textContent.trim()),
+    }));
     const output = await report.value.prepareReport({ withBackground: false });
     const record = JSON.parse(JSON.stringify(invoices.printRecord));
     if (selection.action !== 'preview') {
@@ -50,12 +55,12 @@ async function execute(selection) {
         });
       } finally { frame.remove(); }
     }
-    executions.push({ selection, record, text, output }); previews.value = output.pages;
+    executions.push({ selection, record, text, output, sections }); previews.value = output.pages;
     status.value = 'PASS '+executions.length;
   } catch (error) { status.value = 'FAIL '+error.message; console.error(error); }
   finally { report.value.endCapture(); invoices.printRecord = original; busy.value = false; }
 }
-window.selectionFixture = { executions, events, requests, invoices, source, settings };
+window.selectionFixture = { executions, events, requests, invoices, source, settings, prepare: options => report.value.prepareReport(options) };
 </script>
 <template>
   <main class="p-5"><button id="open" @click="open = true">فتح التقرير</button><p id="status">{{ status }}</p>
