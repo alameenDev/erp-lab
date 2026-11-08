@@ -1,6 +1,8 @@
 <script setup>
 import { prepareReportAttachments } from "@/utils/reportAttachments";
 import { invoiceItemRank } from "@/utils/invoiceSelectionOrder";
+import { orderReportCategories, reportBlockCategory } from "@/utils/reportCategoryOrder";
+import ReportCategoryHeading from "./ReportCategoryHeading.vue";
 import { reportFormulaValue, isFormulaTarget, findFormulaTest, formulaDefinitions } from '@/utils/reportFormulas';
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from "vue";
 import { storeToRefs } from "pinia";
@@ -147,17 +149,13 @@ const groupedTests = computed(() => {
 
   const groups = [];
   let currentGroup = null;
-  const shownCategories = new Set();
 
   source
     .filter(({ test }) => (test.name || test.report_name) && !hasRealTemplate(test))
     .forEach(({ test, bundle, rank }) => {
       if (!currentGroup || currentGroup.category !== test.category || currentGroup.name !== test.name || currentGroup.bundle !== bundle || currentGroup.rank !== rank) {
-        const isFirstCategory = !shownCategories.has(test.category);
-        if (test.category) shownCategories.add(test.category);
         currentGroup = {
           category: test.category,
-          showCategory: isFirstCategory,
           name: test.name,
           bundle, rank,
           tests: [],
@@ -433,7 +431,6 @@ const colCount = computed(() => {
 const allTestsMerged = computed(() => {
   if (showTestName.value) return [];
   const sections = [];
-  const shownCategories = new Set();
 
   let blockIndex = 0;
   const addTests = (category, tests, printAlone = false, bundle = '', rank = Number.MAX_SAFE_INTEGER) => {
@@ -441,40 +438,31 @@ const allTestsMerged = computed(() => {
     const blocks = tests.map(() => `merged:${blockIndex}`);
     const bundles = tests.map(() => bundle);
     blockIndex++;
-    // Identity of the block being added. Blocks only merge into the open section
-    // when they share this key — previously ANY block without a category header
-    // was appended to whatever section came last, so e.g. a category-less
-    // "Electrolyte Profile" group had its tests printed under the unrelated
-    // "Immunology" heading. Same-category blocks still merge (that was the
-    // point of merged mode), and consecutive category-less blocks still merge
-    // with each other because their key is equally empty.
+    // Preserve each block's category until the final cross-type ordering pass.
     const key = category || "";
-    const isFirstShowOfCategory = showCategories.value && !!category && !shownCategories.has(category);
-    if (isFirstShowOfCategory) shownCategories.add(category);
-
     const last = sections[sections.length - 1];
     const is_print_alone = printAlone == 1;
-    if (last && last.rank === rank && last.key === key && !isFirstShowOfCategory && !is_print_alone && !last.is_print_alone) {
+    if (last && last.rank === rank && last.key === key && !is_print_alone && !last.is_print_alone) {
       last.tests.push(...tests);
       last.blocks.push(...blocks);
       last.bundles.push(...bundles);
       return;
     }
 
-    sections.push({ key, rank, category: isFirstShowOfCategory ? category : null, tests: [...tests], blocks, bundles, is_print_alone });
+    sections.push({ key, rank, category: key, tests: [...tests], blocks, bundles, is_print_alone });
   };
 
   const blocks = [
     ...groupedTests.value.map(g => ({ category: g.category, tests: g.tests, bundle: g.bundle, rank: g.rank })),
-    ...(printRecord.value?.test_groups || []).map(g => ({ category: g.category, tests: [
+    ...(printRecord.value?.test_groups || []).map(g => ({ category: reportBlockCategory(g, [...(g.tests || []), ...(g.cultures || [])]), tests: [
       ...formulaRows(g, g.tests?.filter(t => !hasRealTemplate(t))),
       ...(g.cultures || []).map(c => ({ ...c, report_history_type: 'culture' })),
     ], alone: g.is_print_alone, rank: itemRank('test_groups', g) })),
-    ...(printRecord.value?.packages || []).map((pkg, index) => ({ tests: [
+    ...(printRecord.value?.packages || []).map((pkg, index) => ({ category: reportBlockCategory(null, [...(pkg.tests || []).filter(t => isFormulaTarget(pkg, t)), ...(pkg.cultures || [])]), tests: [
       ...formulaRows(pkg, (pkg.tests || []).filter(t => isFormulaTarget(pkg, t))),
       ...(pkg.cultures || []).map(c => ({ ...c, report_history_type: 'culture' })),
     ], bundle: `package:${index}`, rank: itemRank('packages', pkg) })),
-    ...packageGroupSections.value.map(sec => ({ tests: formulaRows(sec, sec.rows || []), alone: sec.is_print_alone, bundle: sec.bundle, rank: sec.rank })),
+    ...packageGroupSections.value.map(sec => ({ category: sec.category, tests: formulaRows(sec, sec.rows || []), alone: sec.is_print_alone, bundle: sec.bundle, rank: sec.rank })),
   ];
   blocks.sort((a, b) => a.rank - b.rank).forEach(b => addTests(b.category, b.tests, b.alone, b.bundle, b.rank));
   return sections;
@@ -511,6 +499,7 @@ const packageGroupSections = computed(() => {
       if (!printableRows.length && !formula.length) return;
       sections.push({
         group_name: entry.group_name,
+        category: reportBlockCategory(meta, printableRows),
         package_name: pkg.name,
         rank: itemRank('packages', pkg),
         bundle: `package:${packageIndex}`,
@@ -529,26 +518,28 @@ const packageGroupSections = computed(() => {
   return sections;
 });
 
-const orderedReportSections = computed(() => {
-  const sections = [
-    ...templateTests.value.flatMap(tTest => templateChunks(tTest).map((chunk, cIdx) => ({ kind: 'template', tTest, chunk, cIdx, rank: tTest.selectionRank }))),
-    ...(showTestName.value
-      ? groupedTests.value.map(group => ({ kind: 'test', group, rank: group.rank }))
-      : allTestsMerged.value.map(section => ({ kind: 'merged', section, rank: section.rank }))),
-    ...(showTestName.value ? (printRecord.value?.test_groups || []).map(group => ({ kind: 'group', group, rank: itemRank('test_groups', group) })) : []),
-    ...(showTestName.value ? packageGroupSections.value.map(group => ({ kind: 'packageGroup', group, rank: group.rank })) : []),
-    ...(printRecord.value?.cultures || []).map((culture, cIndex) => ({ kind: 'culture', culture, cIndex, rank: itemRank('cultures', culture) })),
-    ...(showTestName.value ? (printRecord.value?.packages || []).filter(p => p.cultures?.length || p.formula?.length)
-      .map(pkg => ({ kind: 'package', pkg, rank: itemRank('packages', pkg) })) : []),
-  ];
-  const shownCategories = new Set();
-  return sections.sort((a, b) => a.rank - b.rank).map(section => {
-    if (section.kind !== 'test') return section;
-    const showCategory = !shownCategories.has(section.group.category);
-    if (section.group.category) shownCategories.add(section.group.category);
-    return { ...section, group: { ...section.group, showCategory } };
-  });
-});
+// Package keep-together spans must not cross into a different category.
+const categoryBundle = (bundle, category) => bundle && category ? JSON.stringify([bundle, category]) : (bundle || "");
+const orderedReportSections = computed(() => orderReportCategories([
+  ...templateTests.value.flatMap(tTest => templateChunks(tTest).map((chunk, cIdx) => ({
+    kind: 'template', tTest, chunk, cIdx, rank: tTest.selectionRank, category: tTest.category, isolated: true,
+  }))),
+  ...(showTestName.value
+    ? groupedTests.value.map(group => ({ kind: 'test', group, rank: group.rank, category: group.category }))
+    : allTestsMerged.value.map(section => ({ kind: 'merged', section, rank: section.rank, category: section.category, isolated: section.is_print_alone }))),
+  ...(showTestName.value ? (printRecord.value?.test_groups || []).map(group => ({
+    kind: 'group', group, rank: itemRank('test_groups', group),
+    category: reportBlockCategory(group, [...(group.tests || []), ...(group.cultures || [])]), isolated: group.is_print_alone == 1,
+  })) : []),
+  ...(showTestName.value ? packageGroupSections.value.map(group => ({
+    kind: 'packageGroup', group, rank: group.rank, category: group.category, isolated: group.is_print_alone,
+  })) : []),
+  ...(printRecord.value?.cultures || []).map(culture => ({ kind: 'culture', culture, rank: itemRank('cultures', culture), category: culture.category })),
+  ...(showTestName.value ? (printRecord.value?.packages || []).filter(p => p.cultures?.length || p.formula?.length)
+    .map(pkg => ({ kind: 'package', pkg, rank: itemRank('packages', pkg),
+      category: reportBlockCategory(null, [...(pkg.tests || []).filter(t => isFormulaTarget(pkg, t)), ...(pkg.cultures || [])]),
+    })) : []),
+]));
 
 const findTestByKey = findFormulaTest;
 
@@ -900,7 +891,8 @@ const generateBarcodeImage = (value) => {
         <thead><tr><td class="pw-cell pw-top"><result_section :modern="modernReport" :with-background="showBackground" :lab-name="reportBrand?.lab_display_name" :lab-logo="showBackground && backgroundUrl ? '' : referralLogo" :share-url="reportQrUrl" :is-referral="referralReport || sharedReferralReport" /></td></tr></thead>
         <tfoot><tr><td class="pw-cell pw-bottom"></td></tr></tfoot>
         <tbody><tr><td class="pw-cell">
-        <template v-for="({ kind, group, section, culture, cIndex, pkg, tTest, chunk, cIdx }, index) in orderedReportSections" :key="index">
+        <template v-for="({ kind, group, section, culture, pkg, tTest, chunk, cIdx, categoryHeading, category }, index) in orderedReportSections" :key="index">
+          <!-- Custom templates own their headings and full-page layout. -->
           <section v-if="kind === 'template'" class="template-section" data-report-section data-report-isolated="true">
             <div v-html="chunk"></div>
             <template v-if="showComments && cIdx === templateChunks(tTest).length - 1">
@@ -911,7 +903,7 @@ const generateBarcodeImage = (value) => {
         <!-- ===== MERGED TABLE (when showTestName is off) ===== -->
         <template v-if="kind === 'merged'">
           <section data-report-section :data-report-isolated="section.is_print_alone" :style="{ marginTop: index === 0 ? '16px' : '24px', marginBottom: '16px' }">
-            <div v-if="section.category" class="section-header w-full font-bold border border-black p-1 text-center text-black bg-gray-300" style="margin-bottom: 10px;"><i v-if="modernReport" class="pi pi-filter mr-section-icon" aria-hidden="true"></i><span>{{ section.category }}</span><small v-if="modernReport" class="mr-section-caption">TEST RESULTS</small></div>
+            <ReportCategoryHeading v-if="showCategories" :category="categoryHeading" :modern="modernReport" style="margin-bottom: 10px;" />
             <table :class="{ 'report-column-widths': customReportColumns(reportSettings.print_table_config) }" class="report-results-table w-full" style="border-collapse: collapse; table-layout: fixed;">
               <ReportTableColumns :settings="reportSettings" />
               <thead>
@@ -926,7 +918,7 @@ const generateBarcodeImage = (value) => {
                 </tr>
               </thead>
               <tbody>
-                <template v-for="(item, idx) in section.tests" :key="'merged-' + idx"><tr :data-report-block="section.blocks[idx]" :data-report-bundle="section.bundles[idx]">
+                <template v-for="(item, idx) in section.tests" :key="'merged-' + idx"><tr :data-report-block="section.blocks[idx]" :data-report-bundle="categoryBundle(section.bundles[idx], category)">
                   <td class="border border-black/15 p-0.5 text-center">{{ item.report_name || item.name }}</td>
                   <td class="border border-black/15 p-0.5 text-center" :style="getResultColorStyle(item.result_status_id_fk)">{{ item.result ?? "" }}</td>
                   <td v-if="showStatus && modernReport" class="report-flag-cell"><ReportResultFlag :status-id="item.result_status_id_fk" :label="getStatusLabel(item.result_status_id_fk)" /></td>
@@ -941,8 +933,8 @@ const generateBarcodeImage = (value) => {
                   <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center"><ReportPreviousResults :rows="previousRows(item, item.report_history_type || 'test', 'scalar')" /></td>
                   <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(item.result_status_id_fk) }}</td>
                 </tr>
-                <tr v-if="showComments && !hasRealTemplate(item) && commentText(item.comment)" class="report-comment-row" :data-report-block="section.blocks[idx]" :data-report-bundle="section.bundles[idx]"><td :colspan="colCount"><ReportComment :value="item.comment" :label="item.report_name || item.name" /></td></tr>
-                <tr v-if="previousRows(item, item.report_history_type || 'test', 'components').length" :data-report-block="section.blocks[idx]" :data-report-bundle="section.bundles[idx]"><td :colspan="colCount"><ResultHistoryTable :rows="previousRows(item, item.report_history_type || 'test', 'components')" /></td></tr></template>
+                <tr v-if="showComments && !hasRealTemplate(item) && commentText(item.comment)" class="report-comment-row" :data-report-block="section.blocks[idx]" :data-report-bundle="categoryBundle(section.bundles[idx], category)"><td :colspan="colCount"><ReportComment :value="item.comment" :label="item.report_name || item.name" /></td></tr>
+                <tr v-if="previousRows(item, item.report_history_type || 'test', 'components').length" :data-report-block="section.blocks[idx]" :data-report-bundle="categoryBundle(section.bundles[idx], category)"><td :colspan="colCount"><ResultHistoryTable :rows="previousRows(item, item.report_history_type || 'test', 'components')" /></td></tr></template>
               </tbody>
             </table>
           </section>
@@ -950,9 +942,9 @@ const generateBarcodeImage = (value) => {
 
         <!-- ===== STANDALONE TESTS (grouped by test_group name / category) ===== -->
         <template v-if="kind === 'test'">
-          <section class="test-group-section" data-report-section :data-report-bundle="group.bundle">
-            <div v-if="group.showCategory && showCategories && (!modernReport || group.category)" class="section-header w-full font-bold border border-black p-1 text-center text-black bg-gray-300"><i v-if="modernReport" class="pi pi-filter mr-section-icon" aria-hidden="true"></i><span>{{ group.category }}</span><small v-if="modernReport" class="mr-section-caption">TEST RESULTS</small></div>
-            <div v-if="group.name && showTestName" class="section-header w-full font-bold border border-black p-1 text-center text-black bg-gray-300" :style="group.showCategory && showCategories ? 'margin-top: 4px' : ''"><i v-if="modernReport" class="pi pi-filter mr-section-icon" aria-hidden="true"></i><span>{{ group.name }}</span><small v-if="modernReport" class="mr-section-caption">TEST RESULTS</small></div>
+          <section class="test-group-section" data-report-section :data-report-bundle="categoryBundle(group.bundle, category)">
+            <ReportCategoryHeading v-if="showCategories" :category="categoryHeading" :modern="modernReport" />
+            <div v-if="group.name && showTestName" class="section-header w-full font-bold border border-black p-1 text-center text-black bg-gray-300" :style="categoryHeading && showCategories ? 'margin-top: 4px' : ''"><i v-if="modernReport" class="pi pi-filter mr-section-icon" aria-hidden="true"></i><span>{{ group.name }}</span><small v-if="modernReport" class="mr-section-caption">TEST RESULTS</small></div>
 
             <table v-if="group.tests.length > 0" :class="{ 'report-column-widths': customReportColumns(reportSettings.print_table_config) }" class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
               <ReportTableColumns :settings="reportSettings" />
@@ -993,6 +985,7 @@ const generateBarcodeImage = (value) => {
         <!-- ===== TEST GROUPS (with nested tests and cultures) ===== -->
         <template v-if="kind === 'group'">
           <section class="test-group-section" data-report-section :data-report-isolated="group.is_print_alone == 1">
+            <ReportCategoryHeading v-if="showCategories" :category="categoryHeading" :modern="modernReport" />
             <div class="section-header w-full font-bold border border-black p-1 text-center text-black bg-gray-300"><i v-if="modernReport" class="pi pi-filter mr-section-icon" aria-hidden="true"></i><span>{{ group.group_name }}</span><small v-if="modernReport" class="mr-section-caption">TEST RESULTS</small></div>
 
             <!-- Test Group Tests -->
@@ -1089,7 +1082,8 @@ const generateBarcodeImage = (value) => {
              tests, then its formula rows. Built from the package's flattened
              tests so entered results are included. -->
         <template v-if="kind === 'packageGroup'">
-          <section class="test-group-section" data-report-section :data-report-isolated="group.is_print_alone" :data-report-bundle="group.bundle">
+          <section class="test-group-section" data-report-section :data-report-isolated="group.is_print_alone" :data-report-bundle="categoryBundle(group.bundle, category)">
+            <ReportCategoryHeading v-if="showCategories" :category="categoryHeading" :modern="modernReport" />
             <div class="section-header w-full font-bold border border-black p-1 text-center text-black bg-gray-300"><i v-if="modernReport" class="pi pi-filter mr-section-icon" aria-hidden="true"></i><span>{{ group.group_name }}</span><small v-if="modernReport" class="mr-section-caption">TEST RESULTS</small></div>
 
             <table v-if="group.rows.filter(t => !isFormulaTarget(group, t)).length || group.formula.length" :class="{ 'report-column-widths': customReportColumns(reportSettings.print_table_config) }" class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
@@ -1147,7 +1141,7 @@ const generateBarcodeImage = (value) => {
         <!-- ===== STANDALONE CULTURES ===== -->
         <template v-if="kind === 'culture'">
           <section class="test-group-section" data-report-section>
-            <div v-if="culture.category && showCategories && !printRecord.cultures.slice(0, cIndex).some(c => c.category === culture.category)" class="section-header w-full font-bold border border-black p-1 text-center text-black bg-gray-300"><i v-if="modernReport" class="pi pi-filter mr-section-icon" aria-hidden="true"></i><span>{{ culture.category }}</span><small v-if="modernReport" class="mr-section-caption">TEST RESULTS</small></div>
+            <ReportCategoryHeading v-if="showCategories" :category="categoryHeading" :modern="modernReport" />
             <table :class="{ 'report-column-widths': customReportColumns(reportSettings.print_table_config) }" class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
               <ReportTableColumns :settings="reportSettings" />
               <thead>
@@ -1185,7 +1179,8 @@ const generateBarcodeImage = (value) => {
         <!-- Package tests print as standalone tests (flattened into groupedTests).
              The package section remains only for cultures + formula rows. -->
         <template v-if="kind === 'package'">
-          <section class="test-group-section" data-report-section :data-report-bundle="'package:' + printRecord.packages.indexOf(pkg)">
+          <section class="test-group-section" data-report-section :data-report-bundle="categoryBundle('package:' + printRecord.packages.indexOf(pkg), category)">
+            <ReportCategoryHeading v-if="showCategories" :category="categoryHeading" :modern="modernReport" />
             <div class="section-header w-full font-bold border border-black p-1 text-center text-black bg-gray-300"><i v-if="modernReport" class="pi pi-filter mr-section-icon" aria-hidden="true"></i><span>{{ pkg.name }}</span><small v-if="modernReport" class="mr-section-caption">TEST RESULTS</small></div>
 
             <table :class="{ 'report-column-widths': customReportColumns(reportSettings.print_table_config) }" class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">

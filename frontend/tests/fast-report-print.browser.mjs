@@ -22,7 +22,7 @@ const fast=()=>page.getByRole('button',{name:'طباعة سريعة — تجري
 const open=async()=>{await page.locator('#open-report').click();await page.locator('[data-patient-debt-warning]').waitFor();};
 const done=async n=>page.waitForFunction(n=>fixture.outputs.length>=n&&!fixture.state().reportActionBusy,n,{timeout:120000});
 try{
- for(const query of ['entry=list','entry=editor&long&form','entry=list&long&mono&form&template=classic','entry=editor&form&attachments']){
+ for(const query of ['entry=list','entry=editor&long&form','entry=list&long&mono&form&template=classic','entry=list&categories','entry=editor&categories&mono&form','entry=editor&form&attachments']){
   await page.goto('http://127.0.0.1:5173/tests/fast-report-print-browser.html?'+query);
   await page.waitForFunction(()=>window.fixture?.state?.()?.isLoading===false);
   if(query.includes('attachments')){
@@ -43,6 +43,11 @@ try{
   assert.equal(await page.evaluate(()=>fixture.outputs[0].output.blob===undefined),true,'no PDF created');
   assert.deepEqual(await page.evaluate(()=>fixture.actions),[{id:14,action:'print',form:query.includes('form')}]);
   assert.equal(await page.evaluate(()=>JSON.stringify(printed.pages)===JSON.stringify(fixture.outputs[0].output.pages)),true);
+  if(query.includes('categories')){
+   const sections=await page.evaluate(()=>fixture.outputs[0].sections);
+   assert.deepEqual(sections.flatMap(s=>s.tests),['Glucose','Urea','TSH']);
+   assert.deepEqual(sections.map(s=>s.category),['Chemistry','','Hormones']);
+  }
   if(query.includes('long'))assert.ok(await page.evaluate(()=>printed.pages.length)>1);
   if(query.includes('attachments'))assert.equal(await page.evaluate(()=>printed.pages.length),4);
   if(query.includes('mono')){

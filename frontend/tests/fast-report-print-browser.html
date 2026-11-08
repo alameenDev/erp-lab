@@ -20,6 +20,11 @@ localStorage.setItem('token','synthetic-fast-print');localStorage.setItem('local
 localStorage.removeItem('digital-lab-print-v1');
 const clone=x=>JSON.parse(JSON.stringify(x));
 const sample={id:14,lab_id_fk:1,barcode:'FAST-14',is_done:true,patient:{id:1,name:'مريض اختبار الطباعة',age:35,age_unit:'Years',gender:'Male',phone:'07700000000',code:'FAST-14'},registration_date:'2026-10-01T09:00:00',tests:[],cultures:[],packages:[],attachments:[],test_groups:[{group_name:'Complete group',tests:Array.from({length:params.has('long')?60:3},(_,i)=>({test_id_fk:i+1,name:'Analysis '+(i+1),result:String(i+1),unit:'mg/dL',result_status_id_fk:2,is_done:true,test_reference_ranges:[]}))}]};
+if(params.has('categories')) {
+ sample.test_groups=[];
+ sample.tests=[['Urea','Chemistry',3],['TSH','Hormones',2],['Glucose','Chemistry',1]].map(([name,category,id])=>({id,test_id_fk:id,name,category,result:'5',is_done:true,test_reference_ranges:[]}));
+ sample.selection_order=[1,2,3].map(id=>({field:'tests',id}));
+}
 const bg=document.createElement('canvas');bg.width=794;bg.height=1123;const ctx=bg.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,794,1123);ctx.fillStyle='#007c83';ctx.fillRect(0,0,794,80);ctx.fillRect(0,1080,794,43);
 const settings={report_template:params.get('template')||'modern',print_black_white:params.has('mono'),report_form_default:params.has('form'),show_test_names:true,show_categories:true,show_status:true,show_last_result:false,print_margins:{top:35,bottom:25,left:12,right:18},report_background:bg.toDataURL(),patient_header_config:{name_size:18,info_size:12,qr_size:70},print_table_config:{header_font_size:12,body_font_size:12,cell_padding:6}};
 const fixture=window.fixture={sample,outputs:[],actions:[],toasts,files:new Map(),holdBalance:false};
@@ -61,7 +66,8 @@ const app=createApp({setup(){
    const prepare=report.prepareReport;
    report.prepareReport=async options=>{
     const start=performance.now(),output=await prepare(options);
-    fixture.outputs.push({output,options,ms:performance.now()-start});return output;
+    const sections=[...document.querySelectorAll('#Result [data-report-section]')].map(s=>({category:s.querySelector('[data-report-category] > span')?.textContent||'',tests:[...s.querySelectorAll('.report-results-table tbody > tr > td:first-child')].map(n=>n.textContent.trim())}));
+    fixture.outputs.push({output,options,sections,ms:performance.now()-start});return output;
    };fixture.instrumented=true;
   }
  };
