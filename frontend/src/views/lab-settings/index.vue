@@ -407,7 +407,10 @@ const resetBranding = async () => {
                                    </div>
                                    <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
                                         <input type="checkbox" id="printBlackWhite" v-model="settings.print_black_white" class="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-primary-500" />
-                                        <label for="printBlackWhite" class="text-sm font-medium text-slate-700 cursor-pointer select-none">{{ t("print_black_white") || "الطباعة بالأبيض والأسود (بدون ألوان)" }}</label>
+                                        <div>
+                                             <label for="printBlackWhite" class="text-sm font-medium text-slate-700 cursor-pointer select-none">{{ lang === 'en' ? 'Print report content in black and white' : 'طباعة محتوى التقرير بالأبيض والأسود' }}</label>
+                                             <p class="mt-1 text-xs text-slate-500">{{ lang === 'en' ? 'The lab background and letterhead keep their original colors.' : 'تبقى خلفية وفورمة المختبر بألوانها الأصلية.' }}</p>
+                                        </div>
                                    </div>
                               </div>
                          </div>

@@ -45,6 +45,18 @@ try{
   assert.equal(await page.evaluate(()=>JSON.stringify(printed.pages)===JSON.stringify(fixture.outputs[0].output.pages)),true);
   if(query.includes('long'))assert.ok(await page.evaluate(()=>printed.pages.length)>1);
   if(query.includes('attachments'))assert.equal(await page.evaluate(()=>printed.pages.length),4);
+  if(query.includes('mono')){
+   const letterhead=await page.evaluate(async()=>{
+    const samples=[];
+    for(const src of printed.pages){
+     const img=new Image();img.src=src;await img.decode();
+     const c=document.createElement('canvas');c.width=img.width;c.height=img.height;
+     const ctx=c.getContext('2d');ctx.drawImage(img,0,0);
+     samples.push(Array.from(ctx.getImageData(100,20,1,1).data));
+    }return samples;
+   });
+   for(const sample of letterhead)assert.deepEqual(sample,[0,124,131,255],'native fast print retains the colored form in B&W mode');
+  }
   // Legacy entry stays a popup with a valid PDF, using identical raster sheets.
   await open();
   const [popup]=await Promise.all([context.waitForEvent('page'),page.getByRole('button',{name:'تنفيذ',exact:true}).click()]);

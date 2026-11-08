@@ -30,7 +30,7 @@ test('mode is scoped, keeps typography sizes/geometry and leaves color mode unto
   assert.ok(css.includes('.report-monochrome'));assert.ok(css.includes('.report-template-preview'));assert.ok(css.includes('background-color: #e8e8e8'));assert.ok(css.includes('print-color-adjust: exact'));
   assert.ok(!/font-size:|font-family:|table-layout:|padding:|width:/.test(css));
 });
-test('final sheet conversion preserves every gray and alpha without thresholding', () => {
+test('content layer conversion preserves every gray and alpha without thresholding', () => {
   const data=new Uint8ClampedArray([0,0,0,255,232,232,232,255,255,255,255,255,255,0,0,128,0,124,131,255]);
   assert.strictEqual(grayscaleReportPixels(data),data);
   assert.deepEqual([...data],[0,0,0,255,232,232,232,255,255,255,255,255,54,54,54,128,98,98,98,255]);
