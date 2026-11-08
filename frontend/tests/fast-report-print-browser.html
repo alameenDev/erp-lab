@@ -15,6 +15,7 @@ import {useAuthStore} from '/src/store/modules/auth';
 import {$http} from '/src/plugins/axios';
 import {toasts} from '/src/composables/useToast';
 import '/src/assets/main.css';
+import {withInterleavedCbc} from './report-standard-first-data.mjs';
 const params=new URLSearchParams(location.search), editor=params.get('entry')==='editor';
 localStorage.setItem('token','synthetic-fast-print');localStorage.setItem('locale','ar');localStorage.setItem('user',JSON.stringify({role_id:1}));
 localStorage.removeItem('digital-lab-print-v1');
@@ -25,8 +26,10 @@ if(params.has('categories')) {
  sample.tests=[['Urea','Chemistry',3],['TSH','Hormones',2],['Glucose','Chemistry',1]].map(([name,category,id])=>({id,test_id_fk:id,name,category,result:'5',is_done:true,test_reference_ranges:[]}));
  sample.selection_order=[1,2,3].map(id=>({field:'tests',id}));
 }
+if(params.has('standard-first'))Object.assign(sample,withInterleavedCbc(sample));
 const bg=document.createElement('canvas');bg.width=794;bg.height=1123;const ctx=bg.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,794,1123);ctx.fillStyle='#007c83';ctx.fillRect(0,0,794,80);ctx.fillRect(0,1080,794,43);
 const settings={report_template:params.get('template')||'modern',print_black_white:params.has('mono'),report_form_default:params.has('form'),show_test_names:true,show_categories:true,show_status:true,show_last_result:false,print_margins:{top:35,bottom:25,left:12,right:18},report_background:bg.toDataURL(),patient_header_config:{name_size:18,info_size:12,qr_size:70},print_table_config:{header_font_size:12,body_font_size:12,cell_padding:6}};
+if(params.has('standard-first')) { settings.print_table_config.cell_padding=2;settings.print_margins={top:12,bottom:12,left:12,right:12}; }
 const fixture=window.fixture={sample,outputs:[],actions:[],toasts,files:new Map(),holdBalance:false};
 const nativeFetch=window.fetch.bind(window);
 window.fetch=async(input,options)=>{

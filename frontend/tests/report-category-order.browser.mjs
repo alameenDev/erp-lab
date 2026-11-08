@@ -80,12 +80,13 @@ try {
     await page.evaluate(() => { selectionFixture.settings.settings.show_categories = true; });
     await replaceRecord('mixed');
     output = await run();
-    assert.deepEqual(output.sections.flatMap(s => s.tests), ['Culture B', 'Culture A', 'Glucose', 'Input', 'Calculated', 'Package chemistry', 'TSH', 'Package hormone']);
+    assert.deepEqual(output.sections.flatMap(s => s.tests), ['Culture B', 'Culture A', 'Glucose', 'Package chemistry', 'TSH', 'Package hormone', 'Input', 'Calculated']);
     const isolated = output.sections.find(s => s.tests.includes('Input'));
     assert.equal(isolated.isolated, true);
     assert.equal(isolated.category, 'Chemistry');
     assert.ok(output.text.includes('8'), 'formula survives category movement');
-    assert.ok(output.pages >= 3, 'isolated panel remains on its own sheet');
+    assert.equal(output.sections.at(-1), isolated, 'isolated panel follows every ordinary result');
+    assert.ok(output.pages >= 2, 'isolated panel remains on its own sheet');
     assert.equal(await page.evaluate(async () => {
       const fast = await selectionFixture.prepare({ pagesOnly: true, withBackground: false });
       const pdf = selectionFixture.executions.at(-1).output;
@@ -94,9 +95,9 @@ try {
     await replaceRecord('custom');
     output = await run();
     assert.ok(output.text.indexOf('Glucose') < output.text.indexOf('Custom chemistry'));
-    assert.ok(output.text.indexOf('Custom chemistry') < output.text.indexOf('TSH'));
+    assert.ok(output.text.indexOf('TSH') < output.text.indexOf('Custom chemistry'));
     assert.equal(await page.locator('#Result .template-section [data-report-category]').count(), 0, 'custom template keeps its own layout without an added heading');
-    assert.ok(output.pages >= 3);
+    assert.equal(output.pages, 2);
     console.log('PASS categories: ' + template + (merged ? ' merged' : ' named') + ', all actions, partial output, hidden headings, cultures, packages, formulas and isolation');
   }
   await replaceRecord('long');

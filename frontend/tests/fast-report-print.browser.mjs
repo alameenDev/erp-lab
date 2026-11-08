@@ -22,7 +22,7 @@ const fast=()=>page.getByRole('button',{name:'طباعة سريعة — تجري
 const open=async()=>{await page.locator('#open-report').click();await page.locator('[data-patient-debt-warning]').waitFor();};
 const done=async n=>page.waitForFunction(n=>fixture.outputs.length>=n&&!fixture.state().reportActionBusy,n,{timeout:120000});
 try{
- for(const query of ['entry=list','entry=editor&long&form','entry=list&long&mono&form&template=classic','entry=list&categories','entry=editor&categories&mono&form','entry=editor&form&attachments']){
+ for(const query of ['entry=list','entry=editor&long&form','entry=list&long&mono&form&template=classic','entry=list&categories','entry=editor&categories&mono&form','entry=list&standard-first&template=classic','entry=editor&standard-first&mono&form','entry=editor&form&attachments']){
   await page.goto('http://127.0.0.1:5173/tests/fast-report-print-browser.html?'+query);
   await page.waitForFunction(()=>window.fixture?.state?.()?.isLoading===false);
   if(query.includes('attachments')){
@@ -47,6 +47,12 @@ try{
    const sections=await page.evaluate(()=>fixture.outputs[0].sections);
    assert.deepEqual(sections.flatMap(s=>s.tests),['Glucose','Urea','TSH']);
    assert.deepEqual(sections.map(s=>s.category),['Chemistry','','Hormones']);
+  }
+  if(query.includes('standard-first')){
+   const sections=await page.evaluate(()=>fixture.outputs[0].sections);
+   assert.deepEqual(sections.flatMap(s=>s.tests),['RBS','HbA1c','Creatinine','S.GPT (ALT)']);
+   assert.deepEqual(sections.at(-1).tests,[],'custom CBC follows ordinary rows');
+   assert.equal(await page.evaluate(()=>printed.pages.length),2,'ALT no longer creates a third sheet after CBC');
   }
   if(query.includes('long'))assert.ok(await page.evaluate(()=>printed.pages.length)>1);
   if(query.includes('attachments'))assert.equal(await page.evaluate(()=>printed.pages.length),4);

@@ -74,6 +74,7 @@ jobs:
           node tests/report-form-default.browser.mjs
           node tests/report-selection-order.browser.mjs
           node tests/report-category-order.browser.mjs
+          node tests/report-standard-first.browser.mjs
           node tests/report-selection.browser.mjs
           node tests/report-history.browser.mjs
           node tests/report-formula-editor.browser.mjs

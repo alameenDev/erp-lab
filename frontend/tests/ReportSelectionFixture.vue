@@ -43,6 +43,7 @@ async function execute(selection) {
       isolated: section.dataset.reportIsolated === 'true',
       tests: [...section.querySelectorAll('.report-results-table > tbody > tr:not(.report-comment-row) > td:first-child')].map(cell => cell.textContent.trim()),
     }));
+    window.selectionFixture.beforeCapture?.(document.getElementById('Result'));
     const output = await report.value.prepareReport({ withBackground: false });
     const record = JSON.parse(JSON.stringify(invoices.printRecord));
     if (selection.action !== 'preview') {
