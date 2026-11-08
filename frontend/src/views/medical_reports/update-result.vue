@@ -482,7 +482,7 @@
                         <button type="button" @click="saveTestRow(item)" :disabled="savingTestRow === item" class="inline-flex h-9 flex-1 items-center justify-center rounded-lg bg-primary-600 px-2 text-xs font-semibold text-white hover:bg-primary-700 disabled:opacity-60">{{ savingTestRow === item ? 'جاري الحفظ' : item.is_done ? 'حفظ' : 'حفظ ✓' }}</button>
                         <button type="button" @click="openQuickTest(item)" class="inline-flex h-9 flex-1 items-center justify-center rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 hover:bg-slate-50" title="فتح تفاصيل التحليل وتعديل النتيجة">تعديل</button>
                       </div>
-                      <details class="mt-1 text-xs text-slate-500"><summary class="cursor-pointer py-1">ملاحظة</summary><input v-model="item.comment" type="text" :placeholder="t('enter_comment')" class="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-xs outline-none focus:border-primary-500" /></details>
+                      <ResultCommentEditor v-model="item.comment" :options="item.result_comments" :name="item.name" compact />
                     </td>
                   </tr><tr v-if="resultHistoryRows(updateResultRecord, item).length"><td colspan="6" class="px-4"><ResultHistoryTable :rows="resultHistoryRows(updateResultRecord, item)" /></td></tr></template>
                   <tr v-if="!filteredAllTabTests.length"><td colspan="6" class="p-10 text-center text-sm text-slate-500">لا توجد تحاليل تطابق البحث.</td></tr>
@@ -621,17 +621,6 @@
                   </div>
                 </div>
 
-                <!-- Comment -->
-                <div>
-                  <label class="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">{{ t("Test_Group_Comment") }}</label>
-                  <input
-                    type="text"
-                    v-model="item.comment"
-                    class="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all"
-                    :placeholder="t('enter_comment')"
-                  />
-                </div>
-
                 <!-- Unit & Price chips -->
                 <div class="flex items-center gap-3">
                   <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-600 rounded-md text-xs font-medium">
@@ -643,29 +632,16 @@
                 </div>
               </div>
 
-              <!-- Result Comments -->
-              <div class="px-6 pb-6 pt-2 border-t border-slate-100 space-y-2">
-                <label class="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">{{ t("Result_Comments") }}</label>
-                <div v-if="updateResultRecord.result_comments_tests?.length > 0" class="flex flex-wrap gap-1.5">
-                  <button
-                    v-for="comment in updateResultRecord.result_comments_tests"
-                    :key="comment"
-                    type="button"
-                    @click="updateResultRecord.tests_comment = updateResultRecord.tests_comment ? updateResultRecord.tests_comment + ', ' + comment : comment"
-                    class="px-2.5 py-1 text-xs bg-primary-50 text-primary-700 border border-primary-200 rounded-md hover:bg-primary-100 transition-colors"
-                  >
-                    {{ comment }}
-                  </button>
-                </div>
-                <textarea
-                  v-model="updateResultRecord.tests_comment"
-                  rows="3"
-                  class="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none resize-none transition-all"
-                  :placeholder="t('enter_comment')"
-                ></textarea>
+              <div class="px-6 pb-6 border-t border-slate-100">
+                <ResultCommentEditor v-model="item.comment" :options="item.result_comments" :name="item.name" />
               </div>
             </div>
           <ResultHistoryTable  :rows="resultHistoryRows(updateResultRecord, item, 'test')" /></div>
+        </div>
+
+        <div v-if="activeSection === 'tests'" class="rounded-xl border border-slate-200 bg-white p-4">
+          <label class="block text-sm text-slate-600 mb-2" for="general-tests-comment">تعليق عام للتحاليل (اختياري)</label>
+          <textarea id="general-tests-comment" v-model="updateResultRecord.tests_comment" rows="2" dir="auto" class="w-full rounded-lg border border-slate-200 p-3 text-sm" />
         </div>
 
         <!-- ==================== PACKAGES SECTION ==================== -->
@@ -710,6 +686,7 @@
                   <div v-if="test.content?.bridge_cbc" class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 print:hidden" dir="rtl"><p v-for="(message, messageIndex) in test.content.review_messages" :key="messageIndex">{{ message }}</p></div>
                   <CbcResultEditor v-if="test.content?.bridge_cbc" :test="test" />
                   <div v-else v-html="getGroupTemplateHtml(test, pIndex, tIndex, 'packages')" class="dynamic-template"></div>
+                  <ResultCommentEditor v-model="test.comment" :options="test.result_comments" :name="test.name" />
                 </div>
               </div>
             <ResultHistoryTable v-if="isCustomTemplateTest(test)" :rows="resultHistoryRows(updateResultRecord, test, 'test')" /></template>
@@ -814,6 +791,7 @@
                     </label>
                   </div>
                 </div>
+                <div class="px-4"><ResultCommentEditor v-model="test.comment" :options="test.result_comments" :name="test.name" compact /></div>
                 <ResultHistoryTable  :rows="resultHistoryRows(updateResultRecord, test, 'test')" /></template>
                 <!-- Culture rows -->
                 <template v-for="(culture, cIndex) in pkg.cultures" :key="'culture-' + cIndex"><div
@@ -842,7 +820,7 @@
                       <span class="text-xs text-slate-500">{{ t("done") }}</span>
                     </label>
                   </div>
-                </div><ResultHistoryTable :rows="resultHistoryRows(updateResultRecord, culture, 'culture')" /></template>
+                </div><div class="px-4"><ResultCommentEditor v-model="culture.comment" :options="culture.result_comments" :name="culture.name" compact /></div><ResultHistoryTable :rows="resultHistoryRows(updateResultRecord, culture, 'culture')" /></template>
               </div>
               <!-- Formulas belonging to test groups attached to this package -->
               <div
@@ -859,6 +837,9 @@
                     {{ formulaValue(sec, f) === "" ? "—" : formulaValue(sec, f) }}
                   </span>
                     <small v-if="formulaHint(sec, f)" class="text-xs text-amber-700">{{ formulaHint(sec, f) }}</small>
+                    <div v-if="findFormulaTest(sec, f.name)" class="basis-full">
+                      <ResultCommentEditor :model-value="findFormulaTest(sec, f.name).comment" @update:model-value="findFormulaTest(sec, f.name).comment = $event" :options="findFormulaTest(sec, f.name).result_comments" :name="f.name" compact />
+                    </div>
                 </div>
               </div>
               <div v-if="Array.isArray(pkg.formula) && pkg.formula.length" class="p-4 bg-emerald-50/50 border-t border-emerald-100 space-y-2">
@@ -870,23 +851,16 @@
                     {{ formulaValue(pkg, f) === "" ? "—" : formulaValue(pkg, f) }}
                   </span>
                     <small v-if="formulaHint(pkg, f)" class="text-xs text-amber-700">{{ formulaHint(pkg, f) }}</small>
+                    <div v-if="findFormulaTest(pkg, f.name)" class="basis-full">
+                      <ResultCommentEditor :model-value="findFormulaTest(pkg, f.name).comment" @update:model-value="findFormulaTest(pkg, f.name).comment = $event" :options="findFormulaTest(pkg, f.name).result_comments" :name="f.name" compact />
+                    </div>
                 </div>
               </div>
 
               <!-- Package Result Comments -->
               <div class="px-4 py-4 border-t border-slate-100 space-y-2">
                 <label class="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">{{ t("Result_Comments") }}</label>
-                <div v-if="updateResultRecord.result_package_comments?.length > 0" class="flex flex-wrap gap-1.5">
-                  <button
-                    v-for="comment in updateResultRecord.result_package_comments"
-                    :key="comment"
-                    type="button"
-                    @click="updateResultRecord.package_comment = updateResultRecord.package_comment ? updateResultRecord.package_comment + ', ' + comment : comment"
-                    class="px-2.5 py-1 text-xs bg-purple-50 text-purple-700 border border-purple-200 rounded-md hover:bg-purple-100 transition-colors"
-                  >
-                    {{ comment }}
-                  </button>
-                </div>
+
                 <textarea
                   v-model="updateResultRecord.package_comment"
                   rows="3"
@@ -918,6 +892,7 @@
                   <div v-if="test.content?.bridge_cbc" class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 print:hidden" dir="rtl"><p v-for="(message, messageIndex) in test.content.review_messages" :key="messageIndex">{{ message }}</p></div>
                   <CbcResultEditor v-if="test.content?.bridge_cbc" :test="test" />
                   <div v-else v-html="getGroupTemplateHtml(test, gIndex, tIndex)" class="dynamic-template"></div>
+                  <ResultCommentEditor v-model="test.comment" :options="test.result_comments" :name="test.name" />
                 </div>
               </div>
             <ResultHistoryTable v-if="isCustomTemplateTest(test)" :rows="resultHistoryRows(updateResultRecord, test, 'test')" /></template>
@@ -1002,7 +977,7 @@
                       <span class="text-xs text-slate-500">{{ t("done") }}</span>
                     </label>
                   </div>
-                </div><ResultHistoryTable :rows="resultHistoryRows(updateResultRecord, test, 'test')" /></template>
+                </div><div class="px-4"><ResultCommentEditor v-model="test.comment" :options="test.result_comments" :name="test.name" compact /></div><ResultHistoryTable :rows="resultHistoryRows(updateResultRecord, test, 'test')" /></template>
                 <div v-if="Array.isArray(group.formula) && group.formula.length" class="p-4 bg-emerald-50/50 border-t border-emerald-100 space-y-2">
                   <div v-for="(f, fi) in group.formula" :key="'g-f-' + fi" class="flex flex-wrap items-center gap-3" :data-formula-name="f.name">
                     <span class="text-sm font-semibold text-emerald-700 min-w-[80px]">{{ f.name || t("formula") }}:</span>
@@ -1012,6 +987,9 @@
                       {{ formulaValue(group, f) === "" ? "—" : formulaValue(group, f) }}
                     </span>
                     <small v-if="formulaHint(group, f)" class="text-xs text-amber-700">{{ formulaHint(group, f) }}</small>
+                    <div v-if="findFormulaTest(group, f.name)" class="basis-full">
+                      <ResultCommentEditor :model-value="findFormulaTest(group, f.name).comment" @update:model-value="findFormulaTest(group, f.name).comment = $event" :options="findFormulaTest(group, f.name).result_comments" :name="f.name" compact />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1094,12 +1072,7 @@
                 <!-- Comment -->
                 <div>
                   <label class="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">{{ t("Test_Group_Comment") }}</label>
-                  <input
-                    type="text"
-                    v-model="culture.comment"
-                    class="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition-all"
-                    :placeholder="t('enter_comment')"
-                  />
+                  <ResultCommentEditor v-model="culture.comment" :options="culture.result_comments" :name="culture.name" />
                 </div>
 
                 <!-- Attributes -->
@@ -1150,17 +1123,7 @@
               <!-- Culture Result Comments -->
               <div class="px-6 pb-6 pt-2 border-t border-slate-100 space-y-2">
                 <label class="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">{{ t("Result_Comments") }}</label>
-                <div v-if="updateResultRecord.result_comments_cultures?.length > 0" class="flex flex-wrap gap-1.5">
-                  <button
-                    v-for="comment in updateResultRecord.result_comments_cultures"
-                    :key="comment"
-                    type="button"
-                    @click="updateResultRecord.cultures_comment = updateResultRecord.cultures_comment ? updateResultRecord.cultures_comment + ', ' + comment : comment"
-                    class="px-2.5 py-1 text-xs bg-rose-50 text-rose-700 border border-rose-200 rounded-md hover:bg-rose-100 transition-colors"
-                  >
-                    {{ comment }}
-                  </button>
-                </div>
+
                 <textarea
                   v-model="updateResultRecord.cultures_comment"
                   rows="3"
@@ -1482,10 +1445,11 @@
 </template>
 
 <script setup>
+import ResultCommentEditor from "@/components/ResultCommentEditor.vue";
 import { validateReportAttachment, attachmentPrintLayout } from "@/utils/reportAttachments";
 import CbcResultEditor from "@/components/CbcResultEditor.vue";
 import { orderedInvoiceItems } from "@/utils/invoiceSelectionOrder";
-import { evaluateReportFormulas, reportFormulaValue, formulaResultHint, formulaDefinitions, formulaApproved, formulaKey, isFormulaTarget } from '@/utils/reportFormulas';
+import { evaluateReportFormulas, reportFormulaValue, formulaResultHint, formulaDefinitions, formulaApproved, formulaKey, isFormulaTarget, findFormulaTest } from '@/utils/reportFormulas';
 import { selectReportItems } from "@/utils/reportItemSelection";
 import { useFastReportPrint } from '@/composables/useFastReportPrint';
 import { executeReportAction, reportActionStatusError } from "@/utils/executeReportAction";

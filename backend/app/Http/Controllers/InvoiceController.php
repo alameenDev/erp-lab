@@ -1107,8 +1107,9 @@ class InvoiceController extends Controller
             return $stored;
         }
 
-        $freshByName = collect(TestResource::collection($modelTests ?? [])->resolve())
-            ->keyBy('name');
+        $freshTests = collect(TestResource::collection($modelTests ?? [])->resolve());
+        $freshById = $freshTests->keyBy('id');
+        $freshByName = $freshTests->keyBy('name');
 
         // These describe the TEST DEFINITION, not the entered result, so the live
         // Test model wins whenever the stored snapshot has nothing usable.
@@ -1130,8 +1131,9 @@ class InvoiceController extends Controller
             return $freshValue ?? $default;
         };
 
-        return collect($stored)->map(function ($item) use ($freshByName, $preferStored) {
-            $fresh = $freshByName->get($item['name'] ?? '') ?? $freshByName->get($item['report_name'] ?? '');
+        return collect($stored)->map(function ($item) use ($freshById, $freshByName, $preferStored) {
+            $fresh = $freshById->get($item['test_id_fk'] ?? $item['id'] ?? null)
+                ?? $freshByName->get($item['name'] ?? '') ?? $freshByName->get($item['report_name'] ?? '');
             if ($fresh) {
                 $item['sample_name'] = $item['sample_name'] ?? $fresh['sample_name'] ?? null;
                 $item['sample_id_fk'] = $item['sample_id_fk'] ?? $fresh['sample_id_fk'] ?? null;
@@ -1147,7 +1149,7 @@ class InvoiceController extends Controller
                 $item['is_special_test'] = $preferStored($item['is_special_test'] ?? null, $fresh['is_special_test'] ?? null, false);
                 $item['content'] = $preferStored($item['content'] ?? null, $fresh['content'] ?? null);
                 $item['sub_tests'] = $preferStored($item['sub_tests'] ?? null, $fresh['sub_tests'] ?? null);
-                $item['result_comments'] = $item['result_comments'] ?? $fresh['result_comments'] ?? null;
+                $item['result_comments'] = $fresh['result_comments'] ?? [];
             }
 
             $item['content'] = \App\Services\BridgeCbcService::displayContent($item['content'] ?? null);
@@ -1180,7 +1182,7 @@ class InvoiceController extends Controller
                 $item['category_id_fk'] = $item['category_id_fk'] ?? $fresh['category_id_fk'] ?? null;
                 $item['category'] = ($item['category'] ?? null) ?: ($fresh['category'] ?? null);
                 $item['attribute'] = $item['attribute'] ?? $fresh['attribute'] ?? null;
-                $item['result_comments'] = $item['result_comments'] ?? $fresh['result_comments'] ?? null;
+                $item['result_comments'] = $fresh['result_comments'] ?? [];
             }
 
             return $item;

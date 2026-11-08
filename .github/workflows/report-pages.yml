@@ -2,6 +2,9 @@ name: Report page rendering
 on:
   pull_request:
     paths:
+      - 'frontend/src/utils/resultComments.js'
+      - 'frontend/src/components/ResultCommentEditor.vue'
+      - 'frontend/src/views/tests/**'
       - 'frontend/src/utils/resultHistory.js'
       - 'frontend/src/utils/reportAttachments.js'
       - 'frontend/src/utils/resultAttachments.js'
@@ -54,7 +57,7 @@ jobs:
         working-directory: frontend
       - run: npx playwright install --with-deps chromium
         working-directory: frontend
-      - run: node --test tests/attachment-print-layout.test.mjs tests/invoice-selection-order.test.mjs tests/report-item-selection.test.mjs tests/report-formulas.test.mjs tests/result-history.test.mjs tests/medical-report-columns.test.mjs tests/medical-report-pages.test.mjs tests/medical-report-output.test.mjs tests/report-patient-portal.test.mjs tests/print-lifecycle.test.mjs
+      - run: node --test tests/result-comments.test.mjs tests/attachment-print-layout.test.mjs tests/invoice-selection-order.test.mjs tests/report-item-selection.test.mjs tests/report-formulas.test.mjs tests/result-history.test.mjs tests/medical-report-columns.test.mjs tests/medical-report-pages.test.mjs tests/medical-report-output.test.mjs tests/report-patient-portal.test.mjs tests/print-lifecycle.test.mjs
         working-directory: frontend
       - name: Verify rendered sheets and native print
         working-directory: frontend
@@ -64,6 +67,7 @@ jobs:
             curl -fsS http://127.0.0.1:5173/tests/report-background-browser.html > /dev/null && break
             sleep 1
           done
+          node tests/report-comments.browser.mjs
           node tests/report-attachments.browser.mjs
           node tests/report-test-filter.browser.mjs
           node tests/report-form-default.browser.mjs
@@ -88,6 +92,7 @@ jobs:
         with:
           name: report-page-rendering
           path: |
+            frontend/test-results/report-comments
             frontend/test-results/report-pages
             frontend/test-results/fast-report-print
           retention-days: 7

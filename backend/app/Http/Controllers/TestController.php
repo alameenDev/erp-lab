@@ -343,7 +343,8 @@ class TestController extends Controller
             'test_reference_ranges.*age' => 'nullable|integer',
             'test_reference_ranges.*age_unit_id_fk' => 'nullable|integer|exists:age_units,id',
 
-            'result_comments' => 'nullable|array',
+            'result_comments' => 'nullable|array|max:100',
+            'result_comments.*' => 'nullable|string|max:2000',
             'is_special_test' => 'nullable|boolean',
             'content' => 'nullable|array',
             'sub_tests' => 'nullable|array',
@@ -465,7 +466,8 @@ class TestController extends Controller
             'test_reference_ranges.*age' => 'nullable|integer',
             'test_reference_ranges.*age_unit_id_fk' => 'nullable|integer|exists:age_units,id',
 
-            'result_comments' => 'nullable|array',
+            'result_comments' => 'nullable|array|max:100',
+            'result_comments.*' => 'nullable|string|max:2000',
             'is_special_test' => 'nullable|boolean',
             'content' => 'nullable|array',
             'sub_tests' => 'nullable|array',

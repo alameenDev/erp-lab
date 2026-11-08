@@ -1,3 +1,4 @@
+import { commentOptions } from "@/utils/resultComments";
 import { defineStore } from "pinia";
 import { $http } from "@/plugins/axios";
 import { configuredDefaultResult } from "@/utils/defaultTestResults";
@@ -91,13 +92,13 @@ export const usetestsStore = defineStore("tests", {
           },
           async Addtests() {
                const payload = JSON.parse(JSON.stringify(this.record));
-               const params = { ...checkObjectParams(payload), default_result: configuredDefaultResult(payload) };
+               const params = { ...checkObjectParams(payload), default_result: configuredDefaultResult(payload), result_comments: commentOptions(payload.result_comments) };
                await $http.post(`/tests/create`, params);
                this.GetTests();
           },
           async Updatetests() {
                const payload = JSON.parse(JSON.stringify(this.record));
-               const params = { ...checkObjectParams(payload), default_result: configuredDefaultResult(payload) };
+               const params = { ...checkObjectParams(payload), default_result: configuredDefaultResult(payload), result_comments: commentOptions(payload.result_comments) };
                await $http.put(`/tests/update`, params);
                this.GetTests();
           },
