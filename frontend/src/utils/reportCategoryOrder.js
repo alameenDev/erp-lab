@@ -9,13 +9,20 @@ export function reportBlockCategory(parent, items = []) {
   return categories.size === 1 ? [...categories][0] : '';
 }
 
-// Saved invoice order decides the first appearance of each category and the
-// order of its members. Unclassified panels retain independent slots. This is
-// output-only: no invoice arrays, selection ranks or result values are changed.
+// Fill ordinary report pages before starting dedicated template/panel sheets.
+// Category grouping is independent in each part so a shared category cannot
+// pull an isolated CBC back between ordinary results. Saved selection order
+// still determines categories and members within each part.
 export function orderReportCategories(sections) {
-  const buckets = [], categories = new Map();
   const sorted = [...sections].sort((a, b) => (a.rank ?? Number.MAX_SAFE_INTEGER) - (b.rank ?? Number.MAX_SAFE_INTEGER));
-  for (const section of sorted) {
+  return [sorted.filter(section => !section.isolated), sorted.filter(section => section.isolated)]
+    .flatMap(groupReportCategories);
+}
+
+// Output-only: never mutate invoice arrays, selection ranks or result values.
+function groupReportCategories(sections) {
+  const buckets = [], categories = new Map();
+  for (const section of sections) {
     const category = categoryName(section.category);
     let bucket = category ? categories.get(category) : null;
     if (!bucket) {

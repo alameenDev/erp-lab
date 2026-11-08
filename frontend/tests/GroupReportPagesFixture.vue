@@ -99,11 +99,11 @@ async function render() {
       membership.push(...labels);
     }
     assert([...visibleLabels].every(label => membership.includes(label)), 'every result section survives pagination');
-    const expected = { mixed: ['N', 'A', 'N', 'B', 'N'], first: ['A', 'N'], last: ['N', 'A'], adjacent: ['A', 'B'],
-      only: ['A'], long: ['N', 'A', 'N'], culture: ['A', 'N'], history: ['A', 'N'] };
+    const expected = { mixed: ['N', 'A', 'B'], first: ['N', 'A'], last: ['N', 'A'], adjacent: ['A', 'B'],
+      only: ['A'], long: ['N', 'A'], culture: ['N', 'A'], history: ['N', 'A'] };
     if (mode.value !== 'off') {
       const order = membership.filter((label, i) => i === 0 || label !== membership[i - 1]);
-      assert(JSON.stringify(order) === JSON.stringify(expected[mode.value]), 'group order and both page boundaries are preserved');
+      assert(JSON.stringify(order) === JSON.stringify(expected[mode.value]), 'ordinary pages precede dedicated groups while both isolation boundaries are preserved');
     }
     if (mode.value === 'only') assert(pages.value.length === 1, 'single isolated group uses one sheet');
     if (mode.value === 'off') assert(pages.value.length < 5 && membership.length > pages.value.length, 'disabled isolation lets groups share sheets with normal pagination');

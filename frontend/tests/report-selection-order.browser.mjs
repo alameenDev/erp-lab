@@ -43,10 +43,10 @@ try {
     await page.waitForFunction(()=>/^(PASS|FAIL)/.test(document.querySelector('#status').textContent),null,{timeout:60000});
     assert.equal(await page.locator('#status').innerText(),'PASS 1');
     const text=await page.evaluate(()=>selectionFixture.executions[0].text);
-    const names=['Standalone pending','Package direct','Standalone culture','Compound report','Group ready','Standalone ready','Input'];
+    const names=['Standalone pending','Package direct','Standalone culture','Group ready','Standalone ready','Input','Compound report'];
     const positions=names.map(n=>text.indexOf(n));
     assert.ok(positions.every(p=>p>=0),text);
-    assert.deepEqual([...positions].sort((a,b)=>a-b),positions,'report follows mixed selection order: '+query);
+    assert.deepEqual([...positions].sort((a,b)=>a-b),positions,'ordinary report follows selection order, followed by dedicated template pages: '+query);
     assert.ok(text.indexOf('Nested calculated') < text.indexOf('Standalone culture'),'entire package stays in its slot');
     await dialog.getByRole('button',{name:'إغلاق',exact:true}).click();
     await page.locator('#pages').screenshot({path:`test-results/report-pages/order-${query.replace('&merged=1','-merged')}.png`,animations:'disabled'});
