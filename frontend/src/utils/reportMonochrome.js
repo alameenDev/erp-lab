@@ -68,9 +68,9 @@ export function getReportMonochromeCss(settings = {}) {
   `;
 }
 
-// CSS image filters are not sufficient for a canvas export or a separately
-// composed letterhead. Convert the FINAL sheet without thresholding images,
-// changing alpha, or washing out already-black text and chosen gray fills.
+// CSS image filters are not sufficient for canvas exports. Convert only the
+// report content, before composing it over the colored letterhead. Preserve
+// alpha, already-black text and chosen gray fills without thresholding images.
 export function grayscaleReportPixels(data) {
   for (let i = 0; i < data.length; i += 4) {
     const value = Math.round(data[i] * .2126 + data[i + 1] * .7152 + data[i + 2] * .0722);

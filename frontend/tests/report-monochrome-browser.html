@@ -13,7 +13,7 @@ import '/src/assets/main.css';
 localStorage.setItem('locale','en');localStorage.setItem('token','synthetic-monochrome');
 const router=createRouter({history:createMemoryHistory(),routes:[{path:'/',component:{render:()=>null}}]});
 const bg=document.createElement('canvas');bg.width=794;bg.height=1123;
-const ctx=bg.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,794,1123);ctx.fillStyle='#007c83';ctx.fillRect(0,0,794,60);
+const ctx=bg.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,794,1123);ctx.fillStyle='#007c83';ctx.fillRect(0,0,794,60);ctx.fillStyle='#ff6600';ctx.fillRect(0,1083,794,40);ctx.fillStyle='#8347c1';ctx.fillRect(0,60,6,1023);
 const base={report_form_default:true,show_test_names:true,show_categories:false,show_status:true,show_last_result:true,
  report_background:bg.toDataURL(),print_margins:{top:30,bottom:20,left:15,right:15},
  patient_header_config:{name_size:18,info_size:12,qr_size:70}};
@@ -31,13 +31,16 @@ createApp({setup(){
   return {data:{url:location.origin+'/portal/'+'a'.repeat(48)},status:200,headers:{},config};
  };
  const style=selector=>{const s=getComputedStyle(document.querySelector(selector));return {color:s.color,bg:s.backgroundColor,border:s.borderTopColor,font:s.fontSize};};
- window.monochromeFixture={render:async(template,bw,config={})=>{
+ const sampleTests=JSON.parse(JSON.stringify(invoices.printRecord.tests));
+ window.monochromeFixture={render:async(template,bw,config={},options={})=>{
+  invoices.printRecord.tests=Array.from({length:options.testCount || 2},(_,i)=>({...sampleTests[i % 2],id:i+1}));
   store.settings={...base,report_template:template,print_black_white:bw,
    print_table_config:{header_font_size:16,body_font_size:15,cell_padding:6,...config}};
-  await nextTick();const output=await report.value.prepareReport({withBackground:true});
-  const cached=await report.value.prepareReport({withBackground:true});pages.value=output.pages;await nextTick();
+  const outputOptions={withBackground:options.withBackground !== false, pagesOnly:options.pagesOnly === true};
+  await nextTick();const output=await report.value.prepareReport(outputOptions);
+  const cached=await report.value.prepareReport(outputOptions);pages.value=output.pages;await nextTick();
   window.monochromeFixture.output=output;
-  return {cached:cached===output,pdf:await output.blob.slice(0,5).text(),count:output.pages.length,
+  return {cached:cached===output,pdf:output.blob ? await output.blob.slice(0,5).text() : null,count:output.pages.length,
    header:style('#Result .report-results-table th'),cell:style('#Result .report-results-table td'),
    section:style('#Result .section-header'),preview:style('.report-template-preview .section-header'),
    text:document.querySelector('#Result').textContent};

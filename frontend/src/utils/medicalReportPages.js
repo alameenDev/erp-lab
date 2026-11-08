@@ -274,6 +274,9 @@ export async function renderMedicalReportPages({ element, css, margins, backgrou
         // A near-page-sized first block can move past its leading CSS margin.
         // Skip that empty range instead of printing a patient-header-only page.
         .filter(([start, end]) => reportPaintedHeight(canvas, headerPixels + start, headerPixels + end) > headerPixels + start);
+      // Neutralize only the transparent content layer, after measuring page
+      // breaks. The separately composed lab letterhead keeps its original colors.
+      if (clone.classList.contains('report-monochrome')) grayscaleReportCanvas(canvas);
       // A header-only report still produces one page.
       for (const [start, end] of slices.length ? slices : [[0, 0]]) {
         const page = doc.createElement('canvas');
@@ -288,8 +291,6 @@ export async function renderMedicalReportPages({ element, css, margins, backgrou
         if (headerPixels) ctx.drawImage(canvas, 0, 0, canvas.width, headerPixels, x, y, canvas.width, headerPixels);
         if (end > start) ctx.drawImage(canvas, 0, headerPixels + start, canvas.width, end - start, x, y + headerPixels, canvas.width, end - start);
         ctx.restore();
-        // Apply grayscale after the letterhead and attachments are composed.
-        if (clone.classList.contains('report-monochrome')) grayscaleReportCanvas(page);
         pages.push(page.toDataURL('image/png'));
       }
     }
