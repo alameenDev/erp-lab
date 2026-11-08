@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Device results inbox regression</title></head>
+<body><div id="app"></div><script type="module">
+import { createApp, h, reactive } from 'vue';
+import { createPinia } from 'pinia';
+import { createRouter, createMemoryHistory, RouterView } from 'vue-router';
+import PrimeVue from 'primevue/config';
+import Dialog from 'primevue/dialog';
+import Aura from '@primeuix/themes/aura';
+import Reports from '/src/views/medical_reports/index.vue';
+import Devices from '/src/views/devices/index.vue';
+import Mixins from '/src/utils/mixins';
+import { useAuthStore } from '/src/store/modules/auth';
+import { useDevicesStore } from '/src/store/modules/devices';
+import { useTemplatesStore } from '/src/store/modules/template';
+import { useresultStatusStore } from '/src/store/modules/result-status';
+import { $http } from '/src/plugins/axios';
+import { t } from '/src/utils/helper';
+import '/src/assets/main.css';
+localStorage.setItem('locale', 'ar');
+localStorage.setItem('token', 'synthetic-device-inbox-fixture');
+localStorage.setItem('user', JSON.stringify({id: 1, role_id: 2}));
+const app = createApp({render: () => h('main', {class: 'p-4 min-w-0'}, [h(RouterView)])});
+const pinia = createPinia();
+const router = createRouter({history: createMemoryHistory(), routes: [
+  {path: '/medical_reports', component: Reports}, {path: '/devices', name: 'devices', component: Devices},
+  {path: '/:pathMatch(.*)*', component: {render: () => null}},
+]});
+app.use(pinia).use(router).use(PrimeVue, {theme: {preset: Aura, options: {darkModeSelector: '.dark-mode'}}}).mixin(Mixins).component('Dialog', Dialog);
+const flags = reactive({view: true, edit: false, fail: false, slowDevices: false});
+useAuthStore(pinia).havePermission = permission => permission === 'devices view' ? flags.view : permission === 'medical reports update' && flags.edit;
+useTemplatesStore(pinia).GetTemplates = async () => {};
+useresultStatusStore(pinia).resultStatus = [];
+const store = useDevicesStore(pinia);
+const rows = Array.from({length: 32}, (_, i) => ({
+  id: i + 1, device_id_fk: i % 2 + 1, device: {id: i % 2 + 1, name: i % 2 ? 'BM850' : 'DxH 500'},
+  specimen_barcode: '0000' + String(i + 1).padStart(4, '0'), status: ['pending', 'matched', 'applied', 'failed'][i % 4],
+  invoice_id_fk: i === 0 ? null : i + 100,
+  invoice: i === 0 ? null : {id: i + 100, barcode: 'INV-' + (i + 1), patient: i === 1 ? null : {id: i + 10, user: {name: 'مريض تجريبي ' + (i + 1)}, age: 24, age_unit: {unit_name: 'سنة'}}},
+  created_at: '2026-11-04T09:00:00Z', applied_at: i % 4 === 2 ? '2026-11-04T09:01:00Z' : null,
+  delivery_id: i === 4 ? 'bridge-delivery' : null,
+  parsed_results: [{test_code: 'WBC', test_name: 'White blood cells', value: '5.4', unit: '10^9/L', reference_range: '4–10', flags: 'N', result_status: 'F'}],
+  instrument_metadata: {warnings: ['Review required'], comments: [{text: 'Sample checked'}], orders: [{specimen_id: 'source-id'}]},
+  raw_message: '<script>window.inboxInjected = true<\/script> RAW RESULT', error_message: i % 4 === 3 ? 'Review specimen barcode' : null,
+}));
+const requests = [];
+$http.defaults.adapter = async config => {
+  const params = config.params || {};
+  requests.push({url: config.url, method: config.method, data: config.data, params: JSON.parse(JSON.stringify(params))});
+  let data;
+  if (config.url === '/devices' && flags.slowDevices) await new Promise(resolve => setTimeout(resolve, 180));
+  if (config.url === '/devices') data = [{id: 1, name: 'DxH 500', status: 'online', pending_results_count: 8}, {id: 2, name: 'BM850', status: 'online', pending_results_count: 8}];
+  else if (config.url === '/device-results') {
+    if (flags.fail) throw new Error('Synthetic offline refresh');
+    let matching = rows.filter(row => !params.status || params.status.split(',').includes(row.status));
+    if (params.device_id) matching = matching.filter(row => row.device_id_fk === Number(params.device_id));
+    if (params.search) matching = matching.filter(row => row.specimen_barcode.includes(params.search) || row.invoice?.barcode.includes(params.search) || row.invoice?.patient?.user?.name.includes(params.search));
+    const page = Number(params.page || 1), perPage = Number(params.per_page || 25), total = matching.length;
+    data = {data: matching.slice((page - 1) * perPage, page * perPage), pagination: {current_page: page, per_page: perPage, total, last_page: Math.ceil(total / perPage) || 1}};
+    // Slow the pending request to prove a stale response cannot replace a later filter.
+    if (params.search === '00000001') await new Promise(resolve => setTimeout(resolve, 180));
+  } else if (config.url.match(/^\/device-results\/\d+\/apply$/)) {
+    const id = Number(config.url.split('/')[2]); rows.find(row => row.id === id).status = 'applied';
+    data = {applied_count: 1, total_results: 1};
+  } else if (config.url === '/invoices') data = {data: [], pagination: {current_page: 1, per_page: 25, total: 0, last_page: 1}, stats: {total: 0}};
+  else if (config.url === '/contracts') data = [];
+  else throw new Error('Unexpected request: ' + config.url);
+  return {data: JSON.parse(JSON.stringify(data)), status: 200, statusText: 'OK', headers: {}, config};
+};
+window.inboxFixture = {router, store, requests, flags, t};
+await router.push('/medical_reports');
+await router.isReady();
+app.mount('#app');
+</script></body></html>

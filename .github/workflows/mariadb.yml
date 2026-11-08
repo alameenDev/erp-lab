@@ -48,4 +48,5 @@ jobs:
       - run: php artisan test --filter=DailyWorkRegisterTest
       - run: php artisan test --filter=ReportAttachmentsTest
       - run: php artisan test --filter=MedicalReportTestFilterTest
+      - run: php artisan test --filter=DeviceResultsInboxTest
       - run: php artisan test --filter='PatientPartialReportTest|InvoiceSelectionOrderTest|InvoiceReferralUsageTest|SubscriptionRenewalTest|AccountingReportsTest|PortalPackageCatalogTest|PackageContentsTest|GroupReportPagesTest|DefaultTestResultsTest|BridgeResultsTest|MariaDbCompatibilityTest|ReferralPortalSafetyTest|ReferralWorkspaceTest|DoctorPortalTest|LatestPatientInvoiceTest|ResultTrendsTest|ResultHistoryTest|LabSettingsTest|InventorySafetyTest|LoyaltyTest|PortalNotificationTest|PortalPushTransportTest|LabNotificationTest|FormulaCompletionTest|ReportFormulasTest'
