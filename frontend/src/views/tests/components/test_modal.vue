@@ -116,6 +116,14 @@
                 </div>
 
                 <!-- Checkboxes -->
+                <fieldset class="mt-4 rounded-xl border border-slate-200 p-4" data-test-field-visibility>
+                  <legend class="px-2 text-sm font-semibold text-slate-700">{{ t('result_field_visibility') }}</legend>
+                  <div class="flex flex-wrap gap-6">
+                    <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" v-model="record.show_unit" class="accent-teal-600" />{{ t('show_test_unit') }}</label>
+                    <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" v-model="record.show_reference_range" class="accent-teal-600" />{{ t('show_test_reference_range') }}</label>
+                  </div>
+                  <p class="mt-2 text-xs text-slate-500">{{ t('result_field_visibility_hint') }}</p>
+                </fieldset>
                 <div class="flex items-center gap-6 mt-4 pt-4 border-t border-slate-100">
                   <div class="flex items-center gap-2">
                     <Checkbox v-model="record.is_print_alone" inputId="printAlone" binary />
@@ -927,6 +935,10 @@ export default {
       if (Number(value) !== 4) this.record.default_result = null;
     },
     dialog(visible) {
+      if (visible) {
+        this.record.show_unit = ![false, 0, '0', 'false'].includes(this.record.show_unit);
+        this.record.show_reference_range = ![false, 0, '0', 'false'].includes(this.record.show_reference_range);
+      }
       if (visible && this.record?.id && this.record.content?.html) {
         // Migrate templates saved with an earlier build where TipTap stripped
         // the <div class="page-break"> and left only <p>Page break</p> text.

@@ -27,6 +27,15 @@ if(params.has('categories')) {
  sample.selection_order=[1,2,3].map(id=>({field:'tests',id}));
 }
 if(params.has('standard-first'))Object.assign(sample,withInterleavedCbc(sample));
+if(params.has('field-visibility')) {
+ sample.test_groups[0].tests.forEach((test,i)=>{
+  test.show_unit=i===2;test.show_reference_range=i===1;
+  test.unit=(test.show_unit?'VISIBLE':'HIDDEN')+'_UNIT';
+  test.test_reference_ranges=[{notes:(test.show_reference_range?'VISIBLE':'HIDDEN')+'_NORMAL'}];
+ });
+ sample.tests=[{test_id_fk:100,name:'Hidden standalone',result:'2',is_done:true,unit:'HIDDEN_STANDALONE_UNIT',show_unit:false,show_reference_range:false,test_reference_ranges:[{notes:'HIDDEN_STANDALONE_NORMAL'}]}];
+}
+
 const bg=document.createElement('canvas');bg.width=794;bg.height=1123;const ctx=bg.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,794,1123);ctx.fillStyle='#007c83';ctx.fillRect(0,0,794,80);ctx.fillRect(0,1080,794,43);
 const settings={report_template:params.get('template')||'modern',print_black_white:params.has('mono'),report_form_default:params.has('form'),show_test_names:true,show_categories:true,show_status:true,show_last_result:false,print_margins:{top:35,bottom:25,left:12,right:18},report_background:bg.toDataURL(),patient_header_config:{name_size:18,info_size:12,qr_size:70},print_table_config:{header_font_size:12,body_font_size:12,cell_padding:6}};
 if(params.has('standard-first')) { settings.print_table_config.cell_padding=2;settings.print_margins={top:12,bottom:12,left:12,right:12}; }
@@ -70,7 +79,7 @@ const app=createApp({setup(){
    report.prepareReport=async options=>{
     const start=performance.now(),output=await prepare(options);
     const sections=[...document.querySelectorAll('#Result [data-report-section]')].map(s=>({category:s.querySelector('[data-report-category] > span')?.textContent||'',tests:[...s.querySelectorAll('.report-results-table tbody > tr > td:first-child')].map(n=>n.textContent.trim())}));
-    fixture.outputs.push({output,options,sections,ms:performance.now()-start});return output;
+    fixture.outputs.push({output,options,sections,text:document.querySelector('#Result').textContent,ms:performance.now()-start});return output;
    };fixture.instrumented=true;
   }
  };

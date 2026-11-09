@@ -24,6 +24,8 @@ export const usetestsStore = defineStore("tests", {
                test_duration: 5, //required|integer",
                duration_unit_id_fk: 1, //required|integer",
                unit: "", // "required|string",
+               show_unit: true,
+               show_reference_range: true,
                is_contain_status: 0, // "required|integer",
                is_print_alone: 0, // "required|integer",
                //price list

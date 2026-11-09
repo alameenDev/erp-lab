@@ -24,7 +24,7 @@ export const sanitizeHtml = (dirty, config = {}) => {
           ALLOWED_ATTR: [
                "class", "style", "src", "alt", "href", "target",
                "width", "height", "colspan", "rowspan", "border", "cellpadding", "cellspacing",
-               "data-colwidth", "data-cell-type", "data-cell-padding", "data-type", "align", "valign", "dir"
+               "data-result-field", "data-colwidth", "data-cell-type", "data-cell-padding", "data-type", "align", "valign", "dir"
           ],
           ALLOW_DATA_ATTR: false,
           // Prevent dangerous protocols

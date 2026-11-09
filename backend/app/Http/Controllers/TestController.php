@@ -330,6 +330,8 @@ class TestController extends Controller
             'price' => 'nullable|integer',
             'for_customer_price' => 'nullable|integer',
             'unit' => 'nullable|string',
+            'show_unit' => 'sometimes|boolean',
+            'show_reference_range' => 'sometimes|boolean',
             'is_contain_status' => 'nullable|integer',
             'is_print_alone' => 'nullable|integer',
             'question_ids_fk' => 'nullable|array',
@@ -371,6 +373,8 @@ class TestController extends Controller
                 'order' => $request->order,
                 'result_type_id_fk' => $request->result_type_id_fk,
                 'unit' => $request->unit,
+                'show_unit' => $request->boolean('show_unit', true),
+                'show_reference_range' => $request->boolean('show_reference_range', true),
                 'is_contain_status' => $request->is_contain_status,
                 'is_print_alone' => $request->is_print_alone,
                 'is_special_test' => $request->is_special_test ?? false,
@@ -443,6 +447,8 @@ class TestController extends Controller
             'order' => 'nullable|integer',
             'result_type_id_fk' => 'required|integer',
             'unit' => 'nullable|string',
+            'show_unit' => 'sometimes|boolean',
+            'show_reference_range' => 'sometimes|boolean',
             'category_id_fk' => 'required|integer|exists:categories,id',
             'is_contain_status' => 'nullable|integer',
             'is_print_alone' => 'nullable|integer',
@@ -505,6 +511,9 @@ class TestController extends Controller
             $test->order = $request->order ?? $test->order;
             $test->result_type_id_fk = $request->result_type_id_fk ?? $test->result_type_id_fk;
             $test->unit = $request->unit ?? $test->unit;
+            foreach (['show_unit', 'show_reference_range'] as $field) {
+                if ($request->exists($field)) $test->{$field} = $request->boolean($field);
+            }
             $test->is_contain_status = $request->is_contain_status ?? $test->is_contain_status;
             $test->is_print_alone = $request->is_print_alone ?? $test->is_print_alone;
             $test->result_comments = $request->input('result_comments') ?? $test->result_comments;

@@ -6,7 +6,7 @@ const columns = computed(() => reportColumnKeys(props.settings));
 const widths = computed(() => reportColumnWidths(props.settings));
 </script>
 <template>
-  <colgroup v-if="customReportColumns(settings.print_table_config)">
+  <colgroup v-if="customReportColumns(settings.print_table_config) || settings.show_unit === false || settings.show_reference_range === false">
     <col v-for="key in columns" :key="key" :data-report-column="key" :style="{ width: widths[key] + '%' }">
   </colgroup>
 </template>

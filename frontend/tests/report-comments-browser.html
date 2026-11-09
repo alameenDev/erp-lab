@@ -24,6 +24,7 @@ import { usetestsStore } from '/src/store/modules/tests';
 import { $http } from '/src/plugins/axios';
 import { reportKeepIntervals, reportSlices, reportGeometry } from '/src/utils/medicalReportPages';
 import '/src/assets/main.css';
+import { applyFieldVisibilityFixture } from './report-field-visibility-data.mjs';
 const params=new URLSearchParams(location.search),mode=params.get('mode')||'report',copy=x=>JSON.parse(JSON.stringify(x));
 localStorage.setItem('token','synthetic-comments');localStorage.setItem('locale','ar');localStorage.setItem('user',JSON.stringify({role_id:2}));
 const row=(id,name,comment='')=>({id,test_id_fk:id,name,shortcut:name,report_name:name,result:'5',is_done:true,unit:'mg/dL',result_type_id_fk:1,result_status_id_fk:2,test_reference_ranges:[],comment,result_comments:[`Ready ${name}`,`Second ${name}`]});
@@ -32,6 +33,7 @@ const sample={id:14,lab_id_fk:1,barcode:'COMMENTS-14',is_done:true,patient:{id:1
  tests:[row(1,'Glucose','تعليق عربي\nSecond line <img src=x> $&'),row(2,'LongText',params.has('long')?'W'.repeat(1800):'Long text note'),custom],
  test_groups:[{test_group_id_fk:4,group_name:'Group',tests:[row(4,'Measured',params.has('long')?Array.from({length:70},(_,i)=>`Line ${i+1} — تعليق طويل واضح لا يُقصّ`).join('\n'):'Group note'),row(5,'Calculated','Formula note'),{...copy(custom),id:10,test_id_fk:10,name:'GroupCBC',report_name:'GroupCBC',comment:'Grouped template note',sub_tests:[{name:'WBC',value:'5',comment:'Group slot'},{name:'RBC',value:'4',comment:'Group extra'}]}],formula:[{name:'Calculated',tokens:['Measured','*','2']}],cultures:[]}],
  packages:[{package_id_fk:6,name:'Package',tests:[row(6,'PackageTest','Package note'),{...row(7,'NestedTest','Nested note'),test_group_name:'NestedGroup',test_group_id_fk:8}],test_groups:[{test_group_id_fk:8,group_name:'NestedGroup',formula:[]}],cultures:[]}],cultures:[{...row(9,'Culture','Culture note'),culture_id_fk:9}],tests_comment:'General tests note'};
+if(params.has('field-visibility'))applyFieldVisibilityFixture(sample);
 const settings={report_template:params.get('template')||'modern',report_form_default:false,show_categories:true,show_test_names:!params.has('merged'),show_status:!params.has('noStatus'),show_last_result:params.has('history'),print_black_white:params.has('mono'),print_margins:{top:28,bottom:24,left:15,right:15},patient_header_config:{name_size:18,info_size:12,qr_size:60},print_table_config:{show_comments:!params.has('hidden'),header_font_size:12,body_font_size:12,cell_padding:6}};
 const fixture=window.fixture={sample,settings,requests:[],pages:[],ready:false};
 $http.defaults.adapter=async config=>{

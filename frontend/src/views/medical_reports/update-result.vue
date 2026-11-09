@@ -451,14 +451,14 @@
             </div>
             <div class="overflow-x-auto">
               <table class="w-full min-w-[1080px] table-fixed text-start text-sm">
-                <colgroup><col style="width:21%" /><col style="width:18%" /><col style="width:17%" /><col style="width:18%" /><col style="width:10%" /><col style="width:16%" /></colgroup>
+                <colgroup><col v-for="(width, i) in quickColumnWidths" :key="i" :style="{ width: width + '%' }" /></colgroup>
                 <thead class="bg-slate-50 text-xs font-semibold text-slate-600">
                   <tr>
                     <th scope="col" class="px-4 py-3 text-start">اسم التحليل</th>
                     <th scope="col" class="px-4 py-3 text-start">النتيجة</th>
                     <th scope="col" class="px-4 py-3 text-start">النتيجة السابقة</th>
-                    <th scope="col" class="px-4 py-3 text-start">الطبيعي (Normal)</th>
-                    <th scope="col" class="px-4 py-3 text-start">الوحدة (Unit)</th>
+                    <th v-if="quickFields.show_reference_range" data-result-field="reference" scope="col" class="px-4 py-3 text-start">الطبيعي (Normal)</th>
+                    <th v-if="quickFields.show_unit" data-result-field="unit" scope="col" class="px-4 py-3 text-start">الوحدة (Unit)</th>
                     <th scope="col" class="px-4 py-3 text-start">حفظ وتعديل</th>
                   </tr>
                 </thead>
@@ -475,8 +475,8 @@
                       <select v-if="Number(item.result_type_id_fk) !== 3" v-model="item.result_status_id_fk" :aria-label="`حالة ${item.name}`" class="mt-1 w-full border-0 bg-transparent px-1 text-xs text-slate-500 outline-none focus:text-primary-700"><option value="">تحديد الحالة</option><option v-for="status in resultStatus" :key="status.value" :value="status.value">{{ status.label }}</option></select>
                     </td>
                     <td class="px-4 py-3"><PreviousResult v-bind="previousLabel('test', item)" class="!min-w-0 !max-w-none" /></td>
-                    <td class="px-4 py-3 text-xs leading-5 text-slate-700"><div v-if="displayRanges(item).length" class="max-h-24 space-y-1 overflow-y-auto"><div v-for="range in displayRanges(item)" :key="range.test_reference_range_id || range.id" class="whitespace-pre-line">{{ range.notes || `${range.from ?? '—'} – ${range.to ?? '—'}` }}</div></div><span v-else class="text-slate-400">—</span></td>
-                    <td class="break-words px-4 py-3 text-xs font-medium text-slate-600" dir="auto">{{ item.unit || '—' }}</td>
+                    <td v-if="quickFields.show_reference_range" data-result-field="reference" class="px-4 py-3 text-xs leading-5 text-slate-700"><template v-if="showsReferenceRange(item)"><div v-if="displayRanges(item).length" class="max-h-24 space-y-1 overflow-y-auto"><div v-for="range in displayRanges(item)" :key="range.test_reference_range_id || range.id" class="whitespace-pre-line">{{ range.notes || `${range.from ?? '—'} – ${range.to ?? '—'}` }}</div></div><span v-else class="text-slate-400">—</span></template></td>
+                    <td v-if="quickFields.show_unit" data-result-field="unit" class="break-words px-4 py-3 text-xs font-medium text-slate-600" dir="auto">{{ showsUnit(item) ? (item.unit || '—') : '' }}</td>
                     <td class="px-4 py-3">
                       <div class="flex items-center gap-2">
                         <button type="button" @click="saveTestRow(item)" :disabled="savingTestRow === item" class="inline-flex h-9 flex-1 items-center justify-center rounded-lg bg-primary-600 px-2 text-xs font-semibold text-white hover:bg-primary-700 disabled:opacity-60">{{ savingTestRow === item ? 'جاري الحفظ' : item.is_done ? 'حفظ' : 'حفظ ✓' }}</button>
@@ -484,8 +484,8 @@
                       </div>
                       <ResultCommentEditor v-model="item.comment" :options="item.result_comments" :name="item.name" compact />
                     </td>
-                  </tr><tr v-if="resultHistoryRows(updateResultRecord, item).length"><td colspan="6" class="px-4"><ResultHistoryTable :rows="resultHistoryRows(updateResultRecord, item)" /></td></tr></template>
-                  <tr v-if="!filteredAllTabTests.length"><td colspan="6" class="p-10 text-center text-sm text-slate-500">لا توجد تحاليل تطابق البحث.</td></tr>
+                  </tr><tr v-if="resultHistoryRows(updateResultRecord, item).length"><td :colspan="quickColumnWidths.length" class="px-4"><ResultHistoryTable :show-unit="showsUnit(item)" :rows="resultHistoryRows(updateResultRecord, item)" /></td></tr></template>
+                  <tr v-if="!filteredAllTabTests.length"><td :colspan="quickColumnWidths.length" class="p-10 text-center text-sm text-slate-500">لا توجد تحاليل تطابق البحث.</td></tr>
                 </tbody>
               </table>
             </div>
@@ -600,7 +600,7 @@
                 </div>
 
                 <!-- Reference Ranges -->
-                <div v-if="item.test_reference_ranges?.length" class="flex items-start gap-3 p-3.5 bg-blue-50/70 border border-blue-100 rounded-lg">
+                <div v-if="showsReferenceRange(item) && item.test_reference_ranges?.length" class="flex items-start gap-3 p-3.5 bg-blue-50/70 border border-blue-100 rounded-lg">
                   <svg class="w-4 h-4 text-blue-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
@@ -623,7 +623,7 @@
 
                 <!-- Unit & Price chips -->
                 <div class="flex items-center gap-3">
-                  <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-600 rounded-md text-xs font-medium">
+                  <span v-if="showsUnit(item)" data-result-field="unit" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-600 rounded-md text-xs font-medium">
                     {{ t("Unit") }}: {{ item.unit ?? "---" }}
                   </span>
                   <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-md text-xs font-medium">
@@ -636,7 +636,7 @@
                 <ResultCommentEditor v-model="item.comment" :options="item.result_comments" :name="item.name" />
               </div>
             </div>
-          <ResultHistoryTable  :rows="resultHistoryRows(updateResultRecord, item, 'test')" /></div>
+          <ResultHistoryTable  :show-unit="showsUnit(item)" :rows="resultHistoryRows(updateResultRecord, item, 'test')" /></div>
         </div>
 
         <div v-if="activeSection === 'tests'" class="rounded-xl border border-slate-200 bg-white p-4">
@@ -689,7 +689,7 @@
                   <ResultCommentEditor v-model="test.comment" :options="test.result_comments" :name="test.name" />
                 </div>
               </div>
-            <ResultHistoryTable v-if="isCustomTemplateTest(test)" :rows="resultHistoryRows(updateResultRecord, test, 'test')" /></template>
+            <ResultHistoryTable v-if="isCustomTemplateTest(test)" :show-unit="showsUnit(test)" :rows="resultHistoryRows(updateResultRecord, test, 'test')" /></template>
 
             <div v-if="packageVisibleTests(pkg).length || pkg.cultures?.length" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
               <div class="divide-y divide-slate-100">
@@ -729,8 +729,8 @@
                     </div>
                   </div>
                   <div class="flex flex-col gap-0.5 text-xs shrink-0 sm:min-w-[140px] sm:max-w-[220px]">
-                    <span class="text-slate-500">{{ t("Unit") }}: <span class="text-slate-700">{{ test.unit || "—" }}</span></span>
-                    <div class="text-blue-600 space-y-0.5">
+                    <span v-if="showsUnit(test)" data-result-field="unit" class="text-slate-500">{{ t("Unit") }}: <span class="text-slate-700">{{ test.unit || "—" }}</span></span>
+                    <div v-if="showsReferenceRange(test)" data-result-field="reference" class="text-blue-600 space-y-0.5">
                       <template v-if="displayRanges(test).length">
                         <div v-for="range in displayRanges(test)" :key="range.test_reference_range_id || range.id" style="white-space: pre-line;">
                           <template v-if="range.notes">{{ range.notes }}</template>
@@ -792,7 +792,7 @@
                   </div>
                 </div>
                 <div class="px-4"><ResultCommentEditor v-model="test.comment" :options="test.result_comments" :name="test.name" compact /></div>
-                <ResultHistoryTable  :rows="resultHistoryRows(updateResultRecord, test, 'test')" /></template>
+                <ResultHistoryTable  :show-unit="showsUnit(test)" :rows="resultHistoryRows(updateResultRecord, test, 'test')" /></template>
                 <!-- Culture rows -->
                 <template v-for="(culture, cIndex) in pkg.cultures" :key="'culture-' + cIndex"><div
                   class="flex flex-col sm:flex-row sm:items-center gap-3 p-4 bg-purple-50/30 hover:bg-purple-50/50 transition-colors"
@@ -820,7 +820,7 @@
                       <span class="text-xs text-slate-500">{{ t("done") }}</span>
                     </label>
                   </div>
-                </div><div class="px-4"><ResultCommentEditor v-model="culture.comment" :options="culture.result_comments" :name="culture.name" compact /></div><ResultHistoryTable :rows="resultHistoryRows(updateResultRecord, culture, 'culture')" /></template>
+                </div><div class="px-4"><ResultCommentEditor v-model="culture.comment" :options="culture.result_comments" :name="culture.name" compact /></div><ResultHistoryTable :show-unit="showsUnit(culture)" :rows="resultHistoryRows(updateResultRecord, culture, 'culture')" /></template>
               </div>
               <!-- Formulas belonging to test groups attached to this package -->
               <div
@@ -895,7 +895,7 @@
                   <ResultCommentEditor v-model="test.comment" :options="test.result_comments" :name="test.name" />
                 </div>
               </div>
-            <ResultHistoryTable v-if="isCustomTemplateTest(test)" :rows="resultHistoryRows(updateResultRecord, test, 'test')" /></template>
+            <ResultHistoryTable v-if="isCustomTemplateTest(test)" :show-unit="showsUnit(test)" :rows="resultHistoryRows(updateResultRecord, test, 'test')" /></template>
 
             <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
               <div class="divide-y divide-slate-100">
@@ -916,8 +916,8 @@
                     </div>
                   </div>
                   <div class="flex flex-col gap-0.5 text-xs shrink-0 sm:min-w-[140px] sm:max-w-[220px]">
-                    <span class="text-slate-500">{{ t("Unit") }}: <span class="text-slate-700">{{ test.unit || "—" }}</span></span>
-                    <div class="text-blue-600 space-y-0.5">
+                    <span v-if="showsUnit(test)" data-result-field="unit" class="text-slate-500">{{ t("Unit") }}: <span class="text-slate-700">{{ test.unit || "—" }}</span></span>
+                    <div v-if="showsReferenceRange(test)" data-result-field="reference" class="text-blue-600 space-y-0.5">
                       <template v-if="displayRanges(test).length">
                         <div v-for="range in displayRanges(test)" :key="range.test_reference_range_id || range.id" style="white-space: pre-line;">
                           <template v-if="range.notes">{{ range.notes }}</template>
@@ -977,7 +977,7 @@
                       <span class="text-xs text-slate-500">{{ t("done") }}</span>
                     </label>
                   </div>
-                </div><div class="px-4"><ResultCommentEditor v-model="test.comment" :options="test.result_comments" :name="test.name" compact /></div><ResultHistoryTable :rows="resultHistoryRows(updateResultRecord, test, 'test')" /></template>
+                </div><div class="px-4"><ResultCommentEditor v-model="test.comment" :options="test.result_comments" :name="test.name" compact /></div><ResultHistoryTable :show-unit="showsUnit(test)" :rows="resultHistoryRows(updateResultRecord, test, 'test')" /></template>
                 <div v-if="Array.isArray(group.formula) && group.formula.length" class="p-4 bg-emerald-50/50 border-t border-emerald-100 space-y-2">
                   <div v-for="(f, fi) in group.formula" :key="'g-f-' + fi" class="flex flex-wrap items-center gap-3" :data-formula-name="f.name">
                     <span class="text-sm font-semibold text-emerald-700 min-w-[80px]">{{ f.name || t("formula") }}:</span>
@@ -1132,7 +1132,7 @@
                 ></textarea>
               </div>
             </div>
-          <ResultHistoryTable  :rows="resultHistoryRows(updateResultRecord, culture, 'culture')" /></div>
+          <ResultHistoryTable  :show-unit="showsUnit(culture)" :rows="resultHistoryRows(updateResultRecord, culture, 'culture')" /></div>
         </div>
 
         <!-- ==================== EXTRAS SECTION (Attachments + Comment) ==================== -->
@@ -1445,6 +1445,8 @@
 </template>
 
 <script setup>
+import { showsUnit, showsReferenceRange, resultFieldColumns, visibleTemplateFields } from '@/utils/testFieldVisibility';
+
 import ResultCommentEditor from "@/components/ResultCommentEditor.vue";
 import { validateReportAttachment, attachmentPrintLayout } from "@/utils/reportAttachments";
 import CbcResultEditor from "@/components/CbcResultEditor.vue";
@@ -1536,6 +1538,13 @@ const openQuickTest = (item) => {
   }
 };
 const testSearch = ref("");
+const quickFields = computed(() => resultFieldColumns(allTabTests.value,
+  allTabTests.value.some(item => !!quickTestSource(item))));
+const quickColumnWidths = computed(() => {
+  const weights = [21, 18, 17, ...(quickFields.value.show_reference_range ? [18] : []), ...(quickFields.value.show_unit ? [10] : []), 16];
+  const total = weights.reduce((a, b) => a + b, 0);
+  return weights.map(width => width * 100 / total);
+});
 const filteredAllTabTests = computed(() => allTabTests.value
   .map((item, index) => ({ item, index }))
   .filter(({ item }) => !testSearch.value.trim() || `${item.name || ''} ${item.shortcut || ''}`.toLocaleLowerCase().includes(testSearch.value.trim().toLocaleLowerCase())));
@@ -2115,7 +2124,7 @@ watch(activeSection, () => templateHtmlCache.clear());
 
 const getGroupTemplateHtml = (testData, gIdx, tIdx, kind = "test_groups") => {
   if (!testData?.content?.html) return "";
-  const cacheKey = `${kind}:${gIdx}:${tIdx}`;
+  const cacheKey = `${kind}:${gIdx}:${tIdx}:${showsUnit(testData)}:${showsReferenceRange(testData)}`;
   let cached = templateHtmlCache.get(cacheKey);
   if (cached === undefined) {
   let html = testData.content.html;
@@ -2165,6 +2174,7 @@ const getGroupTemplateHtml = (testData, gIdx, tIdx, kind = "test_groups") => {
       ALLOWED_ATTR: ["class","style","src","alt","href","target","width","height","colspan","rowspan","border","cellpadding","cellspacing","data-colwidth","data-cell-type","align","valign","dir","type","value","data-kind","data-gidx","data-tidx","data-sidx","data-bound","placeholder","checked","viewBox","fill","d","stroke","stroke-width"],
       ALLOW_DATA_ATTR: true
     });
+    cached = visibleTemplateFields(cached, testData);
     templateHtmlCache.set(cacheKey, cached);
   }
 
@@ -2294,7 +2304,7 @@ const loadTemplate = async () => {
       ],
       ALLOW_DATA_ATTR: true
     });
-    selectedTemplate.value = `<div id="custom-table-container">${sanitizedHtml}</div>`;
+    selectedTemplate.value = `<div id="custom-table-container">${visibleTemplateFields(sanitizedHtml, testData)}</div>`;
 
     nextTick(() => {
       // Text/number/select fields — guard against re-binding on repeated loadTemplate() calls
