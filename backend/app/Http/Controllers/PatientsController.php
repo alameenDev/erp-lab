@@ -330,7 +330,10 @@ class PatientsController extends Controller
         }
 
         $user->name = $validatedData['name'];
-        $user->phone_number = $validatedData['phone_number'] ?? $user->phone_number;
+        // An omitted phone preserves it; an explicitly empty phone clears it.
+        if (array_key_exists('phone_number', $validatedData)) {
+            $user->phone_number = $validatedData['phone_number'];
+        }
         $user->address = $validatedData['address'] ?? $user->address;
         $user->save();
 

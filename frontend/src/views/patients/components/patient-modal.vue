@@ -12,6 +12,7 @@ import { useinvoicesStore } from "@/store/modules/invoices";
 import { LoaderStore } from "@/store/modules/loader";
 import { t } from "@/utils/helper";
 import { useToast } from "@/composables/useToast";
+import { localPatientPhone, formatPatientPhone, validPatientPhone } from '@/utils/patientPhone';
 
 const patientAgeInput = ref(null);
 const patientsStore = usePatientsStore();
@@ -92,7 +93,7 @@ const create = async () => {
 
   isSubmitting.value = true;
   try {
-    record.value.phone_number = formatPhone(record.value.phone);
+    record.value.phone_number = formatPatientPhone(record.value.phone);
     record.value.gender_id_fk = record.value.gender_type_id_fk;
 
     await patientsStore.AddPatient();
@@ -110,7 +111,7 @@ const update = async () => {
 
   isSubmitting.value = true;
   try {
-    record.value.phone_number = formatPhone(record.value.phone);
+    record.value.phone_number = formatPatientPhone(record.value.phone);
     record.value.gender_id_fk = record.value.gender_type_id_fk;
 
     await patientsStore.UpdatePatient();
@@ -122,22 +123,20 @@ const update = async () => {
   }
 };
 
-// Format phone: ensure +964 prefix and 10 digits after
-const formatPhone = (val) => {
-  if (!val) return "";
-  let digits = val.replace(/[^0-9]/g, "");
-  if (digits.startsWith("964")) digits = digits.slice(3);
-  if (digits.startsWith("00964")) digits = digits.slice(5);
-  if (digits.startsWith("0")) digits = digits.slice(1);
-  return digits ? `+964${digits}` : "";
+const onPhoneInput = (e) => {
+  record.value.phone = localPatientPhone(e.target.value);
+  e.target.value = record.value.phone;
+  errors.value.phone = '';
 };
 
-const onPhoneInput = (e) => {
-  let digits = e.target.value.replace(/[^0-9]/g, "");
-  if (digits.startsWith("964")) digits = digits.slice(3);
-  if (digits.startsWith("0")) digits = digits.slice(1);
-  record.value.phone = digits;
-};
+// List editing fills the record directly, without changing the invoice patient.
+// Normalize on every opening as well as on typing and invoice selection.
+watch(dialog, (open) => {
+  if (open) {
+    record.value.phone = localPatientPhone(record.value.phone || record.value.phone_number);
+    errors.value.phone = '';
+  }
+}, { immediate: true });
 
 // Validation
 const validate = () => {
@@ -165,7 +164,8 @@ const validate = () => {
     errors.value.title = t("errorMessage");
     isValid = false;
   }
-  if (record.value.phone && !/^[0-9]{10}$/.test(record.value.phone)) {
+  record.value.phone = localPatientPhone(record.value.phone);
+  if (!validPatientPhone(record.value.phone)) {
     errors.value.phone = t("invalid_phone") || "Phone must be 10 digits (e.g. 7703814484)";
     isValid = false;
   }
@@ -200,13 +200,7 @@ watch(patient, (v) => {
   if (v) {
     isNameShow.value = false;
     Object.assign(record.value, v);
-    // Strip +964 prefix for display in input
-    let ph = record.value.phone || "";
-    if (ph.startsWith("+964")) ph = ph.slice(4);
-    else if (ph.startsWith("964")) ph = ph.slice(3);
-    else if (ph.startsWith("00964")) ph = ph.slice(5);
-    else if (ph.startsWith("0")) ph = ph.slice(1);
-    record.value.phone = ph.replace(/[^0-9]/g, "");
+    record.value.phone = localPatientPhone(v.phone_number ?? v.phone);
   }
 });
 
@@ -350,15 +344,15 @@ onMounted(() => {
 
               <!-- Phone -->
               <div>
-                <label class="block text-sm font-medium text-slate-700 mb-2">{{ t("phone_number") }}</label>
-                <div class="relative">
+                <label for="patient-phone" class="block text-sm font-medium text-slate-700 mb-2">{{ t("phone_number") }}</label>
+                <div class="relative" dir="ltr">
                   <span class="absolute inset-y-0 start-0 flex items-center ps-4 text-slate-600 font-semibold text-sm">+964</span>
                   <input
+                    id="patient-phone"
                     type="tel"
                     :value="record.phone"
                     @input="onPhoneInput"
                     placeholder="7XXXXXXXXX"
-                    maxlength="10"
                     class="w-full ps-16 pe-4 py-3 bg-slate-50 border rounded-xl text-slate-700 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white outline-none transition-all"
                     :class="errors.phone ? 'border-red-400' : 'border-slate-200'"
                     dir="ltr"

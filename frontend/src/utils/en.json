@@ -125,6 +125,7 @@
   "addPatient": "add Patient",
   "code": "the Code",
   "phone_number": "phone Number",
+  "invalid_phone": "Enter a valid Iraqi phone number, such as 07701234567 or +9647701234567",
   "add_pationt": "add patient",
   "lab_card": "lab Card",
   "patient_card": "patient card",
