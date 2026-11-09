@@ -1016,6 +1016,8 @@ class InvoiceController extends Controller
             'shortcut' => $rel->test?->shortcut,
             'report_name' => $rel->test?->report_name,
             'unit' => $rel->test?->unit,
+            'show_unit' => $rel->test?->show_unit ?? true,
+            'show_reference_range' => $rel->test?->show_reference_range ?? true,
             'to_lab_id_fk' => $rel->to_lab_id_fk,
             'to_lab' => $rel->toLab?->name,
             'selection_type_options' => $rel->test?->selection_type_options,
@@ -1143,6 +1145,10 @@ class InvoiceController extends Controller
                 $item['report_name'] = $item['report_name'] ?? $fresh['report_name'] ?? null;
                 $item['test_reference_ranges'] = $preferStored($item['test_reference_ranges'] ?? null, $fresh['test_reference_ranges'] ?? null, []);
                 $item['unit'] = $item['unit'] ?? $fresh['unit'] ?? null;
+                // Visibility follows the current definition, including explicit false.
+                // Stored group/package snapshots must not override these preferences.
+                $item['show_unit'] = $fresh['show_unit'] ?? true;
+                $item['show_reference_range'] = $fresh['show_reference_range'] ?? true;
                 $item['result_type_id_fk'] = $preferStored($item['result_type_id_fk'] ?? null, $fresh['result_type_id_fk'] ?? null);
                 $item['result_type_name'] = $item['result_type_name'] ?? $fresh['result_type_name'] ?? null;
                 $item['selction_type_options'] = $preferStored($item['selction_type_options'] ?? null, $fresh['selction_type_options'] ?? null);

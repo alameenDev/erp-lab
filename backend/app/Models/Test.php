@@ -25,6 +25,8 @@ class Test extends Model
         'report_name',
         'interface_code',
         'unit',
+        'show_unit',
+        'show_reference_range',
         'result_type_id_fk',
         'selection_type_options',
         'default_result',
@@ -38,6 +40,8 @@ class Test extends Model
     ];
 
     protected $casts = [
+        'show_unit' => 'boolean',
+        'show_reference_range' => 'boolean',
         'selection_type_options' => 'json',
         'result_comments' => 'json',
         'content' => 'json',

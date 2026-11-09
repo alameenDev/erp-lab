@@ -22,6 +22,8 @@ import ResultHistoryTable from '@/components/ResultHistoryTable.vue';
 import { reportHistoryRows } from '@/utils/resultHistory';
 import ReportPreviousResults from '@/components/ReportPreviousResults.vue';
 import ReportTableColumns from "./ReportTableColumns.vue";
+import { reportColumnKeys } from "@/utils/medicalReportColumns";
+import { showsUnit, showsReferenceRange, resultFieldColumns, visibleTemplateFields } from "@/utils/testFieldVisibility";
 import { customReportColumns } from "@/utils/medicalReportColumns";
 import result_footer_section from "./result_footer_section.vue";
 import { sanitizeHtml } from "@/utils/helper";
@@ -272,7 +274,7 @@ const getTemplateHtml = (data) => {
   }
 
   // SECURITY: Sanitize template HTML to prevent XSS
-  const sanitizedHtml = sanitizeHtml(templateHtml);
+  const sanitizedHtml = visibleTemplateFields(sanitizeHtml(templateHtml), data);
 
   return `
     <div class="custom-table-container">
@@ -419,21 +421,13 @@ const generalComments = computed(() => [
   ...(printRecord.value?.packages || []).map(p => ({ label: p.name, text: commentText(p.comment) })),
 ].filter(row => row.text));
 
-// Column count for category colspan
-const colCount = computed(() => {
-  let count = 4; // Test, Result, Unit, Reference Ranges
-  if (showStatus.value) count++;
-  if (showLastResult.value) count++;
-  return count;
-});
-
 // Merge ALL tests into one list with category rows when showTestName is off
 const allTestsMerged = computed(() => {
   if (showTestName.value) return [];
   const sections = [];
 
   let blockIndex = 0;
-  const addTests = (category, tests, printAlone = false, bundle = '', rank = Number.MAX_SAFE_INTEGER) => {
+  const addTests = (category, tests, printAlone = false, bundle = '', rank = Number.MAX_SAFE_INTEGER, preserveFieldColumns = false) => {
     if (!tests?.length) return;
     const blocks = tests.map(() => `merged:${blockIndex}`);
     const bundles = tests.map(() => bundle);
@@ -446,10 +440,11 @@ const allTestsMerged = computed(() => {
       last.tests.push(...tests);
       last.blocks.push(...blocks);
       last.bundles.push(...bundles);
+      last.preserveFieldColumns ||= preserveFieldColumns;
       return;
     }
 
-    sections.push({ key, rank, category: key, tests: [...tests], blocks, bundles, is_print_alone });
+    sections.push({ key, rank, category: key, tests: [...tests], blocks, bundles, is_print_alone, preserveFieldColumns });
   };
 
   const blocks = [
@@ -457,14 +452,14 @@ const allTestsMerged = computed(() => {
     ...(printRecord.value?.test_groups || []).map(g => ({ category: reportBlockCategory(g, [...(g.tests || []), ...(g.cultures || [])]), tests: [
       ...formulaRows(g, g.tests?.filter(t => !hasRealTemplate(t))),
       ...(g.cultures || []).map(c => ({ ...c, report_history_type: 'culture' })),
-    ], alone: g.is_print_alone, rank: itemRank('test_groups', g) })),
+    ], alone: g.is_print_alone, preserveFieldColumns: true, rank: itemRank('test_groups', g) })),
     ...(printRecord.value?.packages || []).map((pkg, index) => ({ category: reportBlockCategory(null, [...(pkg.tests || []).filter(t => isFormulaTarget(pkg, t)), ...(pkg.cultures || [])]), tests: [
       ...formulaRows(pkg, (pkg.tests || []).filter(t => isFormulaTarget(pkg, t))),
       ...(pkg.cultures || []).map(c => ({ ...c, report_history_type: 'culture' })),
     ], bundle: `package:${index}`, rank: itemRank('packages', pkg) })),
     ...packageGroupSections.value.map(sec => ({ category: sec.category, tests: formulaRows(sec, sec.rows || []), alone: sec.is_print_alone, bundle: sec.bundle, rank: sec.rank })),
   ];
-  blocks.sort((a, b) => a.rank - b.rank).forEach(b => addTests(b.category, b.tests, b.alone, b.bundle, b.rank));
+  blocks.sort((a, b) => a.rank - b.rank).forEach(b => addTests(b.category, b.tests, b.alone, b.bundle, b.rank, b.preserveFieldColumns || !!b.bundle));
   return sections;
 });
 
@@ -539,7 +534,12 @@ const orderedReportSections = computed(() => orderReportCategories([
     .map(pkg => ({ kind: 'package', pkg, rank: itemRank('packages', pkg),
       category: reportBlockCategory(null, [...(pkg.tests || []).filter(t => isFormulaTarget(pkg, t)), ...(pkg.cultures || [])]),
     })) : []),
-]));
+]).map(block => {
+  const items = block.kind === 'test' ? block.group.tests : block.kind === 'merged' ? block.section.tests : [];
+  const preserve = block.kind === 'test' ? !!block.group.bundle : block.kind === 'merged' ? block.section.preserveFieldColumns : true;
+  const tableSettings = { ...reportSettings.value, ...resultFieldColumns(items, preserve) };
+  return { ...block, tableSettings, colCount: reportColumnKeys(tableSettings).length };
+}));
 
 const findTestByKey = findFormulaTest;
 
@@ -891,28 +891,28 @@ const generateBarcodeImage = (value) => {
         <thead><tr><td class="pw-cell pw-top"><result_section :modern="modernReport" :with-background="showBackground" :lab-name="reportBrand?.lab_display_name" :lab-logo="showBackground && backgroundUrl ? '' : referralLogo" :share-url="reportQrUrl" :is-referral="referralReport || sharedReferralReport" /></td></tr></thead>
         <tfoot><tr><td class="pw-cell pw-bottom"></td></tr></tfoot>
         <tbody><tr><td class="pw-cell">
-        <template v-for="({ kind, group, section, culture, pkg, tTest, chunk, cIdx, categoryHeading, category }, index) in orderedReportSections" :key="index">
+        <template v-for="({ kind, group, section, culture, pkg, tTest, chunk, cIdx, categoryHeading, category, tableSettings, colCount }, index) in orderedReportSections" :key="index">
           <!-- Custom templates own their headings and full-page layout. -->
           <section v-if="kind === 'template'" class="template-section" data-report-section data-report-isolated="true">
             <div v-html="chunk"></div>
             <template v-if="showComments && cIdx === templateChunks(tTest).length - 1">
               <ReportComment v-for="(comment, ci) in templateExtraComments(tTest)" :key="ci" :value="comment.text" :label="comment.label" />
             </template>
-            <ResultHistoryTable v-if="cIdx === templateChunks(tTest).length - 1" :rows="previousRows(tTest)" />
+            <ResultHistoryTable v-if="cIdx === templateChunks(tTest).length - 1" :show-unit="showsUnit(tTest)" :rows="previousRows(tTest)" />
           </section>
         <!-- ===== MERGED TABLE (when showTestName is off) ===== -->
         <template v-if="kind === 'merged'">
           <section data-report-section :data-report-isolated="section.is_print_alone" :style="{ marginTop: index === 0 ? '16px' : '24px', marginBottom: '16px' }">
             <ReportCategoryHeading v-if="showCategories" :category="categoryHeading" :modern="modernReport" style="margin-bottom: 10px;" />
-            <table :class="{ 'report-column-widths': customReportColumns(reportSettings.print_table_config) }" class="report-results-table w-full" style="border-collapse: collapse; table-layout: fixed;">
-              <ReportTableColumns :settings="reportSettings" />
+            <table :class="{ 'report-column-widths': customReportColumns(reportSettings.print_table_config) || !tableSettings.show_unit || !tableSettings.show_reference_range }" class="report-results-table w-full" style="border-collapse: collapse; table-layout: fixed;">
+              <ReportTableColumns :settings="tableSettings" />
               <thead>
                 <tr>
                   <th class="border border-black/15 p-0.5 text-center">Test</th>
                   <th class="border border-black/15 p-0.5 text-center">Result</th>
                   <th v-if="showStatus && modernReport" class="report-flag-heading">Flag</th>
-                  <th class="border border-black/15 p-0.5 text-center">Unit</th>
-                  <th class="border border-black/15 p-0.5 text-center">Reference Ranges</th>
+                  <th v-if="tableSettings.show_unit" data-result-field="unit" class="border border-black/15 p-0.5 text-center">Unit</th>
+                  <th v-if="tableSettings.show_reference_range" data-result-field="reference" class="border border-black/15 p-0.5 text-center">Reference Ranges</th>
                   <th v-if="showLastResult" class="border border-black/15 p-0.5 text-center">Previous Results</th>
                   <th v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">Status</th>
                 </tr>
@@ -922,19 +922,19 @@ const generateBarcodeImage = (value) => {
                   <td class="border border-black/15 p-0.5 text-center">{{ item.report_name || item.name }}</td>
                   <td class="border border-black/15 p-0.5 text-center" :style="getResultColorStyle(item.result_status_id_fk)">{{ item.result ?? "" }}</td>
                   <td v-if="showStatus && modernReport" class="report-flag-cell"><ReportResultFlag :status-id="item.result_status_id_fk" :label="getStatusLabel(item.result_status_id_fk)" /></td>
-                  <td class="border border-black/15 p-0.5 text-center">{{ item.unit }}</td>
-                  <td class="border border-black/15 p-0.5 text-center">
-                    <span v-for="range in getFilteredRanges(item?.test_reference_ranges)" :key="range.test_reference_range_id || range.id">
+                  <td v-if="tableSettings.show_unit" data-result-field="unit" class="border border-black/15 p-0.5 text-center">{{ showsUnit(item) ? item.unit : '' }}</td>
+                  <td v-if="tableSettings.show_reference_range" data-result-field="reference" class="border border-black/15 p-0.5 text-center">
+                    <span v-for="range in (showsReferenceRange(item) ? getFilteredRanges(item?.test_reference_ranges) : [])" :key="range.test_reference_range_id || range.id">
                       <div v-if="range.notes" style="white-space: pre-line;">{{ range.notes }}</div>
                       <p v-else>{{ range.from }}-{{ range.to }}</p>
                       <p v-for="option in range.test_reference_options" :key="option">{{ option }}</p>
                     </span>
                   </td>
-                  <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center"><ReportPreviousResults :rows="previousRows(item, item.report_history_type || 'test', 'scalar')" /></td>
+                  <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center"><ReportPreviousResults :show-unit="showsUnit(item)" :rows="previousRows(item, item.report_history_type || 'test', 'scalar')" /></td>
                   <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(item.result_status_id_fk) }}</td>
                 </tr>
                 <tr v-if="showComments && !hasRealTemplate(item) && commentText(item.comment)" class="report-comment-row" :data-report-block="section.blocks[idx]" :data-report-bundle="categoryBundle(section.bundles[idx], category)"><td :colspan="colCount"><ReportComment :value="item.comment" :label="item.report_name || item.name" /></td></tr>
-                <tr v-if="previousRows(item, item.report_history_type || 'test', 'components').length" :data-report-block="section.blocks[idx]" :data-report-bundle="categoryBundle(section.bundles[idx], category)"><td :colspan="colCount"><ResultHistoryTable :rows="previousRows(item, item.report_history_type || 'test', 'components')" /></td></tr></template>
+                <tr v-if="previousRows(item, item.report_history_type || 'test', 'components').length" :data-report-block="section.blocks[idx]" :data-report-bundle="categoryBundle(section.bundles[idx], category)"><td :colspan="colCount"><ResultHistoryTable :show-unit="showsUnit(item)" :rows="previousRows(item, item.report_history_type || 'test', 'components')" /></td></tr></template>
               </tbody>
             </table>
           </section>
@@ -946,15 +946,15 @@ const generateBarcodeImage = (value) => {
             <ReportCategoryHeading v-if="showCategories" :category="categoryHeading" :modern="modernReport" />
             <div v-if="group.name && showTestName" class="section-header w-full font-bold border border-black p-1 text-center text-black bg-gray-300" :style="categoryHeading && showCategories ? 'margin-top: 4px' : ''"><i v-if="modernReport" class="pi pi-filter mr-section-icon" aria-hidden="true"></i><span>{{ group.name }}</span><small v-if="modernReport" class="mr-section-caption">TEST RESULTS</small></div>
 
-            <table v-if="group.tests.length > 0" :class="{ 'report-column-widths': customReportColumns(reportSettings.print_table_config) }" class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
-              <ReportTableColumns :settings="reportSettings" />
+            <table v-if="group.tests.length > 0" :class="{ 'report-column-widths': customReportColumns(reportSettings.print_table_config) || !tableSettings.show_unit || !tableSettings.show_reference_range }" class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
+              <ReportTableColumns :settings="tableSettings" />
               <thead>
                 <tr>
                   <th class="border border-black/15 p-0.5 text-center">Test</th>
                   <th class="border border-black/15 p-0.5 text-center">Result</th>
                   <th v-if="showStatus && modernReport" class="report-flag-heading">Flag</th>
-                  <th class="border border-black/15 p-0.5 text-center">Unit</th>
-                  <th class="border border-black/15 p-0.5 text-center">Reference Ranges</th>
+                  <th v-if="tableSettings.show_unit" data-result-field="unit" class="border border-black/15 p-0.5 text-center">Unit</th>
+                  <th v-if="tableSettings.show_reference_range" data-result-field="reference" class="border border-black/15 p-0.5 text-center">Reference Ranges</th>
                   <th v-if="showLastResult" class="border border-black/15 p-0.5 text-center">Previous Results</th>
                   <th v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">Status</th>
                 </tr>
@@ -964,19 +964,19 @@ const generateBarcodeImage = (value) => {
                   <td class="border border-black/15 p-0.5 text-center">{{ item.report_name || item.name }}</td>
                   <td class="border border-black/15 p-0.5 text-center" :style="getResultColorStyle(item.result_status_id_fk)">{{ item.result ?? "" }}</td>
                   <td v-if="showStatus && modernReport" class="report-flag-cell"><ReportResultFlag :status-id="item.result_status_id_fk" :label="getStatusLabel(item.result_status_id_fk)" /></td>
-                  <td class="border border-black/15 p-0.5 text-center">{{ item.unit }}</td>
-                  <td class="border border-black/15 p-0.5 text-center">
-                    <span v-for="range in getFilteredRanges(item?.test_reference_ranges)" :key="range.test_reference_range_id">
+                  <td v-if="tableSettings.show_unit" data-result-field="unit" class="border border-black/15 p-0.5 text-center">{{ showsUnit(item) ? item.unit : '' }}</td>
+                  <td v-if="tableSettings.show_reference_range" data-result-field="reference" class="border border-black/15 p-0.5 text-center">
+                    <span v-for="range in (showsReferenceRange(item) ? getFilteredRanges(item?.test_reference_ranges) : [])" :key="range.test_reference_range_id">
                       <div v-if="range.notes" style="white-space: pre-line;">{{ range.notes }}</div>
                       <p v-else>{{ range.from }}-{{ range.to }}</p>
                       <p v-for="option in range.test_reference_options" :key="option">{{ option }}</p>
                     </span>
                   </td>
-                  <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center"><ReportPreviousResults :rows="previousRows(item, 'test', 'scalar')" /></td>
+                  <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center"><ReportPreviousResults :show-unit="showsUnit(item)" :rows="previousRows(item, 'test', 'scalar')" /></td>
                   <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(item.result_status_id_fk) }}</td>
                 </tr>
                 <tr v-if="showComments && !hasRealTemplate(item) && commentText(item.comment)" class="report-comment-row"><td :colspan="colCount"><ReportComment :value="item.comment" :label="item.report_name || item.name" /></td></tr>
-                <tr v-if="previousRows(item, 'test', 'components').length"><td :colspan="colCount"><ResultHistoryTable :rows="previousRows(item, 'test', 'components')" /></td></tr></template>
+                <tr v-if="previousRows(item, 'test', 'components').length"><td :colspan="colCount"><ResultHistoryTable :show-unit="showsUnit(item)" :rows="previousRows(item, 'test', 'components')" /></td></tr></template>
               </tbody>
             </table>
           </section>
@@ -989,15 +989,15 @@ const generateBarcodeImage = (value) => {
             <div class="section-header w-full font-bold border border-black p-1 text-center text-black bg-gray-300"><i v-if="modernReport" class="pi pi-filter mr-section-icon" aria-hidden="true"></i><span>{{ group.group_name }}</span><small v-if="modernReport" class="mr-section-caption">TEST RESULTS</small></div>
 
             <!-- Test Group Tests -->
-            <table v-if="group.tests?.length > 0" :class="{ 'report-column-widths': customReportColumns(reportSettings.print_table_config) }" class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
-              <ReportTableColumns :settings="reportSettings" />
+            <table v-if="group.tests?.length > 0" :class="{ 'report-column-widths': customReportColumns(reportSettings.print_table_config) || !tableSettings.show_unit || !tableSettings.show_reference_range }" class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
+              <ReportTableColumns :settings="tableSettings" />
               <thead>
                 <tr>
                   <th class="border border-black/15 p-0.5 text-center">Test</th>
                   <th class="border border-black/15 p-0.5 text-center">Result</th>
                   <th v-if="showStatus && modernReport" class="report-flag-heading">Flag</th>
-                  <th class="border border-black/15 p-0.5 text-center">Unit</th>
-                  <th class="border border-black/15 p-0.5 text-center">Reference Ranges</th>
+                  <th v-if="tableSettings.show_unit" data-result-field="unit" class="border border-black/15 p-0.5 text-center">Unit</th>
+                  <th v-if="tableSettings.show_reference_range" data-result-field="reference" class="border border-black/15 p-0.5 text-center">Reference Ranges</th>
                   <th v-if="showLastResult" class="border border-black/15 p-0.5 text-center">Previous Results</th>
                   <th v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">Status</th>
                 </tr>
@@ -1007,32 +1007,32 @@ const generateBarcodeImage = (value) => {
                   <td class="border border-black/15 p-0.5 text-center">{{ item.report_name || item.name }}</td>
                   <td class="border border-black/15 p-0.5 text-center" :style="getResultColorStyle(item.result_status_id_fk)">{{ item.result ?? "" }}</td>
                   <td v-if="showStatus && modernReport" class="report-flag-cell"><ReportResultFlag :status-id="item.result_status_id_fk" :label="getStatusLabel(item.result_status_id_fk)" /></td>
-                  <td class="border border-black/15 p-0.5 text-center">{{ item.unit }}</td>
-                  <td class="border border-black/15 p-0.5 text-center">
-                    <span v-for="range in getFilteredRanges(item?.test_reference_ranges)" :key="range.test_reference_range_id || range.id">
+                  <td v-if="tableSettings.show_unit" data-result-field="unit" class="border border-black/15 p-0.5 text-center">{{ showsUnit(item) ? item.unit : '' }}</td>
+                  <td v-if="tableSettings.show_reference_range" data-result-field="reference" class="border border-black/15 p-0.5 text-center">
+                    <span v-for="range in (showsReferenceRange(item) ? getFilteredRanges(item?.test_reference_ranges) : [])" :key="range.test_reference_range_id || range.id">
                       <div v-if="range.notes" style="white-space: pre-line;">{{ range.notes }}</div>
                       <p v-else>{{ range.from }}-{{ range.to }}</p>
                       <p v-for="option in range.test_reference_options" :key="option">{{ option }}</p>
                     </span>
                   </td>
-                  <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center"><ReportPreviousResults :rows="previousRows(item, 'test', 'scalar')" /></td>
+                  <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center"><ReportPreviousResults :show-unit="showsUnit(item)" :rows="previousRows(item, 'test', 'scalar')" /></td>
                   <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(item.result_status_id_fk) }}</td>
                 </tr>
                 <tr v-if="showComments && !hasRealTemplate(item) && commentText(item.comment)" class="report-comment-row"><td :colspan="colCount"><ReportComment :value="item.comment" :label="item.report_name || item.name" /></td></tr>
-                <tr v-if="previousRows(item, 'test', 'components').length"><td :colspan="colCount"><ResultHistoryTable :rows="previousRows(item, 'test', 'components')" /></td></tr></template>
+                <tr v-if="previousRows(item, 'test', 'components').length"><td :colspan="colCount"><ResultHistoryTable :show-unit="showsUnit(item)" :rows="previousRows(item, 'test', 'components')" /></td></tr></template>
                 <template v-for="(f, fi) in (Array.isArray(group.formula) ? group.formula : [])" :key="'gf-' + fi"><tr>
                   <td class="border border-black/15 p-0.5 text-center font-bold">{{ getTestLabel(group, f.name) }}</td>
                   <td class="border border-black/15 p-0.5 text-center font-bold" :style="modernReport ? getResultColorStyle(getFormulaStatusId(group, f)) : ''">{{ evalFormulaValue(group, f) }}</td>
                   <td v-if="showStatus && modernReport" class="report-flag-cell"><ReportResultFlag :status-id="getFormulaStatusId(group, f)" :label="getStatusLabel(getFormulaStatusId(group, f))" /></td>
-                  <td class="border border-black/15 p-0.5 text-center">{{ getTestUnit(group, f.name) }}</td>
-                  <td class="border border-black/15 p-0.5 text-center">
-                    <span v-for="range in getTestRanges(group, f.name)" :key="range.test_reference_range_id || range.id">
+                  <td v-if="tableSettings.show_unit" data-result-field="unit" class="border border-black/15 p-0.5 text-center">{{ showsUnit(findTestByKey(group, f.name)) ? getTestUnit(group, f.name) : '' }}</td>
+                  <td v-if="tableSettings.show_reference_range" data-result-field="reference" class="border border-black/15 p-0.5 text-center">
+                    <span v-for="range in (showsReferenceRange(findTestByKey(group, f.name)) ? getTestRanges(group, f.name) : [])" :key="range.test_reference_range_id || range.id">
                       <div v-if="range.notes" style="white-space: pre-line;">{{ range.notes }}</div>
                       <p v-else>{{ range.from }}-{{ range.to }}</p>
                       <p v-for="option in range.test_reference_options" :key="option">{{ option }}</p>
                     </span>
                   </td>
-                  <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center"><ReportPreviousResults :rows="previousRows(findTestByKey(group, f.name), 'test', 'scalar')" /></td>
+                  <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center"><ReportPreviousResults :show-unit="showsUnit(findTestByKey(group, f.name))" :rows="previousRows(findTestByKey(group, f.name), 'test', 'scalar')" /></td>
                   <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(getFormulaStatusId(group, f)) }}</td>
                 </tr>
                 <tr v-if="showComments && commentText(findTestByKey(group, f.name)?.comment)" class="report-comment-row"><td :colspan="colCount"><ReportComment :value="findTestByKey(group, f.name)?.comment" :label="getTestLabel(group, f.name)" /></td></tr></template>
@@ -1041,15 +1041,15 @@ const generateBarcodeImage = (value) => {
 
             <!-- Test Group Cultures -->
             <template v-if="group.cultures?.length > 0">
-              <table :class="{ 'report-column-widths': customReportColumns(reportSettings.print_table_config) }" class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
-                <ReportTableColumns :settings="reportSettings" />
+              <table :class="{ 'report-column-widths': customReportColumns(reportSettings.print_table_config) || !tableSettings.show_unit || !tableSettings.show_reference_range }" class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
+                <ReportTableColumns :settings="tableSettings" />
                 <thead>
                   <tr>
                     <th class="border border-black/15 p-0.5 text-center">Culture</th>
                     <th class="border border-black/15 p-0.5 text-center">Result</th>
                   <th v-if="showStatus && modernReport" class="report-flag-heading">Flag</th>
-                    <th class="border border-black/15 p-0.5 text-center">Unit</th>
-                    <th class="border border-black/15 p-0.5 text-center">Reference Ranges</th>
+                    <th v-if="tableSettings.show_unit" data-result-field="unit" class="border border-black/15 p-0.5 text-center">Unit</th>
+                    <th v-if="tableSettings.show_reference_range" data-result-field="reference" class="border border-black/15 p-0.5 text-center">Reference Ranges</th>
                     <th v-if="showLastResult" class="border border-black/15 p-0.5 text-center">Previous Results</th>
                     <th v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">Status</th>
                   </tr>
@@ -1059,18 +1059,18 @@ const generateBarcodeImage = (value) => {
                     <td class="border border-black/15 p-0.5 text-center">{{ item.name }}</td>
                     <td class="border border-black/15 p-0.5 text-center" :style="getResultColorStyle(item.result_status_id_fk)">{{ item.result ?? "" }}</td>
                   <td v-if="showStatus && modernReport" class="report-flag-cell"><ReportResultFlag :status-id="item.result_status_id_fk" :label="getStatusLabel(item.result_status_id_fk)" /></td>
-                    <td class="border border-black/15 p-0.5 text-center">{{ item.unit }}</td>
-                    <td class="border border-black/15 p-0.5 text-center">
-                      <span v-for="range in getFilteredRanges(item?.test_reference_ranges)" :key="range.id">
+                    <td v-if="tableSettings.show_unit" data-result-field="unit" class="border border-black/15 p-0.5 text-center">{{ showsUnit(item) ? item.unit : '' }}</td>
+                    <td v-if="tableSettings.show_reference_range" data-result-field="reference" class="border border-black/15 p-0.5 text-center">
+                      <span v-for="range in (showsReferenceRange(item) ? getFilteredRanges(item?.test_reference_ranges) : [])" :key="range.id">
                         <div v-if="range.notes" style="white-space: pre-line;">{{ range.notes }}</div>
                         <p v-else>{{ range.from }}-{{ range.to }}</p>
                       </span>
                     </td>
-                    <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center"><ReportPreviousResults :rows="previousRows(item, 'culture', 'scalar')" /></td>
+                    <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center"><ReportPreviousResults :show-unit="showsUnit(item)" :rows="previousRows(item, 'culture', 'scalar')" /></td>
                     <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(item.result_status_id_fk) }}</td>
                   </tr>
                 <tr v-if="showComments && !hasRealTemplate(item) && commentText(item.comment)" class="report-comment-row"><td :colspan="colCount"><ReportComment :value="item.comment" :label="item.report_name || item.name" /></td></tr>
-                <tr v-if="previousRows(item, 'culture', 'components').length"><td :colspan="colCount"><ResultHistoryTable :rows="previousRows(item, 'culture', 'components')" /></td></tr></template>
+                <tr v-if="previousRows(item, 'culture', 'components').length"><td :colspan="colCount"><ResultHistoryTable :show-unit="showsUnit(item)" :rows="previousRows(item, 'culture', 'components')" /></td></tr></template>
                 </tbody>
               </table>
             </template>
@@ -1086,15 +1086,15 @@ const generateBarcodeImage = (value) => {
             <ReportCategoryHeading v-if="showCategories" :category="categoryHeading" :modern="modernReport" />
             <div class="section-header w-full font-bold border border-black p-1 text-center text-black bg-gray-300"><i v-if="modernReport" class="pi pi-filter mr-section-icon" aria-hidden="true"></i><span>{{ group.group_name }}</span><small v-if="modernReport" class="mr-section-caption">TEST RESULTS</small></div>
 
-            <table v-if="group.rows.filter(t => !isFormulaTarget(group, t)).length || group.formula.length" :class="{ 'report-column-widths': customReportColumns(reportSettings.print_table_config) }" class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
-              <ReportTableColumns :settings="reportSettings" />
+            <table v-if="group.rows.filter(t => !isFormulaTarget(group, t)).length || group.formula.length" :class="{ 'report-column-widths': customReportColumns(reportSettings.print_table_config) || !tableSettings.show_unit || !tableSettings.show_reference_range }" class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
+              <ReportTableColumns :settings="tableSettings" />
               <thead>
                 <tr>
                   <th class="border border-black/15 p-0.5 text-center">Test</th>
                   <th class="border border-black/15 p-0.5 text-center">Result</th>
                   <th v-if="showStatus && modernReport" class="report-flag-heading">Flag</th>
-                  <th class="border border-black/15 p-0.5 text-center">Unit</th>
-                  <th class="border border-black/15 p-0.5 text-center">Reference Ranges</th>
+                  <th v-if="tableSettings.show_unit" data-result-field="unit" class="border border-black/15 p-0.5 text-center">Unit</th>
+                  <th v-if="tableSettings.show_reference_range" data-result-field="reference" class="border border-black/15 p-0.5 text-center">Reference Ranges</th>
                   <th v-if="showLastResult" class="border border-black/15 p-0.5 text-center">Previous Results</th>
                   <th v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">Status</th>
                 </tr>
@@ -1104,32 +1104,32 @@ const generateBarcodeImage = (value) => {
                   <td class="border border-black/15 p-0.5 text-center">{{ item.report_name || item.name }}</td>
                   <td class="border border-black/15 p-0.5 text-center" :style="getResultColorStyle(item.result_status_id_fk)">{{ item.result ?? "" }}</td>
                   <td v-if="showStatus && modernReport" class="report-flag-cell"><ReportResultFlag :status-id="item.result_status_id_fk" :label="getStatusLabel(item.result_status_id_fk)" /></td>
-                  <td class="border border-black/15 p-0.5 text-center">{{ item.unit }}</td>
-                  <td class="border border-black/15 p-0.5 text-center">
-                    <span v-for="range in getFilteredRanges(item?.test_reference_ranges)" :key="range.test_reference_range_id || range.id">
+                  <td v-if="tableSettings.show_unit" data-result-field="unit" class="border border-black/15 p-0.5 text-center">{{ showsUnit(item) ? item.unit : '' }}</td>
+                  <td v-if="tableSettings.show_reference_range" data-result-field="reference" class="border border-black/15 p-0.5 text-center">
+                    <span v-for="range in (showsReferenceRange(item) ? getFilteredRanges(item?.test_reference_ranges) : [])" :key="range.test_reference_range_id || range.id">
                       <div v-if="range.notes" style="white-space: pre-line;">{{ range.notes }}</div>
                       <p v-else>{{ range.from }}-{{ range.to }}</p>
                       <p v-for="option in range.test_reference_options" :key="option">{{ option }}</p>
                     </span>
                   </td>
-                  <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center"><ReportPreviousResults :rows="previousRows(item, 'test', 'scalar')" /></td>
+                  <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center"><ReportPreviousResults :show-unit="showsUnit(item)" :rows="previousRows(item, 'test', 'scalar')" /></td>
                   <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(item.result_status_id_fk) }}</td>
                 </tr>
                 <tr v-if="showComments && !hasRealTemplate(item) && commentText(item.comment)" class="report-comment-row"><td :colspan="colCount"><ReportComment :value="item.comment" :label="item.report_name || item.name" /></td></tr>
-                <tr v-if="previousRows(item, 'test', 'components').length"><td :colspan="colCount"><ResultHistoryTable :rows="previousRows(item, 'test', 'components')" /></td></tr></template>
+                <tr v-if="previousRows(item, 'test', 'components').length"><td :colspan="colCount"><ResultHistoryTable :show-unit="showsUnit(item)" :rows="previousRows(item, 'test', 'components')" /></td></tr></template>
                 <template v-for="(f, fi) in group.formula" :key="'ptgf-' + fi"><tr>
                   <td class="border border-black/15 p-0.5 text-center font-bold">{{ getTestLabel(group, f.name) }}</td>
                   <td class="border border-black/15 p-0.5 text-center font-bold" :style="modernReport ? getResultColorStyle(getFormulaStatusId(group, f)) : ''">{{ evalFormulaValue(group, f) }}</td>
                   <td v-if="showStatus && modernReport" class="report-flag-cell"><ReportResultFlag :status-id="getFormulaStatusId(group, f)" :label="getStatusLabel(getFormulaStatusId(group, f))" /></td>
-                  <td class="border border-black/15 p-0.5 text-center">{{ getTestUnit(group, f.name) }}</td>
-                  <td class="border border-black/15 p-0.5 text-center">
-                    <span v-for="range in getTestRanges(group, f.name)" :key="range.test_reference_range_id || range.id">
+                  <td v-if="tableSettings.show_unit" data-result-field="unit" class="border border-black/15 p-0.5 text-center">{{ showsUnit(findTestByKey(group, f.name)) ? getTestUnit(group, f.name) : '' }}</td>
+                  <td v-if="tableSettings.show_reference_range" data-result-field="reference" class="border border-black/15 p-0.5 text-center">
+                    <span v-for="range in (showsReferenceRange(findTestByKey(group, f.name)) ? getTestRanges(group, f.name) : [])" :key="range.test_reference_range_id || range.id">
                       <div v-if="range.notes" style="white-space: pre-line;">{{ range.notes }}</div>
                       <p v-else>{{ range.from }}-{{ range.to }}</p>
                       <p v-for="option in range.test_reference_options" :key="option">{{ option }}</p>
                     </span>
                   </td>
-                  <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center"><ReportPreviousResults :rows="previousRows(findTestByKey(group, f.name), 'test', 'scalar')" /></td>
+                  <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center"><ReportPreviousResults :show-unit="showsUnit(findTestByKey(group, f.name))" :rows="previousRows(findTestByKey(group, f.name), 'test', 'scalar')" /></td>
                   <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(getFormulaStatusId(group, f)) }}</td>
                 </tr>
                 <tr v-if="showComments && commentText(findTestByKey(group, f.name)?.comment)" class="report-comment-row"><td :colspan="colCount"><ReportComment :value="findTestByKey(group, f.name)?.comment" :label="getTestLabel(group, f.name)" /></td></tr></template>
@@ -1142,15 +1142,15 @@ const generateBarcodeImage = (value) => {
         <template v-if="kind === 'culture'">
           <section class="test-group-section" data-report-section>
             <ReportCategoryHeading v-if="showCategories" :category="categoryHeading" :modern="modernReport" />
-            <table :class="{ 'report-column-widths': customReportColumns(reportSettings.print_table_config) }" class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
-              <ReportTableColumns :settings="reportSettings" />
+            <table :class="{ 'report-column-widths': customReportColumns(reportSettings.print_table_config) || !tableSettings.show_unit || !tableSettings.show_reference_range }" class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
+              <ReportTableColumns :settings="tableSettings" />
               <thead>
                 <tr>
                   <th class="border border-black/15 p-0.5 text-center">Culture</th>
                   <th class="border border-black/15 p-0.5 text-center">Result</th>
                   <th v-if="showStatus && modernReport" class="report-flag-heading">Flag</th>
-                  <th class="border border-black/15 p-0.5 text-center">Unit</th>
-                  <th class="border border-black/15 p-0.5 text-center">Reference Ranges</th>
+                  <th v-if="tableSettings.show_unit" data-result-field="unit" class="border border-black/15 p-0.5 text-center">Unit</th>
+                  <th v-if="tableSettings.show_reference_range" data-result-field="reference" class="border border-black/15 p-0.5 text-center">Reference Ranges</th>
                   <th v-if="showLastResult" class="border border-black/15 p-0.5 text-center">Previous Results</th>
                   <th v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">Status</th>
                 </tr>
@@ -1160,16 +1160,16 @@ const generateBarcodeImage = (value) => {
                   <td class="border border-black/15 p-0.5 text-center">{{ culture.name }}</td>
                   <td class="border border-black/15 p-0.5 text-center" :style="getResultColorStyle(culture.result_status_id_fk)">{{ culture.result ?? "" }}</td>
                   <td v-if="showStatus && modernReport" class="report-flag-cell"><ReportResultFlag :status-id="culture.result_status_id_fk" :label="getStatusLabel(culture.result_status_id_fk)" /></td>
-                  <td class="border border-black/15 p-0.5 text-center">{{ culture.unit }}</td>
-                  <td class="border border-black/15 p-0.5 text-center">
-                    <span v-for="range in getFilteredRanges(culture?.test_reference_ranges)" :key="range.id">
+                  <td v-if="tableSettings.show_unit" data-result-field="unit" class="border border-black/15 p-0.5 text-center">{{ showsUnit(culture) ? culture.unit : '' }}</td>
+                  <td v-if="tableSettings.show_reference_range" data-result-field="reference" class="border border-black/15 p-0.5 text-center">
+                    <span v-for="range in (showsReferenceRange(culture) ? getFilteredRanges(culture?.test_reference_ranges) : [])" :key="range.id">
                       <div v-if="range.notes" style="white-space: pre-line;">{{ range.notes }}</div>
                       <p v-else>{{ range.from }}-{{ range.to }}</p>
                     </span>
                   </td>
-                  <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center"><ReportPreviousResults :rows="previousRows(culture, 'culture', 'scalar')" /></td>
+                  <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center"><ReportPreviousResults :show-unit="showsUnit(culture)" :rows="previousRows(culture, 'culture', 'scalar')" /></td>
                   <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(culture.result_status_id_fk) }}</td>
-                </tr><tr v-if="showComments && commentText(culture.comment)" class="report-comment-row"><td :colspan="colCount"><ReportComment :value="culture.comment" :label="culture.name" /></td></tr><tr v-if="previousRows(culture, 'culture', 'components').length"><td :colspan="colCount"><ResultHistoryTable :rows="previousRows(culture, 'culture', 'components')" /></td></tr>
+                </tr><tr v-if="showComments && commentText(culture.comment)" class="report-comment-row"><td :colspan="colCount"><ReportComment :value="culture.comment" :label="culture.name" /></td></tr><tr v-if="previousRows(culture, 'culture', 'components').length"><td :colspan="colCount"><ResultHistoryTable :show-unit="showsUnit(culture)" :rows="previousRows(culture, 'culture', 'components')" /></td></tr>
               </tbody>
             </table>
           </section>
@@ -1183,15 +1183,15 @@ const generateBarcodeImage = (value) => {
             <ReportCategoryHeading v-if="showCategories" :category="categoryHeading" :modern="modernReport" />
             <div class="section-header w-full font-bold border border-black p-1 text-center text-black bg-gray-300"><i v-if="modernReport" class="pi pi-filter mr-section-icon" aria-hidden="true"></i><span>{{ pkg.name }}</span><small v-if="modernReport" class="mr-section-caption">TEST RESULTS</small></div>
 
-            <table :class="{ 'report-column-widths': customReportColumns(reportSettings.print_table_config) }" class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
-              <ReportTableColumns :settings="reportSettings" />
+            <table :class="{ 'report-column-widths': customReportColumns(reportSettings.print_table_config) || !tableSettings.show_unit || !tableSettings.show_reference_range }" class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
+              <ReportTableColumns :settings="tableSettings" />
               <thead>
                 <tr>
                   <th class="border border-black/15 p-0.5 text-center">Test</th>
                   <th class="border border-black/15 p-0.5 text-center">Result</th>
                   <th v-if="showStatus && modernReport" class="report-flag-heading">Flag</th>
-                  <th class="border border-black/15 p-0.5 text-center">Unit</th>
-                  <th class="border border-black/15 p-0.5 text-center">Reference Ranges</th>
+                  <th v-if="tableSettings.show_unit" data-result-field="unit" class="border border-black/15 p-0.5 text-center">Unit</th>
+                  <th v-if="tableSettings.show_reference_range" data-result-field="reference" class="border border-black/15 p-0.5 text-center">Reference Ranges</th>
                   <th v-if="showLastResult" class="border border-black/15 p-0.5 text-center">Previous Results</th>
                   <th v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">Status</th>
                 </tr>
@@ -1201,30 +1201,30 @@ const generateBarcodeImage = (value) => {
                   <td class="border border-black/15 p-0.5 text-center">{{ item.name }}</td>
                   <td class="border border-black/15 p-0.5 text-center" :style="getResultColorStyle(item.result_status_id_fk)">{{ item.result ?? "" }}</td>
                   <td v-if="showStatus && modernReport" class="report-flag-cell"><ReportResultFlag :status-id="item.result_status_id_fk" :label="getStatusLabel(item.result_status_id_fk)" /></td>
-                  <td class="border border-black/15 p-0.5 text-center">{{ item.unit }}</td>
-                  <td class="border border-black/15 p-0.5 text-center">
-                    <span v-for="range in item?.test_reference_ranges" :key="range">
+                  <td v-if="tableSettings.show_unit" data-result-field="unit" class="border border-black/15 p-0.5 text-center">{{ showsUnit(item) ? item.unit : '' }}</td>
+                  <td v-if="tableSettings.show_reference_range" data-result-field="reference" class="border border-black/15 p-0.5 text-center">
+                    <span v-for="range in (showsReferenceRange(item) ? item?.test_reference_ranges : [])" :key="range">
                       {{ range.from }}-{{ range.to }}
                     </span>
                   </td>
-                  <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center"><ReportPreviousResults :rows="previousRows(item, 'culture', 'scalar')" /></td>
+                  <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center"><ReportPreviousResults :show-unit="showsUnit(item)" :rows="previousRows(item, 'culture', 'scalar')" /></td>
                   <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(item.result_status_id_fk) }}</td>
                 </tr>
                 <tr v-if="showComments && !hasRealTemplate(item) && commentText(item.comment)" class="report-comment-row"><td :colspan="colCount"><ReportComment :value="item.comment" :label="item.report_name || item.name" /></td></tr>
-                <tr v-if="previousRows(item, 'culture', 'components').length"><td :colspan="colCount"><ResultHistoryTable :rows="previousRows(item, 'culture', 'components')" /></td></tr></template>
+                <tr v-if="previousRows(item, 'culture', 'components').length"><td :colspan="colCount"><ResultHistoryTable :show-unit="showsUnit(item)" :rows="previousRows(item, 'culture', 'components')" /></td></tr></template>
                 <template v-for="(f, fi) in (Array.isArray(pkg.formula) ? pkg.formula : [])" :key="'pf-' + fi"><tr>
                   <td class="border border-black/15 p-0.5 text-center font-bold">{{ getTestLabel(pkg, f.name) }}</td>
                   <td class="border border-black/15 p-0.5 text-center font-bold" :style="modernReport ? getResultColorStyle(getFormulaStatusId(pkg, f)) : ''">{{ evalFormulaValue(pkg, f) }}</td>
                   <td v-if="showStatus && modernReport" class="report-flag-cell"><ReportResultFlag :status-id="getFormulaStatusId(pkg, f)" :label="getStatusLabel(getFormulaStatusId(pkg, f))" /></td>
-                  <td class="border border-black/15 p-0.5 text-center">{{ getTestUnit(pkg, f.name) }}</td>
-                  <td class="border border-black/15 p-0.5 text-center">
-                    <span v-for="range in getTestRanges(pkg, f.name)" :key="range.test_reference_range_id || range.id">
+                  <td v-if="tableSettings.show_unit" data-result-field="unit" class="border border-black/15 p-0.5 text-center">{{ showsUnit(findTestByKey(pkg, f.name)) ? getTestUnit(pkg, f.name) : '' }}</td>
+                  <td v-if="tableSettings.show_reference_range" data-result-field="reference" class="border border-black/15 p-0.5 text-center">
+                    <span v-for="range in (showsReferenceRange(findTestByKey(pkg, f.name)) ? getTestRanges(pkg, f.name) : [])" :key="range.test_reference_range_id || range.id">
                       <div v-if="range.notes" style="white-space: pre-line;">{{ range.notes }}</div>
                       <p v-else>{{ range.from }}-{{ range.to }}</p>
                       <p v-for="option in range.test_reference_options" :key="option">{{ option }}</p>
                     </span>
                   </td>
-                  <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center"><ReportPreviousResults :rows="previousRows(findTestByKey(pkg, f.name), 'test', 'scalar')" /></td>
+                  <td v-if="showLastResult" class="border border-black/15 p-0.5 text-center"><ReportPreviousResults :show-unit="showsUnit(findTestByKey(pkg, f.name))" :rows="previousRows(findTestByKey(pkg, f.name), 'test', 'scalar')" /></td>
                   <td v-if="showStatus && !modernReport" class="border border-black/15 p-0.5 text-center">{{ getStatusLabel(getFormulaStatusId(pkg, f)) }}</td>
                 </tr>
                 <tr v-if="showComments && commentText(findTestByKey(pkg, f.name)?.comment)" class="report-comment-row"><td :colspan="colCount"><ReportComment :value="findTestByKey(pkg, f.name)?.comment" :label="getTestLabel(pkg, f.name)" /></td></tr></template>

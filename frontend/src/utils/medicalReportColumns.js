@@ -4,7 +4,8 @@ export const customReportColumns = (config) => [true, 1, '1'].includes(config?.c
 
 export function reportColumnKeys(settings = {}) {
   const modern = settings.report_template === 'modern';
-  return ['test', 'result', ...(modern && settings.show_status !== false ? ['status'] : []), 'unit', 'reference',
+  return ['test', 'result', ...(modern && settings.show_status !== false ? ['status'] : []),
+    ...(settings.show_unit !== false ? ['unit'] : []), ...(settings.show_reference_range !== false ? ['reference'] : []),
     ...(settings.show_last_result === true ? ['last_result'] : []), ...(!modern && settings.show_status !== false ? ['status'] : [])];
 }
 

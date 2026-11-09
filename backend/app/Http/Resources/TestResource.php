@@ -39,6 +39,8 @@ class TestResource extends JsonResource
             'sub_tests' => $this->sub_tests,
             'interface_code' => $this->interface_code,
             'unit' => $this->unit,
+            'show_unit' => $this->show_unit ?? true,
+            'show_reference_range' => $this->show_reference_range ?? true,
             'is_contain_status' => $this->is_contain_status,
             'is_print_alone' => $this->is_print_alone,
             'price' => $this->price,
