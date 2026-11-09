@@ -17,6 +17,7 @@ export const usePackagesStore = defineStore("packages", {
                shortcut: "", // "required|string|max:2,55",
                price: "", // "nullable if is_constant_price is true|integer",
                is_constant_price: false, // "required|boolean",
+               show_in_patient_portal: false,
                tests: null, // "required|array",
                cultures: null, // "required|array",
                test_groups: null, // whole test groups included in the package

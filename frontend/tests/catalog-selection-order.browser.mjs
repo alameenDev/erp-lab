@@ -49,6 +49,9 @@ try {
   assert.deepEqual(saved.body.test_ids, []);
 
   await page.evaluate(() => orderFixture.openPackage());
+  const portalCheckbox = page.getByRole('checkbox', { name: 'إظهار الباقة في بوابة المريض', exact: true });
+  assert.equal(await portalCheckbox.isChecked(), false, 'new packages are not advertised unless selected');
+  await portalCheckbox.check();
   await choose('Creatinine'); await choose('Hemoglobin'); await choose('Glucose');
   await assertSelection(['Creatinine', 'Hemoglobin', 'Glucose']);
   await picker().getByRole('searchbox').fill('HGB');
@@ -62,9 +65,12 @@ try {
   await page.getByRole('button', { name: 'التحاليل (3)', exact: true }).click();
   await assertSelection(['Creatinine', 'Hemoglobin', 'Glucose']);
   saved = await save('packages');
+  assert.equal(saved.body.show_in_patient_portal, true, 'checked state is sent when creating a package');
   assert.deepEqual(saved.body.tests.map(test => test.id), [12, 13, 11]);
   assert.deepEqual(saved.body.test_groups.map(group => group.id), [21]);
   await page.evaluate(body => orderFixture.openPackage({ ...body, id: 1 }), saved.body);
+  assert.equal(await portalCheckbox.isChecked(), true, 'saved visibility is restored on edit');
+  await portalCheckbox.uncheck();
   await assertSelection(['Creatinine', 'Hemoglobin', 'Glucose']);
   await page.setViewportSize({ width: 390, height: 844 });
   await picker().scrollIntoViewIfNeeded();
@@ -74,6 +80,7 @@ try {
   await assertSelection(['Creatinine', 'Glucose', 'Hemoglobin']);
   await picker().screenshot({ path: 'test-results/catalog-selection-order/package-mobile.png' });
   saved = await save('packages');
+  assert.equal(saved.body.show_in_patient_portal, false, 'unchecking sends explicit false when updating');
   assert.deepEqual(saved.body.tests.map(test => test.id), [12, 11, 13]);
   assert.deepEqual(errors, []);
   console.log('PASS: group/package selection order, numbering, search, price stability, reorder, removal, nested groups, save/reopen and mobile layout');

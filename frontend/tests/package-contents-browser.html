@@ -12,6 +12,7 @@ const empty={id:22,group_name:'Empty group',tests:[],cultures:[]};
 const packages=[{id:1,name:'Mixed package',tests:[test],test_groups:[group,empty]},{id:2,name:'Groups only',tests:[],test_groups:[group]},{id:3,name:'Tests only',tests:[test],test_groups:[]},{id:4,name:'Empty package',tests:[],test_groups:[]}].map(p=>({...p,cultures:[],is_constant_price:true,price:10000,shortcut:'SYNTHETIC',lab:'Synthetic Lab'}));
 $http.defaults.adapter=async config=>{
  if(config.url!=='/packages')throw new Error('Unexpected request '+config.url);
+ packages[0].show_in_patient_portal=true;
  return {data:JSON.parse(JSON.stringify(packages)),status:200,statusText:'OK',headers:{},config};
 };
 usetestsStore(pinia).GetTests=async()=>{};useculturesStore(pinia).Getcultures=async()=>{};usetestGroupsStore(pinia).GettestGroups=async()=>{};

@@ -128,12 +128,14 @@ const addRecord = () => {
   record.value.tests = [];
   record.value.cultures = [];
   record.value.test_groups = [];
+  record.value.show_in_patient_portal = false;
   dialog.value = true;
 };
 
 const editRecord = (rec) => {
   Object.assign(record.value, rec);
   record.value.is_constant_price = rec.is_constant_price === true;
+  record.value.show_in_patient_portal = rec.show_in_patient_portal === true;
   const testOptions = TestLists().map((t) => ({ ...t.value, name: t.label, shortcut: t.shortcut }));
   record.value.tests = rec.tests?.map((t) => testOptions.find((o) => o.id === t.id) || t) || [];
   const cultureOptions = cultureLists().map((c) => ({ ...c.value, name: c.label }));

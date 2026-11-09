@@ -24,7 +24,13 @@ try {
  assert.equal(await page.evaluate(()=>JSON.stringify(packageFixture.packagesList)),before,'viewing does not edit package membership');
  const row=page.locator('tr').filter({has:page.locator('[data-package-contents="1"]')});
  await row.locator('button[title="تعديل"]').click();
+ const visibility=page.getByRole('checkbox',{name:'إظهار الباقة في بوابة المريض',exact:true});
+ assert.equal(await visibility.isChecked(),true,'package editor loads saved portal visibility');
  assert.deepEqual(await page.evaluate(()=>packageFixture.record.test_groups.map(g=>g.id)),[21,22],'editing retains all selected groups');
+ await page.evaluate(()=>{packageFixture.dialog=false;});
+ await page.locator('#app').getByRole('button',{name:'اضافة',exact:true}).click();
+ assert.equal(await visibility.isChecked(),false,'adding after editing a visible package resets visibility');
+ await page.screenshot({path:'test-results/package-contents/portal-visibility.png',animations:'disabled'});
  await page.evaluate(()=>{packageFixture.dialog=false;});
  await page.setViewportSize({width:390,height:844});await page.locator('[data-package-contents="2"]').click();await modal.waitFor();
  const box=await modal.boundingBox();assert.ok(box.x>=0&&box.x+box.width<=390,'dialog fits a phone viewport');
