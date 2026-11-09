@@ -83,7 +83,7 @@ class PortalPackageCatalogTest extends TestCase
             'package_tests'=>[['id'=>$test->id,'test_id_fk'=>$test->id,'name'=>$test->name,'result'=>'5','is_done'=>true]]]);
         $input['id']=$id;
         $before=$this->getJson('/api/invoices/'.$invoice->id)->assertOk()->json('packages');
-        $portalBefore=$this->getJson($url)->assertOk()->assertJsonCount(1,'invoices')->json('invoices');
+        $portalBefore=$this->getJson($url)->assertOk()->assertJsonCount(1,'reports')->json('reports');
         foreach ([true,false] as $show) {
             $this->putJson('/api/packages/update',$input+['show_in_patient_portal'=>$show])->assertOk()->assertJsonPath('show_in_patient_portal',$show);
             // Legacy callers omitting this setting must preserve the saved choice.
@@ -93,7 +93,7 @@ class PortalPackageCatalogTest extends TestCase
                 ->assertJsonPath('tests.0.id',$test->id);
             $this->getJson($url.'/catalog')->assertOk()->assertJsonCount($show ? 1 : 0,'packages');
             $this->assertEquals($before,$this->getJson('/api/invoices/'.$invoice->id)->assertOk()->json('packages'));
-            $this->assertEquals($portalBefore,$this->getJson($url)->assertOk()->json('invoices'));
+            $this->assertEquals($portalBefore,$this->getJson($url)->assertOk()->json('reports'));
             $this->assertSame(12000,(int) Package::findOrFail($id)->price);
         }
         $this->postJson('/api/packages/create',array_diff_key($input,['id'=>true])+['show_in_patient_portal'=>true])
