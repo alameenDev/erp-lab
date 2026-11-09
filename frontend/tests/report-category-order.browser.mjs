@@ -4,6 +4,9 @@ import { mkdir } from 'node:fs/promises';
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1360, height: 1000 } });
+// The classic header prints the current minute on each render. Keep time fixed
+// so a minute rollover between PDF and fast capture cannot change the pixels.
+await page.clock.setFixedTime(new Date('2026-11-09T09:00:00Z'));
 const errors = [];
 page.on('pageerror', error => errors.push(error.message));
 await mkdir('test-results/report-pages', { recursive: true });

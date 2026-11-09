@@ -24,7 +24,8 @@ class TestFieldVisibilityTest extends TestCase
         $patient = Patient::create(['user_id'=>$lab->id, 'creator_id'=>$lab->id, 'code'=>'VISIBILITY']);
         $category = Category::create(['name'=>'Synthetic', 'lab_id_fk'=>$lab->id]);
         $test = LabTest::create(['name'=>'Analysis', 'category_id_fk'=>$category->id, 'lab_id_fk'=>$lab->id, 'result_type_id_fk'=>1, 'unit'=>'mg/dL']);
-        $test->testReferenceRanges()->create(['from'=>1, 'to'=>6, 'notes'=>'Stored normal range']);
+        $test->testReferenceRanges()->create(['lab_id_fk'=>$lab->id, 'gender_id_fk'=>1, 'age_unit_id_fk'=>1,
+            'from'=>1, 'to'=>6, 'notes'=>'Stored normal range']);
         return [$lab, $patient, $test];
     }
 
@@ -80,7 +81,7 @@ class TestFieldVisibilityTest extends TestCase
             }
         }
         $this->assertSame('mg/dL', $test->fresh()->unit);
-        $this->assertDatabaseHas('test_reference_ranges', ['test_id'=>$test->id, 'notes'=>'Stored normal range']);
+        $this->assertDatabaseHas('test_reference_range', ['test_id'=>$test->id, 'notes'=>'Stored normal range']);
     }
 
     public function test_other_labs_cannot_change_the_visibility(): void
