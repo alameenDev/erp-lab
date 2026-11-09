@@ -54,6 +54,7 @@ class PackageResource extends JsonResource
             'price' => $this->price ?? $price,
             'prices' => $priceListData,
             'is_constant_price' => $this->is_constant_price,
+            'show_in_patient_portal' => (bool) $this->show_in_patient_portal,
             'formula' => $this->formula,
             'tests' => TestResource::collection($this->whenLoaded('tests')),
             'test_groups' => $this->whenLoaded('testGroups', fn () => $this->testGroups->map(fn ($group) => [

@@ -50,6 +50,7 @@ onMounted(() => {
 const handleSubmit = () => {
   record.value.is_test = record.value.is_test === true;
   record.value.is_constant_price = record.value.is_constant_price === true;
+  record.value.show_in_patient_portal = record.value.show_in_patient_portal === true;
 
   if (record.value.id) {
     Updatepackage().then(() => {
@@ -151,6 +152,11 @@ const close = () => {
                   </div>
                 </div>
               </div>
+
+              <label class="flex items-center gap-3 cursor-pointer text-sm font-medium text-slate-700">
+                <input type="checkbox" v-model="record.show_in_patient_portal" class="h-4 w-4 rounded border-slate-300 accent-teal-600" />
+                <span>{{ t('show_package_in_patient_portal') }}</span>
+              </label>
 
               <!-- Tests & Cultures Card -->
               <div class="bg-white rounded-2xl border border-slate-200/80">

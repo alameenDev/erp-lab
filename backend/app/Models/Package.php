@@ -14,12 +14,13 @@ class Package extends Model
 
     protected $casts = [
         'is_constant_price' => 'boolean',
+        'show_in_patient_portal' => 'boolean',
         'formula' => 'array',
     ];
 
     // Fillable properties for mass assignment
     protected $fillable = [
-        'name', 'shortcut', 'price', 'is_constant_price', 'lab_id_fk', 'formula',
+        'name', 'shortcut', 'price', 'is_constant_price', 'lab_id_fk', 'formula', 'show_in_patient_portal',
     ];
 
     // Define any relationships here

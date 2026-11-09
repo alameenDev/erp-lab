@@ -78,6 +78,7 @@ class PackageController extends Controller
             'shortcut' => 'required|string|max:255',
             'price' => 'nullable|numeric',
             'is_constant_price' => 'required|boolean',
+            'show_in_patient_portal' => 'sometimes|boolean',
             'tests' => 'nullable|array',
             'tests.*.id' => 'required|integer|distinct|exists:tests,id',
             'tests.*.price' => 'nullable|numeric',
@@ -123,6 +124,7 @@ class PackageController extends Controller
                 'shortcut' => $request->shortcut,
                 'price' => $price,
                 'is_constant_price' => $request->is_constant_price,
+                'show_in_patient_portal' => $request->boolean('show_in_patient_portal'),
                 'lab_id_fk' => Auth::user()->id,
                 'formula' => $request->formula,
             ]);
@@ -247,6 +249,7 @@ class PackageController extends Controller
             'shortcut' => 'required|string|max:255',
             'price' => 'nullable|numeric',
             'is_constant_price' => 'required|boolean',
+            'show_in_patient_portal' => 'sometimes|boolean',
             'tests' => 'nullable|array',
             'tests.*.id' => 'required|integer|distinct|exists:tests,id',
             'tests.*.price' => 'nullable|numeric',
@@ -308,6 +311,9 @@ class PackageController extends Controller
             $package->shortcut = $request->shortcut;
             $package->price = $price;
             $package->is_constant_price = $request->is_constant_price;
+            if ($request->exists('show_in_patient_portal')) {
+                $package->show_in_patient_portal = $request->boolean('show_in_patient_portal');
+            }
             $package->formula = $request->formula;
 
             $package->save();

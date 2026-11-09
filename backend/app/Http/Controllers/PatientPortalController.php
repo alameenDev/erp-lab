@@ -172,6 +172,7 @@ class PatientPortalController extends Controller
     private function portalPackages(\App\Models\User $lab): \Illuminate\Support\Collection
     {
         return \App\Models\Package::where('lab_id_fk', $lab->id)
+            ->where('show_in_patient_portal', true)
             ->orderBy('name')->orderBy('id')
             ->get(['id', 'name', 'price'])
             ->map(fn ($p) => [
