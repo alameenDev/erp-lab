@@ -41,7 +41,7 @@ jobs:
       - run: composer install --no-interaction --prefer-dist
       - run: cp .env.example .env
       - run: php artisan key:generate
-      - run: php artisan test --filter='PatientAgeTest|ReferralWorkspaceTest|LatestPatientInvoiceTest|MedicalReportTestFilterTest'
+      - run: php artisan test --filter='PatientAgeTest|PatientPhoneTest|ReferralWorkspaceTest|LatestPatientInvoiceTest|MedicalReportTestFilterTest'
       - if: failure()
         run: tail -100 storage/logs/laravel.log
   age-browser:
@@ -57,7 +57,7 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
-      - run: node --test tests/patient-age.test.mjs
+      - run: node --test tests/patient-age.test.mjs tests/patient-phone.test.mjs
       - run: npm run build
       - run: npm install --no-save --package-lock=false playwright@1.55.1
       - run: npx playwright install --with-deps chromium
@@ -68,6 +68,7 @@ jobs:
             sleep 1
           done
           node tests/patient-age.browser.mjs
+          node tests/patient-phone.browser.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
