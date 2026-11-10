@@ -36,6 +36,10 @@ try {
  await until(()=>finish.isEnabled()); await finish.click();
  await page.reload(); await page.getByRole('button',{name:'✦ اسأل دليل المختبر'}).click();
  await page.locator('.demo-lesson-list article').filter({hasText:'إضافة مريض'}).getByText('✓ مكتمل').waitFor();
+ await page.locator('.demo-lesson-list article').filter({hasText:'إدخال النتائج والتعليقات'}).getByRole('button',{name:'علّمني خطوة بخطوة'}).click();
+ await page.waitForURL('**/demo/medical_reports/update-result/*');
+ await page.locator('h1').filter({hasText:'زينب حسن — تجريبي'}).waitFor();
+ await page.locator('.demo-step').getByRole('button',{name:'إيقاف الدرس',exact:true}).click();
  await page.locator('.demo-lesson-list article').filter({hasText:'بوابة صاحب المختبر'}).getByRole('button',{name:'أراويك مثال'}).click();
  await page.waitForURL('**/demo/owner-portal'); await page.getByText('بوابة المالك',{exact:false}).first().waitFor({timeout:20000}).catch(()=>{});
  await page.locator('.demo-coach').getByRole('button',{name:'حساب المختبر',exact:true}).click(); await page.waitForURL('**/demo/patients');
@@ -47,6 +51,6 @@ try {
  assert.equal(await page.evaluate(()=>localStorage.getItem('digital-lab-print-v1')),'LIVE-PRINTER');
  assert.deepEqual(liveApi,[]); assert.deepEqual(errors,[]);
  await fs.mkdir('test-results',{recursive:true});await page.screenshot({path:'test-results/learning-demo-mobile.png',fullPage:false});
- console.log('PASS: real start, Arabic chat, patient save gating, reload, role switching, mobile, reset, live-storage/API isolation');
+ console.log('PASS: real start, Arabic chat, patient save gating, reload, result lesson example, role switching, mobile, reset, live-storage/API isolation');
 } catch(error) { await fs.mkdir('test-results',{recursive:true}); await page.screenshot({path:'test-results/learning-demo-failure.png'}); console.error('BROWSER ERRORS:',errors); console.error('PAGE:',await page.locator('body').innerText()); throw error; }
 finally { await browser.close(); }

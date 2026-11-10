@@ -69,7 +69,7 @@ async function teach(item, showExample = false, resume = false) {
   notice.value = ''; tab.value = 'lessons'; open.value = true; libraryOpen.value = false; panelTop.value = false;
   const identity = item.identity || 'lab'; activeId.value = item.id; exampleOnly.value = showExample;
   if (!resume) { stepIndex.value = 0; if (!showExample) delete progress.value[item.id]; }
-  const destination = lessonPath(item, showExample);
+  const destination = lessonPath(item, showExample || ['results','print','devices','portal'].includes(item.id));
   if (localStorage.getItem('demo-identity') !== identity) {
     busy.value = true;
     try { await enterDemo('resume', identity); location.assign(router.resolve(destination).href); }
