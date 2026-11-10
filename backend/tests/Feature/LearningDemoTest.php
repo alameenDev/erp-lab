@@ -16,7 +16,7 @@ class LearningDemoTest extends TestCase {
         $this->flushHeaders();
         return $this->postJson('/api/learning-demo/start')->assertOk()->json();
     }
-    private function session(array $session): void {
+    private function useDemo(array $session): void {
         Auth::forgetGuards(); $this->flushHeaders();
         $this->withHeaders(['X-Demo-Session'=>$session['secret'], 'Authorization'=>'Bearer '.$session['token']]);
     }
@@ -36,7 +36,7 @@ class LearningDemoTest extends TestCase {
         $this->assertNotSame($a['user']['id'],$b['user']['id']);
         $this->assertCount(3,$a['examples']['invoices']);
         $this->assertDatabaseMissing('learning_demo_sessions',['secret_hash'=>$a['secret']]);
-        $this->session($a);
+        $this->useDemo($a);
         $this->getJson('/api/user/access')->assertOk();
         $this->getJson('/api/patients')->assertOk()->assertJsonCount(3);
         $this->getJson('/api/invoices')->assertOk();
@@ -44,22 +44,22 @@ class LearningDemoTest extends TestCase {
         $this->getJson('/api/invoices/public/'.$b['examples']['invoices'][0])->assertNotFound();
         $this->getJson('/api/portal/'.$b['examples']['portal'])->assertNotFound();
         $this->withToken($b['token'])->getJson('/api/user/access')->assertForbidden();
-        $this->session($a);
+        $this->useDemo($a);
         $owner=$this->postJson('/api/learning-demo/resume',['identity'=>'owner'])->assertOk()->assertJsonPath('user.owner_portal_only',true)->json();
-        $this->session([...$owner,'secret'=>$a['secret']]);
+        $this->useDemo([...$owner,'secret'=>$a['secret']]);
         $this->getJson('/api/owner-portal/overview')->assertOk()->assertJsonPath('summary.invoice_count',3);
         $this->postJson('/api/learning-demo/resume',['identity'=>'administrator'])->assertUnprocessable();
     }
     public function test_expiry_reset_and_external_action_boundaries(): void {
-        $this->enable(); $a=$this->start(); $this->session($a);
+        $this->enable(); $a=$this->start(); $this->useDemo($a);
         $this->postJson('/api/device/bridge/results')->assertForbidden();
         $this->postJson('/api/whatsapp/message',['phone'=>'123'])->assertStatus(409)->assertJsonPath('simulated',true);
         $this->postJson('/api/user/register')->assertForbidden();
         $this->getJson('/api/super-admin/labs')->assertForbidden();
         $new=$this->postJson('/api/learning-demo/reset')->assertOk()->json();
         $this->assertNotSame($new['user']['id'],$a['user']['id']);
-        $this->session($a); $this->getJson('/api/patients')->assertUnauthorized();
-        $this->session($new); $this->getJson('/api/patients')->assertOk()->assertJsonCount(3);
+        $this->useDemo($a); $this->getJson('/api/patients')->assertUnauthorized();
+        $this->useDemo($new); $this->getJson('/api/patients')->assertOk()->assertJsonCount(3);
         $this->travel(25)->hours();
         $this->getJson('/api/patients')->assertUnauthorized();
     }

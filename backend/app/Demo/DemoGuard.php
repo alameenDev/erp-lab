@@ -27,7 +27,7 @@ class DemoGuard {
         }
         abort_if($request->is('api/super-admin*', 'api/subscriptions*', 'api/user/register', 'api/user/login',
             'api/patient-mobile/*', 'api/*/mobile-link*', 'api/user/*password*', 'api/user/*otp*', 'api/user/forgot*', 'api/device/*'), 403, 'هذه العملية غير متاحة في التجربة التعليمية.');
-        if ($request->is('api/whatsapp/*', 'api/*/ai-chat', 'api/*/push/*', 'api/*/otp*', 'api/lab-notifications/campaigns*', 'api/lab-notifications/history/*/retry')) {
+        if ($request->is('api/whatsapp/*', 'api/referral-portal/*/share-report', 'api/*/ai-chat', 'api/*/push/*', 'api/*/otp*', 'api/lab-notifications/campaigns*', 'api/lab-notifications/history/*/retry')) {
             return response()->json(['message' => 'محاكاة تعليمية: لم تُرسل أي رسالة أو إشعار خارجي.', 'simulated' => true], 409);
         }
         // Public report URLs must belong to this browser's synthetic lab too.

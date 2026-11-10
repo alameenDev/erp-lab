@@ -86,6 +86,8 @@ export const lessons = [
   lesson('doctors','دليل الأطباء والحجوزات','/doctors','حجز حجوزات طبيب اختصاص دليل أطباء', 'دليل الأطباء يحتوي معلومات الطبيب وإمكانية الحجز حسب إعداداته في بوابة المريض.', ['أضف طبيباً تجريبياً وحدد الاختصاص وحالة الظهور والحجز. لا تستخدم أرقام اتصال حقيقية.']),
   lesson('promo','رموز الخصم','/promo-codes','برومو كوبون كود خصم تخفيض', 'رموز الخصم تضبط عروض الخصم التي يقبلها البرنامج وفق شروط الرمز.', ['أنشئ رمزاً تجريبياً وراجع شروطه وصلاحيته قبل تجربته في فاتورة.']),
 ];
+// Keep the reception journey first; portal examples follow the lab modules.
+lessons.push(...lessons.splice(0, 2));
 // Narrow stable targets only; missing targets pause rather than fabricating completion.
 lessons.find(l => l.id === 'patients').steps[1] = { text: 'اضغط زر إضافة مريض المميز بالإطار.', selector: '[data-demo="patient-add"]', event: 'click' };
 lessons.find(l => l.id === 'patients').steps[2] = { text: 'اكتب اسماً تجريبياً مثل حسن علي — تجربة، ثم أكمل العمر والجنس.', selector: '[data-demo="patient-name"]', event: 'input' };

@@ -1,5 +1,5 @@
 import { fileURLToPath, URL } from "node:url";
-import { defineConfig } from "vite";
+import { defineConfig, transformWithEsbuild } from "vite";
 import vue from "@vitejs/plugin-vue";
 import tailwindcss from "@tailwindcss/vite";
 
@@ -8,10 +8,14 @@ export default defineConfig(({ mode }) => ({
   define: mode === "demo" ? {
     "import.meta.env.VITE_DEMO_MODE": "true",
     "import.meta.env.VITE_BASE_URL": JSON.stringify("/demo/api"),
-    "localStorage": "window.__demoStorage", "window.localStorage": "window.__demoStorage", "globalThis.localStorage": "window.__demoStorage",
-    "sessionStorage": "window.__demoSessionStorage", "window.sessionStorage": "window.__demoSessionStorage", "globalThis.sessionStorage": "window.__demoSessionStorage",
   } : { "import.meta.env.VITE_DEMO_MODE": "false" },
-  plugins: [vue(), tailwindcss(), ...(mode === 'demo' ? [{ name: 'learning-demo-html', transformIndexHtml(html) {
+  plugins: [vue(), tailwindcss(), ...(mode === 'demo' ? [{ name: 'learning-demo-storage', enforce: 'post', async transform(code, id) {
+    if (!id.includes('/src/') || !/\.(?:js|vue)(?:$|\?vue&type=script)/.test(id)) return;
+    return transformWithEsbuild(code, id, { loader:'js', target:'es2022', define: {
+      localStorage:'window.__demoStorage', 'window.localStorage':'window.__demoStorage', 'globalThis.localStorage':'window.__demoStorage',
+      sessionStorage:'window.__demoSessionStorage', 'window.sessionStorage':'window.__demoSessionStorage', 'globalThis.sessionStorage':'window.__demoSessionStorage',
+    } });
+  } }, { name: 'learning-demo-html', transformIndexHtml(html) {
     return html.replace('/src/main.js', '/src/demo/bootstrap.js')
       .replace(/<link[^>]+rel="(?:canonical|manifest)"[^>]*>/g, '')
       .replace(/<title>[\s\S]*?<\/title>/, '<title>تجربة تعليمية | المختبر الرقمي</title>')
@@ -19,7 +23,7 @@ export default defineConfig(({ mode }) => ({
   } }] : [])],
   build: {
     outDir: mode === "demo" ? "dist-demo" : "dist",
-    target: "es2022",
+    target: mode === "demo" ? "es2022" : undefined,
     minify: true,
     chunkSizeWarningLimit: 2000,
     rollupOptions: {
@@ -75,6 +79,7 @@ export default defineConfig(({ mode }) => ({
     host: "0.0.0.0",
     allowedHosts: ["terminal.local"],
     proxy: {
+      ...(mode === "demo" ? { "/demo/api": { target:"http://127.0.0.1:8000", changeOrigin:true, rewrite:path => path.replace(/^\/demo/, "") } } : {}),
       "/api": {
         target: "http://127.0.0.1:8000",
         changeOrigin: true,
