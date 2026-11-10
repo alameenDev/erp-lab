@@ -1,5 +1,5 @@
 // Full demo build + real Laravel/MySQL. No API mocks and no live service credentials.
-import { chromium } from 'playwright';
+const { chromium } = await import(process.env.DEMO_PLAYWRIGHT_MODULE || 'playwright');
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 const browser=await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL || 'chrome',headless:true});

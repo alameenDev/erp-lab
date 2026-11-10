@@ -58,12 +58,11 @@ jobs:
         working-directory: frontend
       - run: npm run build:demo
         working-directory: frontend
-      - run: npm install --no-save --package-lock=false playwright@1.55.1
-        working-directory: frontend
+      - run: npm install --prefix "$RUNNER_TEMP/demo-browser" --no-save --package-lock=false playwright@1.55.1
       - run: |
           npx vite preview --mode demo --host 127.0.0.1 --port 5173 > /tmp/demo-vite.log 2>&1 &
           for attempt in {1..30}; do curl -fsS http://127.0.0.1:5173/demo/ >/dev/null && break; sleep 1; done
-          node tests/learning-demo-browser.mjs
+          DEMO_PLAYWRIGHT_MODULE="$RUNNER_TEMP/demo-browser/node_modules/playwright/index.mjs" node tests/learning-demo-browser.mjs
         working-directory: frontend
       - uses: actions/upload-artifact@v4
         if: always()
