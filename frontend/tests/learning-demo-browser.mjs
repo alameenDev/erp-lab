@@ -46,8 +46,11 @@ try {
  await page.setViewportSize({width:390,height:844});
  assert.ok(await page.locator('.demo-coach').evaluate(el=>el.getBoundingClientRect().right<=innerWidth));
  await page.locator('.demo-coach').getByRole('button',{name:'إعادة ضبط التجربة'}).click();
+ const resetStats=page.waitForResponse(r=>r.url().includes('/demo/api/reports/dashboard-stats'));
  await page.getByRole('button',{name:'نعم، ابدأ من جديد'}).click(); await page.waitForURL('**/demo/dashboard');
  await page.getByRole('button',{name:'✦ اسأل دليل المختبر'}).waitFor();
+ assert.equal((await resetStats).ok(),true);
+ await page.locator('p').filter({hasText:/جاري التحميل/}).first().waitFor({state:'hidden'});
  assert.equal(await page.evaluate(()=>localStorage.getItem('token')),'LIVE-SENTINEL');
  assert.equal(await page.evaluate(()=>localStorage.getItem('digital-lab-print-v1')),'LIVE-PRINTER');
  assert.deepEqual(liveApi,[]); assert.deepEqual(errors,[]);
