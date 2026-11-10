@@ -16,7 +16,7 @@ class DemoGuard {
         $session = DemoSession::where('secret_hash', hash('sha256', $secret))->where('expires_at', '>', now())->first();
         abort_unless($session, 401, 'انتهت التجربة. يمكنك إنشاء تجربة جديدة.');
         $request->attributes->set('demo_session', $session);
-        if ($token = $request->bearerToken()) {
+        if (!$request->is('api/learning-demo/*') && ($token = $request->bearerToken())) {
             $user = PersonalAccessToken::findToken($token)?->tokenable;
             $ids = array_values($session->identities);
             $belongs = false;

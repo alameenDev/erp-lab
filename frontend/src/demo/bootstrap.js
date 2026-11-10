@@ -1,4 +1,6 @@
 import { scopedStorage } from './storage';
+window.__demoAppUrl = location.origin + '/demo';
+window.__demoImageUrl = location.origin + '/demo/storage';
 const native = Reflect.get(window, 'local' + 'Storage');
 const nativeSession = Reflect.get(window, 'session' + 'Storage');
 window.__demoStorage = scopedStorage(native, 'digital-lab-learning-v1:');

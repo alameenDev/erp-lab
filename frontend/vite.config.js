@@ -8,6 +8,10 @@ export default defineConfig(({ mode }) => ({
   define: mode === "demo" ? {
     "import.meta.env.VITE_DEMO_MODE": "true",
     "import.meta.env.VITE_BASE_URL": JSON.stringify("/demo/api"),
+    "import.meta.env.VITE_APP_URL": "window.__demoAppUrl",
+    "import.meta.env.VITE_IMAGE_URL": "window.__demoImageUrl",
+    "import.meta.env.VITE_ImageURL": "window.__demoImageUrl",
+    "import.meta.env.VITE_PATIENT_MOBILE_ENABLED": JSON.stringify("false"),
   } : { "import.meta.env.VITE_DEMO_MODE": "false" },
   plugins: [vue(), tailwindcss(), ...(mode === 'demo' ? [{ name: 'learning-demo-storage', enforce: 'post', async transform(code, id) {
     if (!id.includes('/src/') || !/\.(?:js|vue)(?:$|\?vue&type=script)/.test(id)) return;

@@ -1,0 +1,52 @@
+// Full demo build + real Laravel/MySQL. No API mocks and no live service credentials.
+import { chromium } from 'playwright';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+const browser=await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL || 'chrome',headless:true});
+const context=await browser.newContext({viewport:{width:1440,height:1000}});
+await context.addInitScript(()=>{if(!localStorage.getItem('token')){localStorage.setItem('token','LIVE-SENTINEL');localStorage.setItem('digital-lab-print-v1','LIVE-PRINTER');}});
+const page=await context.newPage(); const errors=[],liveApi=[];
+page.on('pageerror',error=>errors.push(error.message));
+page.on('request',request=>{if(new URL(request.url()).pathname.startsWith('/api/'))liveApi.push(request.url());});
+const until=async (fn)=>{const deadline=Date.now()+20000;while(Date.now()<deadline){if(await fn())return;await new Promise(r=>setTimeout(r,100));}throw new Error('Condition timed out');};
+try {
+ await page.goto('http://127.0.0.1:5173/demo/');
+ await page.getByRole('button',{name:'ابدأ تجربة جديدة ←'}).click();
+ await page.waitForURL('**/demo/dashboard');
+ const coach=page.locator('.demo-coach'); await coach.waitFor();
+ await coach.getByRole('button',{name:'اسألني عن البرنامج'}).click();
+ await page.getByLabel('شنو تحب تتعلم؟').fill('شلون أضيف تعليق للنتيجة؟'); await coach.getByRole('button',{name:'إرسال',exact:true}).click();
+ await coach.getByText('إدخال النتائج والتعليقات',{exact:true}).waitFor();
+ await page.getByLabel('شنو تحب تتعلم؟').fill('الطقس غدا'); await coach.getByRole('button',{name:'إرسال',exact:true}).click();
+ await coach.getByText('ما عندي شرح موثق لهذا السؤال ضمن الدليل الحالي.',{exact:false}).waitFor();
+ await coach.getByRole('button',{name:/الدروس/}).click();
+ const patientLesson=coach.locator('.demo-lesson-list article').filter({hasText:'إضافة مريض'});
+ await patientLesson.getByRole('button',{name:'علّمني خطوة بخطوة'}).click();
+ await page.waitForURL('**/demo/patients');
+ const next=()=>coach.locator('.demo-step').getByRole('button',{name:'التالي',exact:true});
+ await next().click(); assert.equal(await next().isEnabled(),false);
+ await page.locator('[data-demo="patient-add"]').first().click(); await until(()=>next().isEnabled()); await next().click();
+ await page.locator('[data-demo="patient-name"]').fill('حسن علي — اختبار الديمو'); await until(()=>next().isEnabled()); await next().click();
+ const finish=coach.getByRole('button',{name:'إنهاء الدرس',exact:true});assert.equal(await finish.isEnabled(),false);
+ await page.locator('[data-demo="patient-gender"]').selectOption('1');
+ await page.locator('[data-age-unit]').selectOption('1'); await page.locator('[data-age-value]').fill('30');
+ const saved=page.waitForResponse(r=>r.url().includes('/demo/api/patients/create')&&r.request().method()==='POST');
+ await page.locator('form').filter({has:page.locator('[data-demo="patient-name"]')}).locator('button[type="submit"]').click();
+ const response=await saved; assert.equal(response.ok(),true,await response.text());
+ await until(()=>finish.isEnabled()); await finish.click();
+ await page.reload(); await page.getByRole('button',{name:'✦ اسأل دليل المختبر'}).click();
+ await page.locator('.demo-lesson-list article').filter({hasText:'إضافة مريض'}).getByText('✓ مكتمل').waitFor();
+ await page.locator('.demo-lesson-list article').filter({hasText:'بوابة صاحب المختبر'}).getByRole('button',{name:'أراويك مثال'}).click();
+ await page.waitForURL('**/demo/owner-portal'); await page.getByText('بوابة المالك',{exact:false}).first().waitFor({timeout:20000}).catch(()=>{});
+ await page.locator('.demo-coach').getByRole('button',{name:'حساب المختبر',exact:true}).click(); await page.waitForURL('**/demo/patients');
+ await page.setViewportSize({width:390,height:844});
+ assert.ok(await page.locator('.demo-coach').evaluate(el=>el.getBoundingClientRect().right<=innerWidth));
+ await page.locator('.demo-coach').getByRole('button',{name:'إعادة ضبط التجربة'}).click();
+ await page.getByRole('button',{name:'نعم، ابدأ من جديد'}).click(); await page.waitForURL('**/demo/dashboard');
+ assert.equal(await page.evaluate(()=>localStorage.getItem('token')),'LIVE-SENTINEL');
+ assert.equal(await page.evaluate(()=>localStorage.getItem('digital-lab-print-v1')),'LIVE-PRINTER');
+ assert.deepEqual(liveApi,[]); assert.deepEqual(errors,[]);
+ await fs.mkdir('test-results',{recursive:true});await page.screenshot({path:'test-results/learning-demo-mobile.png',fullPage:false});
+ console.log('PASS: real start, Arabic chat, patient save gating, reload, role switching, mobile, reset, live-storage/API isolation');
+} catch(error) { await fs.mkdir('test-results',{recursive:true}); await page.screenshot({path:'test-results/learning-demo-failure.png'}); console.error('PAGE:',await page.locator('body').innerText()); throw error; }
+finally { await browser.close(); }

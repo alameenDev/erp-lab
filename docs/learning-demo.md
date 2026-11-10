@@ -34,6 +34,7 @@ If unavailable/misconfigured, demo endpoints fail closed (404/503); no productio
 
 - MariaDB `LearningDemoTest`: production disabled; missing/shared configuration denied; two sessions isolated; actual patient/invoice/portal/owner reads; foreign tokens and public reports rejected; reset and expiry; forbidden external actions.
 - `node --test frontend/tests/learning-demo.test.mjs`: storage isolation/clear; Arabic retrieval/fallback; unique curriculum routes/IDs and save completion definitions.
+- `Isolated learning demo` CI builds the actual demo and runs a browser against Laravel/MySQL: start, Arabic help, patient save gating, reload, roles, mobile layout, reset and live storage/API isolation.
 - Build **both** frontend modes. In browser verify `/demo` landing, reload and deep links, start/resume, role switching, mobile drawer, real patient save, invoice→result→PDF, simulated outgoing actions and preserved live token/printer settings.
 - All patient records, names and results must remain clearly labelled as examples. Do not enter real patient data. Training content is an operational guide, not clinical interpretation.
 

@@ -7,6 +7,7 @@ function memoryStorage() { const m=new Map(); return {get length(){return m.size
 test('demo logout/reset preserves live auth, language and paired printers',()=>{
  const native=memoryStorage(); for(const key of ['token','user','locale','digital-lab-print-v1']) native.setItem(key,'LIVE');
  const demo=scopedStorage(native,'demo:'); assert.equal(demo.getItem('token'),null);
+ demo.user='DEMO USER'; assert.equal(demo.getItem('user'),'DEMO USER'); assert.equal(demo.user,'DEMO USER'); delete demo.user; assert.equal(demo.user,undefined);
  demo.setItem('token','DEMO'); demo.setItem('locale','ar'); assert.equal(demo.length,2);
  assert.equal(demo.key(0),'token'); demo.clear(); assert.equal(demo.length,0);
  for(const key of ['token','user','locale','digital-lab-print-v1']) assert.equal(native.getItem(key),'LIVE');

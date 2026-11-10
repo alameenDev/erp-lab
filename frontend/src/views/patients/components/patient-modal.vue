@@ -323,7 +323,7 @@ onMounted(() => {
                   {{ t("gender") }} <span class="text-red-500">*</span>
                 </label>
                 <select
-                  v-model="record.gender_type_id_fk"
+                  data-demo="patient-gender" v-model="record.gender_type_id_fk"
                   @change="changeTitle(record.gender_type_id_fk)"
                   required
                   class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white outline-none transition-all appearance-none cursor-pointer"
