@@ -34,6 +34,10 @@ class DemoFixtures {
         $package = Package::create(['lab_id_fk' => $lab->id, 'name' => 'باقة الاطمئنان — مثال', 'shortcut' => 'CHECK', 'price' => 18000, 'is_constant_price' => true, 'show_in_patient_portal' => true]);
         $package->tests()->attach([$tests[0]->id => ['position' => 0]]);
         $package->testGroups()->attach([$group->id => ['position' => 1]]);
+        $list = \App\Models\PriceList::create(['lab_id_fk' => $lab->id, 'name' => 'أسعار الإحالة — تدريب', 'discount' => 0]);
+        foreach ($tests as $test) \App\Models\PriceListRel::create(['lab_id_fk' => $lab->id, 'price_list_id_fk' => $list->id, 'test_id_fk' => $test->id, 'original_price' => $test->price, 'price_for_customer' => $test->price]);
+        foreach ([['test_group_id_fk', $group->id, 13000], ['package_id_fk', $package->id, 18000]] as [$field, $id, $price]) \App\Models\PriceListRel::create(['lab_id_fk' => $lab->id, 'price_list_id_fk' => $list->id, $field => $id, 'original_price' => $price, 'price_for_customer' => $price]);
+        \App\Models\Referal::where('lab_id_fk', $lab->id)->update(['price_list_id_fk' => $list->id]);
         $invoices = []; $patients = [];
         foreach ([['أحمد علي — تجريبي', 32, 1, 5000], ['زينب حسن — تجريبي', 27, 2, 2000], ['علي محمد — تجريبي', 45, 1, 0]] as $index => [$name, $age, $gender, $paid]) {
             $person = $this->user($name, "$tag-p$index", 3, $lab->id);

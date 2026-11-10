@@ -19,12 +19,12 @@ export default defineConfig(({ mode }) => ({
       localStorage:'window.__demoStorage', 'window.localStorage':'window.__demoStorage', 'globalThis.localStorage':'window.__demoStorage',
       sessionStorage:'window.__demoSessionStorage', 'window.sessionStorage':'window.__demoSessionStorage', 'globalThis.sessionStorage':'window.__demoSessionStorage',
     } });
-  } }, { name: 'learning-demo-html', transformIndexHtml(html) {
+  } }, { name: 'learning-demo-html', transformIndexHtml: { order:'pre', handler(html) {
     return html.replace('/src/main.js', '/src/demo/bootstrap.js')
       .replace(/<link[^>]+rel="(?:canonical|manifest)"[^>]*>/g, '')
       .replace(/<title>[\s\S]*?<\/title>/, '<title>تجربة تعليمية | المختبر الرقمي</title>')
       .replace('</head>', '<meta name="robots" content="noindex,nofollow"></head>');
-  } }] : [])],
+  } } }] : [])],
   build: {
     outDir: mode === "demo" ? "dist-demo" : "dist",
     target: mode === "demo" ? "es2022" : undefined,

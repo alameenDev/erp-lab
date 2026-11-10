@@ -17,7 +17,7 @@ import { $http } from "@/plugins/axios";
 import { applyBranding, loadCachedBranding } from "@/utils/branding";
 
 export default {
-  components: import.meta.env.VITE_DEMO_MODE ? { DemoCoach: defineAsyncComponent(() => import("@/demo/DemoCoach.vue")) } : {},
+  components: { DemoCoach: import.meta.env.VITE_DEMO_MODE ? defineAsyncComponent(() => import("@/demo/DemoCoach.vue")) : { render: () => null } },
   data: () => ({ demoMode: import.meta.env.VITE_DEMO_MODE }),
   computed: {
     ...mapWritableState(LoaderStore, ["IsLoading"]),

@@ -61,7 +61,7 @@ foreach (['demo:install'] as $command) {
 demoCopy($dist, $target);
 file_put_contents($target.'/.learning-demo-public', 'isolated demo');
 $entry = "<?php\nif (is_file(__DIR__.'/.maintenance')) { http_response_code(503); exit; }\nuse Illuminate\\Http\\Request;\ndefine('LARAVEL_START', microtime(true));\n";
-$entry .= '$backend = '.var_export($private, true).";\nrequire \$backend.'/vendor/autoload.php';\n\$app = require \$backend.'/bootstrap/app.php';\n\$app->usePublicPath(__DIR__);\n\$app->handleRequest(Request::capture());\n";
+$entry .= '$backend = '.var_export($private, true).";\nrequire \$backend.'/vendor/autoload.php';\n\$app = require \$backend.'/bootstrap/app.php';\n\$app->usePublicPath(__DIR__);\ntry { \$app->make(\\Illuminate\\Contracts\\Http\\Kernel::class)->bootstrap(); \\App\\Demo\\DemoIsolation::assertConfigured(); } catch (\\Throwable \$e) { http_response_code(503); header('Content-Type: application/json'); echo json_encode(['message' => 'Demo environment unavailable']); exit; }\n\$app->handleRequest(Request::capture());\n";
 file_put_contents($target.'/index.php', $entry);
 file_put_contents($target.'/.htaccess', <<<'APACHE'
 DirectoryIndex index.html

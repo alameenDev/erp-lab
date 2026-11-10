@@ -48,5 +48,5 @@ try {
  assert.deepEqual(liveApi,[]); assert.deepEqual(errors,[]);
  await fs.mkdir('test-results',{recursive:true});await page.screenshot({path:'test-results/learning-demo-mobile.png',fullPage:false});
  console.log('PASS: real start, Arabic chat, patient save gating, reload, role switching, mobile, reset, live-storage/API isolation');
-} catch(error) { await fs.mkdir('test-results',{recursive:true}); await page.screenshot({path:'test-results/learning-demo-failure.png'}); console.error('PAGE:',await page.locator('body').innerText()); throw error; }
+} catch(error) { await fs.mkdir('test-results',{recursive:true}); await page.screenshot({path:'test-results/learning-demo-failure.png'}); console.error('BROWSER ERRORS:',errors); console.error('PAGE:',await page.locator('body').innerText()); throw error; }
 finally { await browser.close(); }
