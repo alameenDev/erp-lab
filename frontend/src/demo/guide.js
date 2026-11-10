@@ -91,6 +91,7 @@ lessons.push(...lessons.splice(0, 2));
 // Narrow stable targets only; missing targets pause rather than fabricating completion.
 lessons.find(l => l.id === 'patients').steps[1] = { text: 'اضغط زر إضافة مريض المميز بالإطار.', selector: '[data-demo="patient-add"]', event: 'click' };
 lessons.find(l => l.id === 'patients').steps[2] = { text: 'اكتب اسماً تجريبياً مثل حسن علي — تجربة، ثم أكمل العمر والجنس.', selector: '[data-demo="patient-name"]', event: 'input' };
+lessons.find(l => l.id === 'patients').steps[3].selector = '[data-demo="patient-save"]';
 export function normalizeArabic(value) { return String(value).toLowerCase().replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/[\u064B-\u065Fـ]/g,'').replace(/[^\p{L}\p{N}\s]/gu,' ').trim(); }
 const stop = new Set(['شلون','شون','اريد','اريدك','ممكن','كيف','شنو','شنهي','عن','على','في','من','الى','الي','هذا','هذه','اني','لي','اضيف','اعلم','اعلمني','اراويك','وريني','اشرح','البرنامج','اسوي','اكدر']);
 export function answerQuestion(question) {

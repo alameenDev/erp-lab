@@ -20,7 +20,7 @@ class DemoGuard {
             $user = PersonalAccessToken::findToken($token)?->tokenable;
             abort_unless($user && $this->ownsUser($user->id, $session), 403, 'هذا الحساب لا ينتمي إلى تجربة التدريب.');
         }
-        abort_if($request->is('api/super-admin*', 'api/subscriptions*', 'api/user/register', 'api/user/login',
+        abort_if($request->is('api/super-admin*', 'api/subscriptions*', 'api/user/register', 'api/user/login', 'api/user/resend_code', 'api/user/verify_code',
             'api/patient-mobile/*', 'api/*/mobile-link*', 'api/user/*password*', 'api/user/*otp*', 'api/user/forgot*', 'api/device/*'), 403, 'هذه العملية غير متاحة في التجربة التعليمية.');
         if ($request->is('api/whatsapp/*', 'api/referral-portal/*/share-report', 'api/*/ai-chat', 'api/*/push/*', 'api/*/otp*', 'api/lab-notifications/campaigns*', 'api/lab-notifications/history/*/retry')) {
             return response()->json(['message' => 'محاكاة تعليمية: لم تُرسل أي رسالة أو إشعار خارجي.', 'simulated' => true], 409);

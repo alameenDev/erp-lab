@@ -495,6 +495,7 @@ onMounted(() => {
         </button>
         <button
           type="submit"
+          data-demo="patient-save"
           :disabled="isSubmitting"
           class="px-6 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 rounded-xl transition-all shadow-lg shadow-primary-500/25 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
         >

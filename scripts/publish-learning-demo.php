@@ -8,7 +8,7 @@ $public = realpath($argv[3] ?? '') ?: ''; $origin = rtrim($argv[4] ?? '', '/');
 $dist = realpath($argv[5] ?? $root.'/frontend/dist-demo') ?: '';
 if (!$private || !$public || basename($public) !== 'public_html' || !$configFile || !is_file($dist.'/index.html')) demoStop('Usage: php scripts/publish-learning-demo.php PRIVATE_EMPTY_DIRECTORY DEMO_ENV PUBLIC_HTML HTTPS_ORIGIN [DIST_DEMO]');
 if (!preg_match('#^https://[a-z0-9.-]+(?::[0-9]+)?$#i', $origin)) demoStop('An HTTPS origin is required.');
-if ($private === $source || str_starts_with($private.'/', $public.'/') || str_starts_with($source.'/', $private.'/') || str_starts_with($configFile, $public.'/')) demoStop('Demo runtime/config must be private and separate from the live source.');
+if ($private === $source || str_starts_with($private.'/', $public.'/') || str_starts_with($source.'/', $private.'/') || str_starts_with($private.'/', $root.'/') || str_starts_with($public.'/', $private.'/') || str_starts_with($configFile, $public.'/')) demoStop('Demo runtime/config must be private and separate from the live source.');
 if (!is_file($source.'/vendor/autoload.php') || !is_file($source.'/.env')) demoStop('Install Composer dependencies in the source checkout first.');
 require $source.'/vendor/autoload.php';
 $live = Dotenv\Dotenv::parse(file_get_contents($source.'/.env'));
@@ -23,20 +23,21 @@ try {
     try { $pdo->query('SELECT 1 FROM `'.str_replace('`','``',$live['DB_DATABASE']).'`.users LIMIT 1'); demoStop('Demo database user can read the live users table. Remove its live privileges first.'); }
     catch (PDOException $e) { if (!in_array((int)($e->errorInfo[1] ?? 0), [1044,1142], true)) demoStop('Could not verify denial of access to the live database.'); }
 } catch (PDOException $e) { demoStop('Could not connect to the dedicated demo database. Check private configuration.'); }
-function demoCopy(string $from, string $to, array $skip = []): void {
-    if (!is_dir($to)) mkdir($to, 0750, true);
+function demoCopy(string $from, string $to, array $skip = [], int $mode = 0750): void {
+    if (!is_dir($to)) mkdir($to, $mode, true);
     foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($from, FilesystemIterator::SKIP_DOTS)) as $file) {
         $rel = substr($file->getPathname(), strlen($from)+1);
         if ($file->isLink() || preg_match('#(^|/)\.env(?:\.|$)#', $rel)) continue;
         foreach ($skip as $prefix) if (str_starts_with($rel, $prefix)) continue 2;
         $target = $to.'/'.$rel;
         if (is_link($target)) demoStop('Refusing a symlink target.');
-        if (!is_dir(dirname($target))) mkdir(dirname($target), 0750, true);
+        if (!is_dir(dirname($target))) mkdir(dirname($target), $mode, true);
         if (!copy($file->getPathname(), $target)) demoStop('Copy failed: '.$rel);
     }
 }
 $target = $public.'/demo';
 if (file_exists($target) && !is_file($target.'/.learning-demo-public')) demoStop('Existing /demo is not managed by this installer.');
+if ((file_exists($target.'/storage') || is_link($target.'/storage')) && realpath($target.'/storage') !== realpath($private.'/storage/app/public')) demoStop('Existing demo storage has a different target.');
 // Mark maintenance before updating an existing isolated backend.
 if (is_dir($target)) file_put_contents($target.'/.maintenance', 'updating');
 demoCopy($source, $private, ['storage/', 'bootstrap/cache/', 'tests/', '.git']);
@@ -58,7 +59,8 @@ foreach (['demo:install'] as $command) {
     passthru(escapeshellarg(PHP_BINARY).' '.escapeshellarg($private.'/artisan').' '.$command, $code);
     if ($code) demoStop('Demo setup failed; the live application was not changed.');
 }
-demoCopy($dist, $target);
+demoCopy($dist, $target, [], 0755);
+chmod($target, 0755);
 file_put_contents($target.'/.learning-demo-public', 'isolated demo');
 $entry = "<?php\nif (is_file(__DIR__.'/.maintenance')) { http_response_code(503); exit; }\nuse Illuminate\\Http\\Request;\ndefine('LARAVEL_START', microtime(true));\n";
 $entry .= '$backend = '.var_export($private, true).";\nrequire \$backend.'/vendor/autoload.php';\n\$app = require \$backend.'/bootstrap/app.php';\n\$app->usePublicPath(__DIR__);\ntry { \$app->make(\\Illuminate\\Contracts\\Http\\Kernel::class)->bootstrap(); \\App\\Demo\\DemoIsolation::assertConfigured(); } catch (\\Throwable \$e) { http_response_code(503); header('Content-Type: application/json'); echo json_encode(['message' => 'Demo environment unavailable']); exit; }\n\$app->handleRequest(Request::capture());\n";
