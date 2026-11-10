@@ -407,7 +407,7 @@ onMounted(async () => {
             </button>
             <button
               v-if="authStore.havePermission('patients create')"
-              @click="addRecord"
+              data-demo="patient-add" @click="addRecord"
               class="px-5 py-2.5 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white font-medium rounded-xl transition-all flex items-center gap-2 shadow-lg shadow-primary-500/25"
             >
               <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -540,7 +540,7 @@ onMounted(async () => {
         <p class="text-slate-500 mb-6 max-w-md mx-auto">{{ t("no_patients_message") || "No patients found. Add your first patient to get started." }}</p>
         <button
           v-if="authStore.havePermission('patients create')"
-          @click="addRecord"
+          data-demo="patient-add" @click="addRecord"
           class="px-5 py-2.5 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white font-medium rounded-xl transition-all inline-flex items-center gap-2 shadow-lg shadow-primary-500/25"
         >
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

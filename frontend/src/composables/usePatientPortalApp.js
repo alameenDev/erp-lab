@@ -182,7 +182,7 @@ export function usePatientPortalApp(token) {
       preferenceKey = await portalPreferenceKey(token);
       const [data, worker] = await Promise.all([
         api('/app-config'),
-        navigator.serviceWorker && window.isSecureContext
+        !import.meta.env.VITE_DEMO_MODE && navigator.serviceWorker && window.isSecureContext
           ? navigator.serviceWorker.register('/portal/sw.js', { scope: '/portal/', updateViaCache: 'none' }).then(waitForPortalWorker)
           : Promise.resolve(null),
       ]);

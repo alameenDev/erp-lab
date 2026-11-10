@@ -90,6 +90,7 @@ _axios.interceptors.response.use(
     } else {
       loaderStore.PopHideRequest(response.config.url);
     }
+    if (import.meta.env.VITE_DEMO_MODE && !response.data?.simulated) window.dispatchEvent(new CustomEvent('demo-api-success', { detail: { method: response.config.method?.toUpperCase(), path: new URL(response.config.url, 'https://demo.invalid/').pathname, data: response.data } }));
     return response;
   },
   (error) => {
@@ -163,7 +164,7 @@ _axios.interceptors.response.use(
         // Keep the notification draft and its idempotency key mounted so an
         // interrupted campaign request can be retried without sending twice.
         // Owner screens also provide an inline retry and must retain their lab/date selection.
-        if (!['/lab-notifications/', '/owner-portal/'].some(prefix => error.config?.url?.startsWith(prefix))) router.push("/error/503");
+        if (!['/learning-demo/', '/lab-notifications/', '/owner-portal/'].some(prefix => error.config?.url?.startsWith(prefix))) router.push("/error/503");
         break;
 
       default:

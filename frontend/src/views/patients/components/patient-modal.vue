@@ -275,7 +275,7 @@ onMounted(() => {
                   </span>
                   <input
                     type="text"
-                    v-model="record.name"
+                    data-demo="patient-name" v-model="record.name"
                     @input="searchitemByname(record.name)"
                     @blur="setTimeout(() => isNameShow = false, 200)"
                     :placeholder="t('enter_patient_name') || 'Enter patient name...'"

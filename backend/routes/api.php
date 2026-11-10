@@ -623,3 +623,10 @@ Route::group(['middleware' => ['auth:sanctum', \App\Http\Middleware\EnsureActive
 
 // Optional patient app pairing; every endpoint is disabled by default.
 require __DIR__.'/patient-mobile.php';
+
+// Disabled in the live installation; DemoGuard validates isolation before provisioning.
+Route::prefix('learning-demo')->middleware('throttle:10,1')->group(function () {
+    Route::post('start', [\App\Demo\DemoController::class, 'start']);
+    Route::post('resume', [\App\Demo\DemoController::class, 'resume']);
+    Route::post('reset', [\App\Demo\DemoController::class, 'reset']);
+});

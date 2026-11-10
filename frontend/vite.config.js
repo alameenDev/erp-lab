@@ -3,9 +3,23 @@ import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import tailwindcss from "@tailwindcss/vite";
 
-export default defineConfig({
-  plugins: [vue(), tailwindcss()],
+export default defineConfig(({ mode }) => ({
+  base: mode === "demo" ? "/demo/" : "/",
+  define: mode === "demo" ? {
+    "import.meta.env.VITE_DEMO_MODE": "true",
+    "import.meta.env.VITE_BASE_URL": JSON.stringify("/demo/api"),
+    "localStorage": "window.__demoStorage", "window.localStorage": "window.__demoStorage", "globalThis.localStorage": "window.__demoStorage",
+    "sessionStorage": "window.__demoSessionStorage", "window.sessionStorage": "window.__demoSessionStorage", "globalThis.sessionStorage": "window.__demoSessionStorage",
+  } : { "import.meta.env.VITE_DEMO_MODE": "false" },
+  plugins: [vue(), tailwindcss(), ...(mode === 'demo' ? [{ name: 'learning-demo-html', transformIndexHtml(html) {
+    return html.replace('/src/main.js', '/src/demo/bootstrap.js')
+      .replace(/<link[^>]+rel="(?:canonical|manifest)"[^>]*>/g, '')
+      .replace(/<title>[\s\S]*?<\/title>/, '<title>تجربة تعليمية | المختبر الرقمي</title>')
+      .replace('</head>', '<meta name="robots" content="noindex,nofollow"></head>');
+  } }] : [])],
   build: {
+    outDir: mode === "demo" ? "dist-demo" : "dist",
+    target: "es2022",
     minify: true,
     chunkSizeWarningLimit: 2000,
     rollupOptions: {
@@ -68,4 +82,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

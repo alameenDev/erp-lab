@@ -20,6 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
             fn (\Illuminate\Http\Request $request) => $request->is('api/device/bridge/results'),
         ]);
         $middleware->append([
+            \App\Demo\DemoGuard::class,
             \App\Http\Middleware\SecurityHeaders::class,
             \App\Http\Middleware\CorsMiddleware::class,
         ]);

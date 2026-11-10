@@ -5,7 +5,7 @@ import { useAuthStore } from "@/store/modules/auth";
 import AppLayout from "@/layout/AppLayout.vue";
 
 const router = createRouter({
-     history: createWebHistory("/"),
+     history: createWebHistory(import.meta.env.BASE_URL),
      routes: [
           {
                path: "/app",
@@ -368,7 +368,7 @@ const router = createRouter({
           {
                path: "/",
                name: "welcome",
-               component: () => import("@/views/welcome/index.vue"),
+               component: import.meta.env.VITE_DEMO_MODE ? () => import("@/demo/DemoWelcome.vue") : () => import("@/views/welcome/index.vue"),
                meta: {
                     title: "Digital Lab | المختبر الرقمي | لابی دیجیتاڵ - سیستەمی بەڕێوەبردنی تاقیگە",
                     description:
@@ -379,7 +379,7 @@ const router = createRouter({
                path: "/login",
                alias: "/owner-portal/login",
                name: "login",
-               component: () => import("@/views/auth/login.vue"),
+               component: import.meta.env.VITE_DEMO_MODE ? () => import("@/demo/DemoWelcome.vue") : () => import("@/views/auth/login.vue"),
                meta: {
                     title: "Sign In | Digital Lab - تسجيل الدخول - چوونەژوورەوە",
                     description: "تسجيل الدخول إلى نظام المختبر الرقمي - Sign in to Digital Lab - چوونەژوورەوە بۆ لابی دیجیتاڵ",
@@ -388,7 +388,7 @@ const router = createRouter({
           {
                path: "/register",
                name: "register",
-               component: () => import("@/views/auth/register.vue"),
+               component: import.meta.env.VITE_DEMO_MODE ? () => import("@/demo/DemoWelcome.vue") : () => import("@/views/auth/register.vue"),
                meta: {
                     title: "Register | Digital Lab - إنشاء حساب - تۆمارکردن",
                     description: "إنشاء حساب جديد في نظام المختبر الرقمي - Create a new Digital Lab account - دروستکردنی هەژمارێکی نوێ لە لابی دیجیتاڵ",
@@ -473,6 +473,7 @@ router.beforeEach(async (to) => {
      }
      const user = readStoredJson('user');
      const home = landingPage(user, auth.rolePermissions);
+     if (import.meta.env.VITE_DEMO_MODE && to.name === 'welcome') return true;
      if (to.name === 'welcome' || to.name === 'login' || to.path === '/app') return home;
      if (requiresAuth && !canAccessPage(to.path, user, auth.rolePermissions)) {
           return user?.is_referral_partner || user?.owner_portal_only ? home : '/access-denied';

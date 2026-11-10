@@ -22,7 +22,7 @@ export function useOwnerPortalApp(ownerId) {
     try {
       const [config, reg] = await Promise.all([
         $http.get('/owner-portal/notifications/config'),
-        navigator.serviceWorker && window.isSecureContext ? navigator.serviceWorker.register('/owner-portal-sw.js', { scope:'/owner-portal/', updateViaCache:'none' }).then(waitForPortalWorker) : Promise.resolve(null),
+        !import.meta.env.VITE_DEMO_MODE && navigator.serviceWorker && window.isSecureContext ? navigator.serviceWorker.register('/owner-portal-sw.js', { scope:'/owner-portal/', updateViaCache:'none' }).then(waitForPortalWorker) : Promise.resolve(null),
       ]);
       if (!current(version)) return;
       state.config = config.data; registration = reg;

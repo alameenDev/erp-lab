@@ -3,10 +3,12 @@
     <UiLoading v-if="IsLoading" overlay :message="t('loading') + '...'" />
     <UiToast />
     <router-view></router-view>
+    <DemoCoach v-if="demoMode" />
   </div>
 </template>
 
 <script>
+import { defineAsyncComponent } from "vue";
 import { LoaderStore } from "@/store/modules/loader";
 import { useAuthStore } from "@/store/modules/auth";
 import { useLabSettingsStore } from "@/store/modules/labSettings";
@@ -15,6 +17,8 @@ import { $http } from "@/plugins/axios";
 import { applyBranding, loadCachedBranding } from "@/utils/branding";
 
 export default {
+  components: { DemoCoach: defineAsyncComponent(() => import("@/demo/DemoCoach.vue")) },
+  data: () => ({ demoMode: import.meta.env.VITE_DEMO_MODE }),
   computed: {
     ...mapWritableState(LoaderStore, ["IsLoading"]),
     lang() {
