@@ -1,0 +1,75 @@
+name: Isolated learning demo
+on:
+  pull_request:
+    paths: ['backend/app/Demo/**', 'backend/app/Console/Commands/InitializeLearningDemo.php', 'backend/config/demo.php', 'backend/tests/Feature/LearningDemoTest.php', 'frontend/src/demo/**', 'frontend/vite.config.js', 'frontend/tests/learning-demo*', 'scripts/publish-learning-demo.php', '.github/workflows/learning-demo.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-demo-browser:
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: test-only-password
+          MARIADB_DATABASE: erp_lab_demo_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    env:
+      APP_ENV: testing
+      APP_URL: http://127.0.0.1:5173/demo
+      FRONTEND_URL: http://127.0.0.1:5173/demo
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_DATABASE: erp_lab_demo_test
+      DB_USERNAME: root
+      DB_PASSWORD: test-only-password
+      DEMO_MODE: 'true'
+      DEMO_DATABASE: erp_lab_demo_test
+      DEMO_LIVE_DATABASE: never_production
+      DEMO_LIVE_USERNAME: never_production
+      CACHE_STORE: file
+      SESSION_DRIVER: file
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_mysql, mbstring, xml, gd, zip, bcmath, intl
+          tools: composer:v2
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: composer install --no-interaction --prefer-dist
+        working-directory: backend
+      - run: |
+          cp .env.example .env
+          php artisan key:generate
+          php artisan demo:install
+          php artisan serve --host=127.0.0.1 --port=8000 > /tmp/demo-php.log 2>&1 &
+        working-directory: backend
+      - run: npm ci
+        working-directory: frontend
+      - run: node --test tests/learning-demo.test.mjs
+        working-directory: frontend
+      - run: npm run build:demo
+        working-directory: frontend
+      - run: npm install --prefix "$RUNNER_TEMP/demo-browser" --no-save --package-lock=false playwright@1.55.1
+      - run: |
+          npx vite preview --mode demo --host 127.0.0.1 --port 5173 > /tmp/demo-vite.log 2>&1 &
+          for attempt in {1..30}; do curl -fsS http://127.0.0.1:5173/demo/ >/dev/null && break; sleep 1; done
+          DEMO_PLAYWRIGHT_MODULE="$RUNNER_TEMP/demo-browser/node_modules/playwright/index.mjs" node tests/learning-demo-browser.mjs
+        working-directory: frontend
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: learning-demo-verification
+          path: |
+            frontend/test-results/learning-demo*.png
+            /tmp/demo-php.log
+            /tmp/demo-vite.log
+            backend/storage/logs/laravel.log

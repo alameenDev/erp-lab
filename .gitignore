@@ -36,3 +36,7 @@ print-helper/qa/
 frontend/barcode-qa/
 
 /frontend/test-results/
+
+# Isolated educational demo build and private configuration
+/frontend/dist-demo/
+*.demo.env

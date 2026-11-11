@@ -1,6 +1,6 @@
 // This scope is independent from patient portals and the staff application.
 export async function bindOwnerWorker(ownerId, registration = null) {
-  if (!navigator.serviceWorker) return;
+  if (import.meta.env.VITE_DEMO_MODE || !navigator.serviceWorker) return;
   const reg = registration || await navigator.serviceWorker.getRegistration('/owner-portal/');
   if (!reg?.active || new URL(reg.scope).pathname !== '/owner-portal/') return;
   await new Promise((resolve, reject) => {
@@ -13,6 +13,7 @@ export async function bindOwnerWorker(ownerId, registration = null) {
 
 let restoreHead = null;
 export function ownerPortalHead(active, doc = document) {
+  if (import.meta.env.VITE_DEMO_MODE) return;
   if (!active) { restoreHead?.(); restoreHead = null; return; }
   if (restoreHead) return;
   const undo = [];

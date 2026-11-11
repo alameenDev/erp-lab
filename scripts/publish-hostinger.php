@@ -71,6 +71,8 @@ DirectoryIndex index.html
 Options -Indexes -MultiViews
 <IfModule mod_rewrite.c>
 RewriteEngine On
+RewriteCond %{DOCUMENT_ROOT}/demo/.htaccess -f
+RewriteRule ^demo(?:/|$) - [L]
 RewriteRule ^storage/.*\.(?:php[0-9]*|phtml|phar)(?:/|$) - [F,L,NC]
 RewriteRule (^|/)\.(?!well-known/) - [F,L]
 RewriteCond %{HTTP:Authorization} .

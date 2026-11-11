@@ -1,7 +1,7 @@
 name: Patient age and birth date
 on:
   pull_request:
-    paths: ['backend/**', 'frontend/**', '.github/workflows/patient-age.yml']
+    paths: ['.github/actions/setup-browser-tests/**', 'backend/**', 'frontend/**', '.github/workflows/patient-age.yml']
 permissions:
   contents: read
 jobs:
@@ -45,7 +45,7 @@ jobs:
       - if: failure()
         run: tail -100 storage/logs/laravel.log
   age-browser:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: frontend
@@ -59,8 +59,7 @@ jobs:
       - run: npm ci
       - run: node --test tests/patient-age.test.mjs tests/patient-phone.test.mjs
       - run: npm run build
-      - run: npm install --no-save --package-lock=false playwright@1.55.1
-      - run: npx playwright install --with-deps chromium
+      - uses: ./.github/actions/setup-browser-tests
       - run: |
           npm run dev -- --host 127.0.0.1 --port 5173 > /tmp/patient-age-vite.log 2>&1 &
           for attempt in $(seq 1 30); do

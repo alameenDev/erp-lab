@@ -2,6 +2,7 @@ name: High contrast monochrome reports
 on:
   pull_request:
     paths:
+      - '.github/actions/setup-browser-tests/**'
       - 'frontend/src/utils/reportMonochrome.js'
       - 'frontend/src/utils/medicalReportTemplate.js'
       - 'frontend/src/utils/medicalReportPages.js'
@@ -15,7 +16,7 @@ permissions:
   contents: read
 jobs:
   monochrome:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 12
     defaults:
       run:
@@ -30,8 +31,7 @@ jobs:
       - run: npm ci
       - run: node --test tests/report-monochrome.test.mjs
       - run: npm run build
-      - run: npm install --no-save --package-lock=false playwright@1.55.1
-      - run: npx playwright install --with-deps chromium
+      - uses: ./.github/actions/setup-browser-tests
       - name: Verify real monochrome report output
         run: |
           npm run dev -- --host 127.0.0.1 --port 5173 > /tmp/monochrome-vite.log 2>&1 &

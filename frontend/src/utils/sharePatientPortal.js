@@ -7,6 +7,7 @@ export const reportSentStatusError = 'فُتح الواتساب، لكن تعذ�
 // The sent flag records the WhatsApp handoff, not a delivery/read receipt.
 // Keep the conversation open if saving its status fails after the handoff.
 export async function sendMedicalReportWhatsApp({ record, settings, output, tab, markSent, afterDownload }) {
+  if (import.meta.env.VITE_DEMO_MODE) { tab?.close(); window.dispatchEvent(new CustomEvent('demo-notice', { detail: 'محاكاة واتساب: لم تُرسل رسالة. افتح بوابة المريض من دليل التدريب.' })); return { statusError: null }; }
   const checkTab = () => {
     if (!tab || tab.closed) throw new Error('اسمح بالنوافذ المنبثقة ثم أعد المحاولة.');
   };
@@ -29,6 +30,7 @@ export async function sendMedicalReportWhatsApp({ record, settings, output, tab,
 }
 
 export async function prepareMedicalReportWhatsApp(record, settings, fallbackLabName, options = {}) {
+  if (import.meta.env.VITE_DEMO_MODE) throw new Error("محاكاة واتساب: الإرسال الخارجي معطل في الديمو.");
   const patientId = record?.patient?.id || record?.patient_id_fk;
   if (!patientId) throw new Error('لا يوجد مريض مرتبط بالتقرير.');
   let phone = String(record?.patient?.phone || '').replace(/\D/g, '');
@@ -59,6 +61,7 @@ export async function prepareMedicalReportWhatsApp(record, settings, fallbackLab
 }
 
 export async function sharePatientPortal(record, settings, fallbackLabName, kind = "result") {
+  if (import.meta.env.VITE_DEMO_MODE) throw new Error("محاكاة واتساب: الإرسال الخارجي معطل في الديمو.");
   const patientId = record?.patient?.id || record?.patient_id_fk;
   if (!patientId) throw new Error('لا يوجد مريض مرتبط بهذه الفاتورة.');
   let phone = String(record?.patient?.phone || '').replace(/[\s()+-]/g, '');

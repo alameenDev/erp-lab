@@ -2,6 +2,7 @@ name: Digital Lab Print helper
 on:
   pull_request:
     paths:
+      - '.github/actions/setup-browser-tests/**'
       - 'print-helper/**'
       - 'frontend/src/utils/localPrint.js'
       - 'frontend/src/composables/usePrint.js'
@@ -19,7 +20,7 @@ permissions:
   contents: read
 jobs:
   browser:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
@@ -29,10 +30,7 @@ jobs:
       - run: node --test print-helper/tests/*.test.cjs
       - run: npm ci
         working-directory: frontend
-      - run: npm install --no-save --package-lock=false playwright@1.55.1
-        working-directory: frontend
-      - run: npx playwright install --with-deps chromium
-        working-directory: frontend
+      - uses: ./.github/actions/setup-browser-tests
       - run: node --test tests/local-print.test.mjs tests/print-lifecycle.test.mjs tests/medical-report-pages.test.mjs tests/barcode-labels.test.mjs
         working-directory: frontend
       - run: node tests/local-print.browser.mjs

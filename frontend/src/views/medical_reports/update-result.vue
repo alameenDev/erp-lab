@@ -1783,7 +1783,7 @@ const selectPatientFromSearch = async (p) => {
       window.location.reload();
       return;
     }
-    window.location.href = `/medical_reports/update-result/${latest.id}`;
+    window.location.href = `${import.meta.env.BASE_URL}medical_reports/update-result/${latest.id}`;
   } catch (e) {
     toast.error(t("error_occurred") || "Error");
   }
