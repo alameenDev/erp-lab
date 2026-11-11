@@ -1,0 +1,23 @@
+name: Set up browser test tools
+description: Install pinned test tools without re-resolving application dependencies
+runs:
+  using: composite
+  steps:
+    - name: Install isolated Playwright and QR reader
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: |
+        set -euo pipefail
+        export LAB_BROWSER_TOOLS
+        LAB_BROWSER_TOOLS="$(mktemp -d "$RUNNER_TEMP/lab-browser-tools.XXXXXX")"
+        npm install --prefix "$LAB_BROWSER_TOOLS" --no-save --package-lock=false --ignore-scripts playwright@1.55.1 jsqr@1.4.0
+        node --input-type=module <<'JS'
+        import { existsSync, symlinkSync } from 'node:fs';
+        import { join } from 'node:path';
+        for (const name of ['playwright', 'jsqr']) {
+          const target = join(process.env.GITHUB_WORKSPACE, 'frontend/node_modules', name);
+          if (existsSync(target)) throw new Error(`Unexpected existing test dependency: ${target}`);
+          symlinkSync(join(process.env.LAB_BROWSER_TOOLS, 'node_modules', name), target, 'dir');
+        }
+        JS
+        "$LAB_BROWSER_TOOLS/node_modules/.bin/playwright" install --with-deps chromium

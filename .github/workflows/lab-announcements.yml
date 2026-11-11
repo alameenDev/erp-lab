@@ -56,7 +56,7 @@ jobs:
       - run: php artisan test --filter=LabAnnouncementTest
       - run: php artisan route:list --path=lab-announcements
   browser:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     defaults:
       run:

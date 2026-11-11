@@ -1,7 +1,7 @@
 name: Account permissions regression
 on:
   pull_request:
-    paths: ['backend/**', 'frontend/**', '.github/workflows/account-permissions.yml']
+    paths: ['.github/actions/setup-browser-tests/**', 'backend/**', 'frontend/**', '.github/workflows/account-permissions.yml']
 permissions:
   contents: read
 jobs:
@@ -45,7 +45,7 @@ jobs:
       - if: failure()
         run: tail -100 storage/logs/laravel.log
   accounts-browser:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: frontend
@@ -59,8 +59,7 @@ jobs:
       - run: npm ci
       - run: node --test tests/account-permissions.test.mjs
       - run: npm run build
-      - run: npm install --no-save --package-lock=false playwright@1.55.1
-      - run: npx playwright install --with-deps chromium
+      - uses: ./.github/actions/setup-browser-tests
       - run: |
           npm run dev -- --host 127.0.0.1 --port 5173 > /tmp/accounts-vite.log 2>&1 &
           for attempt in $(seq 1 30); do

@@ -2,6 +2,7 @@ name: Patient portal app experience
 on:
   pull_request:
     paths:
+      - '.github/actions/setup-browser-tests/**'
       - 'frontend/src/views/portal/**'
       - 'frontend/src/utils/patientPortalReports.js'
       - 'frontend/src/composables/usePatientPortalApp.js'
@@ -16,7 +17,7 @@ permissions:
   contents: read
 jobs:
   portal-browser:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     defaults:
       run:
@@ -31,8 +32,7 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: node --test tests/patient-portal-app.test.mjs tests/patient-portal-results.test.mjs
-      - run: npm install --no-save --package-lock=false playwright@1.55.1
-      - run: npx playwright install --with-deps chromium
+      - uses: ./.github/actions/setup-browser-tests
       - run: |
           npm run dev -- --host 127.0.0.1 --port 5173 > /tmp/portal-vite.log 2>&1 &
           for attempt in $(seq 1 30); do

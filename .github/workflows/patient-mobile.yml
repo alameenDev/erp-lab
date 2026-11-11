@@ -4,6 +4,7 @@ on:
     branches: [feature/patient-mobile-link-20261007]
   pull_request:
     paths:
+      - '.github/actions/setup-browser-tests/**'
       - 'backend/**'
       - 'frontend/src/views/portal/PatientMobileLink.vue'
       - 'frontend/tests/patient-mobile*'
@@ -58,7 +59,7 @@ jobs:
       - name: Pairing isolation and existing loyalty behavior
         run: php artisan test --filter='PatientMobileTest|LoyaltyTest'
   portal:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     defaults:
       run:
@@ -70,8 +71,7 @@ jobs:
           node-version: '22'
       - run: npm ci
       - run: npm run build
-      - run: npm install --no-save --package-lock=false playwright@1.55.1
-      - run: npx playwright install --with-deps chromium
+      - uses: ./.github/actions/setup-browser-tests
       - run: |
           npm run dev -- --host 127.0.0.1 --port 5173 > /tmp/mobile-vite.log 2>&1 &
           for attempt in $(seq 1 30); do

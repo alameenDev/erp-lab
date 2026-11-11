@@ -2,6 +2,7 @@ name: Patient print balance
 on:
   pull_request:
     paths:
+      - '.github/actions/setup-browser-tests/**'
       - 'backend/app/Http/Controllers/InvoicePatientBalanceController.php'
       - 'backend/app/Models/Invoice*.php'
       - 'backend/app/Models/User.php'
@@ -57,7 +58,7 @@ jobs:
       - if: failure()
         run: tail -100 storage/logs/laravel.log
   balance-browser:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: frontend
@@ -70,8 +71,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run build
-      - run: npm install --no-save --package-lock=false playwright@1.55.1
-      - run: npx playwright install --with-deps chromium
+      - uses: ./.github/actions/setup-browser-tests
       - run: |
           npm run dev -- --host 127.0.0.1 --port 5173 > /tmp/patient-balance-vite.log 2>&1 &
           for attempt in $(seq 1 30); do
