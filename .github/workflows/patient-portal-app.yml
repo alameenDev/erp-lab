@@ -41,6 +41,7 @@ jobs:
           done
           node tests/patient-portal-app.browser.mjs
           node tests/patient-portal-results.browser.mjs
+          node tests/patient-portal-ai.browser.mjs
           node tests/lab-notifications.browser.mjs
       - uses: actions/upload-artifact@v4
         if: always()

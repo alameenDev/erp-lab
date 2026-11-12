@@ -6,6 +6,7 @@ import { $http } from "@/plugins/axios";
 import ResultTrends from '@/components/ResultTrends.vue';
 import PatientPortalApp from './PatientPortalApp.vue';
 import PatientMobileLink from './PatientMobileLink.vue';
+import IbnSinaChat from './IbnSinaChat.vue';
 const mobileLinkEnabled = import.meta.env.VITE_PATIENT_MOBILE_ENABLED === 'true';
 import { filterPortalReports, portalReportCounts } from '@/utils/patientPortalReports';
 import { portalReportUrl } from '@/utils/medicalReportOutput';
@@ -34,10 +35,8 @@ const catalog = ref(null); // lazy-loaded package names and prices
 const catalogLoading = ref(false);
 const catalogError = ref("");
 
-const chatMessages = ref([]); // [{role:'user'|'assistant', content}]
-const chatInput = ref("");
-const chatSending = ref(false);
-const chatError = ref("");
+const chatReportId = ref(null);
+const explainReport = id => { chatReportId.value = id; activeTab.value = 'ai'; };
 
 const reportFilter = ref('all');
 const filteredReports = computed(() => filterPortalReports(reports.value, reportFilter.value));
@@ -105,26 +104,6 @@ const loadCatalog = async () => {
 const openTab = (tab) => {
   activeTab.value = tab;
   if (tab === "catalog") loadCatalog();
-};
-
-const sendChatMessage = async () => {
-  const text = chatInput.value.trim();
-  if (!text || chatSending.value) return;
-  chatMessages.value.push({ role: "user", content: text });
-  chatInput.value = "";
-  chatSending.value = true;
-  chatError.value = "";
-  try {
-    const { data } = await $http.post(`/portal/${token.value}/ai-chat`, {
-      message: text,
-      history: chatMessages.value.slice(0, -1),
-    });
-    chatMessages.value.push({ role: "assistant", content: data.reply });
-  } catch (e) {
-    chatError.value = e?.response?.data?.message || "تعذر الحصول على رد من المساعد الذكي";
-  } finally {
-    chatSending.value = false;
-  }
 };
 
 const load = async () => {
@@ -229,6 +208,7 @@ watch(() => route.params.token, value => {
   token.value = value;
   catalog.value = null; catalogError.value = ""; catalogLoading.value = false;
   activeTab.value = 'reports';
+  chatReportId.value = null; aiEnabled.value = false; reports.value = [];
   portalHead.update(value); load();
 });
 onUnmounted(() => portalHead.restore());
@@ -314,7 +294,7 @@ onUnmounted(() => portalHead.restore());
         </div>
 
         <!-- Tabs -->
-        <div class="flex gap-2 bg-white rounded-xl p-1 shadow-sm border border-gray-100">
+        <div class="flex flex-wrap gap-2 bg-white rounded-xl p-1 shadow-sm border border-gray-100">
           <button
             @click="activeTab = 'reports'"
             :class="[
@@ -361,7 +341,7 @@ onUnmounted(() => portalHead.restore());
               activeTab === 'ai' ? 'bg-teal-600 text-white' : 'text-gray-500',
             ]"
           >
-            المساعد الذكي
+            ابن سينا
           </button>
         </div>
 
@@ -380,7 +360,7 @@ onUnmounted(() => portalHead.restore());
             <div v-if="showInvoiceAmounts" class="grid grid-cols-3 gap-2 p-4 text-sm bg-slate-50"><div><p class="text-xs text-slate-500">الإجمالي</p><p class="font-bold mt-1">{{ money(r.total) }} د.ع</p></div><div><p class="text-xs text-slate-500">المدفوع</p><p class="font-bold text-teal-700 mt-1">{{ money(r.paid) }} د.ع</p></div><div><p class="text-xs text-slate-500">المتبقي</p><p class="font-bold text-amber-800 mt-1">{{ money(r.due) }} د.ع</p></div></div>
             <p v-if="showInvoiceAmounts && r.loyalty_discount" class="px-4 py-2 text-xs text-teal-700">خصم نقاط: {{ money(r.loyalty_discount) }} د.ع مقابل {{ r.loyalty_points_spent }} نقطة</p>
             <details open class="p-4"><summary class="cursor-pointer font-semibold text-sm text-slate-700">تفاصيل الفحوصات ({{ r.visibleTests.length }})</summary><div v-for="test in r.visibleTests" :key="test.id" class="flex justify-between gap-3 border-b border-slate-100 py-3 text-sm"><div><p class="font-semibold">{{ test.name }}</p><p v-if="test.context" class="text-xs text-teal-700 mt-1">{{ test.context }}</p><p class="text-xs text-slate-500 mt-1">{{ test.kind }} · {{ test.sample_received ? 'تم استلام العينة' : 'بانتظار استلام العينة' }}</p></div><span :class="['text-xs self-start px-2 py-1 rounded-full whitespace-nowrap', statusClass(test.status)]">{{ test.status === 'ready' ? 'جاهز' : 'قيد الإجراء' }}</span></div></details>
-            <footer class="px-4 pb-4"><p v-if="r.result_date" class="text-xs text-slate-500 mb-3">موعد النتائج: {{ formatDate(r.result_date) }}</p><a v-if="r.view_url" :href="portalReportUrl(r.view_url, r.id, route.query, token)" target="_blank" rel="noopener" class="block text-center rounded-xl bg-teal-700 text-white py-3 text-sm font-bold">{{ r.counts.ready ? (r.counts.pending ? 'عرض النتائج الجاهزة' : 'عرض التقرير والنتائج') : 'متابعة النتائج' }}</a><p v-if="r.counts.pending" class="rounded-xl bg-amber-50 text-amber-900 p-3 text-xs">جاهز {{ r.counts.ready }} من {{ r.counts.all }} فحص. تظهر النتائج المعتمدة الآن وتُضاف النتائج المتبقية بعد اكتمالها.</p></footer>
+            <footer class="px-4 pb-4"><button v-if="aiEnabled && r.counts.ready" type="button" @click="explainReport(r.id)" class="w-full rounded-xl border border-teal-200 bg-teal-50 text-teal-800 py-3 mb-3 text-sm font-bold">اشرح نتائجي مع ابن سينا</button><p v-if="r.result_date" class="text-xs text-slate-500 mb-3">موعد النتائج: {{ formatDate(r.result_date) }}</p><a v-if="r.view_url" :href="portalReportUrl(r.view_url, r.id, route.query, token)" target="_blank" rel="noopener" class="block text-center rounded-xl bg-teal-700 text-white py-3 text-sm font-bold">{{ r.counts.ready ? (r.counts.pending ? 'عرض النتائج الجاهزة' : 'عرض التقرير والنتائج') : 'متابعة النتائج' }}</a><p v-if="r.counts.pending" class="rounded-xl bg-amber-50 text-amber-900 p-3 text-xs">جاهز {{ r.counts.ready }} من {{ r.counts.all }} فحص. تظهر النتائج المعتمدة الآن وتُضاف النتائج المتبقية بعد اكتمالها.</p></footer>
           </article>
         </div>
 
@@ -513,42 +493,8 @@ onUnmounted(() => portalHead.restore());
           </template>
         </div>
 
-        <!-- AI assistant tab -->
-        <div v-else-if="activeTab === 'ai'" class="space-y-3">
-          <div class="bg-amber-50 text-amber-900 text-xs rounded-xl p-3">
-            هذا مساعد معلومات عام وليس تشخيصاً طبياً، ولا يغني عن مراجعة طبيب مختص.
-          </div>
-          <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-3 min-h-[200px]">
-            <div v-if="!chatMessages.length" class="text-center text-gray-400 text-sm py-6">
-              صف حالتك أو استفسارك الصحي وراح يساعدك المساعد الذكي
-            </div>
-            <div
-              v-for="(m, i) in chatMessages"
-              :key="i"
-              :class="['max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-line', m.role === 'user' ? 'bg-teal-600 text-white mr-auto' : 'bg-gray-100 text-gray-700 ml-auto']"
-            >
-              {{ m.content }}
-            </div>
-            <div v-if="chatSending" class="text-gray-400 text-sm">المساعد يكتب...</div>
-          </div>
-          <div v-if="chatError" class="bg-red-50 text-red-600 text-sm rounded-xl p-3">{{ chatError }}</div>
-          <div class="flex gap-2">
-            <input
-              v-model="chatInput"
-              type="text"
-              placeholder="اكتب هنا..."
-              class="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-sm"
-              @keyup.enter="sendChatMessage"
-            />
-            <button
-              @click="sendChatMessage"
-              :disabled="chatSending || !chatInput.trim()"
-              class="bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-bold px-5 rounded-xl"
-            >
-              إرسال
-            </button>
-          </div>
-        </div>
+        <!-- Keep only in memory while this patient stays on the chat tab. -->
+        <IbnSinaChat v-else-if="activeTab === 'ai' && aiEnabled" :key="token" :token="token" :reports="reports" :initial-report-id="chatReportId" />
       </div>
     </div>
   </div>

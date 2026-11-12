@@ -1,0 +1,24 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ابن سينا — بيانات اختبار اصطناعية</title></head><body><div id="app"></div><script type="module">
+import {createApp,h} from 'vue';import {createPinia} from 'pinia';import {createRouter,createMemoryHistory,RouterView} from 'vue-router';
+import Portal from '/src/views/portal/PatientPortal.vue';import {$http} from '/src/plugins/axios';import '/src/assets/main.css';import 'primeicons/primeicons.css';
+const token='a'.repeat(48), otherToken='b'.repeat(48), calls=[];
+const state={fail:false,hold:false,revision:false,enabled:true};let release;
+const reports=[{id:14,date:'2026-11-12',ready_count:1,pending_count:1,status:'partial',tests:[{id:1,name:'CBC',status:'ready',kind:'تحليل'},{id:2,name:'Glucose',status:'pending',kind:'تحليل'}]},
+{id:15,date:'2026-11-10',ready_count:1,pending_count:0,status:'ready',tests:[{id:3,name:'Vitamin D',status:'ready',kind:'تحليل'}]}];
+$http.defaults.adapter=async config=>{
+ let data;
+ if(config.url.endsWith('/ai-chat')){
+  const payload=JSON.parse(config.data);calls.push({token:config.url,payload});
+  if(state.hold)await new Promise(resolve=>{release=resolve;});
+  if(state.fail){const error=new Error('Unavailable');error.response={status:422,data:{message:'تعذر الاتصال بابن سينا حالياً'}};error.config=config;throw error;}
+  data={reply:'هذا رد اصطناعي لاختبار واجهة المحادثة.\n\n١. شرح التحليل\nتعرض هنا النتيجة ووحدة القياس والمجال المرجعي الوارد من المختبر.\n\n٢. الخطوة التالية\nتجهيز الأسئلة التي تريد مناقشتها مع الطبيب.\n\n<img src=x onerror="window.chatXss=true">',report:payload.invoice_id?{invoice_id:payload.invoice_id,ready:1,pending:payload.invoice_id===14?1:0,revision:'c'.repeat(64),context_reset:state.revision}:null};
+ }else if(config.url===`/portal/${token}`||config.url===`/portal/${otherToken}`)data={patient:{name:config.url.includes(otherToken)?'مريض اختبار ثانٍ':'مريض اصطناعي للاختبار',code:'DEMO'},reports,doctors:[],ai_enabled:state.enabled,show_invoice_amounts:false};
+ else if(config.url.endsWith('/result-trends'))data={series:[]};
+ else if(config.url.endsWith('/app-config'))data={enabled:false};
+ else data={};
+ return {data,status:200,config,headers:{}};
+};
+const router=createRouter({history:createMemoryHistory(),routes:[{path:'/portal/:token',component:Portal}]});
+createApp({render:()=>h(RouterView)}).use(createPinia()).use(router).mount('#app');await router.push('/portal/'+token);
+window.aiFixture={router,calls,state,token,otherToken,release:()=>release?.()};
+</script></body></html>
