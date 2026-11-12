@@ -48,7 +48,7 @@ class PortalPackageCatalogTest extends TestCase
             return true;
         })->andReturn('Synthetic response');
         $this->app->instance(AiAssistantService::class,$ai);
-        $this->postJson($url.'/ai-chat',['message'=>'ما الباقات المتوفرة؟','consent'=>true])->assertOk();
+        $this->postJson($url.'/ai-chat',['message'=>'ما الباقات المتوفرة؟','consent'=>true,'consent_version'=>\App\Services\PatientAiJournal::CONSENT_VERSION,'conversation_id'=>(string) \Illuminate\Support\Str::uuid(),'request_id'=>(string) \Illuminate\Support\Str::uuid()])->assertOk();
         $package->delete();$free->delete();$unpriced->delete();
         $this->getJson($url.'/catalog')->assertOk()->assertExactJson(['packages'=>[]]);
     }

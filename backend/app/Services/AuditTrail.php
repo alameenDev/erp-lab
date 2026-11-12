@@ -108,6 +108,7 @@ class AuditTrail
         // confirmed invoice changes retain their normal detailed audit.
         if ($model instanceof \App\Models\OwnerNotification || $model instanceof \App\Models\OwnerPushSubscription) return;
         if ($model instanceof \App\Models\PortalPushSubscription || $model instanceof \App\Models\PortalNotification || $model instanceof \App\Models\PortalPushDelivery || $model instanceof \App\Models\PortalNotificationCampaign) return;
+        if ($model instanceof \App\Models\PatientAiConversation || $model instanceof \App\Models\PatientAiTurn) return;
         $verb = explode(':', substr($event, strlen('eloquent.')))[0];
         $attrs = $model->getAttributes();
         $invoiceId = $model instanceof Invoice ? $model->getKey() : ($attrs['invoice_id_fk'] ?? null);

@@ -47,6 +47,7 @@ jobs:
       - run: find app database config tests ../scripts -name '*.php' -print0 | xargs -0 -n1 php -l
       - run: php artisan test --filter=LearningDemoTest
       - run: php artisan test --filter=PatientAiChatTest
+      - run: php artisan test --filter=PatientAiConversationTest
       - run: php artisan test --filter=PortalPackageCatalogTest
       - run: php artisan test --filter=DailyWorkRegisterTest
       - run: php artisan test --filter=ReportAttachmentsTest

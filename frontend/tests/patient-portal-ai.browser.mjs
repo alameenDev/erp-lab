@@ -9,7 +9,7 @@ const button=name=>page.getByRole('button',{name,exact:true});
 const chat=page.locator('[data-ibn-sina]'),input=page.getByLabel('رسالتك إلى ابن سينا');
 const replies=()=>chat.locator('[data-chat-message].assistant');
 const calls=()=>page.evaluate(()=>aiFixture.calls);
-const consent=()=>page.getByRole('checkbox',{name:'أوافق على استخدام هذه البيانات لشرح النتائج'}).check();
+const consent=()=>page.getByRole('checkbox',{name:'أوافق على شرح النتائج وحفظ المحادثة وإتاحتها للمختبر'}).check();
 async function send(text){const count=await replies().count();await input.fill(text);await button('إرسال').click();await page.waitForFunction(n=>document.querySelectorAll('[data-chat-message].assistant').length>n,count);}
 async function all(){await button('اشرح كل التحاليل الجاهزة').click();await consent();}
 try{
@@ -27,10 +27,12 @@ try{
  await input.fill('تعب من يومين');assert.equal(await button('إرسال').isDisabled(),true);
  await consent();await button('إرسال').click();await replies().waitFor();
  let sent=await calls();assert.equal(sent[0].payload.invoice_id,14);assert.equal(sent[0].payload.guided,true);assert.equal(sent[0].payload.concern,'تعب من يومين');
+ assert.equal(sent[0].payload.consent_version,'ibn-sina-lab-history-v1');assert.match(sent[0].payload.conversation_id,/^[a-f0-9-]{36}$/);assert.match(sent[0].payload.request_id,/^[a-f0-9-]{36}$/);
  assert.deepEqual(sent[0].payload.analysis_keys,['a'.repeat(64)]);assert.equal(sent[0].payload.selection_revision,'d'.repeat(64));assert.deepEqual(sent[0].payload.history,[]);
  assert.equal(await chat.locator('.message img').count(),0);assert.equal(await page.evaluate(()=>window.chatXss),undefined);
  assert.equal(await page.evaluate(()=>aiFixture.loader.IsLoading),false);
  await send('وضح لي أكثر');sent=await calls();assert.equal(sent.at(-1).payload.history.length,2);assert.equal(sent.at(-1).payload.concern,'تعب من يومين');
+ assert.equal(sent.at(-1).payload.conversation_id,sent[0].payload.conversation_id);assert.notEqual(sent.at(-1).payload.request_id,sent[0].payload.request_id);
  assert.equal(await page.evaluate(()=>aiFixture.bookings.length),0);
  await chat.locator('.doctor-card button').first().click();
  await button('إرسال طلب الحجز').waitFor();assert.equal(await page.getByRole('link',{name:'واتساب',exact:true}).getAttribute('href'),'https://wa.me/9647700000000');assert.equal(await page.evaluate(()=>aiFixture.bookings.length),0);
@@ -55,7 +57,7 @@ try{
  await page.evaluate(()=>{aiFixture.state.hold=true;});await input.fill('قبل تغيير المريض');await button('إرسال').click();
  await page.evaluate(()=>aiFixture.router.push('/portal/'+aiFixture.otherToken));await button('ابن سينا').waitFor();
  await page.evaluate(()=>{aiFixture.state.hold=false;aiFixture.release();});await button('ابن سينا').click();await button('اشرح كل التحاليل الجاهزة').click();
- assert.equal(await replies().count(),0);assert.equal(await page.getByRole('checkbox',{name:'أوافق على استخدام هذه البيانات لشرح النتائج'}).isChecked(),false);
+ assert.equal(await replies().count(),0);assert.equal(await page.getByRole('checkbox',{name:'أوافق على شرح النتائج وحفظ المحادثة وإتاحتها للمختبر'}).isChecked(),false);
  assert.equal(await page.evaluate(()=>Object.keys(localStorage).some(k=>/ibn|chat/i.test(k))),false);
  await page.evaluate(()=>{aiFixture.state.optionsFail=true;});await button('بدء محادثة جديدة').click();await button('إعادة تحميل التحاليل').waitFor();assert.equal(await button('اشرح كل التحاليل الجاهزة').count(),0);
  await page.evaluate(()=>{aiFixture.state.optionsFail=false;});await button('إعادة تحميل التحاليل').click();await button('اشرح كل التحاليل الجاهزة').waitFor();
