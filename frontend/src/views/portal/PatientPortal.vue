@@ -433,7 +433,7 @@ onUnmounted(() => portalHead.restore());
                 <p v-if="doc.description" class="text-xs text-gray-500 mt-1">{{ doc.description }}</p>
                 <div class="flex flex-wrap gap-2 mt-2 text-xs">
                   <a v-if="doc.phone" :href="`tel:${doc.phone}`" class="text-gray-500" dir="ltr">📞 {{ doc.phone }}</a>
-                  <a v-if="doc.whatsapp" :href="`https://wa.me/${doc.whatsapp.replace(/\\D/g,'')}`" target="_blank" rel="noopener" class="text-emerald-600">واتساب</a>
+                  <a v-if="doc.whatsapp" :href="`https://wa.me/${doc.whatsapp.replace(/\D/g,'')}`" target="_blank" rel="noopener" class="text-emerald-600">واتساب</a>
                   <a v-if="doc.links?.website" :href="doc.links.website" target="_blank" rel="noopener" class="text-teal-600">الموقع</a>
                   <a v-if="doc.links?.instagram" :href="doc.links.instagram" target="_blank" rel="noopener" class="text-pink-600">انستغرام</a>
                   <a v-if="doc.links?.facebook" :href="doc.links.facebook" target="_blank" rel="noopener" class="text-blue-600">فيسبوك</a>

@@ -3,7 +3,7 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { $http } from '@/plugins/axios';
 
 const props = defineProps({ token: { type: String, required: true }, reports: { type: Array, default: () => [] }, initialReportId: [Number, String] });
-const emit = defineEmits(['book-doctor', 'browse-doctors']);
+const emit = defineEmits(['book-doctor']);
 const readyCount = r => r?.ready_count ?? (r?.tests || []).filter(t => t.status === 'ready').length;
 const defaultReport = () => String(props.initialReportId || props.reports.find(r => readyCount(r))?.id || props.reports[0]?.id || '');
 const selectedId = ref(defaultReport());
