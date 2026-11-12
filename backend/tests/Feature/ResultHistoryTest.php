@@ -12,6 +12,31 @@ class ResultHistoryTest extends TestCase
 {
     use DatabaseMigrations;
 
+    public function test_completed_cbc_components_are_available_across_standalone_group_and_package_history(): void
+    {
+        $this->seed(ReferenceDataSeeder::class);
+        $lab = User::create(['name'=>'CBC history lab','email'=>'cbc-history-lab@example.test','password'=>'secret-password-123','role_id'=>2]);
+        $person = User::create(['name'=>'CBC patient','email'=>'cbc-history-person@example.test','password'=>'secret-password-123','role_id'=>6]);
+        $patient = Patient::create(['user_id'=>$person->id,'creator_id'=>$lab->id,'code'=>'CBC-HISTORY']);
+        $test = LabTest::create(['name'=>'CBC','lab_id_fk'=>$lab->id]);
+        foreach (['sub_tests','test_group_tests','package_tests'] as $index=>$column) {
+            $invoice = Invoice::create(['lab_id_fk'=>$lab->id,'patient_id_fk'=>$patient->id,'is_done'=>true,'result_date'=>'2026-01-0'.($index+1)]);
+            $invoice->forceFill(['created_at'=>'2026-01-01'])->save();
+            $rows = [['name'=>'WBC','value'=>'0','unit'=>'10*3/uL'],['name'=>'HGB','value'=>'12.30','unit'=>'g/dL']];
+            $nested = ['id'=>$test->id,'name'=>'CBC','is_done'=>true,'sub_tests'=>$rows,'content'=>['bridge_cbc'=>true]];
+            InvoiceTestRel::create(['invoice_id_fk'=>$invoice->id,'test_id_fk'=>$column==='sub_tests'?$test->id:null,'is_done'=>true,
+                $column=>$column==='sub_tests'?$rows:[$nested]]);
+        }
+        $current = Invoice::create(['lab_id_fk'=>$lab->id,'patient_id_fk'=>$patient->id,'is_done'=>false]);
+        $current->forceFill(['created_at'=>'2026-02-01'])->save();
+        $rows = app(ResultHistoryService::class)->forInvoice($current)['test_'.$test->id];
+        $this->assertCount(6, $rows);
+        $this->assertCount(3, array_unique(array_column($rows,'invoice_id')));
+        $this->assertSame(['0','12.30','0','12.30','0','12.30'], array_column($rows,'value'));
+        $this->assertSame([true,true,true,true,true,true], array_column($rows,'is_component'));
+        $this->assertSame('2026-01-03', substr($rows[0]['date'],0,10));
+    }
+
     public function test_history_is_completed_same_patient_same_lab_and_chronological(): void
     {
         $this->seed(ReferenceDataSeeder::class);

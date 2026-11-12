@@ -48,6 +48,27 @@ class LabSettingsTest extends TestCase
         $this->assertSame('Preserve history', LabSetting::where('lab_id_fk', $owner->id)->value('lab_display_name'));
     }
 
+    public function test_cbc_history_layout_is_validated_persisted_isolated_and_reset(): void
+    {
+        $owner = $this->owner();
+        $other = User::create(['name'=>'Other CBC lab','email'=>'other-cbc-layout@example.test','password'=>'Test-password-123','role_id'=>2]);
+        $staff = User::create(['name'=>'CBC staff','email'=>'cbc-layout-staff@example.test','password'=>'Test-password-123','role_id'=>7,'creator_id'=>$owner->id]);
+        $this->actingAs($owner)->postJson('/api/lab-settings', ['print_table_config'=>['body_font_size'=>16,'cbc_previous_results_layout'=>'separate_page']])
+            ->assertOk()->assertJsonPath('setting.print_table_config.cbc_previous_results_layout','separate_page');
+        $this->getJson('/api/lab-settings/'.$owner->id)->assertOk()->assertJsonPath('print_table_config.cbc_previous_results_layout','separate_page');
+        $this->postJson('/api/lab-settings', ['print_table_config'=>['show_comments'=>false]])->assertOk()
+            ->assertJsonPath('setting.print_table_config.cbc_previous_results_layout','separate_page')->assertJsonPath('setting.print_table_config.body_font_size',16);
+        foreach (['invalid', '', null, 1, []] as $layout) {
+            $this->postJson('/api/lab-settings', ['print_table_config'=>['cbc_previous_results_layout'=>$layout]])
+                ->assertUnprocessable()->assertJsonValidationErrors('print_table_config.cbc_previous_results_layout');
+        }
+        $this->actingAs($other)->getJson('/api/lab-settings')->assertOk()->assertJsonPath('print_table_config',null);
+        $this->actingAs($staff)->postJson('/api/lab-settings', ['print_table_config'=>['cbc_previous_results_layout'=>'inline']])->assertForbidden();
+        $this->actingAs($owner)->postJson('/api/lab-settings', ['print_table_config'=>['cbc_previous_results_layout'=>'inline']])->assertOk()
+            ->assertJsonPath('setting.print_table_config.cbc_previous_results_layout','inline')->assertJsonPath('setting.print_table_config.body_font_size',16);
+        $this->postJson('/api/lab-settings/reset', ['section'=>'print'])->assertOk()->assertJsonPath('setting.print_table_config',null);
+    }
+
     public function test_report_history_count_validation_and_staff_permissions(): void
     {
         $owner = $this->owner();

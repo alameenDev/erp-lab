@@ -19,6 +19,7 @@ import ReportComment from "./ReportComment.vue";
 import { commentText, commentHtml, reportCommentsVisible, templateExtraComments } from '@/utils/resultComments';
 import ReportResultFlag from "./ReportResultFlag.vue";
 import ResultHistoryTable from '@/components/ResultHistoryTable.vue';
+import { isDeviceCbc, cbcHistoryLayout, cbcHistoryHtml, cbcSeparateHistory } from '@/utils/cbcResultHistory';
 import { reportHistoryRows } from '@/utils/resultHistory';
 import ReportPreviousResults from '@/components/ReportPreviousResults.vue';
 import ReportTableColumns from "./ReportTableColumns.vue";
@@ -274,7 +275,7 @@ const getTemplateHtml = (data) => {
   }
 
   // SECURITY: Sanitize template HTML to prevent XSS
-  const sanitizedHtml = visibleTemplateFields(sanitizeHtml(templateHtml), data);
+  const sanitizedHtml = cbcHistoryHtml(visibleTemplateFields(sanitizeHtml(templateHtml), data), printRecord.value, data, reportSettings.value);
 
   return `
     <div class="custom-table-container">
@@ -410,8 +411,9 @@ watch(() => [route.query.form, route.hash], () => {
 });
 
 // All report actions use this output-only selection; editor history stays complete.
+const previousCbcRows = item => cbcSeparateHistory(printRecord.value, item, reportSettings.value);
 const previousRows = (item, type = 'test', kind = 'all') =>
-  reportHistoryRows(printRecord.value, item, type, reportSettings.value, kind);
+  isDeviceCbc(item) ? [] : reportHistoryRows(printRecord.value, item, type, reportSettings.value, kind);
 
 const generalComments = computed(() => [
   ...(printRecord.value?.tests?.length ? [{ label: 'Tests', text: commentText(printRecord.value.tests_comment) }] : []),
@@ -899,6 +901,11 @@ const generateBarcodeImage = (value) => {
               <ReportComment v-for="(comment, ci) in templateExtraComments(tTest)" :key="ci" :value="comment.text" :label="comment.label" />
             </template>
             <ResultHistoryTable v-if="cIdx === templateChunks(tTest).length - 1" :show-unit="showsUnit(tTest)" :rows="previousRows(tTest)" />
+          </section>
+          <section v-if="kind === 'template' && cIdx === templateChunks(tTest).length - 1 && cbcHistoryLayout(reportSettings) === 'separate_page' && previousCbcRows(tTest).length" class="cbc-history-section" data-report-section data-report-isolated="true" dir="ltr">
+            <h3 style="font-size:18px;font-weight:700;margin:0 0 10px;">Complete Blood Count (CBC) — Previous Results</h3>
+            <p style="font-size:11px;margin:0 0 10px;">Historical results · {{ tTest.report_name || tTest.name }}</p>
+            <ResultHistoryTable :show-unit="showsUnit(tTest)" :rows="previousCbcRows(tTest)" />
           </section>
         <!-- ===== MERGED TABLE (when showTestName is off) ===== -->
         <template v-if="kind === 'merged'">

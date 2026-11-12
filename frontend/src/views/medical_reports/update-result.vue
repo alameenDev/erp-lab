@@ -511,7 +511,7 @@
                   </div>
                   <span class="text-sm font-medium text-slate-700">{{ t("done") }}</span>
                 </label>
-                <label class="flex items-center gap-3 cursor-pointer">
+                <label v-if="!item.content?.bridge_cbc" class="flex items-center gap-3 cursor-pointer">
                   <div class="relative">
                     <input type="checkbox" v-model="item.last_result" class="sr-only peer" />
                     <div class="w-10 h-6 bg-slate-200 rounded-full peer peer-checked:bg-primary-600 peer-focus:ring-2 peer-focus:ring-primary-300 transition-colors"></div>
@@ -523,9 +523,9 @@
               <!-- Dynamic Template -->
               <div v-if="item.sub_tests?.length > 0 && selectedTemplate" class="p-6" style="direction: ltr;">
                 <!-- Template already sanitized in loadTemplate() with input/select allowlist -->
-                <div class="mb-4 flex flex-wrap gap-2" dir="rtl"><div v-for="field in previousTemplateFields(item)" :key="field.name" class="space-y-1"><span class="block text-xs font-medium text-slate-600">{{ field.name }}</span><PreviousResult v-bind="field" :field="field.name" kind="sub_test" /></div></div>
+                <div v-if="!item.content?.bridge_cbc" class="mb-4 flex flex-wrap gap-2" dir="rtl"><div v-for="field in previousTemplateFields(item)" :key="field.name" class="space-y-1"><span class="block text-xs font-medium text-slate-600">{{ field.name }}</span><PreviousResult v-bind="field" :field="field.name" kind="sub_test" /></div></div>
                   <div v-if="item.content?.bridge_cbc" class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 print:hidden" dir="rtl"><p v-for="(message, messageIndex) in item.content.review_messages" :key="messageIndex">{{ message }}</p></div>
-                  <CbcResultEditor v-if="item.content?.bridge_cbc" :test="item" />
+                  <CbcResultEditor v-if="item.content?.bridge_cbc" :test="item" :record="updateResultRecord" :settings="labSettingsStore.settings" />
                   <div v-else v-html="selectedTemplate" class="dynamic-template"></div>
               </div>
 
@@ -636,7 +636,7 @@
                 <ResultCommentEditor v-model="item.comment" :options="item.result_comments" :name="item.name" />
               </div>
             </div>
-          <ResultHistoryTable  :show-unit="showsUnit(item)" :rows="resultHistoryRows(updateResultRecord, item, 'test')" /></div>
+          <ResultHistoryTable v-if="!item.content?.bridge_cbc" :show-unit="showsUnit(item)" :rows="resultHistoryRows(updateResultRecord, item, 'test')" /></div>
         </div>
 
         <div v-if="activeSection === 'tests'" class="rounded-xl border border-slate-200 bg-white p-4">
@@ -682,14 +682,14 @@
                   </label>
                 </div>
                 <div class="p-6" style="direction: ltr;">
-                  <div class="mb-4 flex flex-wrap gap-2" dir="rtl"><div v-for="field in previousTemplateFields(test)" :key="field.name" class="space-y-1"><span class="block text-xs font-medium text-slate-600">{{ field.name }}</span><PreviousResult v-bind="field" :field="field.name" kind="sub_test" /></div></div>
+                  <div v-if="!test.content?.bridge_cbc" class="mb-4 flex flex-wrap gap-2" dir="rtl"><div v-for="field in previousTemplateFields(test)" :key="field.name" class="space-y-1"><span class="block text-xs font-medium text-slate-600">{{ field.name }}</span><PreviousResult v-bind="field" :field="field.name" kind="sub_test" /></div></div>
                   <div v-if="test.content?.bridge_cbc" class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 print:hidden" dir="rtl"><p v-for="(message, messageIndex) in test.content.review_messages" :key="messageIndex">{{ message }}</p></div>
-                  <CbcResultEditor v-if="test.content?.bridge_cbc" :test="test" />
+                  <CbcResultEditor v-if="test.content?.bridge_cbc" :test="test" :record="updateResultRecord" :settings="labSettingsStore.settings" />
                   <div v-else v-html="getGroupTemplateHtml(test, pIndex, tIndex, 'packages')" class="dynamic-template"></div>
                   <ResultCommentEditor v-model="test.comment" :options="test.result_comments" :name="test.name" />
                 </div>
               </div>
-            <ResultHistoryTable v-if="isCustomTemplateTest(test)" :show-unit="showsUnit(test)" :rows="resultHistoryRows(updateResultRecord, test, 'test')" /></template>
+            <ResultHistoryTable v-if="isCustomTemplateTest(test) && !test.content?.bridge_cbc" :show-unit="showsUnit(test)" :rows="resultHistoryRows(updateResultRecord, test, 'test')" /></template>
 
             <div v-if="packageVisibleTests(pkg).length || pkg.cultures?.length" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
               <div class="divide-y divide-slate-100">
@@ -888,14 +888,14 @@
                   </div>
                 </div>
                 <div class="p-6" style="direction: ltr;">
-                  <div class="mb-4 flex flex-wrap gap-2" dir="rtl"><div v-for="field in previousTemplateFields(test)" :key="field.name" class="space-y-1"><span class="block text-xs font-medium text-slate-600">{{ field.name }}</span><PreviousResult v-bind="field" :field="field.name" kind="sub_test" /></div></div>
+                  <div v-if="!test.content?.bridge_cbc" class="mb-4 flex flex-wrap gap-2" dir="rtl"><div v-for="field in previousTemplateFields(test)" :key="field.name" class="space-y-1"><span class="block text-xs font-medium text-slate-600">{{ field.name }}</span><PreviousResult v-bind="field" :field="field.name" kind="sub_test" /></div></div>
                   <div v-if="test.content?.bridge_cbc" class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 print:hidden" dir="rtl"><p v-for="(message, messageIndex) in test.content.review_messages" :key="messageIndex">{{ message }}</p></div>
-                  <CbcResultEditor v-if="test.content?.bridge_cbc" :test="test" />
+                  <CbcResultEditor v-if="test.content?.bridge_cbc" :test="test" :record="updateResultRecord" :settings="labSettingsStore.settings" />
                   <div v-else v-html="getGroupTemplateHtml(test, gIndex, tIndex)" class="dynamic-template"></div>
                   <ResultCommentEditor v-model="test.comment" :options="test.result_comments" :name="test.name" />
                 </div>
               </div>
-            <ResultHistoryTable v-if="isCustomTemplateTest(test)" :show-unit="showsUnit(test)" :rows="resultHistoryRows(updateResultRecord, test, 'test')" /></template>
+            <ResultHistoryTable v-if="isCustomTemplateTest(test) && !test.content?.bridge_cbc" :show-unit="showsUnit(test)" :rows="resultHistoryRows(updateResultRecord, test, 'test')" /></template>
 
             <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
               <div class="divide-y divide-slate-100">
