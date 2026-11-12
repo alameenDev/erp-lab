@@ -206,6 +206,39 @@ class BridgeResultsTest extends TestCase
         $this->assertFalse((bool) $invoice->fresh()->is_done);
     }
 
+    public function test_cbc_previous_result_visibility_round_trips_in_each_container_without_changing_results(): void
+    {
+        [$device, $invoice, $test, $rel, $payload] = $this->cbcFixture();
+        $received = $this->postJson('/api/device/bridge/results', $payload)->assertCreated();
+        $source = DeviceResult::findOrFail($received->json('id'));
+        $original = $source->parsed_results;
+        $rel->refresh();
+        $cbc = ['id'=>$test->id,'test_id_fk'=>$test->id,'name'=>'CBC','price'=>0,'is_special_test'=>true,
+            'is_done'=>false,'sub_tests'=>$rel->sub_tests,'content'=>$rel->content];
+        $group = TestGroup::create(['lab_id_fk'=>$device->lab_id_fk,'group_name'=>'History group']);
+        $group->tests()->attach($test->id);
+        $package = Package::create(['lab_id_fk'=>$device->lab_id_fk,'name'=>'History package','price'=>0]);
+        $package->tests()->attach($test->id);
+        $owner = User::findOrFail($device->lab_id_fk);
+        $owner->givePermissionTo('medical reports update');
+        $this->actingAs($owner);
+        foreach (['tests'=>null,'test_groups'=>$group->id,'packages'=>$package->id] as $field=>$containerId) {
+            foreach ([true, false] as $visible) {
+                $item = array_merge($cbc, ['last_result'=>$visible]);
+                $key = $field === 'test_groups' ? 'test_group_id_fk' : 'package_id_fk';
+                $data = $field === 'tests' ? [$item] : [[$key=>$containerId,'price'=>0,'tests'=>[$item]]];
+                $this->postJson('/api/invoices/update-result', ['id'=>$invoice->id,$field=>$data])->assertOk();
+                $response = $this->getJson('/api/invoices/'.$invoice->id)->assertOk();
+                $path = $field === 'tests' ? 'tests.0' : $field.'.0.tests.0';
+                $this->assertSame($visible, (bool) $response->json($path.'.last_result'));
+                $this->assertSame($cbc['sub_tests'], $response->json($path.'.sub_tests'));
+                $this->assertStringNotContainsString('Last Result', $response->json($path.'.content.html'));
+                $this->assertFalse((bool) $invoice->fresh()->is_done);
+            }
+        }
+        $this->assertSame($original, $source->fresh()->parsed_results);
+    }
+
     public function test_cbc_edit_preparation_supports_containers_and_escapes_values(): void
     {
         $cbc = ['content' => ['bridge_cbc' => true, 'device_result_id' => 123, 'html' => 'old'],

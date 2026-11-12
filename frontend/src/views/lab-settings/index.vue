@@ -169,6 +169,7 @@ const save = async () => {
           formData.append("patient_header_config[line_height]", ph.line_height ?? 1.7);
 
           const pt = settings.value.print_table_config || {};
+          formData.append("print_table_config[cbc_previous_results_layout]", pt.cbc_previous_results_layout || "inline");
           formData.append("print_table_config[show_comments]", reportCommentsVisible(settings.value) ? "1" : "0");
           formData.append("print_table_config[custom_column_widths]", customReportColumns(pt) ? "1" : "0");
           for (const [key, fallback] of Object.entries(reportColumnDefaults)) {
@@ -401,6 +402,12 @@ const resetBranding = async () => {
                                                   <option v-for="count in 10" :key="count" :value="count">{{ count }}</option>
                                              </select>
                                         </div>
+                                        <label for="cbcHistoryLayout" class="block text-sm font-semibold text-slate-700">{{ lang === 'en' ? 'Device CBC previous results layout' : 'مكان عرض النتائج السابقة لـ CBC المستلم من الجهاز' }}</label>
+                                        <select id="cbcHistoryLayout" v-model="settings.print_table_config.cbc_previous_results_layout" class="w-full rounded-lg border border-slate-300 bg-white p-2 text-sm">
+                                             <option value="inline">{{ lang === 'en' ? 'Last Result column beside Result' : 'عمود Last Result بجانب Result' }}</option>
+                                             <option value="separate_page">{{ lang === 'en' ? 'Separate page after the current CBC' : 'ورقة منفصلة بعد ورقة CBC الحالية' }}</option>
+                                        </select>
+                                        <p class="text-xs text-slate-500 leading-relaxed">{{ lang === 'en' ? 'The column shows the latest available result and date for each CBC component. Separate pages use the examination count above. The CBC visibility switch in result editing overrides the lab default.' : 'العمود يعرض آخر نتيجة متوفرة وتاريخها لكل خانة CBC، والورقة المنفصلة تعتمد عدد الفحوصات السابقة أعلاه. اختيار الإظهار أو الإخفاء داخل تعديل CBC يتقدّم على الإعداد الافتراضي للمختبر.' }}</p>
                                         <p class="text-xs text-slate-500 leading-relaxed">{{ lang === 'en' ? 'Newest examinations first. Compound tests keep all their previous fields together. This does not change the patient’s history in the system.' : 'الأحدث أولاً. التحاليل ذات النتائج الفرعية تحتفظ بجميع تفاصيل الفحص السابق معاً. هذا الخيار لا يغيّر سجل المريض داخل النظام.' }}</p>
                                    </div>
                                    <div v-if="!referralMode" class="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2" data-patient-portal-invoice-amounts-setting>
