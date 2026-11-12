@@ -112,7 +112,7 @@ function keyboardSend(event) {
       <p v-else class="context-note">اختر تقريراً لشرح نتائجك الخاصة، أو ابدأ بسؤال صحي عام.</p>
     </div>
 
-    <div v-if="!consent" class="consent-panel">
+    <div v-if="!consent || !messages.length" class="consent-panel">
       <i class="pi pi-lock" aria-hidden="true"></i>
       <div><strong>قبل أن نبدأ</strong><p>عند الإرسال تُشارك رسائلك والنتائج المنشورة من التقرير المختار، مع العمر والجنس إن توفرا، مع مزوّد الذكاء الاصطناعي الذي يعتمده المختبر. لا نرسل اسمك أو هاتفك أو أسعار فواتيرك تلقائياً. تجنب كتابة معلومات تعريفية داخل المحادثة.</p>
       <label class="consent-check"><input v-model="consent" type="checkbox">أوافق على استخدام هذه البيانات لشرح النتائج</label></div>

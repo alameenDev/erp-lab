@@ -36,6 +36,7 @@ try{
  await chat.getByText(/تغيّرت النتائج المنشورة/).waitFor();assert.equal(await chat.locator('.assistant').count(),1);assert.equal(await chat.locator('.user').count(),1);
  await page.evaluate(()=>{aiFixture.state.revision=false;aiFixture.state.hold=true;});await input.fill('رد متأخر');await button('إرسال').click();
  await chat.getByRole('status').filter({hasText:'يجهّز الشرح'}).waitFor();
+ assert.equal(await page.evaluate(()=>aiFixture.loader.requests.some(url=>url.endsWith('/ai-chat'))),false,'chat must not block the page with a global loader');
  await page.getByLabel('أي تقرير تحب نشرحه؟').selectOption('15');await page.evaluate(()=>{aiFixture.state.hold=false;aiFixture.release();});
  await chat.getByRole('heading',{name:'أهلاً بيك، أنا ابن سينا'}).waitFor();assert.equal(await chat.locator('.message').count(),0);
  await input.fill('تقرير جديد');await button('إرسال').click();await chat.locator('.assistant').waitFor();sent=await calls();assert.deepEqual(sent.at(-1).payload.history,[]);assert.equal(sent.at(-1).payload.invoice_id,15);

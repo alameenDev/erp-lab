@@ -56,8 +56,9 @@ class PatientAiChatTest extends TestCase
         $this->row('Not published', false, 'PRIVATE-DRAFT');
         $cbc = $this->row('CBC', true, '', ['sub_tests'=>[['name'=>'HGB','value'=>'12.3','unit'=>'g/dL','reference_range'=>'12–16']]]);
         $before = $this->invoice->fresh()->getAttributes();
-        $this->postJson($this->url(), $this->payload())->assertOk()->assertJsonPath('report.ready',2)->assertJsonPath('report.pending',1)
-            ->assertHeader('Cache-Control','no-store, private');
+        $response = $this->postJson($this->url(), $this->payload())->assertOk()->assertJsonPath('report.ready',2)->assertJsonPath('report.pending',1);
+        $this->assertTrue($response->headers->hasCacheControlDirective('no-store'));
+        $this->assertTrue($response->headers->hasCacheControlDirective('private'));
         Http::assertSent(function ($request) {
             $this->assertFalse($request['store']);
             $this->assertSame('gpt-4o-mini', $request['model']);

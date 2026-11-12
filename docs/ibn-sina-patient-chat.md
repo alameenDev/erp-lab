@@ -28,3 +28,7 @@
 اختبارات `PatientAiChatTest` تستخدم استجابات HTTP اصطناعية، ولا ترسل بيانات مرضى حقيقية. تغطي المصادقة، OTP، الموافقة، عزل المريض/المختبر، استبعاد المسودات والبيانات التعريفية، CBC/الزرع/الباقات، إعادة سحب النتائج، الوحدات المخفية، أخطاء المزوّد، وعدم تعديل بيانات الفاتورة.
 
 اختبار `frontend/tests/patient-portal-ai.browser.mjs` يغطي الواجهة الفعلية بمزوّد تجريبي: الموافقة، اختيار التقرير، سياق المتابعة، إعادة المحاولة دون تكرار، الرد المتأخر، تغيير المريض، التنسيق على الهاتف والحاسوب، وعدم تنفيذ HTML المرسل كنص.
+
+## مراجع تصميم الشرح
+
+تستند قواعد شرح المجالات المرجعية وعدم اعتبار رقم منفرد تشخيصاً إلى [MedlinePlus — Understanding lab results](https://medlineplus.gov/lab-tests/how-to-understand-your-lab-results/). وتستند أمثلة الأعراض الطارئة إلى [NHS — Shortness of breath](https://www.nhs.uk/symptoms/shortness-of-breath/)؛ لا نستخدم رقم الطوارئ البريطاني داخل التطبيق، بل نوجّه إلى الإسعاف المحلي. مرجع واجهة المزوّد: [OpenAI Chat Completions](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create). هذه مراجع لقواعد المنتج، وليست مصادر مسترجعة آلياً لكل رد.
