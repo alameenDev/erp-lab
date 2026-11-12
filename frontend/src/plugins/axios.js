@@ -23,6 +23,7 @@ const shouldHideLoader = (url) => {
   if (!url) return false;
   const silentPatterns = [
     "/user/access",
+    "/ai-chat", // The portal conversation owns its loading/retry UI.
     "/owner-portal/",
     "/accounting-reports",
     "/search",

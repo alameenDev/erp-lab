@@ -182,48 +182,59 @@ class PatientPortalController extends Controller
             ]);
     }
 
-    /**
-     * Public: patient describes symptoms/questions to the lab's configured
-     * AI assistant. See AiAssistantService for the safety-constrained
-     * system prompt - this is general information, never a diagnosis.
-     */
+    /** Read-only explanation of this patient's published results. */
     public function aiChat(string $token, Request $request)
     {
+        [, $patient, $lab] = app(\App\Services\PatientPortalAccess::class)->resolve($token);
         $validated = $request->validate([
             'message' => 'required|string|max:2000',
-            'history' => 'nullable|array',
+            'consent' => 'required|accepted',
+            'invoice_id' => 'nullable|integer|min:1',
+            'report_revision' => 'nullable|string|size:64',
+            'history' => 'nullable|array|max:8',
+            'history.*' => 'required|array:role,content',
+            'history.*.role' => 'required|in:user,assistant',
+            'history.*.content' => 'required|string|max:6000',
         ]);
-
-        $access = PortalAccessToken::where('token', $token)->first();
-        if (! $access || $access->isExpired()) {
-            return response()->json(['message' => 'الرابط غير صالح أو منتهي الصلاحية'], 404);
+        $settings = $lab->labSetting;
+        if (!$settings) {
+            return response()->json(['message' => 'محادثة ابن سينا غير متاحة حالياً'], 422);
         }
 
-        $patient = Patient::find($access->patient_id_fk);
-        $lab = $patient ? $this->patientLab($patient) : null;
-        $settings = $lab?->labSetting;
-        if (! $lab || ! $settings) {
-            return response()->json(['message' => 'المساعد الذكي غير متاح حالياً'], 422);
+        $context = [
+            'lab_name' => $settings->lab_display_name ?: $lab->name,
+            'doctors' => \App\Models\Doctor::where('lab_id_fk', $lab->id)
+                ->where('is_active', true)->where('bookable', true)
+                ->get(['name', 'specialty'])->toArray(),
+            'tests' => [],
+            'packages' => $this->portalPackages($lab)->all(),
+            'report' => null,
+        ];
+        $source = null;
+        $history = $validated['history'] ?? [];
+        if (!empty($validated['invoice_id'])) {
+            $tenantIds = \App\Models\User::where('creator_id', $lab->id)->pluck('id')->push($lab->id);
+            $invoice = Invoice::where('patient_id_fk', $patient->id)->whereIn('lab_id_fk', $tenantIds)
+                ->findOrFail($validated['invoice_id']);
+            $document = app(InvoiceController::class)->patientResultData($invoice, false);
+            $context = array_merge($context, app(\App\Services\PatientAiContext::class)->fromReport($document));
+            $revision = hash('sha256', json_encode($context));
+            $contextReset = count($history) > 0 && !hash_equals($revision, $validated['report_revision'] ?? '');
+            if ($contextReset) $history = []; // Do not resend retracted results from old replies.
+            $source = [
+                'revision' => $revision,
+                'context_reset' => $contextReset,
+                'invoice_id' => $invoice->id,
+                'ready' => $context['report']['ready'],
+                'pending' => $context['report']['pending'],
+            ];
         }
-
-        $doctors = \App\Models\Doctor::where('lab_id_fk', $lab->id)
-            ->where('is_active', true)->where('bookable', true)
-            ->get(['name', 'specialty'])->toArray();
-
-        $packages = $this->portalPackages($lab)->all();
-
         try {
-            $reply = $this->ai->chat($settings, $validated['message'], [
-                'lab_name' => $lab->labSetting?->lab_display_name ?? $lab->name,
-                'doctors' => $doctors,
-                'tests' => [],
-                'packages' => $packages,
-            ], $validated['history'] ?? []);
+            $reply = $this->ai->chat($settings, $validated['message'], $context, $history);
         } catch (\RuntimeException $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+            return response()->json(['message' => $e->getMessage()], 422)->header('Cache-Control', 'private, no-store');
         }
-
-        return response()->json(['reply' => $reply]);
+        return response()->json(['reply' => $reply, 'report' => $source])->header('Cache-Control', 'private, no-store');
     }
 
     public function requestOtp(string $token)

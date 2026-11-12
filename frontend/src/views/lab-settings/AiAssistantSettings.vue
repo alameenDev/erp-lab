@@ -31,16 +31,17 @@ async function save() {
 <template>
 <form v-if="form" @submit.prevent="save" class="rounded-2xl border border-slate-200 bg-white p-6 space-y-5" dir="rtl">
   <div>
-    <h3 class="text-lg font-bold">المساعد الذكي (بوابة المريض)</h3>
+    <h3 class="text-lg font-bold">ابن سينا — مساعد المريض بالذكاء الاصطناعي</h3>
     <p class="text-sm text-slate-500 mt-2">
-      يتيح للمريض بوصف حالته والحصول على معلومات عامة (وليست تشخيصاً)، مع اقتراح أطباء وفحوصات من مختبرك فقط.
+      يشرح النتائج المنشورة من التقرير الذي يختاره المريض، بما فيها حقول CBC والكروبات والباقات، ويجيب عن أسئلة المتابعة. يظهر بوضوح كمساعد آلي، دون تشخيص قطعي أو وصف أدوية.
+      تُرسل النتائج بعد موافقة المريض، بدون الاسم أو الهاتف تلقائياً. المفتاح محفوظ مشفراً في السيرفر. المرفقات والصور لا تُقرأ في هذه النسخة.
       يحتاج سيرفر متوافق مع OpenAI (chat completions API).
     </p>
   </div>
 
   <label class="flex gap-2 items-center">
     <input type="checkbox" v-model="form.enabled" />
-    تفعيل المساعد الذكي بالبوابة
+    تفعيل محادثة ابن سينا في بوابة المريض
   </label>
 
   <div class="grid gap-4 sm:grid-cols-2">
