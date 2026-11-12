@@ -72,6 +72,7 @@ jobs:
             curl -fsS http://127.0.0.1:5173/tests/report-background-browser.html > /dev/null && break
             sleep 1
           done
+          node tests/report-cbc-history.browser.mjs
           node tests/report-field-visibility.browser.mjs
           node tests/report-comments.browser.mjs
           node tests/report-attachments.browser.mjs
@@ -82,7 +83,6 @@ jobs:
           node tests/report-standard-first.browser.mjs
           node tests/report-selection.browser.mjs
           node tests/report-history.browser.mjs
-          node tests/report-cbc-history.browser.mjs
           node tests/report-formula-editor.browser.mjs
           node tests/report-background.browser.mjs
           node tests/report-template.browser.mjs

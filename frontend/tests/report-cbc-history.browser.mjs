@@ -11,8 +11,8 @@ const globalToggle = () => page.getByRole('checkbox', { name: 'إظهار الن
 const capture = async label => {
   const result = await page.evaluate(() => cbcFixture.prepare());
   assert.equal(result.pdf, '%PDF-'); assert.equal(result.sameSheets, true); assert.equal(result.changed, false); assert.equal(result.invalidated, true);
-  const png = await page.evaluate(() => cbcFixture.pages()[0]);
-  await writeFile(`${out}/cbc-${label}.png`, Buffer.from(png.split(',')[1], 'base64'));
+  const sheets = await page.evaluate(() => cbcFixture.pages());
+  for (const [index, png] of sheets.entries()) await writeFile(`${out}/cbc-${label}-${index+1}.png`, Buffer.from(png.split(',')[1], 'base64'));
   console.log(`PASS CBC ${label}: ${result.count} sheets, fast/native/PDF output parity and unchanged results`);
   return result;
 };
@@ -56,7 +56,9 @@ try {
     assert.ok(await table.locator('tbody td:nth-child(2) span[style*="color"]').count(), 'current flags preserved');
   }
   assert.equal(await page.locator('#Result .result-history').count(), 0);
-  await capture('inline-classic');
+  assert.equal(await page.locator('#Result .test-group-section').count(), 0, 'device CBC is not duplicated as an empty scalar group row');
+  assert.ok((await page.locator('#Result .template-section').allTextContents()).some(text => text.includes('Haematology')), 'group heading is retained with its CBC');
+  const inline = await capture('inline-classic'); assert.equal(inline.count, 3);
   await page.locator('#cbcHistoryLayout').selectOption('separate_page');
   await page.locator('#previousResultsCount').selectOption('2');
   await page.getByRole('button', { name: 'حفظ', exact: true }).click();
@@ -98,6 +100,9 @@ try {
   await page.evaluate(() => { cbcFixture.setVisible(true); cbcFixture.invoices.printRecord.result_history = {}; });
   await page.waitForFunction(() => !document.querySelector('#Result .cbc-history-section'));
   const empty = await capture('no-previous-results'); assert.equal(empty.count, 3, 'no empty history sheets');
+  await page.evaluate(() => cbcFixture.invoices.printRecord.test_groups[0].tests.push({ id: 44, name: 'Retained scalar', result: '7', unit: 'mg/dL', is_done: true }));
+  await page.waitForFunction(() => document.querySelector('#Result .test-group-section')?.textContent.includes('Retained scalar'));
+  assert.ok(!(await page.locator('#Result .test-group-section').innerText()).includes('Group CBC'), 'mixed groups retain ordinary results without a duplicate CBC row');
   await page.evaluate(() => { cbcFixture.longPanel(); cbcFixture.store.settings.print_black_white = false; });
   await page.locator('#cbcHistoryLayout').selectOption('inline');
   const long = await capture('full-panel-inline'); assert.ok(long.count >= 1);

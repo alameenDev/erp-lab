@@ -123,10 +123,10 @@ const templateTests = computed(() => {
   const results = [];
   printRecord.value?.tests?.filter(hasRealTemplate).forEach(t => results.push({ ...t, selectionRank: itemRank('tests', t) }));
   printRecord.value?.test_groups?.forEach(g => {
-    g.tests?.filter(hasRealTemplate).forEach(t => results.push({ ...t, selectionRank: itemRank('test_groups', g) }));
+    g.tests?.filter(hasRealTemplate).forEach(t => results.push({ ...t, report_container_name: g.group_name, selectionRank: itemRank('test_groups', g) }));
   });
   printRecord.value?.packages?.forEach(p => {
-    p.tests?.filter(hasRealTemplate).forEach(t => results.push({ ...t, selectionRank: itemRank('packages', p) }));
+    p.tests?.filter(hasRealTemplate).forEach(t => results.push({ ...t, report_container_name: t.test_group_name, selectionRank: itemRank('packages', p) }));
   });
   return results;
 });
@@ -515,6 +515,11 @@ const packageGroupSections = computed(() => {
   return sections;
 });
 
+// Device CBC already prints in its own template section. Do not also emit an
+// empty scalar row (or a header-only group page) for the same result. Keep the
+// original group object for formula operands, cultures and comments.
+const groupDisplayTests = group => (group.tests || []).filter(t => !(isDeviceCbc(t) && hasRealTemplate(t)));
+
 // Package keep-together spans must not cross into a different category.
 const categoryBundle = (bundle, category) => bundle && category ? JSON.stringify([bundle, category]) : (bundle || "");
 const orderedReportSections = computed(() => orderReportCategories([
@@ -524,7 +529,7 @@ const orderedReportSections = computed(() => orderReportCategories([
   ...(showTestName.value
     ? groupedTests.value.map(group => ({ kind: 'test', group, rank: group.rank, category: group.category }))
     : allTestsMerged.value.map(section => ({ kind: 'merged', section, rank: section.rank, category: section.category, isolated: section.is_print_alone }))),
-  ...(showTestName.value ? (printRecord.value?.test_groups || []).map(group => ({
+  ...(showTestName.value ? (printRecord.value?.test_groups || []).filter(group => groupDisplayTests(group).length || group.cultures?.length || group.formula?.length).map(group => ({
     kind: 'group', group, rank: itemRank('test_groups', group),
     category: reportBlockCategory(group, [...(group.tests || []), ...(group.cultures || [])]), isolated: group.is_print_alone == 1,
   })) : []),
@@ -896,6 +901,7 @@ const generateBarcodeImage = (value) => {
         <template v-for="({ kind, group, section, culture, pkg, tTest, chunk, cIdx, categoryHeading, category, tableSettings, colCount }, index) in orderedReportSections" :key="index">
           <!-- Custom templates own their headings and full-page layout. -->
           <section v-if="kind === 'template'" class="template-section" data-report-section data-report-isolated="true">
+            <div v-if="cIdx === 0 && isDeviceCbc(tTest) && tTest.report_container_name" style="font-size:13px;font-weight:600;margin-bottom:6px;" dir="auto">{{ tTest.report_container_name }}</div>
             <div v-html="chunk"></div>
             <template v-if="showComments && cIdx === templateChunks(tTest).length - 1">
               <ReportComment v-for="(comment, ci) in templateExtraComments(tTest)" :key="ci" :value="comment.text" :label="comment.label" />
@@ -996,7 +1002,7 @@ const generateBarcodeImage = (value) => {
             <div class="section-header w-full font-bold border border-black p-1 text-center text-black bg-gray-300"><i v-if="modernReport" class="pi pi-filter mr-section-icon" aria-hidden="true"></i><span>{{ group.group_name }}</span><small v-if="modernReport" class="mr-section-caption">TEST RESULTS</small></div>
 
             <!-- Test Group Tests -->
-            <table v-if="group.tests?.length > 0" :class="{ 'report-column-widths': customReportColumns(reportSettings.print_table_config) || !tableSettings.show_unit || !tableSettings.show_reference_range }" class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
+            <table v-if="groupDisplayTests(group).length || group.formula?.length" :class="{ 'report-column-widths': customReportColumns(reportSettings.print_table_config) || !tableSettings.show_unit || !tableSettings.show_reference_range }" class="report-results-table w-full my-5" style="border-collapse: collapse; table-layout: fixed;">
               <ReportTableColumns :settings="tableSettings" />
               <thead>
                 <tr>
@@ -1010,7 +1016,7 @@ const generateBarcodeImage = (value) => {
                 </tr>
               </thead>
               <tbody>
-                <template v-for="(item, idx) in group.tests.filter(t => !isFormulaTarget(group, t))" :key="'tgt-' + idx"><tr>
+                <template v-for="(item, idx) in groupDisplayTests(group).filter(t => !isFormulaTarget(group, t))" :key="'tgt-' + idx"><tr>
                   <td class="border border-black/15 p-0.5 text-center">{{ item.report_name || item.name }}</td>
                   <td class="border border-black/15 p-0.5 text-center" :style="getResultColorStyle(item.result_status_id_fk)">{{ item.result ?? "" }}</td>
                   <td v-if="showStatus && modernReport" class="report-flag-cell"><ReportResultFlag :status-id="item.result_status_id_fk" :label="getStatusLabel(item.result_status_id_fk)" /></td>
