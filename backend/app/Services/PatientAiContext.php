@@ -41,6 +41,27 @@ class PatientAiContext
         ];
     }
 
+    /** Opaque keys are bound to the published content and its position, including duplicate tests. */
+    public function choices(array $context): array
+    {
+        return array_map(fn ($item, $index) => [
+            'key' => hash('sha256', $index.':'.json_encode($item)),
+            'name' => $item['name'],
+            'container' => $item['container'],
+            'kind' => $item['kind'],
+            'readable' => $item['readable_result'],
+        ], $context['report']['analyses'], array_keys($context['report']['analyses']));
+    }
+
+    public function select(array $context, array $keys): array
+    {
+        $choices = $this->choices($context);
+        abort_if(count(array_diff($keys, array_column($choices, 'key'))) > 0, 422, 'تغيّرت قائمة التحاليل؛ أعد اختيار التحاليل من التقرير.');
+        $context['report']['analyses'] = array_values(array_filter($context['report']['analyses'],
+            fn ($index) => in_array($choices[$index]['key'], $keys, true), ARRAY_FILTER_USE_KEY));
+        return $context;
+    }
+
     private function analysis(array $item, string $kind, string $container): array
     {
         $unitVisible = $this->visible($item['show_unit'] ?? true);

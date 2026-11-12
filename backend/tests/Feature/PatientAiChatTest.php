@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\{Culture, Invoice, InvoiceTestRel, LabSetting, Package, Patient, PortalAccessToken, Test as LabTest, TestGroup, User};
+use App\Models\{Doctor, DoctorBookingRequest, Culture, Invoice, InvoiceTestRel, LabSetting, Package, Patient, PortalAccessToken, Test as LabTest, TestGroup, User};
 use App\Services\PatientAiContext;
 use Database\Seeders\ReferenceDataSeeder;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
@@ -20,6 +20,8 @@ class PatientAiChatTest extends TestCase
     private int $providerStatus = 200;
     private bool $emptyReply = false;
     private bool $disconnect = false;
+    private ?string $providerReply = null;
+    private string $finishReason = 'stop';
 
     protected function setUp(): void
     {
@@ -29,7 +31,7 @@ class PatientAiChatTest extends TestCase
         Http::fake(function () {
             if ($this->disconnect) throw new \Illuminate\Http\Client\ConnectionException('Synthetic disconnect');
             return Http::response($this->emptyReply ? ['choices'=>[]] : [
-                'choices' => [['message' => ['content' => 'شرح تجريبي للنتائج، وليس استشارة طبية.'], 'finish_reason' => 'stop']],
+                'choices' => [['message' => ['content' => $this->providerReply ?? 'شرح تجريبي للنتائج، وليس استشارة طبية.'], 'finish_reason' => $this->finishReason]],
                 'error' => ['message'=>'PRIVATE-KEY'],
             ], $this->providerStatus);
         });
@@ -172,4 +174,100 @@ class PatientAiChatTest extends TestCase
         $this->assertSame('0',$context['report']['analyses'][1]['fields'][0]['value']);
         $this->assertStringNotContainsString('PRIVATE',json_encode($context));
     }
+    private function optionsUrl(): string { return '/api/portal/'.$this->access->token.'/ai-options?invoice_id='.$this->invoice->id; }
+
+    public function test_guided_selection_sends_only_chosen_published_analyses_and_requires_current_revision(): void
+    {
+        $chosen = $this->row('Chosen CBC', true, 'SELECTED-VALUE');
+        $this->row('Unchosen test', true, 'UNSELECTED-SECRET');
+        $this->row('Draft test', false, 'DRAFT-SECRET');
+        $options = $this->getJson($this->optionsUrl())->assertOk()->assertJsonCount(2, 'analyses')
+            ->assertDontSee('SELECTED-VALUE')->assertDontSee('UNSELECTED-SECRET')->assertDontSee('Draft test')->json();
+        Http::assertNothingSent();
+        $selected = ['guided'=>true, 'concern'=>'تعب من يومين', 'analysis_keys'=>[$options['analyses'][0]['key']], 'selection_revision'=>$options['revision']];
+        $this->postJson($this->url(), $this->payload($selected))->assertOk()->assertJsonPath('report.selected_count', 1)->assertJsonPath('report.available_count',2);
+        Http::assertSent(function ($request) {
+            $context = json_decode(explode("\n", $request['messages'][1]['content'], 2)[1], true);
+            $this->assertCount(1, $context['report']['analyses']);
+            $this->assertSame('SELECTED-VALUE', $context['report']['analyses'][0]['value']);
+            $this->assertSame('تعب من يومين', $context['patient_reported_concern']);
+            $this->assertTrue($context['guided_conversation']);
+            $this->assertStringNotContainsString('UNSELECTED-SECRET', json_encode($request->data()));
+            $this->assertStringNotContainsString('DRAFT-SECRET', json_encode($request->data()));
+            return true;
+        });
+        $sent = Http::recorded()->count();
+        $this->postJson($this->url(), $this->payload(array_replace($selected, ['analysis_keys'=>[str_repeat('f',64)]])))->assertUnprocessable();
+        $this->postJson($this->url(), $this->payload(array_replace($selected, ['analysis_keys'=>[]])))->assertUnprocessable();
+        $this->postJson($this->url(), $this->payload(array_replace($selected, ['selection_revision'=>null])))->assertUnprocessable();
+        $this->postJson($this->url(), $this->payload(array_replace($selected, ['invoice_id'=>null])))->assertUnprocessable();
+        $chosen->update(['is_done'=>false]);
+        $this->postJson($this->url(), $this->payload($selected))->assertStatus(409)->assertJsonPath('context_reset', true);
+        $this->postJson($this->url(), $this->payload(['selection_revision'=>$options['revision']]))->assertStatus(409);
+        $this->assertSame($sent, Http::recorded()->count());
+    }
+
+    public function test_options_and_booking_enforce_otp_expiry_tenant_and_enabled_state(): void
+    {
+        $this->row('Private ready result', true, '1');
+        $doctor = Doctor::create(['name'=>'Available doctor','lab_id_fk'=>$this->lab->id,'is_active'=>true,'bookable'=>true]);
+        $bookingUrl = '/api/portal/'.$this->access->token.'/book-doctor';
+        $this->settings->update(['loyalty_config'=>['require_otp'=>true]]);
+        $this->getJson($this->optionsUrl())->assertForbidden()->assertDontSee('Private ready result');
+        $this->postJson($bookingUrl, ['doctor_id'=>$doctor->id])->assertForbidden();
+        $this->access->update(['verified_at'=>now()]);
+        $this->getJson($this->optionsUrl())->assertOk();
+        $other = Patient::create(['user_id'=>$this->lab->id,'creator_id'=>$this->lab->id,'code'=>'OTHER']);
+        $foreign = Invoice::create(['patient_id_fk'=>$other->id,'lab_id_fk'=>$this->lab->id]);
+        $this->getJson(str_replace('invoice_id='.$this->invoice->id,'invoice_id='.$foreign->id,$this->optionsUrl()))->assertNotFound();
+        $this->access->update(['expires_at'=>now()->subMinute()]);
+        $this->getJson($this->optionsUrl())->assertNotFound();
+        $this->postJson($bookingUrl, ['doctor_id'=>$doctor->id])->assertNotFound();
+        $this->access->update(['expires_at'=>now()->addDay()]);
+        $this->settings->update(['ai_config'=>['enabled'=>false]]);
+        $this->getJson($this->optionsUrl())->assertUnprocessable();
+        $this->assertSame(0, DoctorBookingRequest::count());
+        Http::assertNothingSent();
+    }
+
+    public function test_recommendations_are_actual_active_bookable_tenant_doctors_and_do_not_book_automatically(): void
+    {
+        $doctor = Doctor::create(['name'=>'Doctor A','specialty'=>'Internal medicine','phone'=>'+9647700000000','lab_id_fk'=>$this->lab->id,'is_active'=>true,'bookable'=>true]);
+        $inactive = Doctor::create(['name'=>'Inactive doctor','lab_id_fk'=>$this->lab->id,'is_active'=>false,'bookable'=>true]);
+        $notBookable = Doctor::create(['name'=>'Not bookable','lab_id_fk'=>$this->lab->id,'is_active'=>true,'bookable'=>false]);
+        $lab2 = User::create(['name'=>'Other lab','email'=>'doctors-other@example.test','password'=>'test-password-123','role_id'=>2]);
+        $foreign = Doctor::create(['name'=>'Foreign doctor','lab_id_fk'=>$lab2->id,'is_active'=>true,'bookable'=>true]);
+        $this->providerReply = json_encode(['reply'=>'يمكنك مناقشة أسئلتك مع الطبيب.','doctor_ids'=>[$doctor->id,$foreign->id,$inactive->id,$notBookable->id],'urgent'=>false]);
+        $this->postJson($this->url(), $this->payload(['guided'=>true]))->assertOk()->assertJsonCount(1,'doctors')
+            ->assertJsonPath('doctors.0.id',$doctor->id)->assertJsonPath('doctors.0.phone',$doctor->phone)->assertJsonPath('reply','يمكنك مناقشة أسئلتك مع الطبيب.');
+        $this->assertSame(0, DoctorBookingRequest::count());
+        Http::assertSent(function ($request) use ($doctor) {
+            $context = json_decode(explode("\n",$request['messages'][1]['content'],2)[1],true);
+            $this->assertSame([$doctor->id], array_column($context['doctors'],'id'));
+            $this->assertArrayNotHasKey('phone',$context['doctors'][0]);
+            return true;
+        });
+        $url = '/api/portal/'.$this->access->token.'/book-doctor';
+        foreach ([$foreign,$inactive,$notBookable] as $invalid) $this->postJson($url,['doctor_id'=>$invalid->id])->assertUnprocessable();
+        $this->postJson($url,['doctor_id'=>$doctor->id])->assertCreated()->assertJsonPath('booking.doctor_id_fk',$doctor->id);
+        $this->assertSame(1,DoctorBookingRequest::count());
+        $doctor->update(['is_active'=>false]);
+        $this->postJson($this->url(),$this->payload(['guided'=>true]))->assertOk()->assertJsonCount(0,'doctors');
+    }
+
+    public function test_guided_responses_handle_urgency_bad_json_and_plain_text_without_fabricated_doctor_cards(): void
+    {
+        $doctor=Doctor::create(['name'=>'Doctor','lab_id_fk'=>$this->lab->id,'is_active'=>true,'bookable'=>true]);
+        $this->providerReply=json_encode(['reply'=>'اطلب الطوارئ ولا تنتظر الحجز.','doctor_ids'=>[$doctor->id],'urgent'=>true]);
+        $this->postJson($this->url(),$this->payload(['guided'=>true]))->assertOk()->assertJsonPath('urgent',true)->assertJsonCount(0,'doctors');
+        $this->providerReply='plain text answer';
+        $this->postJson($this->url(),$this->payload(['guided'=>true]))->assertOk()->assertJsonPath('reply','plain text answer')->assertJsonCount(0,'doctors');
+        $this->providerReply='{"reply":"incomplete';
+        $this->postJson($this->url(),$this->payload(['guided'=>true]))->assertUnprocessable()->assertDontSee('incomplete');
+        $this->providerReply=json_encode(['reply'=>'Safe answer','doctor_ids'=>[(string)$doctor->id,999999],'urgent'=>false]);
+        $this->postJson($this->url(),$this->payload(['guided'=>true]))->assertOk()->assertJsonCount(0,'doctors');
+        $this->finishReason='length';
+        $this->postJson($this->url(),$this->payload(['guided'=>true]))->assertUnprocessable();
+    }
+
 }

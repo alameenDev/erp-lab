@@ -65,6 +65,14 @@ const toggleBooking = (doctorId) => {
   bookingForm.value = { phone: "", preferred_date: "", notes: "" };
 };
 
+const openChatBooking = doctorId => {
+  const doctor = doctors.value.find(d => d.id === doctorId && d.bookable);
+  if (!doctor) return;
+  activeTab.value = 'doctors';
+  bookingOpenFor.value = null;
+  toggleBooking(doctor.id);
+};
+
 const submitBooking = async (doctor) => {
   bookingSending.value = true;
   bookingMessage.value = "";
@@ -494,7 +502,7 @@ onUnmounted(() => portalHead.restore());
         </div>
 
         <!-- Keep only in memory while this patient stays on the chat tab. -->
-        <IbnSinaChat v-else-if="activeTab === 'ai' && aiEnabled" :key="token" :token="token" :reports="reports" :initial-report-id="chatReportId" />
+        <IbnSinaChat v-else-if="activeTab === 'ai' && aiEnabled" :key="token" :token="token" :reports="reports" :initial-report-id="chatReportId" @book-doctor="openChatBooking" />
       </div>
     </div>
   </div>
