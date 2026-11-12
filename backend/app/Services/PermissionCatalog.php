@@ -144,6 +144,7 @@ class PermissionCatalog
             'subscriptions delete',
 
             'lab settings edit',
+            'patient ai conversations view',
             'doctors view', 'doctors create', 'doctors edit', 'doctors delete',
             'promo codes view', 'promo codes create', 'promo codes edit', 'promo codes delete',
 

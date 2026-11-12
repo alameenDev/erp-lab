@@ -12,6 +12,7 @@ const messages = ref([]), input = ref(''), consent = ref(false), sending = ref(f
 const log = ref(null), reportRevision = ref(null), contextChanged = ref(false), concern = ref('');
 const phase = ref('choose'), mode = ref('all'), choosing = ref(false), choices = ref([]), selectedKeys = ref([]);
 const optionsLoading = ref(false), optionsError = ref(''), selectionRevision = ref(null), pending = ref(0);
+let conversationId = crypto.randomUUID(), requestId = null;
 let generation = 0, optionsGeneration = 0, controller, optionsController;
 const urgentActive = computed(() => [...messages.value].reverse().find(m => m.role === 'assistant')?.urgent === true);
 const formatDate = value => value ? new Date(value).toLocaleDateString('ar-IQ') : '';
@@ -23,6 +24,7 @@ const prompts = computed(() => phase.value === 'intake'
   : ['وضح لي أكثر وبطريقة أبسط', 'شنو الأسئلة اللي أجهزها للطبيب؟', 'هل يوجد طبيب مناسب ضمن أطباء المختبر؟']);
 
 function clearConversation() {
+  conversationId = crypto.randomUUID(); requestId = null;
   generation++; optionsGeneration++; controller?.abort(); optionsController?.abort();
   sending.value = false; messages.value = []; input.value = ''; error.value = ''; failedMessage.value = '';
   reportRevision.value = null; selectionRevision.value = null; concern.value = ''; contextChanged.value = false;
@@ -68,12 +70,14 @@ async function send(retry = false) {
   if (!retry && failedMessage.value) { messages.value.pop(); failedMessage.value = ''; }
   const history = messages.value.slice(0, retry ? -1 : undefined).slice(-8).map(({ role, content }) => ({ role, content: content.slice(0, 6000) }));
   if (!history.length) concern.value = text;
+  if (!retry) requestId = crypto.randomUUID();
   if (!retry) messages.value.push({ role: 'user', content: text });
   phase.value = 'chat'; input.value = ''; sending.value = true; error.value = '';
   const current = ++generation; controller = new AbortController(); await scrollToLatest();
   try {
     const { data } = await $http.post(`/portal/${props.token}/ai-chat`, {
-      message: text, history, consent: true, guided: true, concern: concern.value,
+      message: text, history, consent: true, consent_version: 'ibn-sina-lab-history-v1',
+      conversation_id: conversationId, request_id: requestId, guided: true, concern: concern.value,
       invoice_id: selectedId.value ? Number(selectedId.value) : null,
       report_revision: reportRevision.value, selection_revision: selectionRevision.value,
       ...(mode.value === 'selected' ? { analysis_keys: selectedKeys.value } : {}),
@@ -160,7 +164,7 @@ function keyboardSend(event) { if (event.key === 'Enter' && !event.shiftKey && !
       <p v-if="sending" class="typing" role="status"><span class="typing-dot"></span>أقرأ كلامك وأجهّز الشرح…</p>
     </div>
     <div v-if="phase !== 'choose' && (!consent || !messages.length)" class="consent-panel">
-      <i class="pi pi-lock" aria-hidden="true"></i><div><strong>خصوصيتك أولاً</strong><p>عند الإرسال تُشارك رسائلك والتحاليل المختارة والعمر والجنس إن توفرا مع مزوّد الذكاء الاصطناعي المعتمد من المختبر. لا نرسل اسمك أو هاتفك تلقائياً. تجنّب كتابة معلومات تعريفية.</p><label class="consent-check"><input type="checkbox" v-model="consent">أوافق على استخدام هذه البيانات لشرح النتائج</label></div>
+      <i class="pi pi-lock" aria-hidden="true"></i><div><strong>خصوصيتك أولاً</strong><p>عند الإرسال تُشارك رسائلك والتحاليل المختارة والعمر والجنس إن توفرا مع مزوّد الذكاء الاصطناعي المعتمد من المختبر. لا نرسل اسمك أو هاتفك تلقائياً. تجنّب كتابة معلومات تعريفية. تُحفظ رسائلك وردود ابن سينا في سجل مرتبط بملفك، ويمكن لإدارة المختبر والموظفين المخوّلين قراءتها. إغلاق الصفحة أو بدء محادثة جديدة لا يحذف السجل.</p><label class="consent-check"><input type="checkbox" v-model="consent">أوافق على شرح النتائج وحفظ المحادثة وإتاحتها للمختبر</label></div>
     </div>
     <div v-if="phase !== 'choose' && !sending && !error" class="suggestions quick-replies"><button v-for="prompt in prompts" :key="prompt" type="button" @click="input = prompt">{{ prompt }}</button></div>
     <div v-if="error" class="chat-error" role="alert"><p>{{ error }}</p><button type="button" @click="send(true)" :disabled="sending || !consent">إعادة المحاولة</button></div>
@@ -169,7 +173,7 @@ function keyboardSend(event) { if (event.key === 'Enter' && !event.shiftKey && !
       <textarea id="ibn-sina-message" v-model="input" rows="2" maxlength="2000" :placeholder="phase === 'intake' ? 'احچيلي شنو عندك ومن متى…' : 'اكتب سؤالك، نكمل سوا…'" @keydown="keyboardSend" :disabled="sending"></textarea>
       <div class="composer-actions"><span>{{ input.length }}/2000</span><button type="submit" :disabled="!consent || sending || !input.trim()"><i class="pi pi-send" aria-hidden="true"></i>{{ sending ? 'جارٍ الرد…' : 'إرسال' }}</button></div>
     </form>
-    <footer class="chat-note">ابن سينا مساعد آلي وليس طبيباً بشرياً؛ قد يخطئ، ولا يقدّم تشخيصاً أو وصفة علاج. عند الأعراض الشديدة اطلب الطوارئ ولا تنتظر المحادثة. تبقى المحادثة في هذه الصفحة وتُمسح عند مغادرتها.</footer>
+    <footer class="chat-note">ابن سينا مساعد آلي وليس طبيباً بشرياً؛ قد يخطئ، ولا يقدّم تشخيصاً أو وصفة علاج. عند الأعراض الشديدة اطلب الطوارئ ولا تنتظر المحادثة. تُحفظ المحادثة لدى المختبر بعد موافقتك، ولا تُحذف عند مغادرة الصفحة.</footer>
   </section>
 </template>
 <style scoped>

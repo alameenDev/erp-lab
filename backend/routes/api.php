@@ -589,6 +589,8 @@ Route::group(['middleware' => ['auth:sanctum', \App\Http\Middleware\EnsureActive
      * Lab Settings Routes
      */
     Route::get('lab-settings', [LabSettingController::class, 'show']);
+    Route::get('lab-settings/ibn-sina/conversations', [\App\Http\Controllers\PatientAiConversationController::class, 'index']);
+    Route::get('lab-settings/ibn-sina/conversations/{id}', [\App\Http\Controllers\PatientAiConversationController::class, 'show'])->whereUuid('id');
     Route::prefix('lab-notifications')->group(function () {
         $controller = \App\Http\Controllers\LabNotificationController::class;
         Route::get('labs', [$controller, 'labs']);

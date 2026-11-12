@@ -45,7 +45,7 @@ class PatientAiChatTest extends TestCase
     }
 
     private function url(): string { return '/api/portal/'.$this->access->token.'/ai-chat'; }
-    private function payload(array $extra = []): array { return array_replace(['message'=>'اشرح لي التقرير','consent'=>true,'invoice_id'=>$this->invoice->id], $extra); }
+    private function payload(array $extra = []): array { return array_replace(['message'=>'اشرح لي التقرير','consent'=>true,'consent_version'=>\App\Services\PatientAiJournal::CONSENT_VERSION,'conversation_id'=>(string) \Illuminate\Support\Str::uuid(),'request_id'=>(string) \Illuminate\Support\Str::uuid(),'invoice_id'=>$this->invoice->id], $extra); }
     private function row(string $name, bool $ready, string $value, array $extra = []): InvoiceTestRel
     {
         $test = LabTest::create(['name'=>$name,'unit'=>'mg/dL','lab_id_fk'=>$this->lab->id]);

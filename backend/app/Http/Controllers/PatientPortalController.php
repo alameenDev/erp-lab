@@ -203,13 +203,16 @@ class PatientPortalController extends Controller
         ])->header('Cache-Control', 'private, no-store');
     }
 
-    /** Read-only explanation of this patient's selected, published results. */
+    /** Explain published results and journal consented messages; never change medical results. */
     public function aiChat(string $token, Request $request)
     {
         [, $patient, $lab] = app(\App\Services\PatientPortalAccess::class)->resolve($token);
         $validated = $request->validate([
             'message' => 'required|string|max:2000',
             'consent' => 'required|accepted',
+            'consent_version' => 'required|in:'.\App\Services\PatientAiJournal::CONSENT_VERSION,
+            'conversation_id' => 'required|uuid',
+            'request_id' => 'required|uuid',
             'invoice_id' => 'nullable|integer|min:1',
             'report_revision' => 'nullable|string|size:64',
             'selection_revision' => 'required_with:analysis_keys|nullable|string|size:64',
@@ -221,9 +224,10 @@ class PatientPortalController extends Controller
             'history.*' => 'required|array:role,content',
             'history.*.role' => 'required|in:user,assistant',
             'history.*.content' => 'required|string|max:6000',
-        ]);
+        ], ['consent_version.required' => 'حدّث الصفحة ووافق على حفظ المحادثة وإتاحتها للمختبر قبل الإرسال.',
+            'consent_version.in' => 'حدّث الصفحة للاطلاع على شروط حفظ المحادثة الجديدة.']);
         $settings = $lab->labSetting;
-        if (!$settings) return response()->json(['message' => 'محادثة ابن سينا غير متاحة حالياً'], 422);
+        if (!$settings || !($settings->ai_config['enabled'] ?? false)) return response()->json(['message' => 'محادثة ابن سينا غير متاحة حالياً'], 422);
         abort_if(isset($validated['analysis_keys']) && empty($validated['invoice_id']), 422, 'اختر التقرير أولاً.');
         $doctors = \App\Models\Doctor::where('lab_id_fk', $lab->id)->where('is_active', true)->where('bookable', true)
             ->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'specialty', 'phone', 'whatsapp', 'bookable']);
@@ -257,22 +261,29 @@ class PatientPortalController extends Controller
             ];
         }
         if (!empty($validated['concern'])) $context['patient_reported_concern'] = $validated['concern'];
-        try {
-            if ($validated['guided'] ?? false) {
-                $answer = $this->ai->guidedChat($settings, $validated['message'], $context, $history);
-                // Re-query after the provider call: a doctor may have been deactivated while it was running.
-                $recommended = $answer['urgent'] ? [] : \App\Models\Doctor::where('lab_id_fk', $lab->id)
-                    ->where('is_active', true)->where('bookable', true)
-                    ->whereIn('id', array_intersect($doctors->pluck('id')->all(), $answer['doctor_ids']))
-                    ->orderBy('sort_order')->get(['id', 'name', 'specialty', 'phone', 'whatsapp', 'bookable'])->all();
-                return response()->json(['reply' => $answer['reply'], 'report' => $source, 'doctors' => $recommended, 'urgent' => $answer['urgent']])
-                    ->header('Cache-Control', 'private, no-store');
+        $journal = app(\App\Services\PatientAiJournal::class);
+        [$turn, $send] = $journal->begin($lab, $patient, $validated, $context);
+        if ($send) {
+            try {
+                $answer = ($validated['guided'] ?? false)
+                    ? $this->ai->guidedChat($settings, $validated['message'], $context, $history)
+                    : ['reply' => $this->ai->chat($settings, $validated['message'], $context, $history), 'doctor_ids' => [], 'urgent' => false];
+            } catch (\RuntimeException $e) {
+                $journal->finish($turn, null);
+                return response()->json(['message' => $e->getMessage()], 422)->header('Cache-Control', 'private, no-store');
             }
-            $reply = $this->ai->chat($settings, $validated['message'], $context, $history);
-        } catch (\RuntimeException $e) {
-            return response()->json(['message' => $e->getMessage()], 422)->header('Cache-Control', 'private, no-store');
+            abort_unless($journal->finish($turn, $answer), 409, 'أُعيدت محاولة هذه الرسالة؛ حدّث المحادثة.');
+        } else {
+            $answer = $turn->answer;
         }
-        return response()->json(['reply' => $reply, 'report' => $source])->header('Cache-Control', 'private, no-store');
+        // Re-check directory visibility even for an idempotent retry of a completed turn.
+        $recommended = $answer['urgent'] ? [] : \App\Models\Doctor::where('lab_id_fk', $lab->id)
+            ->where('is_active', true)->where('bookable', true)
+            ->whereIn('id', array_intersect($doctors->pluck('id')->all(), $answer['doctor_ids']))
+            ->orderBy('sort_order')->get(['id', 'name', 'specialty', 'phone', 'whatsapp', 'bookable'])->all();
+        return response()->json(['reply' => $answer['reply'], 'report' => $source, 'doctors' => $recommended,
+            'urgent' => $answer['urgent'], 'conversation_id' => $turn->conversation_id])
+            ->header('Cache-Control', 'private, no-store');
     }
 
     public function requestOtp(string $token)

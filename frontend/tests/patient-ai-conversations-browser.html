@@ -1,0 +1,24 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Ibn Sina journal synthetic test</title></head><body style="background:#f8fafc;margin:0"><div id="app" style="max-width:1180px;margin:auto;padding:20px"></div><script type="module">
+import { createApp } from 'vue';
+import { createPinia } from 'pinia';
+import Journal from '/src/views/lab-settings/PatientAiConversations.vue';
+import { $http } from '/src/plugins/axios';
+import '/src/assets/main.css';
+localStorage.setItem('user', JSON.stringify({ id: 23, role_id: 2 }));
+const state = window.journalFixture = { calls: [], fail: false, forbidden: false, hold: false, release: null };
+const stamp = '2026-11-12T08:30:00Z';
+const conversation = { id:'11111111-1111-4111-8111-111111111111', patient_name:'مريض اصطناعي للاختبار',patient_code:'P-2048',invoice_id:1007066,created_at:stamp,updated_at:stamp,consented_at:stamp,scope:{analyses:['CBC','General Urine']} };
+$http.defaults.adapter = async config => {
+ state.calls.push({ url:config.url, params:config.params });
+ const list = config.url.endsWith('/conversations');
+ if(!list && state.hold) await new Promise(resolve => state.release = resolve);
+ if(state.fail || state.forbidden) {const error=new Error('Synthetic failure');error.config=config;error.response={status:state.forbidden?403:503,data:{message:'فشل تجريبي'}};throw error;}
+ const page=Number(config.params?.page || 1);
+ const data = list ? { data:config.params?.search === 'لا يوجد' ? [] : [{...conversation,message_count:31,last_message:'عندي استفسار عن نتيجة التحليل <img src=x onerror="window.journalXss=true">',last_status:'answered'}],current_page:page,last_page:2,total:config.params?.search === 'لا يوجد'?0:21 }
+ : { conversation, data:page===2?[{id:31,message:'رسالة متابعة',reply:null,status:'failed',created_at:stamp,updated_at:stamp}]:[
+ {id:1,message:'شنو معنى هذه النتيجة؟ <img src=x onerror="window.journalXss=true">',reply:'هذا رد اصطناعي لعرض الواجهة فقط.\nالنتائج تُراجع مع الطبيب.',status:'answered',created_at:stamp,updated_at:stamp},
+ {id:2,message:'سؤال اصطناعي ثانٍ',reply:'نص تجريبي للتنبيه العاجل.',urgent:true,status:'answered',created_at:stamp,updated_at:stamp}],current_page:page,last_page:2,total:31 };
+ return {data,status:200,statusText:'OK',headers:{},config};
+};
+createApp(Journal).use(createPinia()).mount('#app');
+</script></body></html>

@@ -9,7 +9,7 @@ const button=name=>page.getByRole('button',{name,exact:true});
 const chat=page.locator('[data-ibn-sina]'),input=page.getByLabel('رسالتك إلى ابن سينا');
 const replies=()=>chat.locator('[data-chat-message].assistant');
 const calls=()=>page.evaluate(()=>aiFixture.calls);
-const consent=()=>page.getByRole('checkbox',{name:'أوافق على استخدام هذه البيانات لشرح النتائج'}).check();
+const consent=()=>page.getByRole('checkbox',{name:'أوافق على شرح النتائج وحفظ المحادثة وإتاحتها للمختبر'}).check();
 async function send(text){const count=await replies().count();await input.fill(text);await button('إرسال').click();await page.waitForFunction(n=>document.querySelectorAll('[data-chat-message].assistant').length>n,count);}
 async function all(){await button('اشرح كل التحاليل الجاهزة').click();await consent();}
 try{
@@ -55,7 +55,7 @@ try{
  await page.evaluate(()=>{aiFixture.state.hold=true;});await input.fill('قبل تغيير المريض');await button('إرسال').click();
  await page.evaluate(()=>aiFixture.router.push('/portal/'+aiFixture.otherToken));await button('ابن سينا').waitFor();
  await page.evaluate(()=>{aiFixture.state.hold=false;aiFixture.release();});await button('ابن سينا').click();await button('اشرح كل التحاليل الجاهزة').click();
- assert.equal(await replies().count(),0);assert.equal(await page.getByRole('checkbox',{name:'أوافق على استخدام هذه البيانات لشرح النتائج'}).isChecked(),false);
+ assert.equal(await replies().count(),0);assert.equal(await page.getByRole('checkbox',{name:'أوافق على شرح النتائج وحفظ المحادثة وإتاحتها للمختبر'}).isChecked(),false);
  assert.equal(await page.evaluate(()=>Object.keys(localStorage).some(k=>/ibn|chat/i.test(k))),false);
  await page.evaluate(()=>{aiFixture.state.optionsFail=true;});await button('بدء محادثة جديدة').click();await button('إعادة تحميل التحاليل').waitFor();assert.equal(await button('اشرح كل التحاليل الجاهزة').count(),0);
  await page.evaluate(()=>{aiFixture.state.optionsFail=false;});await button('إعادة تحميل التحاليل').click();await button('اشرح كل التحاليل الجاهزة').waitFor();

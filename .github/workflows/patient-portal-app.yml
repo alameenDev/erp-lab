@@ -12,6 +12,8 @@ on:
       - 'frontend/tests/patient-portal-*'
       - 'frontend/src/views/lab-settings/NotificationSettings.vue'
       - 'frontend/tests/lab-notifications*'
+      - 'frontend/src/views/lab-settings/PatientAiConversations.vue'
+      - 'frontend/tests/patient-ai-conversations*'
       - '.github/workflows/patient-portal-app.yml'
 permissions:
   contents: read
@@ -43,6 +45,7 @@ jobs:
           node tests/patient-portal-results.browser.mjs
           node tests/patient-portal-ai.browser.mjs
           node tests/lab-notifications.browser.mjs
+          node tests/patient-ai-conversations.browser.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -50,4 +53,5 @@ jobs:
           path: |
             frontend/test-results/patient-portal
             frontend/test-results/lab-notifications
+            frontend/test-results/patient-ai-conversations
           retention-days: 7
