@@ -182,7 +182,28 @@ class PatientPortalController extends Controller
             ]);
     }
 
-    /** Read-only explanation of this patient's published results. */
+    private function aiReportContext(Patient $patient, \App\Models\User $lab, int $invoiceId): array
+    {
+        $tenantIds = \App\Models\User::where('creator_id', $lab->id)->pluck('id')->push($lab->id);
+        $invoice = Invoice::where('patient_id_fk', $patient->id)->whereIn('lab_id_fk', $tenantIds)->findOrFail($invoiceId);
+        return app(\App\Services\PatientAiContext::class)->fromReport(app(InvoiceController::class)->patientResultData($invoice, false));
+    }
+
+    /** Local preparation only: never contacts the AI provider. */
+    public function aiReportOptions(string $token, Request $request)
+    {
+        [, $patient, $lab] = app(\App\Services\PatientPortalAccess::class)->resolve($token);
+        abort_unless($lab->labSetting?->ai_config['enabled'] ?? false, 422, 'محادثة ابن سينا غير مفعّلة حالياً.');
+        $input = $request->validate(['invoice_id' => 'required|integer|min:1']);
+        $context = $this->aiReportContext($patient, $lab, (int) $input['invoice_id']);
+        return response()->json([
+            'analyses' => app(\App\Services\PatientAiContext::class)->choices($context),
+            'revision' => hash('sha256', json_encode($context)),
+            'pending' => $context['report']['pending'],
+        ])->header('Cache-Control', 'private, no-store');
+    }
+
+    /** Read-only explanation of this patient's selected, published results. */
     public function aiChat(string $token, Request $request)
     {
         [, $patient, $lab] = app(\App\Services\PatientPortalAccess::class)->resolve($token);
@@ -191,45 +212,62 @@ class PatientPortalController extends Controller
             'consent' => 'required|accepted',
             'invoice_id' => 'nullable|integer|min:1',
             'report_revision' => 'nullable|string|size:64',
+            'selection_revision' => 'required_with:analysis_keys|nullable|string|size:64',
+            'analysis_keys' => 'sometimes|required|array|min:1|max:200',
+            'analysis_keys.*' => 'required|string|regex:/^[a-f0-9]{64}$/|distinct',
+            'guided' => 'sometimes|boolean',
+            'concern' => 'nullable|string|max:2000',
             'history' => 'nullable|array|max:8',
             'history.*' => 'required|array:role,content',
             'history.*.role' => 'required|in:user,assistant',
             'history.*.content' => 'required|string|max:6000',
         ]);
         $settings = $lab->labSetting;
-        if (!$settings) {
-            return response()->json(['message' => 'محادثة ابن سينا غير متاحة حالياً'], 422);
-        }
-
+        if (!$settings) return response()->json(['message' => 'محادثة ابن سينا غير متاحة حالياً'], 422);
+        abort_if(isset($validated['analysis_keys']) && empty($validated['invoice_id']), 422, 'اختر التقرير أولاً.');
+        $doctors = \App\Models\Doctor::where('lab_id_fk', $lab->id)->where('is_active', true)->where('bookable', true)
+            ->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'specialty', 'phone', 'whatsapp', 'bookable']);
         $context = [
             'lab_name' => $settings->lab_display_name ?: $lab->name,
-            'doctors' => \App\Models\Doctor::where('lab_id_fk', $lab->id)
-                ->where('is_active', true)->where('bookable', true)
-                ->get(['name', 'specialty'])->toArray(),
-            'tests' => [],
-            'packages' => $this->portalPackages($lab)->all(),
-            'report' => null,
+            'doctors' => $doctors->map(fn ($doctor) => $doctor->only(['id', 'name', 'specialty']))->all(),
+            'tests' => [], 'packages' => $this->portalPackages($lab)->all(), 'report' => null,
         ];
         $source = null;
         $history = $validated['history'] ?? [];
         if (!empty($validated['invoice_id'])) {
-            $tenantIds = \App\Models\User::where('creator_id', $lab->id)->pluck('id')->push($lab->id);
-            $invoice = Invoice::where('patient_id_fk', $patient->id)->whereIn('lab_id_fk', $tenantIds)
-                ->findOrFail($validated['invoice_id']);
-            $document = app(InvoiceController::class)->patientResultData($invoice, false);
-            $context = array_merge($context, app(\App\Services\PatientAiContext::class)->fromReport($document));
+            $report = $this->aiReportContext($patient, $lab, (int) $validated['invoice_id']);
+            $selectionRevision = hash('sha256', json_encode($report));
+            if (!empty($validated['selection_revision']) && !hash_equals($selectionRevision, $validated['selection_revision'])) {
+                return response()->json(['message' => 'تغيّرت نتائج التقرير؛ حدّثنا القائمة. اختر التحاليل مرة أخرى.', 'context_reset' => true], 409)
+                    ->header('Cache-Control', 'private, no-store');
+            }
+            $available = count($report['report']['analyses']);
+            if (isset($validated['analysis_keys'])) $report = app(\App\Services\PatientAiContext::class)->select($report, $validated['analysis_keys']);
+            $report['report']['available_count'] = $available;
+            $report['report']['selected_count'] = count($report['report']['analyses']);
+            $context = array_merge($context, $report);
             $revision = hash('sha256', json_encode($context));
             $contextReset = count($history) > 0 && !hash_equals($revision, $validated['report_revision'] ?? '');
-            if ($contextReset) $history = []; // Do not resend retracted results from old replies.
+            if ($contextReset) $history = [];
             $source = [
-                'revision' => $revision,
-                'context_reset' => $contextReset,
-                'invoice_id' => $invoice->id,
-                'ready' => $context['report']['ready'],
-                'pending' => $context['report']['pending'],
+                'revision' => $revision, 'context_reset' => $contextReset,
+                'invoice_id' => (int) $validated['invoice_id'],
+                'ready' => $context['report']['ready'], 'pending' => $context['report']['pending'],
+                'selected_count' => $context['report']['selected_count'], 'available_count' => $available,
             ];
         }
+        if (!empty($validated['concern'])) $context['patient_reported_concern'] = $validated['concern'];
         try {
+            if ($validated['guided'] ?? false) {
+                $answer = $this->ai->guidedChat($settings, $validated['message'], $context, $history);
+                // Re-query after the provider call: a doctor may have been deactivated while it was running.
+                $recommended = $answer['urgent'] ? [] : \App\Models\Doctor::where('lab_id_fk', $lab->id)
+                    ->where('is_active', true)->where('bookable', true)
+                    ->whereIn('id', array_intersect($doctors->pluck('id')->all(), $answer['doctor_ids']))
+                    ->orderBy('sort_order')->get(['id', 'name', 'specialty', 'phone', 'whatsapp', 'bookable'])->all();
+                return response()->json(['reply' => $answer['reply'], 'report' => $source, 'doctors' => $recommended, 'urgent' => $answer['urgent']])
+                    ->header('Cache-Control', 'private, no-store');
+            }
             $reply = $this->ai->chat($settings, $validated['message'], $context, $history);
         } catch (\RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 422)->header('Cache-Control', 'private, no-store');
@@ -311,6 +349,7 @@ class PatientPortalController extends Controller
 
     public function bookDoctor(string $token, Request $request)
     {
+        [, $patient, $lab] = app(\App\Services\PatientPortalAccess::class)->resolve($token);
         $validated = $request->validate([
             'doctor_id' => 'required|integer|exists:doctors,id',
             'phone' => 'nullable|string|max:50',
@@ -318,18 +357,7 @@ class PatientPortalController extends Controller
             'notes' => 'nullable|string|max:1000',
         ]);
 
-        $access = PortalAccessToken::where('token', $token)->first();
-        if (! $access || $access->isExpired()) {
-            return response()->json(['message' => 'الرابط غير صالح أو منتهي الصلاحية'], 404);
-        }
-
-        $patient = Patient::with('user')->find($access->patient_id_fk);
-        if (! $patient) {
-            return response()->json(['message' => 'تعذر إتمام العملية'], 422);
-        }
-
         $doctor = \App\Models\Doctor::find($validated['doctor_id']);
-        $lab = $this->patientLab($patient);
         if (! $doctor || ! $lab || $doctor->lab_id_fk != $lab->id || ! $doctor->is_active || ! $doctor->bookable) {
             return response()->json(['message' => 'هذا الطبيب غير متاح للحجز حالياً'], 422);
         }

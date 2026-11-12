@@ -2,18 +2,25 @@
 import {createApp,h} from 'vue';import {createPinia} from 'pinia';import {createRouter,createMemoryHistory,RouterView} from 'vue-router';
 import {LoaderStore} from '/src/store/modules/loader';
 import Portal from '/src/views/portal/PatientPortal.vue';import {$http} from '/src/plugins/axios';import '/src/assets/main.css';import 'primeicons/primeicons.css';
-const token='a'.repeat(48), otherToken='b'.repeat(48), calls=[];
-const state={fail:false,hold:false,revision:false,enabled:true};let release;
-const reports=[{id:14,date:'2026-11-12',ready_count:1,pending_count:1,status:'partial',tests:[{id:1,name:'CBC',status:'ready',kind:'تحليل'},{id:2,name:'Glucose',status:'pending',kind:'تحليل'}]},
-{id:15,date:'2026-11-10',ready_count:1,pending_count:0,status:'ready',tests:[{id:3,name:'Vitamin D',status:'ready',kind:'تحليل'}]}];
+const token='a'.repeat(48),otherToken='b'.repeat(48),calls=[],bookings=[];
+const state={fail:false,hold:false,revision:false,enabled:true,urgent:false,stale:false,noDoctors:false,optionsFail:false};let release;
+const doctors=[{id:7,name:'د. سارة — حساب تجريبي',specialty:'الباطنية',phone:'+9647700000000',whatsapp:'+9647700000000',bookable:true}];
+const reports=[{id:14,date:'2026-11-12',ready_count:2,pending_count:1,status:'partial',tests:[{id:1,name:'CBC',status:'ready',kind:'تحليل'},{id:2,name:'Liver function',status:'ready',kind:'تحليل'},{id:3,name:'Glucose',status:'pending',kind:'تحليل'}]},
+{id:15,date:'2026-11-10',ready_count:1,pending_count:0,status:'ready',tests:[{id:4,name:'Vitamin D',status:'ready',kind:'تحليل'}]}];
 $http.defaults.adapter=async config=>{
  let data;
- if(config.url.endsWith('/ai-chat')){
+ const fail=(status,message,extra={})=>{const error=new Error('Synthetic error');error.response={status,data:{message,...extra}};error.config=config;throw error;};
+ if(config.url.endsWith('/ai-options')){
+  if(state.optionsFail)fail(422,'تعذر تحميل التحاليل');
+  data={analyses:Number(config.params.invoice_id)===14?[{key:'a'.repeat(64),name:'CBC',container:'فحوص الدم',readable:true},{key:'b'.repeat(64),name:'Liver function',container:'باقة المتابعة',readable:true}]:[{key:'c'.repeat(64),name:'Vitamin D',container:'',readable:true}],revision:'d'.repeat(64),pending:Number(config.params.invoice_id)===14?1:0};
+ }else if(config.url.endsWith('/ai-chat')){
   const payload=JSON.parse(config.data);calls.push({token:config.url,payload});
   if(state.hold)await new Promise(resolve=>{release=resolve;});
-  if(state.fail){const error=new Error('Unavailable');error.response={status:422,data:{message:'تعذر الاتصال بابن سينا حالياً'}};error.config=config;throw error;}
-  data={reply:'هذا رد اصطناعي لاختبار واجهة المحادثة.\n\n١. شرح التحليل\nتعرض هنا النتيجة ووحدة القياس والمجال المرجعي الوارد من المختبر.\n\n٢. الخطوة التالية\nتجهيز الأسئلة التي تريد مناقشتها مع الطبيب.\n\n<img src=x onerror="window.chatXss=true">',report:payload.invoice_id?{invoice_id:payload.invoice_id,ready:1,pending:payload.invoice_id===14?1:0,revision:'c'.repeat(64),context_reset:state.revision}:null};
- }else if(config.url===`/portal/${token}`||config.url===`/portal/${otherToken}`)data={patient:{name:config.url.includes(otherToken)?'مريض اختبار ثانٍ':'مريض اصطناعي للاختبار',code:'DEMO'},reports,doctors:[],ai_enabled:state.enabled,show_invoice_amounts:false};
+  if(state.stale){state.stale=false;fail(409,'تغيّرت النتائج',{context_reset:true});}
+  if(state.fail)fail(422,'تعذر الاتصال بابن سينا حالياً');
+  data={reply:'فهمت عليك. هذا رد اصطناعي لاختبار الواجهة، وليس تفسيراً طبياً.\n\nهنا يظهر شرح التحاليل المختارة والتوصيات البسيطة وأسئلة المتابعة. يمكنك مراجعة بيانات الطبيب وطلب موعد من البطاقة أدناه.\n\n<img src=x onerror="window.chatXss=true">',report:payload.invoice_id?{invoice_id:payload.invoice_id,ready:2,pending:payload.invoice_id===14?1:0,selected_count:payload.analysis_keys?.length||2,revision:'e'.repeat(64),context_reset:state.revision}:null,doctors:state.noDoctors?[]:doctors,urgent:state.urgent};
+ }else if(config.url.endsWith('/book-doctor')){bookings.push(JSON.parse(config.data));data={message:'تم إرسال طلب الحجز، سيتواصل معك المختبر لتأكيد الموعد'};}
+ else if(config.url===`/portal/${token}`||config.url===`/portal/${otherToken}`)data={patient:{name:config.url.includes(otherToken)?'مريض اختبار ثانٍ':'مريض اصطناعي للاختبار',code:'DEMO'},reports,doctors,ai_enabled:state.enabled,show_invoice_amounts:false};
  else if(config.url.endsWith('/result-trends'))data={series:[]};
  else if(config.url.endsWith('/app-config'))data={enabled:false};
  else data={};
@@ -21,5 +28,5 @@ $http.defaults.adapter=async config=>{
 };
 const router=createRouter({history:createMemoryHistory(),routes:[{path:'/portal/:token',component:Portal}]});
 createApp({render:()=>h(RouterView)}).use(createPinia()).use(router).mount('#app');await router.push('/portal/'+token);
-window.aiFixture={router,calls,state,token,otherToken,loader:LoaderStore(),release:()=>release?.()};
+window.aiFixture={router,calls,bookings,state,token,otherToken,loader:LoaderStore(),release:()=>release?.()};
 </script></body></html>

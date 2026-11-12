@@ -102,6 +102,7 @@ Route::post('portal/{token}/book-doctor', [PatientPortalController::class, 'book
 Route::get('portal/{token}/catalog', [PatientPortalController::class, 'catalog']);
 Route::get('portal/{token}/reports/{id}', [InvoiceController::class, 'portalShow'])->middleware('throttle:60,1');
 Route::get('portal/{token}/result-trends', [PatientPortalController::class, 'resultTrends'])->middleware('throttle:30,1');
+Route::get('portal/{token}/ai-options', [PatientPortalController::class, 'aiReportOptions'])->middleware('throttle:30,1');
 Route::post('portal/{token}/ai-chat', [PatientPortalController::class, 'aiChat'])->middleware('throttle:15,1');
 
 /**
