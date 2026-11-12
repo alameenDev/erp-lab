@@ -27,10 +27,12 @@ try{
  await input.fill('تعب من يومين');assert.equal(await button('إرسال').isDisabled(),true);
  await consent();await button('إرسال').click();await replies().waitFor();
  let sent=await calls();assert.equal(sent[0].payload.invoice_id,14);assert.equal(sent[0].payload.guided,true);assert.equal(sent[0].payload.concern,'تعب من يومين');
+ assert.equal(sent[0].payload.consent_version,'ibn-sina-lab-history-v1');assert.match(sent[0].payload.conversation_id,/^[a-f0-9-]{36}$/);assert.match(sent[0].payload.request_id,/^[a-f0-9-]{36}$/);
  assert.deepEqual(sent[0].payload.analysis_keys,['a'.repeat(64)]);assert.equal(sent[0].payload.selection_revision,'d'.repeat(64));assert.deepEqual(sent[0].payload.history,[]);
  assert.equal(await chat.locator('.message img').count(),0);assert.equal(await page.evaluate(()=>window.chatXss),undefined);
  assert.equal(await page.evaluate(()=>aiFixture.loader.IsLoading),false);
  await send('وضح لي أكثر');sent=await calls();assert.equal(sent.at(-1).payload.history.length,2);assert.equal(sent.at(-1).payload.concern,'تعب من يومين');
+ assert.equal(sent.at(-1).payload.conversation_id,sent[0].payload.conversation_id);assert.notEqual(sent.at(-1).payload.request_id,sent[0].payload.request_id);
  assert.equal(await page.evaluate(()=>aiFixture.bookings.length),0);
  await chat.locator('.doctor-card button').first().click();
  await button('إرسال طلب الحجز').waitFor();assert.equal(await page.getByRole('link',{name:'واتساب',exact:true}).getAttribute('href'),'https://wa.me/9647700000000');assert.equal(await page.evaluate(()=>aiFixture.bookings.length),0);

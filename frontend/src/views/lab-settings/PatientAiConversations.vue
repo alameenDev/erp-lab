@@ -63,7 +63,7 @@ onBeforeUnmount(() => { listGeneration++; detailGeneration++; listController?.ab
             <span class="open-label">عرض المحادثة ←</span>
           </button>
         </div>
-        <nav v-if="lastPage > 1" class="pagination" aria-label="صفحات المحادثات"><button @click="load(page - 1)" :disabled="page <= 1 || loading">السابق</button><span>{{ page }} / {{ lastPage }}</span><button @click="load(page + 1)" :disabled="page >= lastPage || loading">التالي</button></nav>
+        <nav v-if="lastPage > 1" class="pagination" aria-label="صفحات المحادثات"><button @click="load(page - 1)" :disabled="page <= 1 || loading">السابق</button><span dir="ltr">{{ page }} / {{ lastPage }}</span><button @click="load(page + 1)" :disabled="page >= lastPage || loading">التالي</button></nav>
       </div>
       <section class="transcript" aria-label="تفاصيل المحادثة" :aria-busy="detailLoading">
         <p v-if="detailLoading" class="empty" role="status">جارٍ فتح المحادثة…</p>
@@ -78,7 +78,7 @@ onBeforeUnmount(() => { listGeneration++; detailGeneration++; listController?.ab
               <p v-else class="reply-status">{{ status(turn) }} — رسالة المريض محفوظة.</p>
             </div>
           </div>
-          <nav v-if="turnLastPage > 1" class="pagination" aria-label="صفحات الرسائل"><button @click="open(selected.id, turnPage - 1)" :disabled="turnPage <= 1">رسائل أقدم</button><span>{{ turnPage }} / {{ turnLastPage }}</span><button @click="open(selected.id, turnPage + 1)" :disabled="turnPage >= turnLastPage">رسائل أحدث</button></nav>
+          <nav v-if="turnLastPage > 1" class="pagination" aria-label="صفحات الرسائل"><button @click="open(selected.id, turnPage - 1)" :disabled="turnPage <= 1">رسائل أقدم</button><span dir="ltr">{{ turnPage }} / {{ turnLastPage }}</span><button @click="open(selected.id, turnPage + 1)" :disabled="turnPage >= turnLastPage">رسائل أحدث</button></nav>
           <p class="transcript-note">هذه ردود مساعد آلي؛ لا تمثّل تشخيصاً معتمداً أو متابعة مباشرة لحالة المريض.</p>
         </template>
         <p v-else class="empty">اختَر محادثة لقراءة رسائل المريض وردود ابن سينا.</p>

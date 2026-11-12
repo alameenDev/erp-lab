@@ -23,7 +23,7 @@ class PatientAiConversationController extends Controller
         $query = $this->query($request);
         $input = $request->validate([
             'search' => 'nullable|string|max:100', 'from' => 'nullable|date_format:Y-m-d',
-            'to' => 'nullable|date_format:Y-m-d|after_or_equal:from', 'page' => 'nullable|integer|min:1',
+            'to' => 'nullable|date_format:Y-m-d'.($request->filled('from') ? '|after_or_equal:from' : ''), 'page' => 'nullable|integer|min:1',
         ]);
         if ($search = trim($input['search'] ?? '')) {
             $query->whereHas('patient', fn ($q) => $q->where('code', 'like', '%'.$search.'%')
@@ -56,7 +56,10 @@ class PatientAiConversationController extends Controller
         // Metadata only: the activity log must never become a second transcript store.
         activity('patient-ai-access')->causedBy($request->user())->withProperties([
             'lab_id' => $conversation->lab_id, 'conversation_id' => $conversation->id,
-        ])->log('عرض محادثة ابن سينا');
+        ])->event('action')->tap(function ($activity) use ($conversation) {
+            $activity->audit_tenant_id = $conversation->lab_id;
+            $activity->audit_source = 'server';
+        })->log('عرض محادثة ابن سينا');
         return response()->json([
             'conversation' => $this->summary($conversation) + ['scope' => $conversation->scope, 'consented_at' => $conversation->consented_at->toIso8601String()],
             'data' => $turns->getCollection()->map(fn ($t) => [
